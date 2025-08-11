@@ -1,0 +1,95 @@
+LicencaTipo:
+  - Alvará Sanitário
+  - Alvará Bombeiros
+  - Alvará Funcionamento
+  - Licença Ambiental
+  - Certidão Uso do Solo
+  - SICABOM (TPI)
+  - Certificado Digital
+
+TaxaTipo:
+  - Taxa Funcionamento
+  - Taxa Publicidade
+  - ISS
+  - Taxa Vigilância Sanitária
+  - Taxa Localização/Instalação
+  - Taxa Ocupação Área Pública
+  - Taxa Bombeiros
+  - TPI (SICABOM)
+
+LicencaSituacao:
+  - Possui
+  - Vencido
+  - Sujeito
+  - Dispensa
+  - *            # Não se aplica
+  - NÃO         # Caso especial
+
+AlvaraCategoria: [CONDICIONADO, PROVISÓRIO, DEFINITIVO]
+
+TPIStatus: [EMITIR, ENVIADO, PAGO, -]  # '-' = não informado
+
+CertificadoDigital: [SIM, NÃO]
+
+ProcessoOperacao:
+  - ALTERAÇÃO
+  - INSCRIÇÃO
+  - BAIXA
+  - CANCEL DE TRIBUTOS
+  - RESTITUIÇÃO
+
+ProcessoSituacao:
+  - AGUARD DOCTO
+  - AGUARD PAGTO
+  - EM ANÁLISE
+  - PENDENTE
+  - INDEFERIDO
+  - CONCLUÍDO
+  - LICENCIADO
+  - NOTIFICAÇÃO
+  - AGUARD VISTORIA
+  - AGUARD REGULARIZAÇÃO
+  - AGUARD LIBERAÇÃO
+  - IR NA VISA
+
+ProcessoServico: [1º ALVARÁ, RENOVAÇÃO, ATUALIZAÇÃO]
+
+ProcessoNotificacao:
+  - -            # nenhuma
+  - POSSUI PENDÊNCIAS
+  - SEM PENDÊNCIAS
+  - RESOLVIDAS
+  - PEGAR ORIGINAL
+
+ProcessoOrgao: [PREFEITURA, ANP, OUTRO]
+
+TaxaSituacao:
+  - Pago
+  - Em aberto
+  - Parcelado                    # detalhar '0/3' em campos numéricos
+  - Anos anteriores em aberto    # detalhar anos em campos próprios
+  - *                            # isento / não se aplica
+
+ChecklistStatus: [Entregue, Pendente, Não se aplica]
+
+FuncionamentoDoc:
+  - Requerimento
+  - CNPJ
+  - CAE
+  - CERCON
+  - Alvará Sanitário
+  - Licença Ambiental
+  - Uso do Solo
+  - Contrato Social
+  - Documento Imóvel (Definitivo)
+  - Documento Imóvel (Condicionado)
+
+CerconDoc:
+  - NF dos Extintores
+  - Foto dos extintores e placas
+  - Foto da fachada
+  - Área utilizada
+  - ART (se tiver central GLP)
+  - Projeto aprovado
+
+SituacaoFiscal: [Sem Débitos, Possui Débitos]
