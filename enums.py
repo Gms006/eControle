@@ -1,310 +1,118 @@
-from __future__ import annotations
+from enum import Enum
 
-import re
-import unicodedata
-from dataclasses import dataclass
-from datetime import datetime
-from typing import Any, Mapping, Optional, Type, TypeVar
+# 1) CADASTRO / ESTRUTURA
+class LicencaTipo(str, Enum):
+    ALVARA_SANITARIO = "Alvará Sanitário"
+    ALVARA_BOMBEIROS = "Alvará Bombeiros"
+    ALVARA_FUNCIONAMENTO = "Alvará Funcionamento"
+    LICENCA_AMBIENTAL = "Licença Ambiental"
+    USO_DO_SOLO = "Certidão Uso do Solo"
+    SICABOM_TPI = "SICABOM (TPI)"
+    CERTIFICADO_DIGITAL = "Certificado Digital"
 
-try:  # imports opcionais para tipagem/uso; o arquivo funciona sem eles em runtime
-    from core.enums import (
-        LicencaSituacao,
-        TPIStatus,
-        TaxaSituacao,
-        ProcessoSituacao,
-    )
-except Exception:  # pragma: no cover - fallback para edição isolada
-    class _StrEnum(str):
-        pass
-    class LicencaSituacao(_StrEnum): pass
-    class TPIStatus(_StrEnum): pass
-    class TaxaSituacao(_StrEnum): pass
-    class ProcessoSituacao(_StrEnum): pass
+class TaxaTipo(str, Enum):
+    FUNCIONAMENTO = "Taxa Funcionamento"
+    PUBLICIDADE = "Taxa Publicidade"
+    ISS = "ISS"
+    VIG_SANITARIA = "Taxa Vigilância Sanitária"
+    LOCALIZACAO_INSTALACAO = "Taxa Localização/Instalação"
+    OCUP_AREA_PUBLICA = "Taxa Ocupação Área Pública"
+    BOMBEIROS = "Taxa Bombeiros"
+    TPI = "TPI (SICABOM)"
 
+# 2) LICENÇAS / CERTIDÕES
+class LicencaSituacao(str, Enum):
+    POSSUI = "Possui"
+    VENCIDO = "Vencido"
+    SUJEITO = "Sujeito"
+    DISPENSA = "Dispensa"
+    NAO_SE_APLICA = "*"     # não se aplica
+    NAO = "NÃO"              # caso especial
 
-# ==========================================================
-# Erros e utilitários
-# ==========================================================
-class ValidationError(Exception):
-    """Erro de validação de dados de entrada."""
+class AlvaraCategoria(str, Enum):
+    CONDICIONADO = "CONDICIONADO"
+    PROVISORIO = "PROVISÓRIO"
+    DEFINITIVO = "DEFINITIVO"
 
+class TPIStatus(str, Enum):  # unifica envio/pagamento
+    EMITIR = "EMITIR"
+    ENVIADO = "ENVIADO"
+    PAGO = "PAGO"
+    NAO_INFORMADO = "-"      # vazio/traço
 
-def only_digits(s: Optional[str]) -> str:
-    return re.sub(r"\D", "", (s or ""))
+class CertificadoDigital(str, Enum):
+    SIM = "SIM"
+    NAO = "NÃO"
 
+# 3) PROCESSOS
+class ProcessoOperacao(str, Enum):
+    ALTERACAO = "ALTERAÇÃO"
+    INSCRICAO = "INSCRIÇÃO"
+    BAIXA = "BAIXA"
+    CANCEL_TRIBUTOS = "CANCEL DE TRIBUTOS"
+    RESTITUICAO = "RESTITUIÇÃO"
 
-def strip_accents(s: str) -> str:
-    nfkd = unicodedata.normalize("NFKD", s)
-    return "".join(c for c in nfkd if not unicodedata.combining(c))
+class ProcessoSituacao(str, Enum):
+    AGUARD_DOCTO = "AGUARD DOCTO"
+    AGUARD_PAGTO = "AGUARD PAGTO"
+    EM_ANALISE = "EM ANÁLISE"
+    PENDENTE = "PENDENTE"
+    INDEFERIDO = "INDEFERIDO"
+    CONCLUIDO = "CONCLUÍDO"
+    LICENCIADO = "LICENCIADO"
+    NOTIFICACAO = "NOTIFICAÇÃO"
+    AGUARD_VISTORIA = "AGUARD VISTORIA"
+    AGUARD_REGULARIZACAO = "AGUARD REGULARIZAÇÃO"
+    AGUARD_LIBERACAO = "AGUARD LIBERAÇÃO"
+    IR_NA_VISA = "IR NA VISA"
 
+class ProcessoServico(str, Enum):
+    PRIMEIRO_ALVARA = "1º ALVARÁ"
+    RENOVACAO = "RENOVAÇÃO"
+    ATUALIZACAO = "ATUALIZAÇÃO"
 
-def normalize_token(s: str) -> str:
-    s = strip_accents(s or "").lower()
-    s = re.sub(r"\s+", " ", s).strip()
-    s = re.sub(r"[\W_]+", "", s)  # remove pontuação para igualar "em-aberto" ~ "em aberto"
-    return s
+class ProcessoNotificacao(str, Enum):
+    NENHUMA = "-"
+    POSSUI_PENDENCIAS = "POSSUI PENDÊNCIAS"
+    SEM_PENDENCIAS = "SEM PENDÊNCIAS"
+    RESOLVIDAS = "RESOLVIDAS"
+    PEGAR_ORIGINAL = "PEGAR ORIGINAL"
 
+class ProcessoOrgao(str, Enum):
+    PREFEITURA = "PREFEITURA"
+    ANP = "ANP"
+    OUTRO = "OUTRO"
 
-# ==========================================================
-# CNPJ
-# ==========================================================
-CNPJ_WEIGHTS_1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
-CNPJ_WEIGHTS_2 = [6] + CNPJ_WEIGHTS_1
+# 4) TAXAS
+class TaxaSituacao(str, Enum):
+    PAGO = "Pago"
+    EM_ABERTO = "Em aberto"
+    PARCELADO = "Parcelado"                     # detalhar em campos numericos
+    ANOS_ANTERIORES_ABERTO = "Anos anteriores em aberto"  # detalhar anos
+    ISENTO = "*"
 
+# 5) CHECKLISTS (documentos)
+class ChecklistStatus(str, Enum):
+    ENTREGUE = "Entregue"
+    PENDENTE = "Pendente"
+    NAO_APLICA = "Não se aplica"
 
-def is_valid_cnpj(value: Optional[str]) -> bool:
-    digits = only_digits(value)
-    if len(digits) != 14 or len(set(digits)) == 1:
-        return False
-    base = [int(d) for d in digits[:12]]
-    d1 = _cnpj_check_digit(base, CNPJ_WEIGHTS_1)
-    d2 = _cnpj_check_digit(base + [d1], CNPJ_WEIGHTS_2)
-    return digits.endswith(f"{d1}{d2}")
+class FuncionamentoDoc(str, Enum):
+    REQUERIMENTO = "Requerimento"
+    CNPJ = "CNPJ"
+    CAE = "CAE"
+    CERCON = "CERCON"
+    ALVARA_SANITARIO = "Alvará Sanitário"
+    LICENCA_AMBIENTAL = "Licença Ambiental"
+    USO_DO_SOLO = "Uso do Solo"
+    CONTRATO_SOCIAL = "Contrato Social"
+    DOC_IMOVEL_DEFINITIVO = "Documento Imóvel (Definitivo)"
+    DOC_IMOVEL_CONDICIONADO = "Documento Imóvel (Condicionado)"
 
-
-def _cnpj_check_digit(nums: list[int], weights: list[int]) -> int:
-    s = sum(n * w for n, w in zip(nums, weights))
-    r = s % 11
-    return 0 if r < 2 else 11 - r
-
-
-def mask_cnpj(value: str) -> str:
-    d = only_digits(value)
-    if len(d) != 14:
-        raise ValidationError("CNPJ deve ter 14 dígitos")
-    return f"{d[0:2]}.{d[2:5]}.{d[5:8]}/{d[8:12]}-{d[12:14]}"
-
-
-# ==========================================================
-# Datas
-# ==========================================================
-_DATE_PATTERNS = (
-    (r"^(\d{4})[-/](\d{2})[-/](\d{2})$", "%Y-%m-%d"),  # 2025-08-11 ou 2025/08/11
-    (r"^(\d{2})[-/](\d{2})[-/](\d{4})$", "%d/%m/%Y"),  # 11/08/2025 ou 11-08-2025
-    (r"^(\d{2})[.](\d{2})[.](\d{4})$", "%d.%m.%Y"),   # 11.08.2025
-)
-
-
-def to_iso(date_str: Optional[str]) -> Optional[str]:
-    """Converte datas comuns (BR) para ISO YYYY-MM-DD. Retorna None para vazio.
-    Lança ValidationError se formato não reconhecido.
-    """
-    if date_str is None:
-        return None
-    raw = str(date_str).strip()
-    if raw == "":
-        return None
-    # tenta yyyy-mm-dd direto
-    try:
-        return datetime.strptime(raw, "%Y-%m-%d").date().isoformat()
-    except Exception:
-        pass
-    for pat, fmt in _DATE_PATTERNS:
-        if re.match(pat, raw):
-            # normaliza separadores conforme fmt esperado
-            norm = raw.replace(".", "/").replace("-", "/") if "%d/%m/%Y" in fmt else raw
-            dt = datetime.strptime(norm, fmt)
-            return dt.date().isoformat()
-    raise ValidationError(f"Data inválida/indeterminada: '{date_str}'")
-
-
-# ==========================================================
-# Taxas: parcelamento e anos em aberto
-# ==========================================================
-@dataclass
-class Parcelamento:
-    pagas: int
-    total: int
-
-
-@dataclass
-class AnosEmAberto:
-    ano_inicial: int
-    ano_final: int
-
-
-_PARCEL_RE = re.compile(r"^(?P<p>\d+)\s*/\s*(?P<t>\d+)$")
-_ANOS_ABERTOS_RE = re.compile(
-    r"^(?P<a1>\d{4})(?:\s*ate\s*(?P<a2>\d{4}))?\s+em\s+aberto$",
-    flags=re.I,
-)
-
-
-def parse_parcelamento(raw: Optional[str]) -> Optional[Parcelamento]:
-    if not raw:
-        return None
-    m = _PARCEL_RE.fullmatch(str(raw).strip())
-    if not m:
-        return None
-    p, t = int(m.group("p")), int(m.group("t"))
-    if t <= 0 or p < 0 or p > t:
-        raise ValidationError("Parcelamento inconsistente")
-    return Parcelamento(pagas=p, total=t)
-
-
-def parse_anos_em_aberto(raw: Optional[str]) -> Optional[AnosEmAberto]:
-    if not raw:
-        return None
-    s = strip_accents(str(raw))
-    s = re.sub(r"\s+", " ", s).strip()
-    m = _ANOS_ABERTOS_RE.fullmatch(s)
-    if not m:
-        return None
-    a1 = int(m.group("a1"))
-    a2 = int(m.group("a2") or m.group("a1"))
-    if a2 < a1:
-        raise ValidationError("Intervalo de anos inválido")
-    return AnosEmAberto(ano_inicial=a1, ano_final=a2)
-
-
-# ==========================================================
-# Map de enums tolerante (acentos/maiúsculas/sinônimos)
-# ==========================================================
-E = TypeVar("E")
-
-# aliases normalizados por Enum (chave = token normalizado, valor = *valor* alvo do Enum)
-ALIAS_MAP: dict[str, dict[str, str]] = {
-    "TaxaSituacao": {
-        "pago": "Pago",
-        "quitado": "Pago",
-        "emaberto": "Em aberto",
-        "aberto": "Em aberto",
-        "aberta": "Em aberto",
-        "parcelado": "Parcelado",
-        "parcelada": "Parcelado",
-        "naoseaplica": "*",
-        "isento": "*",
-        "*": "*",
-    },
-    "LicencaSituacao": {
-        "possui": "Possui",
-        "valida": "Possui",
-        "vencido": "Vencido",
-        "vencida": "Vencido",
-        "dispensa": "Dispensa",
-        "naoseaplica": "*",
-        "*": "*",
-        "nao": "NÃO",
-        "não": "NÃO",
-    },
-    "TPIStatus": {
-        "": "-",
-        "-": "-",
-        "—": "-",
-        "emitir": "EMITIR",
-        "paraemitir": "EMITIR",
-        "enviado": "ENVIADO",
-        "protocolado": "ENVIADO",
-        "pago": "PAGO",
-        "quitado": "PAGO",
-    },
-    "ProcessoSituacao": {
-        "aguarddocto": "AGUARD DOCTO",
-        "aguardpagto": "AGUARD PAGTO",
-        "emanalyse": "EM ANÁLISE",
-        "emanalise": "EM ANÁLISE",
-        "pendente": "PENDENTE",
-        "indeferido": "INDEFERIDO",
-        "concluido": "CONCLUÍDO",
-        "licenciado": "LICENCIADO",
-        "notificacao": "NOTIFICAÇÃO",
-        "aguardvistoria": "AGUARD VISTORIA",
-        "aguardregularizacao": "AGUARD REGULARIZAÇÃO",
-        "aguardliberacao": "AGUARD LIBERAÇÃO",
-        "irnavisa": "IR NA VISA",
-    },
-}
-
-
-def map_enum(
-    enum_cls: Type[E],
-    raw: Any,
-    aliases: Optional[Mapping[str, str]] = None,
-    default: Optional[E] = None,
-    raise_on_fail: bool = False,
-) -> Optional[E]:
-    """Converte `raw` para um membro do Enum, aceitando variações de acento/caixa.
-    - Tenta casar com o **valor** do Enum (preferência) e com o **name** do membro.
-    - `aliases` permite atalhos extras (mapeados para o **valor** do Enum).
-    - `default` é retornado quando não reconhecido, a menos que `raise_on_fail=True`.
-    """
-    if raw is None:
-        return default
-    text = str(raw).strip()
-    if text == "":
-        return default
-
-    # 1) match direto por valor (case sensitive)
-    for member in enum_cls:  # type: ignore[attr-defined]
-        if text == str(member.value):  # type: ignore[union-attr]
-            return member
-
-    # 2) match por valor normalizado
-    norm_text = normalize_token(text)
-    norm_to_value = {normalize_token(str(m.value)): m for m in enum_cls}  # type: ignore[attr-defined]
-    if norm_text in norm_to_value:
-        return norm_to_value[norm_text]
-
-    # 3) match por NAME do Enum
-    name_to_member = {normalize_token(m.name): m for m in enum_cls}  # type: ignore[attr-defined]
-    if norm_text in name_to_member:
-        return name_to_member[norm_text]
-
-    # 4) aliases específicos para esse Enum
-    aliases_final: dict[str, str] = {}
-    enum_key = getattr(enum_cls, "__name__", "")
-    aliases_final.update(ALIAS_MAP.get(enum_key, {}))
-    if aliases:
-        aliases_final.update({normalize_token(k): v for k, v in aliases.items()})
-
-    if norm_text in aliases_final:
-        target_value = aliases_final[norm_text]
-        for member in enum_cls:  # type: ignore[attr-defined]
-            if str(member.value) == target_value:  # type: ignore[union-attr]
-                return member
-
-    if raise_on_fail:
-        raise ValidationError(f"Valor não reconhecido para {enum_key or enum_cls}: {raw!r}")
-    return default
-
-
-# ==========================================================
-# Checklists / obrigatórios (estrutura simples)
-# ==========================================================
-
-def faltantes_obrigatorios(obrigatorios: set[str], recebidos: Mapping[str, Any]) -> list[str]:
-    """Retorna a lista de obrigatórios que NÃO foram atendidos (valor vazio/False/None)."""
-    missing: list[str] = []
-    for key in sorted(obrigatorios):
-        val = recebidos.get(key)
-        if val in (None, "", False):
-            missing.append(key)
-    return missing
-
-
-# ==========================================================
-# Validadores compostos
-# ==========================================================
-
-def validar_empresa_cnpj(cnpj: str) -> str:
-    """Valida e retorna o CNPJ mascarado. Lança ValidationError se inválido."""
-    if not is_valid_cnpj(cnpj):
-        raise ValidationError("CNPJ inválido")
-    return mask_cnpj(cnpj)
-
-
-def validar_taxa_campos(status: Any, parcelamento_raw: Optional[str], anos_raw: Optional[str]) -> tuple[Optional[Parcelamento], Optional[AnosEmAberto]]:
-    """Regras de coerência entre status e campos auxiliares das Taxas."""
-    try:
-        from core.enums import TaxaSituacao  # import local para evitar ciclos em testes
-    except Exception:  # pragma: no cover
-        TaxaSituacao = None  # type: ignore
-
-    parc = parse_parcelamento(parcelamento_raw)
-    anos = parse_anos_em_aberto(anos_raw)
-
-    if TaxaSituacao and status == TaxaSituacao.PARCELADO and not parc:
-        raise ValidationError("Status 'Parcelado' requer 'parcelas_pagas/parcelas_total'.")
-    if TaxaSituacao and status == TaxaSituacao.ANOS_ANTERIORES_ABERTO and not anos:
-        raise ValidationError("Status 'Anos anteriores em aberto' requer anos inicial/final.")
-    return parc, anos
+class CerconDoc(str, Enum):
+    NF_EXTINTORES = "NF dos Extintores"
+    FOTO_EXTINTORES_PLACAS = "Foto dos extintores e placas"
+    FOTO_FACHADA = "Foto da fachada"
+    AREA_UTILIZADA = "Área utilizada"
+    ART_CENTRAL_GLP = "ART (se tiver central GLP)"
+    PROJETO_APROVADO = "Projeto aprovado"
