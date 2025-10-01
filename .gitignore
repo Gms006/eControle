@@ -1,0 +1,68 @@
+# Python
+
+**pycache**/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# FastAPI / Backend
+
+backend/.env
+backend/.env.*
+*.log
+logs/
+*.pid
+
+# Node / Frontend
+
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+frontend/.env
+frontend/.env.*
+
+# TypeScript / Vite
+
+*.tsbuildinfo
+
+# IDE / Editor
+
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.iml
+
+# OS
+
+.DS_Store
+Thumbs.db
+
+# Data (NÃO versionar Excel e pasta data)
+
+data/**
+!data/.gitkeep
+*.xlsx
+*.xlsm
+*.xlsb
+*.xls
+
+# Outros
+
+*.local

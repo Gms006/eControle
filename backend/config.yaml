@@ -1,0 +1,158 @@
+# Configuração do eControle - Mapeamentos e aliases
+
+# Nomes das abas no Excel (case-insensitive)
+sheet_names:
+  empresas: "EMPRESAS"
+  licencas: "LICENÇAS"
+  taxas: "TAXAS"
+  processos_diversos: "Diversos"
+  processos_funcionamento: "Alvará de Funcionamento"
+  processos_bombeiros: "Bombeiros"
+  processos_uso_solo: "Uso do Solo"
+  processos_ambiental: "Licença Ambiental"
+  processos_sanitario: "Alvará Sanitário"
+  contatos: "Úteis"
+  modelos: "Úteis"
+
+# Aliases de cabeçalhos (mapeamento flexível case-insensitive)
+# Formato: nome_canônico: [lista, de, variações, possíveis]
+column_aliases:
+  empresas:
+    ID: ["ID", "id", "Id"]
+    EMPRESA: ["EMPRESA", "Empresa", "empresa", "RAZÃO SOCIAL", "Razão Social"]
+    CNPJ: ["CNPJ", "cnpj"]
+    PORTE: ["PORTE", "Porte", "porte"]
+    MUNICIPIO: ["MUNICÍPIO", "Município", "municipio"]
+    STATUS_EMPRESAS: ["status_empresas", "Status Empresas", "STATUS"]
+    CATEGORIA: ["CATEGORIA", "Categoria", "categoria"]
+    IE: ["INSCRIÇÃO ESTADUAL", "IE", "Inscrição Estadual", "ie"]
+    IM: ["INSCRIÇÃO MUNICIPAL", "IM", "Inscrição Municipal", "im"]
+    SITUACAO: ["SITUAÇÃO", "Situação", "situacao"]
+    DEBITO: ["DÉBITO PREFEITURA", "Débito Prefeitura", "DEBITO"]
+    CERTIFICADO: ["CERTIFICADO DIGITAL", "Certificado Digital", "CERTIFICADO"]
+    OBS: ["OBS", "Obs", "obs", "OBSERVAÇÕES"]
+    PROPRIETARIO: ["PROPRIETÁRIO PRINCIPAL", "Proprietário Principal", "PROPRIETARIO"]
+    CPF: ["CPF", "cpf"]
+    TELEFONE: ["TELEFONE", "Telefone", "telefone"]
+    EMAIL: ["E-MAIL", "E-mail", "email", "EMAIL"]
+    RESPONSAVEL: ["RESPONSÁVEL FISCAL", "Responsável Fiscal", "RESPONSAVEL"]
+    UPDATED_AT: ["UPDATED_AT", "updated_at", "Data Atualização"]
+
+  licencas:
+    ID: ["ID", "id"]
+    EMPRESA: ["EMPRESA", "Empresa"]
+    CNPJ: ["CNPJ", "cnpj"]
+    MUNICIPIO: ["MUNICÍPIO", "Município"]
+    SANITARIA: ["ALVARÁ VIG SANITÁRIA", "SANITÁRIA", "Sanitária"]
+    CERCON: ["CERCON", "Cercon"]
+    FUNCIONAMENTO: ["ALVARÁ FUNCIONAMENTO", "FUNCIONAMENTO", "Funcionamento"]
+    AMBIENTAL: ["LICENÇA AMBIENTAL", "AMBIENTAL", "Ambiental"]
+    USO_SOLO: ["CERTIDÃO USO DO SOLO", "USO DO SOLO", "Uso do Solo"]
+
+  taxas:
+    ID: ["ID", "id"]
+    EMPRESA: ["EMPRESA", "Empresa"]
+    CNPJ: ["CNPJ", "cnpj"]
+    DATA_ENVIO: ["DATA ENVIO", "Data Envio"]
+    FUNCIONAMENTO: ["TAXA FUNCIONAMENTO", "FUNCIONAMENTO"]
+    PUBLICIDADE: ["PUBLICIDADE", "Publicidade"]
+    SANITARIA: ["VIG SANITÁRIA", "SANITÁRIA"]
+    LOCALIZACAO: ["LOCALIZ INSTALAÇÃO", "LOCALIZAÇÃO"]
+    OCUPACAO: ["OCUP ÁREA PÚBLICA", "OCUPAÇÃO"]
+    BOMBEIROS: ["BOMBEIROS", "Bombeiros"]
+    TPI: ["TPI", "tpi"]
+    STATUS_TAXAS: ["status_taxas", "Status Taxas"]
+
+  processos_comum:
+    ID: ["ID", "id"]
+    EMPRESA: ["EMPRESA", "Empresa"]
+    CNPJ: ["CNPJ", "cnpj"]
+    PROTOCOLO: ["PROTOCOLO", "Protocolo"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "Data Solicitação"]
+    SITUACAO: ["SITUAÇÃO", "Situação"]
+    OBS: ["OBS", "Obs"]
+
+# Status padronizados (para validação)
+status_licencas:
+  - "Sujeito"
+  - "Possui"
+  - "Vencido"
+  - "Vence≤30d"
+  - "Dispensa"
+  - "*"
+  - "NÃO"
+
+status_taxas:
+  - "Pago"
+  - "Não pago"
+  - "Em Aberto"
+  - "Vencido"
+  - "*"
+
+status_processos:
+  - "AGUARD DOCTO"
+  - "AGUARD PAGTO"
+  - "EM ANÁLISE"
+  - "PENDENTE"
+  - "INDEFERIDO"
+  - "CONCLUÍDO"
+  - "LICENCIADO"
+  - "NOTIFICAÇÃO"
+  - "AGUARD VISTORIA"
+  - "AGUARD REGULARIZAÇÃO"
+  - "AGUARD LIBERAÇÃO"
+  - "IR NA VISA"
+  - "Aguardando cliente"
+  - "Em análise"
+  - "Aprovado"
+  - "Vencido"
+  - "Pendente Documentação"
+
+# Cores por status (para UI)
+status_colors:
+  licencas:
+    "Possui": "🟢"
+    "Vence≤30d": "🟡"
+    "Vencido": "🔴"
+    "Sujeito": "⚪"
+    "Dispensa": "🔵"
+    "*": "⚪"
+    "NÃO": "🔴"
+  
+  taxas:
+    "Pago": "🟢"
+    "Não pago": "🔴"
+    "Em Aberto": "🔴"
+    "Vencido": "🔴"
+    "*": "⚪"
+  
+  processos:
+    "CONCLUÍDO": "🟢"
+    "LICENCIADO": "🟢"
+    "Aprovado": "🟢"
+    "EM ANÁLISE": "🔵"
+    "Em análise": "🔵"
+    "AGUARD DOCTO": "🟡"
+    "Aguardando cliente": "🟡"
+    "PENDENTE": "🟡"
+    "Pendente Documentação": "🟡"
+    "INDEFERIDO": "🔴"
+    "Vencido": "🔴"
+
+# Ícones por tipo de processo
+process_icons:
+  "Diversos": "⚙️"
+  "Alvará de Funcionamento": "📋"
+  "Bombeiros": "🛡️"
+  "Licença Ambiental": "🌳"
+  "Uso do Solo": "📍"
+  "Alvará Sanitário": "💧"
+
+# UI - Temas por aba
+tab_themes:
+  painel: "#f0f9ff"      # sky-50
+  empresas: "#eef2ff"    # indigo-50
+  licencas: "#ecfdf5"    # emerald-50
+  taxas: "#fffbeb"       # amber-50
+  processos: "#f5f3ff"   # violet-50
+  uteis: "#f8fafc"       # slate-50
