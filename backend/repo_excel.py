@@ -94,26 +94,43 @@ class ExcelRepo:
     # Open / Save / Close com lock
     # ---------------------------------------------------------------------
     def open(self, lock_timeout: int = 5):
+        import os
         retry_count = 0
         max_retries = 3
+    
+        # Verifica se arquivo existe antes
+        if not os.path.exists(self.excel_path):
+            raise FileNotFoundError(f"Arquivo não encontrado: {self.excel_path}")
+    
         while retry_count < max_retries:
             try:
-                # Lock (modo leitura/escrita)
-                self._lock = portalocker.Lock(str(self.excel_path), "r+", timeout=lock_timeout)
+                # Lock compartilhado (LOCK_SH) se for somente leitura
+                # ou LOCK_EX se for escrever
+                self._lock = portalocker.Lock(
+                    str(self.excel_path), 
+                    "r",  # Modo leitura
+                    timeout=lock_timeout,
+                    flags=portalocker.LOCK_SH  # Lock compartilhado
+                )
                 self._lock.acquire()
-                # Open workbook preservando macros
+            
+                # Open workbook
                 self.wb = load_workbook(self.excel_path, keep_vba=True, data_only=False)
                 logger.info("Excel aberto: %s", self.excel_path)
                 return
-            except (PermissionError, portalocker.exceptions.LockException):
+            
+            except (PermissionError, portalocker.exceptions.LockException) as e:
                 retry_count += 1
+                logger.warning("Erro ao abrir arquivo (tentativa %s/%s): %s", retry_count, max_retries, str(e))
                 if retry_count >= max_retries:
                     raise RuntimeError(
-                        f"Arquivo bloqueado após {max_retries} tentativas. Feche o Excel e tente novamente."
+                        f"Não foi possível abrir o arquivo após {max_retries} tentativas.\n"
+                        f"Caminho: {self.excel_path}\n"
+                        f"Erro: {str(e)}\n"
+                        f"Dica: Verifique se o arquivo não está aberto ou sendo usado por outro processo."
                     )
-                logger.warning("Arquivo bloqueado, tentando novamente (%s/%s)", retry_count, max_retries)
-                time.sleep(lock_timeout)
-
+                time.sleep(1)  # Espera menor entre tentativas
+            
     def save(self):
         if not self.wb:
             raise RuntimeError("Workbook não está aberto")
