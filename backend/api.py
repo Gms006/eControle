@@ -122,6 +122,16 @@ class KPIsResponse(BaseModel):
 # Helpers
 # ----------------------------------------------------------------------------
 
+
+def _to_str(value, default: str = "") -> str:
+    """Return a sanitized string value with fallback."""
+    if value is None:
+        return default
+
+    text = str(value).strip()
+    return text if text else default
+
+
 def _sheet_name(key: str, default: str) -> str:
     return repo.config.get("sheet_names", {}).get(key, default)
 
@@ -148,8 +158,8 @@ def carregar_dados_do_excel() -> None:
                 municipio=r.get("MUNICIPIO", ""),
                 status_empresas=r.get("STATUS_EMPRESAS", "Ativa"),
                 categoria=r.get("CATEGORIA", ""),
-                ie=r.get("IE", "–"),
-                im=r.get("IM", "Não Possui"),
+                ie=_to_str(r.get("IE"), "–"),
+                im=_to_str(r.get("IM"), "Não Possui"),
                 situacao=r.get("SITUACAO", "em dia"),
                 debito=r.get("DEBITO", "Não"),
                 certificado=r.get("CERTIFICADO", "NÃO"),
@@ -283,8 +293,8 @@ def get_empresas(
             categoria=e.categoria,
             debito=e.debito,
             certificado=e.certificado,
-            inscricao_estadual=e.ie,
-            inscricao_municipal=e.im,
+            inscricao_estadual=_to_str(e.ie),
+            inscricao_municipal=_to_str(e.im),
             email=e.email,
             telefone=e.telefone,
             updated_at=e.updated_at or "",
