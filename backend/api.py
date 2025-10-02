@@ -25,6 +25,11 @@ from services import (
     contar_processos_empresa, calcular_kpis_globais,
 )
 
+from dotenv import load_dotenv
+from pathlib import Path
+load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
+
 # ----------------------------------------------------------------------------
 # Config
 # ----------------------------------------------------------------------------
