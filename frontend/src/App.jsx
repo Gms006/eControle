@@ -27,8 +27,38 @@ import {
 } from "lucide-react";
 import { LineChart, Line, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 
-// ✅ Usa env var (VITE_API_URL) ou cai para proxy "/api"
-const API_URL = import.meta.env.VITE_API_URL ?? "/api";
+const normalizeApiBase = (rawBase) => {
+  const fallback = "/api";
+  const trimmed = rawBase?.trim();
+  const base = trimmed && trimmed !== "" ? trimmed : fallback;
+  const collapseExtraSlashes = (value) => {
+    if (!value) return value;
+    const placeholder = "__TMP_PROTOCOL__";
+    const placeholderRegex = new RegExp(placeholder, "g");
+    const [path, ...rest] = value.split("?");
+    const withPlaceholder = path.replace(/:\/\//g, placeholder);
+    const collapsedPath = withPlaceholder.replace(/\/{2,}/g, "/").replace(placeholderRegex, "://");
+    return rest.length > 0 ? `${collapsedPath}?${rest.join("?")}` : collapsedPath;
+  };
+  const collapsed = collapseExtraSlashes(base);
+  const withoutTrailing = collapsed.replace(/\/+$/, "");
+  const ensuredSuffix = withoutTrailing.endsWith("/api")
+    ? withoutTrailing
+    : `${withoutTrailing || ""}/api`;
+  const withLeadingSlash = ensuredSuffix.startsWith("http://") || ensuredSuffix.startsWith("https://")
+    ? ensuredSuffix
+    : ensuredSuffix.startsWith("/")
+      ? ensuredSuffix
+      : `/${ensuredSuffix}`;
+  return collapseExtraSlashes(withLeadingSlash);
+};
+
+const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+
+const apiUrl = (path = "") => {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE}${normalizedPath}`;
+};
 
 function Chip({ status }) {
   const map = {
@@ -104,12 +134,12 @@ export default function App() {
   // Carrega dados da API
   useEffect(() => {
     Promise.all([
-      fetch(`${API_URL}/empresas?query=${query}&municipio=${municipio || ""}&so_alertas=${soAlertas}`).then(r => r.json()),
-      fetch(`${API_URL}/licencas`).then(r => r.json()),
-      fetch(`${API_URL}/taxas`).then(r => r.json()),
-      fetch(`${API_URL}/processos`).then(r => r.json()),
-      fetch(`${API_URL}/kpis`).then(r => r.json()),
-      fetch(`${API_URL}/municipios`).then(r => r.json()),
+      fetch(apiUrl(`/empresas?query=${query}&municipio=${municipio || ""}&so_alertas=${soAlertas}`)).then(r => r.json()),
+      fetch(apiUrl("/licencas")).then(r => r.json()),
+      fetch(apiUrl("/taxas")).then(r => r.json()),
+      fetch(apiUrl("/processos")).then(r => r.json()),
+      fetch(apiUrl("/kpis")).then(r => r.json()),
+      fetch(apiUrl("/municipios")).then(r => r.json()),
     ])
       .then(([emp, lic, tax, proc, kpi, mun]) => {
         setEmpresas(emp);
