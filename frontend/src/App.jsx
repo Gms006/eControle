@@ -103,6 +103,26 @@ const apiUrl = (path = "") => {
   return `${API_BASE}${normalizedPath}`;
 };
 
+const fetchJson = async (path) => {
+  const response = await fetch(apiUrl(path));
+  if (!response.ok) {
+    let detail = "";
+    try {
+      const payload = await response.json();
+      detail = payload?.detail || JSON.stringify(payload);
+    } catch (jsonError) {
+      try {
+        detail = await response.text();
+      } catch (textError) {
+        detail = "";
+      }
+    }
+    const message = detail ? `Erro ${response.status}: ${detail}` : `Erro ${response.status}`;
+    throw new Error(message);
+  }
+  return await response.json();
+};
+
 const MUNICIPIO_ALL = "__ALL__";
 const PROCESS_ALL = "__PROCESS_ALL__";
 
@@ -208,26 +228,32 @@ export default function App() {
     let mounted = true;
     setLoading(true);
     Promise.all([
-      fetch(apiUrl("/empresas")).then((r) => r.json()),
-      fetch(apiUrl("/licencas")).then((r) => r.json()),
-      fetch(apiUrl("/taxas")).then((r) => r.json()),
-      fetch(apiUrl("/processos")).then((r) => r.json()),
-      fetch(apiUrl("/kpis")).then((r) => r.json()),
-      fetch(apiUrl("/municipios")).then((r) => r.json()),
+      fetchJson("/empresas"),
+      fetchJson("/licencas"),
+      fetchJson("/taxas"),
+      fetchJson("/processos"),
+      fetchJson("/kpis"),
+      fetchJson("/municipios"),
     ])
       .then(([emp, lic, tax, proc, kpi, mun]) => {
         if (!mounted) return;
-        setEmpresas(emp);
-        setLicencas(lic);
-        setTaxas(tax);
-        setProcessos(proc);
+        setEmpresas(Array.isArray(emp) ? emp : []);
+        setLicencas(Array.isArray(lic) ? lic : []);
+        setTaxas(Array.isArray(tax) ? tax : []);
+        setProcessos(Array.isArray(proc) ? proc : []);
         setKpis(kpi);
-        setMunicipios(mun);
+        setMunicipios(Array.isArray(mun) ? mun : []);
         setLoading(false);
       })
       .catch((error) => {
         console.error("Erro ao carregar dados:", error);
         if (mounted) {
+          setEmpresas([]);
+          setLicencas([]);
+          setTaxas([]);
+          setProcessos([]);
+          setKpis({});
+          setMunicipios([]);
           setLoading(false);
           enqueueToast("Não foi possível carregar os dados.");
         }
