@@ -130,32 +130,43 @@ def normalizar_taxas(taxas_raw: List[TaxaRaw]) -> List[Taxa]:
     Transforma estrutura 'larga' em 'longa'
     """
     taxas_norm = []
-    
-    tipos_map = {
-        "tpi": "TPI",
-        "funcionamento": "Funcionamento",
-        "publicidade": "Publicidade",
-        "sanitaria": "Sanitária",
-        "localizacao": "Localização",
-        "ocupacao": "Ocupação",
-        "bombeiros": "Bombeiros"
-    }
-    
+
+    tipos_map = [
+        ("tpi", "TPI"),
+        ("funcionamento", "Funcionamento"),
+        ("publicidade", "Publicidade"),
+        ("sanitaria", "Sanitária"),
+        ("localizacao_instalacao", "Localização/Instalação"),
+        ("localizacao", "Localização/Instalação"),
+        ("area_publica", "Área Pública"),
+        ("ocupacao", "Área Pública"),
+        ("bombeiros", "Bombeiros"),
+        ("status_taxas", "Status Geral"),
+    ]
+
     for raw in taxas_raw:
-        for campo, tipo in tipos_map.items():
+        status_por_tipo: Dict[str, str] = {}
+
+        for campo, tipo in tipos_map:
             status_raw = getattr(raw, campo, "*")
-            if status_raw in ["", None]:
+            if status_raw in ("", None):
                 status_raw = "*"
-            
+            status_raw = str(status_raw)
+
+            atual = status_por_tipo.get(tipo)
+            if atual is None or (atual == "*" and status_raw != "*"):
+                status_por_tipo[tipo] = status_raw
+
+        for tipo, status_valor in status_por_tipo.items():
             taxas_norm.append(Taxa(
                 id=raw.id,
                 empresa=raw.empresa,
                 cnpj=raw.cnpj,
                 tipo=tipo,
-                status=str(status_raw),
+                status=status_valor,
                 data_envio=raw.data_envio
             ))
-    
+
     return taxas_norm
 
 
@@ -251,14 +262,20 @@ def filtrar_processos(
     
     if tipo:
         resultado = [p for p in resultado if p.tipo == tipo]
-    
+
     if situacao:
-        resultado = [p for p in resultado if p.situacao == situacao]
-    
+        resultado = [
+            p for p in resultado
+            if (p.status_padrao or p.situacao) == situacao
+        ]
+
     if apenas_ativos:
         inativos = {"CONCLUÍDO", "LICENCIADO", "Aprovado", "INDEFERIDO"}
-        resultado = [p for p in resultado if p.situacao not in inativos]
-    
+        resultado = [
+            p for p in resultado
+            if (p.status_padrao or p.situacao) not in inativos
+        ]
+
     return resultado
 
 

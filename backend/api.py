@@ -103,6 +103,10 @@ class TaxaResponse(BaseModel):
     func: str
     publicidade: str
     sanitaria: str
+    localizacao_instalacao: str
+    area_publica: str
+    bombeiros: str
+    status_geral: Optional[str]
 
 
 class ProcessoResponse(BaseModel):
@@ -178,6 +182,18 @@ PROCESSO_TIPOS = {
 }
 
 
+TAXA_TIPOS_OUTPUT = [
+    ("TPI", "tpi"),
+    ("Funcionamento", "func"),
+    ("Publicidade", "publicidade"),
+    ("Sanitária", "sanitaria"),
+    ("Localização/Instalação", "localizacao_instalacao"),
+    ("Área Pública", "area_publica"),
+    ("Bombeiros", "bombeiros"),
+    ("Status Geral", "status_geral"),
+]
+
+
 def _processo_tipo_label(proc_key: str) -> str:
     return PROCESSO_TIPOS.get(proc_key, proc_key.replace("_", " ").title())
 
@@ -200,8 +216,9 @@ def _rows_to_processos(proc_key: str, rows: List[Dict[str, Any]]) -> List[Proces
             protocolo=protocolo,
             data_solicitacao=_format_excel_date(row.get("DATA_SOLICITACAO")) or _to_str(row.get("DATA_SOLICITACAO")),
             situacao=_to_str(row.get("SITUACAO")),
+            status_padrao=_to_str(row.get("STATUS_PADRAO")),
             obs=_to_str(row.get("OBS")),
-            prazo=_format_excel_date(row.get("PRAZO")),
+            prazo=_format_excel_date(row.get("PRAZO")) or _to_str(row.get("PRAZO")),
         )
 
         if proc_key == "diversos":
@@ -305,11 +322,20 @@ def carregar_dados_do_excel() -> None:
                 funcionamento=_to_str(r.get("FUNCIONAMENTO"), "*"),
                 publicidade=_to_str(r.get("PUBLICIDADE"), "*"),
                 sanitaria=_to_str(r.get("SANITARIA"), "*"),
+                localizacao_instalacao=(
+                    _to_str(r.get("LOCALIZACAO_INSTALACAO"), "")
+                    or _to_str(r.get("LOCALIZACAO"), "*")
+                ),
+                area_publica=(
+                    _to_str(r.get("AREA_PUBLICA"), "")
+                    or _to_str(r.get("OCUPACAO"), "*")
+                ),
                 localizacao=_to_str(r.get("LOCALIZACAO"), "*"),
                 ocupacao=_to_str(r.get("OCUPACAO"), "*"),
                 bombeiros=_to_str(r.get("BOMBEIROS"), "*"),
                 tpi=_to_str(r.get("TPI"), "*"),
                 status_taxas=_to_str(r.get("STATUS_TAXAS")),
+                obs=_to_str(r.get("OBS")),
             )
             for r in taxas_raw_data
             if _to_int(r.get("ID")) and _to_str(r.get("EMPRESA"))
@@ -435,7 +461,7 @@ def get_licencas(empresa: Optional[str] = None):
     return result
 
 
-@app.get("/api/taxas")
+@app.get("/api/taxas", response_model=List[TaxaResponse])
 def get_taxas():
     taxas: List[Taxa] = cache["taxas"]
 
@@ -444,15 +470,10 @@ def get_taxas():
     empresas_unicas = sorted(set(t.empresa for t in taxas))
     for emp in empresas_unicas:
         taxas_emp = {t.tipo: t.status_display for t in taxas if t.empresa == emp}
-        result.append(
-            {
-                "empresa": emp,
-                "tpi": taxas_emp.get("TPI", "*"),
-                "func": taxas_emp.get("Funcionamento", "*"),
-                "publicidade": taxas_emp.get("Publicidade", "*"),
-                "sanitaria": taxas_emp.get("Sanitária", "*"),
-            }
-        )
+        linha = {"empresa": emp}
+        for tipo_label, output_key in TAXA_TIPOS_OUTPUT:
+            linha[output_key] = taxas_emp.get(tipo_label, "*")
+        result.append(linha)
     return result
 
 
@@ -468,7 +489,7 @@ def get_processos(tipo: Optional[str] = None, apenas_ativos: bool = False):
             "codigo": p.protocolo,
             "inicio": p.data_solicitacao,
             "prazo": p.prazo,
-            "status": p.situacao,
+            "status": p.status_display,
         }
         for p in processos
     ]
@@ -537,12 +558,12 @@ def diagnostico():
         proc_sheet = _sheet_name("processos", "PROCESSOS")
         processos_tables = repo.config.get("table_names", {}).get("processos", {})
         processos_required = {
-            "processos_diversos": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_funcionamento": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_bombeiros": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_uso_solo": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_sanitario": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_ambiental": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_diversos": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_funcionamento": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_bombeiros": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_uso_solo": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_sanitario": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_ambiental": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
         }
         for proc_key, table_name in processos_tables.items():
             sheet_key = f"processos_{proc_key}"
