@@ -1,20 +1,25 @@
 """
-repo_excel.py - Repositório Excel com leitura/escrita segura e heurística de cabeçalho
-Ajustes aplicados:
-- Lock de arquivo com portalocker (evita gravação concorrente)
-- Métodos públicos build_column_map / get_column_map para /api/diagnostico
-- Uso de sheet_key para aliases (config.yaml)
+repo_excel.py - Repositório Excel com leitura/escrita segura
+Compatível com config.yaml (uma aba PROCESSOS com múltiplas Tabelas/ListObjects)
+
+Principais recursos:
+- Lock de arquivo (portalocker) para leitura/escrita segura de .xlsm
+- Mapeamento por aliases definidos no config.yaml
+- Leitura por ABA (cabeçalho heurístico) **e** por TABELA (ListObject) usando openpyxl.tables
+- Suporte a table_names → ex.: aba PROCESSOS com as tabelas Diversos, Funcionamento, etc.
+- Utilitários para diagnosticar colunas (build_column_map*)
 """
 from __future__ import annotations
 
 import logging
 import time
 from pathlib import Path
-from typing import Dict, List, Optional, Any
+from typing import Dict, List, Optional, Any, Iterable
 
 import openpyxl
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
+from openpyxl.utils import range_boundaries
 import yaml
 import portalocker
 
@@ -28,109 +33,141 @@ class ExcelRepo:
         self.excel_path = Path(excel_path)
         self.config = self._load_config(config_path)
         self.wb: Optional[openpyxl.Workbook] = None
+        # mapas de colunas (por chave lógica)
         self._column_maps: Dict[str, Dict[str, int]] = {}
         self._lock: Optional[portalocker.Lock] = None
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Config
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def _load_config(self, config_path: str) -> dict:
         try:
             with open(config_path, "r", encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
+                cfg = yaml.safe_load(f) or {}
         except FileNotFoundError:
             logger.warning("Config não encontrado: %s, usando padrões", config_path)
-            return {"sheet_names": {}, "column_aliases": {}}
+            cfg = {}
+        # sane defaults
+        cfg.setdefault("sheet_names", {})
+        cfg.setdefault("table_names", {})
+        cfg.setdefault("column_aliases", {})
+        return cfg
 
-    # ---------------------------------------------------------------------
-    # Header detection & mapping
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Header detection & mapping (ABA ou TABELA)
+    # ------------------------------------------------------------------
     def _find_header_row(self, ws: Worksheet, max_rows: int = 10) -> int:
-        """Heurística: primeira linha com >=4 valores e contendo keywords."""
-        keywords = {"ID", "EMPRESA", "CNPJ", "PROTOCOLO", "TIPO", "STATUS"}
+        """Heurística para ABAs sem tabela: primeira linha com >=4 valores e palavras-chave."""
+        keywords = {"ID", "EMPRESA", "CNPJ", "PROTOCOLO", "TIPO", "STATUS", "MUNIC"}
         for row_idx in range(1, min(max_rows + 1, ws.max_row + 1)):
             row_values = [cell.value for cell in ws[row_idx]]
-            non_null = [v for v in row_values if v is not None]
+            non_null = [v for v in row_values if v is not None and str(v).strip()]
             if len(non_null) >= 4:
                 row_upper = [str(v).upper().strip() for v in non_null]
                 if any(kw in " ".join(row_upper) for kw in keywords):
-                    logger.info("Cabeçalho encontrado na linha %s", row_idx)
+                    logger.debug("Cabeçalho encontrado na linha %s", row_idx)
                     return row_idx
         logger.warning("Cabeçalho não encontrado, usando linha 2 como padrão")
         return 2
 
-    def _build_column_map(self, ws: Worksheet, sheet_key: str) -> Dict[str, int]:
-        header_row_idx = self._find_header_row(ws)
-        header_row = ws[header_row_idx]
+    def _build_column_map_from_header_cells(self, header_cells: Iterable[Any], sheet_key: str) -> Dict[str, int]:
         aliases = self.config.get("column_aliases", {}).get(sheet_key, {})
         col_map: Dict[str, int] = {}
-        for col_idx, cell in enumerate(header_row, start=1):
-            if cell.value is None:
+        for idx, cell in enumerate(header_cells, start=1):
+            value = getattr(cell, "value", cell)
+            if value is None:
                 continue
-            cell_value = str(cell.value).strip()
-            # match direto ou por alias
+            cell_value = str(value).strip()
             for canonical, alias_list in aliases.items():
                 if any(cell_value.upper() == a.upper() for a in alias_list):
-                    col_map[canonical] = col_idx
-                    logger.debug("Mapeado: %s -> col %s (%s)", canonical, col_idx, cell_value)
+                    col_map[canonical] = idx
                     break
         if not col_map:
             logger.warning("Nenhuma coluna mapeada para %s", sheet_key)
         return col_map
 
-    # Público (para /api/diagnostico)
+    def _build_column_map_sheet(self, ws: Worksheet, sheet_key: str) -> Dict[str, int]:
+        header_row_idx = self._find_header_row(ws)
+        header_row = ws[header_row_idx]
+        return self._build_column_map_from_header_cells(header_row, sheet_key)
+
+    def _get_table_by_name(self, ws: Worksheet, table_name: str):
+        """Retorna o objeto Table pelo nome (compatível com openpyxl>=3)."""
+        tables = getattr(ws, "tables", None)
+        if tables is None:
+            # fallback versões antigas
+            tables = {t.name: t for t in getattr(ws, "_tables", [])}
+        if isinstance(tables, dict):
+            return tables.get(table_name)
+        # lista de tables (fallback raro)
+        for t in list(tables or []):
+            if getattr(t, "name", None) == table_name:
+                return t
+        return None
+
+    def _iter_table_rows(self, ws: Worksheet, table) -> Iterable[List[Any]]:
+        """Itera as linhas (como células) dentro do range da Tabela."""
+        if table is None:
+            return []
+        ref = table.ref  # e.g., 'A1:K100'
+        min_col, min_row, max_col, max_row = range_boundaries(ref)
+        for r in ws.iter_rows(min_row=min_row, max_row=max_row, min_col=min_col, max_col=max_col):
+            yield r
+
+    # Públicos (para diagnóstico)
     def build_column_map(self, sheet_name: str, sheet_key: str) -> Dict[str, int]:
         if not self.wb:
             raise RuntimeError("Workbook não está aberto")
         ws = self.wb[sheet_name]
-        col_map = self._build_column_map(ws, sheet_key)
+        col_map = self._build_column_map_sheet(ws, sheet_key)
+        self._column_maps[sheet_key] = col_map
+        return col_map
+
+    def build_column_map_table(self, sheet_name: str, table_name: str, sheet_key: str) -> Dict[str, int]:
+        if not self.wb:
+            raise RuntimeError("Workbook não está aberto")
+        ws = self.wb[sheet_name]
+        tbl = self._get_table_by_name(ws, table_name)
+        if not tbl:
+            raise ValueError(f"Tabela '{table_name}' não encontrada na aba '{sheet_name}'")
+        rows = list(self._iter_table_rows(ws, tbl))
+        if not rows:
+            return {}
+        header = rows[0]
+        col_map = self._build_column_map_from_header_cells(header, sheet_key)
         self._column_maps[sheet_key] = col_map
         return col_map
 
     def get_column_map(self, sheet_key: str) -> Dict[str, int]:
         return self._column_maps.get(sheet_key, {})
 
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     # Open / Save / Close com lock
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
     def open(self, lock_timeout: int = 5):
         import os
         retry_count = 0
         max_retries = 3
-    
-        # Verifica se arquivo existe antes
         if not os.path.exists(self.excel_path):
             raise FileNotFoundError(f"Arquivo não encontrado: {self.excel_path}")
-    
         while retry_count < max_retries:
             try:
-                # Lock compartilhado (LOCK_SH) se for somente leitura
-                # ou LOCK_EX se for escrever
                 self._lock = portalocker.Lock(
-                    str(self.excel_path), 
-                    "r",  # Modo leitura
-                    timeout=lock_timeout,
-                    flags=portalocker.LOCK_SH  # Lock compartilhado
+                    str(self.excel_path), "r", timeout=lock_timeout, flags=portalocker.LOCK_SH
                 )
                 self._lock.acquire()
-            
-                # Open workbook
                 self.wb = load_workbook(self.excel_path, keep_vba=True, data_only=False)
                 logger.info("Excel aberto: %s", self.excel_path)
                 return
-            
             except (PermissionError, portalocker.exceptions.LockException) as e:
                 retry_count += 1
                 logger.warning("Erro ao abrir arquivo (tentativa %s/%s): %s", retry_count, max_retries, str(e))
                 if retry_count >= max_retries:
                     raise RuntimeError(
-                        f"Não foi possível abrir o arquivo após {max_retries} tentativas.\n"
-                        f"Caminho: {self.excel_path}\n"
-                        f"Erro: {str(e)}\n"
-                        f"Dica: Verifique se o arquivo não está aberto ou sendo usado por outro processo."
+                        "Não foi possível abrir o arquivo após tentativas. Verifique se não está aberto no Excel."
                     )
-                time.sleep(1)  # Espera menor entre tentativas
-            
+                time.sleep(1)
+
     def save(self):
         if not self.wb:
             raise RuntimeError("Workbook não está aberto")
@@ -138,9 +175,7 @@ class ExcelRepo:
             self.wb.save(self.excel_path)
             logger.info("Excel salvo com sucesso")
         except PermissionError:
-            raise RuntimeError(
-                "Não foi possível salvar: arquivo está aberto em outro programa. Feche o Excel e tente novamente."
-            )
+            raise RuntimeError("Não foi possível salvar: arquivo aberto em outro programa.")
 
     def close(self):
         if self.wb:
@@ -153,24 +188,22 @@ class ExcelRepo:
             finally:
                 self._lock = None
 
-    # ---------------------------------------------------------------------
-    # Read / Write
-    # ---------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Read / Write por ABA
+    # ------------------------------------------------------------------
     def read_sheet(self, sheet_name: str, sheet_key: str = "") -> List[Dict[str, Any]]:
         if not self.wb:
             raise RuntimeError("Workbook não está aberto")
         if sheet_name not in self.wb.sheetnames:
-            logger.error("Planilha '%s' não encontrada", sheet_name)
+            logger.error("Aba '%s' não encontrada", sheet_name)
             return []
         ws = self.wb[sheet_name]
-        # mapa de colunas
         if sheet_key not in self._column_maps:
-            self._column_maps[sheet_key] = self._build_column_map(ws, sheet_key)
+            self._column_maps[sheet_key] = self._build_column_map_sheet(ws, sheet_key)
         col_map = self._column_maps[sheet_key]
         if not col_map:
             logger.warning("Mapa de colunas vazio para %s", sheet_key)
             return []
-        # dados
         header_row_idx = self._find_header_row(ws)
         data: List[Dict[str, Any]] = []
         for row_idx in range(header_row_idx + 1, ws.max_row + 1):
@@ -178,57 +211,98 @@ class ExcelRepo:
             is_empty = True
             for canonical, col_idx in col_map.items():
                 value = ws.cell(row_idx, col_idx).value
-                if value is not None:
+                if value not in (None, ""):
                     is_empty = False
                 row_data[canonical] = value if value is not None else ""
             if not is_empty:
                 data.append(row_data)
-        logger.info("Lidos %s registros de %s", len(data), sheet_name)
+        logger.info("Lidos %s registros da aba %s", len(data), sheet_name)
         return data
 
-    def write_row(self, sheet_name: str, sheet_key: str, row_data: Dict[str, Any], row_idx: Optional[int] = None):
+    # ------------------------------------------------------------------
+    # Read por TABELA (ListObject) — chave para PROCESSOS & ÚTEIS
+    # ------------------------------------------------------------------
+    def read_table(self, sheet_name: str, table_name: str, sheet_key: str) -> List[Dict[str, Any]]:
         if not self.wb:
             raise RuntimeError("Workbook não está aberto")
+        if sheet_name not in self.wb.sheetnames:
+            logger.error("Aba '%s' não encontrada", sheet_name)
+            return []
         ws = self.wb[sheet_name]
+        tbl = self._get_table_by_name(ws, table_name)
+        if not tbl:
+            logger.error("Tabela '%s' não encontrada na aba '%s'", table_name, sheet_name)
+            return []
+        rows = list(self._iter_table_rows(ws, tbl))
+        if not rows:
+            return []
+        header = rows[0]
         if sheet_key not in self._column_maps:
-            self._column_maps[sheet_key] = self._build_column_map(ws, sheet_key)
+            self._column_maps[sheet_key] = self._build_column_map_from_header_cells(header, sheet_key)
         col_map = self._column_maps[sheet_key]
-        if row_idx is None:
-            self._find_header_row(ws)  # garante header calculado
-            row_idx = ws.max_row + 1
-        for canonical, value in row_data.items():
-            if canonical in col_map:
-                col_idx = col_map[canonical]
-                ws.cell(row_idx, col_idx, value)
-        logger.info("Linha %s escrita em %s", row_idx, sheet_name)
+        if not col_map:
+            logger.warning("Mapa de colunas vazio para %s (tabela %s)", sheet_key, table_name)
+            return []
+        data: List[Dict[str, Any]] = []
+        for r in rows[1:]:  # pula header
+            row_data: Dict[str, Any] = {}
+            is_empty = True
+            for canonical, idx in col_map.items():
+                # idx é 1-based relativo à tabela
+                cell = r[idx - 1]
+                value = cell.value
+                if value not in (None, ""):
+                    is_empty = False
+                row_data[canonical] = value if value is not None else ""
+            if not is_empty:
+                data.append(row_data)
+        logger.info("Lidos %s registros da tabela %s/%s", len(data), sheet_name, table_name)
+        return data
 
-    def update_cell(self, sheet_name: str, sheet_key: str, row_idx: int, column_name: str, value: Any):
+    # ------------------------------------------------------------------
+    # Utilities específicos para a estrutura do config.yaml
+    # ------------------------------------------------------------------
+    def list_tables(self, sheet_name: str) -> List[str]:
         if not self.wb:
             raise RuntimeError("Workbook não está aberto")
+        if sheet_name not in self.wb.sheetnames:
+            return []
         ws = self.wb[sheet_name]
-        if sheet_key not in self._column_maps:
-            self._column_maps[sheet_key] = self._build_column_map(ws, sheet_key)
-        col_map = self._column_maps[sheet_key]
-        if column_name not in col_map:
-            raise ValueError(f"Coluna '{column_name}' não encontrada no mapa")
-        col_idx = col_map[column_name]
-        ws.cell(row_idx, col_idx, value)
-        logger.debug("Célula atualizada: %s[%s,%s] = %s", sheet_name, row_idx, col_idx, value)
+        tables = getattr(ws, "tables", None)
+        if isinstance(tables, dict):
+            return list(tables.keys())
+        return [t.name for t in (tables or [])]
 
 
-# Utilitário CLI
+# Utilitário CLI para diagnóstico rápido
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    # Ajuste o caminho do arquivo abaixo antes de rodar localmente
     repo = ExcelRepo("G:/PMA/LISTA EMPRESAS - NETO CONTABILIDADE 2025.xlsm")
     repo.open()
     try:
+        cfg = repo.config
+        print("Sheets:", cfg.get("sheet_names"))
+        print("Tables (PROCESSOS):", cfg.get("table_names", {}).get("processos", {}))
+        # Abas simples
         for key, name in {
-            "empresas": "EMPRESAS",
-            "licencas": "LICENÇAS",
-            "taxas": "TAXAS",
+            "empresas": cfg["sheet_names"].get("empresas", "EMPRESAS"),
+            "licencas": cfg["sheet_names"].get("licencas", "LICENÇAS"),
+            "taxas": cfg["sheet_names"].get("taxas", "TAXAS"),
         }.items():
-            print("\n===", name, "===")
+            print(f"=== {name} (sheet:{key}) ===")
             repo.build_column_map(name, key)
             print(repo.get_column_map(key))
+        # Tabelas de PROCESSOS
+        proc_sheet = cfg["sheet_names"].get("processos", "PROCESSOS")
+        proc_tables = cfg.get("table_names", {}).get("processos", {})
+        for key, tbl_name in proc_tables.items():
+            sheet_key = f"processos_{key}"
+            print(f"=== Tabela {tbl_name} (sheet_key:{sheet_key}) ===")
+            try:
+                repo.build_column_map_table(proc_sheet, tbl_name, sheet_key)
+                print(repo.get_column_map(sheet_key))
+            except Exception as e:
+                print("[warn]", e)
     finally:
         repo.close()
