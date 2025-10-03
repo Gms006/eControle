@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import os
 import logging
-from datetime import datetime
-from typing import List, Optional, Dict
+from datetime import datetime, date, timedelta
+from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,13 +37,16 @@ logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
 
 EXCEL_PATH = os.getenv("EXCEL_PATH", "data/arquivo.xlsm")
+CONFIG_PATH = os.getenv(
+    "CONFIG_PATH", str(Path(__file__).parent / "config.yaml")
+)
 CORS_ORIGINS = [o.strip() for o in os.getenv(
     "CORS_ORIGINS", "http://localhost:5173,http://localhost:3000"
 ).split(",") if o.strip()]
 API_HOST = os.getenv("API_HOST", "0.0.0.0")
 API_PORT = int(os.getenv("API_PORT", "8000"))
 
-repo = ExcelRepo(EXCEL_PATH)
+repo = ExcelRepo(EXCEL_PATH, config_path=CONFIG_PATH)
 
 app = FastAPI(title="eControle API", version="1.1.0")
 app.add_middleware(
@@ -136,58 +139,158 @@ def _sheet_name(key: str, default: str) -> str:
     return repo.config.get("sheet_names", {}).get(key, default)
 
 
+def _to_int(value: Any, default: int = 0) -> int:
+    if value in (None, ""):
+        return default
+    try:
+        if isinstance(value, float):
+            return int(value)
+        return int(str(value).strip())
+    except (TypeError, ValueError):
+        return default
+
+
+def _format_excel_date(value: Any) -> Optional[str]:
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, date):
+        return value.strftime("%d/%m/%Y")
+    if isinstance(value, (int, float)):
+        try:
+            base = datetime(1899, 12, 30)
+            converted = base + timedelta(days=float(value))
+            return converted.strftime("%d/%m/%Y")
+        except (OverflowError, ValueError):
+            return None
+    text = _to_str(value)
+    return text or None
+
+
+PROCESSO_TIPOS = {
+    "diversos": "Diversos",
+    "funcionamento": "Funcionamento",
+    "bombeiros": "Bombeiros",
+    "uso_solo": "Uso do Solo",
+    "sanitario": "Sanitário",
+    "ambiental": "Ambiental",
+}
+
+
+def _processo_tipo_label(proc_key: str) -> str:
+    return PROCESSO_TIPOS.get(proc_key, proc_key.replace("_", " ").title())
+
+
+def _rows_to_processos(proc_key: str, rows: List[Dict[str, Any]]) -> List[Processo]:
+    processos: List[Processo] = []
+    tipo_label = _processo_tipo_label(proc_key)
+
+    for row in rows:
+        empresa = _to_str(row.get("EMPRESA"))
+        protocolo = _to_str(row.get("PROTOCOLO"))
+        if not empresa and not protocolo:
+            continue
+
+        processo = Processo(
+            id=_to_int(row.get("ID")),
+            empresa=empresa,
+            cnpj=_to_str(row.get("CNPJ")),
+            tipo=tipo_label,
+            protocolo=protocolo,
+            data_solicitacao=_format_excel_date(row.get("DATA_SOLICITACAO")) or _to_str(row.get("DATA_SOLICITACAO")),
+            situacao=_to_str(row.get("SITUACAO")),
+            obs=_to_str(row.get("OBS")),
+            prazo=_format_excel_date(row.get("PRAZO")),
+        )
+
+        if proc_key == "diversos":
+            tipo_extra = _to_str(row.get("TIPO"))
+            processo.tipo = tipo_extra or processo.tipo
+            processo.operacao = _to_str(row.get("OPERACAO"))
+            processo.orgao = _to_str(row.get("ORGAO"))
+        elif proc_key == "funcionamento":
+            processo.alvara = _to_str(row.get("ALVARA"))
+            processo.municipio = _to_str(row.get("MUNICIPIO"))
+        elif proc_key == "bombeiros":
+            processo.tpi = _to_str(row.get("TPI"))
+        elif proc_key == "uso_solo":
+            processo.inscricao_imobiliaria = _to_str(row.get("INSCRICAO_IMOBILIARIA"))
+        elif proc_key == "sanitario":
+            processo.servico = _to_str(row.get("SERVICO"))
+            processo.taxa = _to_str(row.get("TAXA"))
+            processo.notificacao = _to_str(row.get("NOTIFICACAO"))
+            processo.data_val = _format_excel_date(row.get("DATA_VAL")) or _to_str(row.get("DATA_VAL"))
+
+        processos.append(processo)
+
+    return processos
+
+
 def carregar_dados_do_excel() -> None:
     """Carrega dados do Excel e atualiza cache"""
     try:
         repo.open()
 
         # Nomes das abas (do config.yaml)
-        emp_sheet = _sheet_name("empresas", "EMPRESAS")
-        lic_sheet = _sheet_name("licencas", "LICENÇAS")
-        tax_sheet = _sheet_name("taxas", "TAXAS")
-        proc_div_sheet = _sheet_name("processos_diversos", "Diversos")
+        sheet_cfg = repo.config.get("sheet_names", {})
+        table_cfg = repo.config.get("table_names", {})
+
+        emp_sheet = sheet_cfg.get("empresas", "EMPRESAS")
+        lic_sheet = sheet_cfg.get("licencas", "LICENÇAS")
+        tax_sheet = sheet_cfg.get("taxas", "TAXAS")
+        proc_sheet = sheet_cfg.get("processos", "PROCESSOS")
 
         # Empresas
         empresas_raw = repo.read_sheet(emp_sheet, "empresas")
         empresas = [
             Empresa(
-                id=int(r.get("ID", 0)),
-                empresa=r.get("EMPRESA", ""),
-                cnpj=r.get("CNPJ", ""),
-                porte=r.get("PORTE", ""),
-                municipio=r.get("MUNICIPIO", ""),
-                status_empresas=r.get("STATUS_EMPRESAS", "Ativa"),
-                categoria=r.get("CATEGORIA", ""),
+                id=_to_int(r.get("ID")),
+                empresa=_to_str(r.get("EMPRESA")),
+                cnpj=_to_str(r.get("CNPJ")),
+                porte=_to_str(r.get("PORTE")),
+                municipio=_to_str(r.get("MUNICIPIO")),
+                status_empresas=_to_str(r.get("SITUACAO"), "Ativa"),
+                categoria=_to_str(r.get("CATEGORIA")),
                 ie=_to_str(r.get("IE"), "–"),
                 im=_to_str(r.get("IM"), "Não Possui"),
-                situacao=r.get("SITUACAO", "em dia"),
-                debito=r.get("DEBITO", "Não"),
-                certificado=r.get("CERTIFICADO", "NÃO"),
-                obs=r.get("OBS", ""),
-                telefone=r.get("TELEFONE", ""),
-                email=r.get("EMAIL", ""),
-                updated_at=r.get("UPDATED_AT", datetime.now().isoformat()[:10]),
+                situacao=_to_str(r.get("SITUACAO"), "em dia"),
+                debito=_to_str(r.get("DEBITO_PREFEITURA"), "Não"),
+                certificado=_to_str(r.get("CERTIFICADO_DIGITAL"), "NÃO"),
+                obs=_to_str(r.get("OBS")),
+                proprietario=_to_str(r.get("PROPRIETARIO_PRINCIPAL")),
+                cpf=_to_str(r.get("CPF")),
+                telefone=_to_str(r.get("TELEFONE")),
+                email=_to_str(r.get("E_MAIL")),
+                responsavel=_to_str(r.get("RESPONSAVEL_FISCAL")),
+                updated_at=_to_str(r.get("UPDATED_AT"), datetime.now().isoformat()[:10]),
             )
             for r in empresas_raw
-            if r.get("ID")
+            if _to_int(r.get("ID")) and _to_str(r.get("EMPRESA"))
         ]
 
         # Licenças (larga -> longa)
         licencas_raw_data = repo.read_sheet(lic_sheet, "licencas")
         licencas_raw_objs = [
             LicencaRaw(
-                id=int(r.get("ID", 0)),
-                empresa=r.get("EMPRESA", ""),
-                cnpj=r.get("CNPJ", ""),
-                municipio=r.get("MUNICIPIO", ""),
-                sanitaria=r.get("SANITARIA", "*"),
-                cercon=r.get("CERCON", "*"),
-                funcionamento=r.get("FUNCIONAMENTO", "*"),
-                ambiental=r.get("AMBIENTAL", "*"),
-                uso_solo=r.get("USO_SOLO", "*"),
+                id=_to_int(r.get("ID")),
+                empresa=_to_str(r.get("EMPRESA")),
+                cnpj=_to_str(r.get("CNPJ")),
+                municipio=_to_str(r.get("MUNICIPIO")),
+                sanitaria_status=_to_str(r.get("SANITARIA_STATUS"), "*"),
+                sanitaria_val=_format_excel_date(r.get("SANITARIA_VAL")),
+                cercon_status=_to_str(r.get("CERCON_STATUS"), "*"),
+                cercon_val=_format_excel_date(r.get("CERCON_VAL")),
+                funcionamento_status=_to_str(r.get("FUNCIONAMENTO_STATUS"), "*"),
+                funcionamento_val=_format_excel_date(r.get("FUNCIONAMENTO_VAL")),
+                ambiental_status=_to_str(r.get("AMBIENTAL_STATUS"), "*"),
+                ambiental_val=_format_excel_date(r.get("AMBIENTAL_VAL")),
+                uso_solo_status=_to_str(r.get("USO_SOLO_STATUS"), "*"),
+                uso_solo_val=_format_excel_date(r.get("USO_SOLO_VAL")),
+                obs=_to_str(r.get("OBS")),
             )
             for r in licencas_raw_data
-            if r.get("ID")
+            if _to_int(r.get("ID")) and _to_str(r.get("EMPRESA"))
         ]
         licencas = normalizar_licencas(licencas_raw_objs)
 
@@ -195,41 +298,31 @@ def carregar_dados_do_excel() -> None:
         taxas_raw_data = repo.read_sheet(tax_sheet, "taxas")
         taxas_raw_objs = [
             TaxaRaw(
-                id=int(r.get("ID", 0)),
-                empresa=r.get("EMPRESA", ""),
-                cnpj=r.get("CNPJ", ""),
-                data_envio=str(r.get("DATA_ENVIO", "")),
-                funcionamento=r.get("FUNCIONAMENTO", "*"),
-                publicidade=r.get("PUBLICIDADE", "*"),
-                sanitaria=r.get("SANITARIA", "*"),
-                localizacao=r.get("LOCALIZACAO", "*"),
-                ocupacao=r.get("OCUPACAO", "*"),
-                bombeiros=r.get("BOMBEIROS", "*"),
-                tpi=r.get("TPI", "*"),
-                status_taxas=r.get("STATUS_TAXAS", ""),
+                id=_to_int(r.get("ID")),
+                empresa=_to_str(r.get("EMPRESA")),
+                cnpj=_to_str(r.get("CNPJ")),
+                data_envio=_format_excel_date(r.get("DATA_ENVIO")) or _to_str(r.get("DATA_ENVIO")),
+                funcionamento=_to_str(r.get("FUNCIONAMENTO"), "*"),
+                publicidade=_to_str(r.get("PUBLICIDADE"), "*"),
+                sanitaria=_to_str(r.get("SANITARIA"), "*"),
+                localizacao=_to_str(r.get("LOCALIZACAO"), "*"),
+                ocupacao=_to_str(r.get("OCUPACAO"), "*"),
+                bombeiros=_to_str(r.get("BOMBEIROS"), "*"),
+                tpi=_to_str(r.get("TPI"), "*"),
+                status_taxas=_to_str(r.get("STATUS_TAXAS")),
             )
             for r in taxas_raw_data
-            if r.get("ID")
+            if _to_int(r.get("ID")) and _to_str(r.get("EMPRESA"))
         ]
         taxas = normalizar_taxas(taxas_raw_objs)
 
-        # Processos (exemplo: aba Diversos)
-        processos_raw = repo.read_sheet(proc_div_sheet, "processos")
-        processos = [
-            Processo(
-                id=int(r.get("ID", 0)),
-                empresa=r.get("EMPRESA", ""),
-                cnpj=r.get("CNPJ", ""),
-                tipo="Diversos",
-                protocolo=r.get("PROTOCOLO", ""),
-                data_solicitacao=r.get("DATA_SOLICITACAO", ""),
-                situacao=r.get("SITUACAO", ""),
-                obs=r.get("OBS", ""),
-                prazo=r.get("PRAZO"),
-            )
-            for r in processos_raw
-            if r.get("EMPRESA")
-        ]
+        processos: List[Processo] = []
+        processos_tables = table_cfg.get("processos", {})
+        for proc_key, table_name in processos_tables.items():
+            sheet_key = f"processos_{proc_key}"
+            rows = repo.read_table(proc_sheet, table_name, sheet_key)
+            if rows:
+                processos.extend(_rows_to_processos(proc_key, rows))
 
         cache.update(
             {
@@ -420,7 +513,14 @@ def diagnostico():
         }
         required = {
             "empresas": ["ID", "EMPRESA", "CNPJ", "MUNICIPIO"],
-            "licencas": ["ID", "EMPRESA", "CNPJ", "MUNICIPIO", "SANITARIA", "FUNCIONAMENTO"],
+            "licencas": [
+                "ID",
+                "EMPRESA",
+                "CNPJ",
+                "MUNICIPIO",
+                "SANITARIA_STATUS",
+                "SANITARIA_VAL",
+            ],
             "taxas": ["ID", "EMPRESA", "CNPJ", "TPI"],
         }
         for key, sheet_name in sheets.items():
@@ -432,6 +532,33 @@ def diagnostico():
             if missing:
                 out["warnings"].append(
                     f"{sheet_name}: colunas ausentes {missing}"
+                )
+
+        proc_sheet = _sheet_name("processos", "PROCESSOS")
+        processos_tables = repo.config.get("table_names", {}).get("processos", {})
+        processos_required = {
+            "processos_diversos": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_funcionamento": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_bombeiros": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_uso_solo": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_sanitario": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_ambiental": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+        }
+        for proc_key, table_name in processos_tables.items():
+            sheet_key = f"processos_{proc_key}"
+            try:
+                repo.build_column_map_table(proc_sheet, table_name, sheet_key)
+                colmap = repo.get_column_map(sheet_key)
+                out["maps"][sheet_key] = colmap
+                required_cols = processos_required.get(sheet_key, ["ID", "EMPRESA", "PROTOCOLO"])
+                missing = [c for c in required_cols if c not in colmap]
+                if missing:
+                    out["warnings"].append(
+                        f"{proc_sheet}/{table_name}: colunas ausentes {missing}"
+                    )
+            except Exception as exc:  # pragma: no cover - diagnóstico
+                out["warnings"].append(
+                    f"Erro ao mapear tabela {table_name}: {exc}"
                 )
         return out
     finally:

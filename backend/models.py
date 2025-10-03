@@ -22,6 +22,7 @@ class Empresa:
     debito: str = "Não"
     certificado: str = "NÃO"
     obs: str = ""
+
     proprietario: str = ""
     cpf: str = ""
     telefone: str = ""
@@ -149,11 +150,17 @@ class LicencaRaw:
     empresa: str
     cnpj: str
     municipio: str
-    sanitaria: str = "*"
-    cercon: str = "*"
-    funcionamento: str = "*"
-    ambiental: str = "*"
-    uso_solo: str = "*"
+    sanitaria_status: str = "*"
+    sanitaria_val: Optional[str] = None
+    cercon_status: str = "*"
+    cercon_val: Optional[str] = None
+    funcionamento_status: str = "*"
+    funcionamento_val: Optional[str] = None
+    ambiental_status: str = "*"
+    ambiental_val: Optional[str] = None
+    uso_solo_status: str = "*"
+    uso_solo_val: Optional[str] = None
+    obs: str = ""
 
 
 @dataclass
@@ -171,3 +178,4 @@ class TaxaRaw:
     bombeiros: str = "*"
     tpi: str = "*"
     status_taxas: str = "Regular"
+    obs: str = ""
