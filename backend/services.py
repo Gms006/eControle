@@ -3,7 +3,7 @@ services.py - Validações, transformações e lógica de negócio
 """
 import re
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import logging
 
 from models import (
@@ -81,7 +81,7 @@ def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
     em estrutura 'longa' (uma linha por licença)
     """
     licencas_norm = []
-    
+
     tipos_map = {
         "sanitaria": "Sanitária",
         "cercon": "CERCON",
@@ -89,16 +89,28 @@ def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
         "ambiental": "Ambiental",
         "uso_solo": "Uso do Solo"
     }
-    
+
     for raw in licencas_raw:
         for campo, tipo in tipos_map.items():
-            status_raw = getattr(raw, campo, "*")
-            if status_raw in ["", None]:
-                status_raw = "*"
-            
-            # Extrai status e validade
-            status, validade = _parse_status_licenca(str(status_raw))
-            
+            status_attr = f"{campo}_status"
+            val_attr = f"{campo}_val"
+
+            status_raw = getattr(raw, status_attr, getattr(raw, campo, "*"))
+            validade_raw = getattr(raw, val_attr, None)
+
+            status_raw = "*" if status_raw in ("", None) else str(status_raw).strip()
+            validade = _coerce_excel_date(validade_raw)
+
+            status, validade_embutida = _parse_status_licenca(status_raw)
+            if not validade and validade_embutida:
+                validade = validade_embutida
+
+            if validade:
+                if status in {"*", ""}:
+                    status = calcular_status_vencimento(validade)
+                elif status not in {"Dispensa", "Sujeito", "Possui", "Vencido", "Vence≤30d"}:
+                    status = calcular_status_vencimento(validade)
+
             licencas_norm.append(Licenca(
                 id=raw.id,
                 empresa=raw.empresa,
@@ -107,9 +119,9 @@ def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
                 tipo=tipo,
                 status=status,
                 validade=validade,
-                obs=""
+                obs=raw.obs
             ))
-    
+
     return licencas_norm
 
 
@@ -167,7 +179,30 @@ def _parse_status_licenca(status_raw: str) -> tuple[str, Optional[str]]:
     if "Sujeito" in status_raw:
         return ("Sujeito", None)
     
-    return (status_raw.strip(), None)
+    return (status_raw.strip() or "*", None)
+
+
+def _coerce_excel_date(value) -> Optional[str]:
+    """Normaliza valores de data vindos do Excel para dd/mm/YYYY."""
+    if value in (None, ""):
+        return None
+
+    if isinstance(value, datetime):
+        return value.strftime("%d/%m/%Y")
+
+    if isinstance(value, date):
+        return value.strftime("%d/%m/%Y")
+
+    if isinstance(value, (int, float)):
+        try:
+            base = datetime(1899, 12, 30)
+            convertido = base + timedelta(days=float(value))
+            return convertido.strftime("%d/%m/%Y")
+        except (OverflowError, ValueError):
+            return None
+
+    texto = str(value).strip()
+    return texto or None
 
 
 # ============================================================================
@@ -376,7 +411,14 @@ def executar_testes() -> Dict[str, bool]:
     ) == 1
     
     # Teste normalização
-    licenca_raw = LicencaRaw(1, "Teste", "123", "Anápolis", sanitaria="Possui. Val 31/12/2025")
+    licenca_raw = LicencaRaw(
+        1,
+        "Teste",
+        "123",
+        "Anápolis",
+        sanitaria_status="Possui",
+        sanitaria_val="31/12/2025",
+    )
     licencas_norm = normalizar_licencas([licenca_raw])
     resultados["normalizacao_licenca"] = len(licencas_norm) == 5  # 5 tipos
     
