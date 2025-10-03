@@ -442,9 +442,9 @@ export default function App() {
         { mes: "Sem dados", vencidas: 0, vencendo: 0 },
       ];
     }
-    const sorted = Array.from(monthly.values()).sort(
-      (a, b) => a.date.getTime() - b.date.getTime(),
-    );
+    const sorted = Array.from(monthly.values())
+      .filter(entry => entry.date !== null)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
     return sorted.slice(-6).map((entry) => ({
       mes: `${formatMonthLabel(entry.date)}`,
       vencidas: entry.vencidas,
@@ -727,8 +727,10 @@ export default function App() {
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {empresa.debito?.toLowerCase() === "sim" && <StatusBadge status="Não pago" />}
-                          {empresa.certificado === "NÃO" && <StatusBadge status="NÃO" />}
+                          {normalizeTextLower(empresa.debito) === "sim" && (
+                            <StatusBadge status="Não pago" />
+                          )}
+                          {normalizeTextLower(empresa.certificado) === "não" && <StatusBadge status="NÃO" />}
                           {(licencasByEmpresa.get(empresa.empresa) || [])
                             .filter((lic) => ALERT_STATUSES.has(lic.status))
                             .slice(0, 2)
