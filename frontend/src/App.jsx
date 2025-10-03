@@ -194,6 +194,32 @@ const normalizeProcessType = (proc) => {
   return trimmed !== "" ? trimmed : "Sem tipo";
 };
 
+const normalizeIdentifier = (value) => {
+  const normalized = normalizeText(value).trim();
+  return normalized !== "" ? normalized : undefined;
+};
+
+const enhanceEmpresa = (empresa) => {
+  if (!empresa || typeof empresa !== "object") {
+    return empresa;
+  }
+  const ie =
+    normalizeIdentifier(empresa.ie) ||
+    normalizeIdentifier(empresa.inscricao_estadual) ||
+    normalizeIdentifier(empresa.inscricaoEstadual) ||
+    normalizeIdentifier(empresa["inscrição_estadual"]);
+  const im =
+    normalizeIdentifier(empresa.im) ||
+    normalizeIdentifier(empresa.inscricao_municipal) ||
+    normalizeIdentifier(empresa.inscricaoMunicipal) ||
+    normalizeIdentifier(empresa["inscrição_municipal"]);
+  return {
+    ...empresa,
+    ie,
+    im,
+  };
+};
+
 function InlineBadge({ children, className = "", variant = "solid", ...props }) {
   const base = "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium";
   const variants = {
@@ -209,11 +235,12 @@ function InlineBadge({ children, className = "", variant = "solid", ...props }) 
 }
 
 function CopyableIdentifier({ label, value, onCopy }) {
-  const displayValue = normalizeText(value) || "—";
+  const normalizedValue = normalizeIdentifier(value);
+  const displayValue = normalizedValue || "—";
   return (
     <button
       type="button"
-      onClick={() => onCopy(displayValue, `${label} copiado: ${displayValue}`)}
+      onClick={() => onCopy(normalizedValue, normalizedValue ? `${label} copiado: ${normalizedValue}` : undefined)}
       className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
       title={`Copiar ${label}`}
     >
@@ -332,7 +359,10 @@ export default function App() {
     ])
       .then(([emp, lic, tax, proc, kpi, mun]) => {
         if (!mounted) return;
-        setEmpresas(Array.isArray(emp) ? emp : []);
+        const empresasNormalizadas = Array.isArray(emp)
+          ? emp.map((item) => enhanceEmpresa(item))
+          : [];
+        setEmpresas(empresasNormalizadas);
         setLicencas(Array.isArray(lic) ? lic : []);
         setTaxas(Array.isArray(tax) ? tax : []);
         setProcessos(Array.isArray(proc) ? proc : []);
@@ -465,6 +495,8 @@ export default function App() {
             empresa.municipio,
             empresa.categoria,
             empresa.email,
+            empresa.ie,
+            empresa.im,
           ]
             .filter(Boolean)
             .some((field) => normalizeTextLower(field).includes(normalizedQuery));
