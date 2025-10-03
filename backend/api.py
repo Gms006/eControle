@@ -391,7 +391,14 @@ def get_kpis():
 
 @app.get("/api/municipios")
 def get_municipios():
-    return sorted(set(e.municipio for e in cache["empresas"]))
+    municipios_normalizados = set()
+    for empresa in cache["empresas"]:
+        municipio = str(getattr(empresa, "municipio", "") or "").strip()
+        if not municipio:
+            continue
+        municipios_normalizados.add(municipio.title())
+
+    return sorted(municipios_normalizados)
 
 
 @app.post("/api/refresh")
