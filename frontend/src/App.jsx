@@ -244,6 +244,24 @@ export default function App() {
   const [municipios, setMunicipios] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const sanitizedMunicipios = useMemo(() => {
+    const seen = new Set();
+    return municipios.reduce((acc, item) => {
+      const normalized = normalizeText(item);
+      const trimmed = normalized.trim();
+      if (trimmed === "" || trimmed === MUNICIPIO_ALL) {
+        return acc;
+      }
+      const key = trimmed.toLowerCase();
+      if (seen.has(key)) {
+        return acc;
+      }
+      seen.add(key);
+      acc.push(trimmed);
+      return acc;
+    }, []);
+  }, [municipios]);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -568,7 +586,7 @@ export default function App() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value={MUNICIPIO_ALL}>Todos</SelectItem>
-              {municipios.map((item) => (
+              {sanitizedMunicipios.map((item) => (
                 <SelectItem key={item} value={item}>
                   {item}
                 </SelectItem>
