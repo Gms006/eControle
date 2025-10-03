@@ -208,6 +208,22 @@ function InlineBadge({ children, className = "", variant = "solid", ...props }) 
   );
 }
 
+function CopyableIdentifier({ label, value, onCopy }) {
+  const displayValue = normalizeText(value) || "—";
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(displayValue, `${label} copiado: ${displayValue}`)}
+      className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+      title={`Copiar ${label}`}
+    >
+      <Clipboard className="h-3 w-3 opacity-70" aria-hidden="true" />
+      <span className="font-medium">{label}</span>
+      <span>{displayValue}</span>
+    </button>
+  );
+}
+
 function StatusBadge({ status }) {
   const style = STATUS_STYLES[status] || "bg-slate-100 text-slate-700 border-slate-200";
   return (
@@ -844,9 +860,26 @@ export default function App() {
                             <h3 className="text-base font-semibold leading-tight text-slate-800">
                               {empresa.empresa}
                             </h3>
-                            <p className="text-xs text-slate-500">
-                              CNPJ {empresa.cnpj} • {empresa.municipio}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                              <CopyableIdentifier
+                                label="CNPJ"
+                                value={empresa.cnpj}
+                                onCopy={handleCopy}
+                              />
+                              <span className="text-slate-300">•</span>
+                              <CopyableIdentifier
+                                label="IE"
+                                value={empresa.ie}
+                                onCopy={handleCopy}
+                              />
+                              <span className="text-slate-300">•</span>
+                              <CopyableIdentifier
+                                label="IM"
+                                value={empresa.im}
+                                onCopy={handleCopy}
+                              />
+                              <span className="text-slate-400">• {empresa.municipio}</span>
+                            </div>
                           </div>
                           <StatusBadge status={empresa.situacao || "Ativa"} />
                         </div>
