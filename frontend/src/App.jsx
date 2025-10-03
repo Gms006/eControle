@@ -158,6 +158,17 @@ const STATUS_STYLES = {
 
 const ALERT_STATUSES = new Set(["Vencido", "Vence≤30d", "Não pago"]);
 
+const normalizeProcessType = (proc) => {
+  const rawValue =
+    typeof proc === "string"
+      ? proc
+      : typeof proc?.tipo === "string"
+        ? proc.tipo
+        : undefined;
+  const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
+  return trimmed !== "" ? trimmed : "Sem tipo";
+};
+
 function InlineBadge({ children, className = "", variant = "solid", ...props }) {
   const base = "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium";
   const variants = {
@@ -281,15 +292,24 @@ export default function App() {
     return map;
   }, [taxas]);
 
+  const processosNormalizados = useMemo(
+    () =>
+      processos.map((proc) => ({
+        ...proc,
+        tipoNormalizado: normalizeProcessType(proc),
+      })),
+    [processos],
+  );
+
   const processosByEmpresa = useMemo(() => {
     const map = new Map();
-    processos.forEach((proc) => {
+    processosNormalizados.forEach((proc) => {
       const group = map.get(proc.empresa) || [];
       group.push(proc);
       map.set(proc.empresa, group);
     });
     return map;
-  }, [processos]);
+  }, [processosNormalizados]);
 
   const enqueueToast = useCallback((message) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -423,14 +443,14 @@ export default function App() {
 
   const processosTipos = useMemo(() => {
     const counts = new Map();
-    processos.forEach((proc) => {
-      const current = counts.get(proc.tipo) || 0;
-      counts.set(proc.tipo, current + 1);
+    processosNormalizados.forEach((proc) => {
+      const current = counts.get(proc.tipoNormalizado) || 0;
+      counts.set(proc.tipoNormalizado, current + 1);
     });
     const asArray = Array.from(counts.entries()).map(([tipo, count]) => ({ tipo, count }));
     asArray.sort((a, b) => a.tipo.localeCompare(b.tipo));
     return asArray;
-  }, [processos]);
+  }, [processosNormalizados]);
 
   useEffect(() => {
     if (
@@ -442,19 +462,19 @@ export default function App() {
   }, [processosTipos, selectedTipo]);
 
   const processosFiltrados = useMemo(() => {
-    const lista =
+    const listaBase =
       selectedTipo === PROCESS_ALL
-        ? processos
-        : processos.filter((proc) => proc.tipo === selectedTipo);
-    if (!modoFoco) return lista;
+        ? processosNormalizados
+        : processosNormalizados.filter((proc) => proc.tipoNormalizado === selectedTipo);
+    if (!modoFoco) return listaBase;
     const inativos = new Set(["CONCLUÍDO", "LICENCIADO", "Aprovado", "INDEFERIDO"]);
-    return lista.filter((proc) => !inativos.has(proc.status));
-  }, [modoFoco, processos, selectedTipo]);
+    return listaBase.filter((proc) => !inativos.has(proc.status));
+  }, [modoFoco, processosNormalizados, selectedTipo]);
 
   const processosAtivos = useMemo(() => {
     const inativos = new Set(["CONCLUÍDO", "LICENCIADO", "Aprovado", "INDEFERIDO"]);
-    return processos.filter((proc) => !inativos.has(proc.status));
-  }, [processos]);
+    return processosNormalizados.filter((proc) => !inativos.has(proc.status));
+  }, [processosNormalizados]);
 
   const selfTestResults = useMemo(
     () => [
@@ -964,7 +984,7 @@ export default function App() {
               className="inline-flex items-center gap-1"
             >
               <Filter className="h-3.5 w-3.5" /> Todos
-              <span className="text-xs">{processos.length}</span>
+              <span className="text-xs">{processosNormalizados.length}</span>
             </Button>
             {processosTipos.map(({ tipo, count }) => (
               <Button
@@ -989,14 +1009,14 @@ export default function App() {
                 <CardContent className="p-4 space-y-2">
                   <div className="flex items-start gap-3">
                     <div className="h-10 w-10 rounded-xl bg-white/80 grid place-items-center text-slate-600">
-                      {PROCESS_ICONS[proc.tipo] || <Settings className="h-4 w-4" />}
+                      {PROCESS_ICONS[proc.tipoNormalizado] || <Settings className="h-4 w-4" />}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2">
                         <h3 className="font-semibold text-slate-800 truncate">{proc.empresa}</h3>
                         <StatusBadge status={proc.status} />
                       </div>
-                      <p className="text-xs text-slate-500 truncate">{proc.tipo}</p>
+                      <p className="text-xs text-slate-500 truncate">{proc.tipoNormalizado}</p>
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
                         <span>Código: {proc.codigo}</span>
                         <span>Início: {proc.inicio}</span>
