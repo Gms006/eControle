@@ -41,6 +41,7 @@ import {
   CheckCircle2,
   Clipboard,
   ClipboardCheck,
+  Droplets,
   Clock,
   FileText,
   Filter,
@@ -55,6 +56,7 @@ import {
   ShieldAlert,
   Sparkles,
   TrendingUp,
+  Trees,
   Users,
   X,
 } from "lucide-react";
@@ -144,6 +146,20 @@ const PROCESS_ICONS = {
   "Alvará Sanitário": <BadgeAlert className="h-4 w-4" />,
 };
 
+const LIC_ICONS = {
+  Sanitária: <Droplets className="h-4 w-4" />,
+  CERCON: <Shield className="h-4 w-4" />,
+  "Uso do Solo": <MapPin className="h-4 w-4" />,
+  Ambiental: <Trees className="h-4 w-4" />,
+};
+
+const LIC_COLORS = {
+  Sanitária: "border-sky-500 text-sky-700",
+  CERCON: "border-indigo-500 text-indigo-700",
+  "Uso do Solo": "border-amber-500 text-amber-700",
+  Ambiental: "border-emerald-600 text-emerald-700",
+};
+
 const STATUS_STYLES = {
   Possui: "bg-emerald-100 text-emerald-700 border-emerald-200",
   Vencido: "bg-red-100 text-red-700 border-red-200",
@@ -178,6 +194,32 @@ const normalizeProcessType = (proc) => {
   return trimmed !== "" ? trimmed : "Sem tipo";
 };
 
+const normalizeIdentifier = (value) => {
+  const normalized = normalizeText(value).trim();
+  return normalized !== "" ? normalized : undefined;
+};
+
+const enhanceEmpresa = (empresa) => {
+  if (!empresa || typeof empresa !== "object") {
+    return empresa;
+  }
+  const ie =
+    normalizeIdentifier(empresa.ie) ||
+    normalizeIdentifier(empresa.inscricao_estadual) ||
+    normalizeIdentifier(empresa.inscricaoEstadual) ||
+    normalizeIdentifier(empresa["inscrição_estadual"]);
+  const im =
+    normalizeIdentifier(empresa.im) ||
+    normalizeIdentifier(empresa.inscricao_municipal) ||
+    normalizeIdentifier(empresa.inscricaoMunicipal) ||
+    normalizeIdentifier(empresa["inscrição_municipal"]);
+  return {
+    ...empresa,
+    ie,
+    im,
+  };
+};
+
 function InlineBadge({ children, className = "", variant = "solid", ...props }) {
   const base = "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium";
   const variants = {
@@ -189,6 +231,23 @@ function InlineBadge({ children, className = "", variant = "solid", ...props }) 
     <span className={`${base} ${variantClasses} ${className}`} {...props}>
       {children}
     </span>
+  );
+}
+
+function CopyableIdentifier({ label, value, onCopy }) {
+  const normalizedValue = normalizeIdentifier(value);
+  const displayValue = normalizedValue || "—";
+  return (
+    <button
+      type="button"
+      onClick={() => onCopy(normalizedValue, normalizedValue ? `${label} copiado: ${normalizedValue}` : undefined)}
+      className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+      title={`Copiar ${label}`}
+    >
+      <Clipboard className="h-3 w-3 opacity-70" aria-hidden="true" />
+      <span className="font-medium">{label}</span>
+      <span>{displayValue}</span>
+    </button>
   );
 }
 
@@ -232,6 +291,7 @@ export default function App() {
   const [soAlertas, setSoAlertas] = useState(false);
   const [modoFoco, setModoFoco] = useState(true);
   const [selectedTipo, setSelectedTipo] = useState(PROCESS_ALL);
+  const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
   const [toasts, setToasts] = useState([]);
 
   const toastTimeoutsRef = useRef(new Map());
@@ -243,6 +303,30 @@ export default function App() {
   const [kpis, setKpis] = useState({});
   const [municipios, setMunicipios] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  const tiposLicenca = useMemo(() => {
+    const seen = new Set();
+    return licencas.reduce((acc, lic) => {
+      const tipo = normalizeText(lic?.tipo).trim();
+      if (tipo === "" || seen.has(tipo)) {
+        return acc;
+      }
+      seen.add(tipo);
+      acc.push(tipo);
+      return acc;
+    }, []);
+  }, [licencas]);
+
+  useEffect(() => {
+    if (selectedLicTipo !== "Todos" && !tiposLicenca.includes(selectedLicTipo)) {
+      setSelectedLicTipo("Todos");
+    }
+  }, [selectedLicTipo, tiposLicenca]);
+
+  const tiposLicencaSelecionados = useMemo(
+    () => (selectedLicTipo === "Todos" ? tiposLicenca : [selectedLicTipo]),
+    [selectedLicTipo, tiposLicenca],
+  );
 
   const sanitizedMunicipios = useMemo(() => {
     const seen = new Set();
@@ -275,7 +359,10 @@ export default function App() {
     ])
       .then(([emp, lic, tax, proc, kpi, mun]) => {
         if (!mounted) return;
-        setEmpresas(Array.isArray(emp) ? emp : []);
+        const empresasNormalizadas = Array.isArray(emp)
+          ? emp.map((item) => enhanceEmpresa(item))
+          : [];
+        setEmpresas(empresasNormalizadas);
         setLicencas(Array.isArray(lic) ? lic : []);
         setTaxas(Array.isArray(tax) ? tax : []);
         setProcessos(Array.isArray(proc) ? proc : []);
@@ -408,6 +495,8 @@ export default function App() {
             empresa.municipio,
             empresa.categoria,
             empresa.email,
+            empresa.ie,
+            empresa.im,
           ]
             .filter(Boolean)
             .some((field) => normalizeTextLower(field).includes(normalizedQuery));
@@ -803,9 +892,26 @@ export default function App() {
                             <h3 className="text-base font-semibold leading-tight text-slate-800">
                               {empresa.empresa}
                             </h3>
-                            <p className="text-xs text-slate-500">
-                              CNPJ {empresa.cnpj} • {empresa.municipio}
-                            </p>
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                              <CopyableIdentifier
+                                label="CNPJ"
+                                value={empresa.cnpj}
+                                onCopy={handleCopy}
+                              />
+                              <span className="text-slate-300">•</span>
+                              <CopyableIdentifier
+                                label="IE"
+                                value={empresa.ie}
+                                onCopy={handleCopy}
+                              />
+                              <span className="text-slate-300">•</span>
+                              <CopyableIdentifier
+                                label="IM"
+                                value={empresa.im}
+                                onCopy={handleCopy}
+                              />
+                              <span className="text-slate-400">• {empresa.municipio}</span>
+                            </div>
                           </div>
                           <StatusBadge status={empresa.situacao || "Ativa"} />
                         </div>
@@ -902,61 +1008,136 @@ export default function App() {
           </div>
         </TabsContent>
 
-        <TabsContent value="licencas" className="mt-4 space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <InlineBadge variant="outline" className="bg-white">
-              Total: {licencaResumo.total}
-            </InlineBadge>
-            <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-              Ativas: {licencaResumo.ativas}
-            </InlineBadge>
-            <InlineBadge className="bg-amber-100 text-amber-700 border-amber-200">
-              Vencendo: {licencaResumo.vencendo}
-            </InlineBadge>
-            <InlineBadge className="bg-red-100 text-red-700 border-red-200">
-              Vencidas: {licencaResumo.vencidas}
-            </InlineBadge>
-            <InlineBadge className="bg-indigo-100 text-indigo-700 border-indigo-200">
-              Dispensa: {licencaResumo.dispensa}
-            </InlineBadge>
-            <InlineBadge className="bg-slate-200 text-slate-700 border-slate-300">
-              Sujeito: {licencaResumo.sujeito}
-            </InlineBadge>
+        <TabsContent value="licencas" className="mt-4">
+          <div className="grid md:grid-cols-2 gap-3 mb-3">
+            {tiposLicenca.map((tipo) => {
+              const items = licencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo);
+              const venc = items.filter((item) => item.status === "Vencido").length;
+              const soon = items.filter((item) => item.status === "Vence≤30d").length;
+              const subj = items.filter((item) => item.status === "Sujeito").length;
+              const disp = items.filter((item) => item.status === "Dispensa").length;
+              const poss = Math.max(items.length - venc - soon - subj - disp, 0);
+              const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
+              const colorClasses = LIC_COLORS[tipo] || "border-slate-400 text-slate-700";
+              return (
+                <Card key={tipo} className="shadow-sm">
+                  <CardContent className={`p-4 rounded-xl border-l-4 ${colorClasses}`}>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-xs text-slate-500">{tipo}</div>
+                        <div className="text-2xl font-semibold">{items.length}</div>
+                      </div>
+                      <div className="h-8 w-8 rounded-full bg-white/70 grid place-items-center text-slate-600">
+                        {icon}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
+                      <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                        Possui {poss}
+                      </InlineBadge>
+                      <InlineBadge className="bg-amber-100 text-amber-800 border-amber-200">
+                        ≤30d {soon}
+                      </InlineBadge>
+                      <InlineBadge className="bg-red-100 text-red-700 border-red-200">
+                        Vencido {venc}
+                      </InlineBadge>
+                      <InlineBadge className="bg-slate-200 text-slate-800 border-slate-300">
+                        Sujeito {subj}
+                      </InlineBadge>
+                      <InlineBadge className="bg-indigo-100 text-indigo-700 border-indigo-200">
+                        Dispensa {disp}
+                      </InlineBadge>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
-          <Card className="shadow-sm">
-            <CardContent className="p-0">
-              <ScrollArea className="h-[420px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Validade</TableHead>
-                      <TableHead>Observação</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {licencas
-                      .filter((lic) =>
-                        modoFoco ? ALERT_STATUSES.has(lic.status) || lic.status === "Sujeito" : true,
-                      )
-                      .map((lic, index) => (
-                        <TableRow key={`${lic.empresa}-${lic.tipo}-${index}`}>
-                          <TableCell className="font-medium">{lic.empresa}</TableCell>
-                          <TableCell>{lic.tipo}</TableCell>
-                          <TableCell>
-                            <StatusBadge status={lic.status} />
-                          </TableCell>
-                          <TableCell>{lic.validade}</TableCell>
-                          <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {["Todos", ...tiposLicenca].map((tipo) => {
+              const count =
+                tipo === "Todos"
+                  ? licencas.length
+                  : licencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo).length;
+              const icon = tipo === "Todos" ? null : LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
+              return (
+                <Button
+                  key={tipo}
+                  size="sm"
+                  variant={tipo === selectedLicTipo ? "default" : "secondary"}
+                  onClick={() => setSelectedLicTipo(tipo)}
+                  className="inline-flex items-center gap-1"
+                >
+                  {icon && <span className="opacity-80">{icon}</span>}
+                  {tipo}
+                  <span className="ml-1 text-xs opacity-70">{count}</span>
+                </Button>
+              );
+            })}
+          </div>
+
+          <div className="space-y-3">
+            {tiposLicencaSelecionados.length === 0 ? (
+              <Card className="shadow-sm">
+                <CardContent className="p-6 text-center text-sm text-slate-600">
+                  Nenhuma licença cadastrada no momento.
+                </CardContent>
+              </Card>
+            ) : (
+              tiposLicencaSelecionados.map((tipo) => {
+                const registros = licencas
+                  .filter((lic) => normalizeText(lic?.tipo).trim() === tipo)
+                  .filter((lic) =>
+                    modoFoco ? ALERT_STATUSES.has(lic.status) || lic.status === "Sujeito" : true,
+                  );
+                const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
+                return (
+                  <Card key={tipo} className="shadow-sm">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        <span className="opacity-80">{icon}</span>
+                        {tipo}
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <ScrollArea className="h-[260px]">
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead>Empresa</TableHead>
+                              <TableHead>Status</TableHead>
+                              <TableHead>Validade</TableHead>
+                              <TableHead>Observação</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {registros.map((lic, index) => (
+                              <TableRow key={`${lic.empresa}-${lic.tipo}-${index}`}>
+                                <TableCell className="font-medium">{lic.empresa}</TableCell>
+                                <TableCell>
+                                  <StatusBadge status={lic.status} />
+                                </TableCell>
+                                <TableCell>{lic.validade}</TableCell>
+                                <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
+                              </TableRow>
+                            ))}
+                            {registros.length === 0 && (
+                              <TableRow>
+                                <TableCell colSpan={4} className="text-sm text-slate-500">
+                                  Nenhum registro para este tipo.
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </TableBody>
+                        </Table>
+                      </ScrollArea>
+                    </CardContent>
+                  </Card>
+                );
+              })
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="taxas" className="mt-4">
