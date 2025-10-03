@@ -727,7 +727,9 @@ export default function App() {
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {empresa.debito?.toLowerCase() === "sim" && <StatusBadge status="Não pago" />}
+                          {normalizeTextLower(empresa.debito) === "sim" && (
+                            <StatusBadge status="Não pago" />
+                          )}
                           {empresa.certificado === "NÃO" && <StatusBadge status="NÃO" />}
                           {(licencasByEmpresa.get(empresa.empresa) || [])
                             .filter((lic) => ALERT_STATUSES.has(lic.status))
