@@ -158,6 +158,15 @@ const STATUS_STYLES = {
 
 const ALERT_STATUSES = new Set(["Vencido", "Vence≤30d", "Não pago"]);
 
+const normalizeText = (value) => {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return String(value);
+};
+
+const normalizeTextLower = (value) => normalizeText(value).toLowerCase();
+
 const normalizeProcessType = (proc) => {
   const rawValue =
     typeof proc === "string"
@@ -346,7 +355,9 @@ export default function App() {
   const companyHasAlert = useCallback(
     (empresa) => {
       if (!empresa) return false;
-      if (empresa.debito?.toLowerCase() === "sim" || empresa.certificado === "NÃO") {
+      const debitoLower = normalizeTextLower(empresa.debito);
+      const certificadoLower = normalizeTextLower(empresa.certificado);
+      if (debitoLower === "sim" || certificadoLower === "não") {
         return true;
       }
       const licList = licencasByEmpresa.get(empresa.empresa) || [];
@@ -368,7 +379,7 @@ export default function App() {
 
   const filterEmpresas = useCallback(
     (lista) => {
-      const normalizedQuery = query.trim().toLowerCase();
+      const normalizedQuery = normalizeTextLower(query).trim();
       return lista.filter((empresa) => {
         if (!empresa) return false;
         const matchesQuery =
@@ -381,7 +392,7 @@ export default function App() {
             empresa.email,
           ]
             .filter(Boolean)
-            .some((field) => field.toLowerCase().includes(normalizedQuery));
+            .some((field) => normalizeTextLower(field).includes(normalizedQuery));
         const matchesMunicipio = !municipio || empresa.municipio === municipio;
         const matchesAlert = !soAlertas || companyHasAlert(empresa);
         return matchesQuery && matchesMunicipio && matchesAlert;
