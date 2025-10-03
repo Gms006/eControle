@@ -1,158 +1,171 @@
-# Configuração do eControle - Mapeamentos e aliases
-
-# Nomes das abas no Excel (case-insensitive)
 sheet_names:
   empresas: "EMPRESAS"
   licencas: "LICENÇAS"
   taxas: "TAXAS"
-  processos_diversos: "Diversos"
-  processos_funcionamento: "Alvará de Funcionamento"
-  processos_bombeiros: "Bombeiros"
-  processos_uso_solo: "Uso do Solo"
-  processos_ambiental: "Licença Ambiental"
-  processos_sanitario: "Alvará Sanitário"
-  contatos: "Úteis"
-  modelos: "Úteis"
+  processos: "PROCESSOS"   # ÚNICA ABA de Processos
+  uteis: "CONTATOS E MODELOS"
 
-# Aliases de cabeçalhos (mapeamento flexível case-insensitive)
-# Formato: nome_canônico: [lista, de, variações, possíveis]
-column_aliases:
-  empresas:
-    ID: ["ID", "id", "Id"]
-    EMPRESA: ["EMPRESA", "Empresa", "empresa", "RAZÃO SOCIAL", "Razão Social"]
-    CNPJ: ["CNPJ", "cnpj"]
-    PORTE: ["PORTE", "Porte", "porte"]
-    MUNICIPIO: ["MUNICÍPIO", "Município", "municipio"]
-    STATUS_EMPRESAS: ["status_empresas", "Status Empresas", "STATUS"]
-    CATEGORIA: ["CATEGORIA", "Categoria", "categoria"]
-    IE: ["INSCRIÇÃO ESTADUAL", "IE", "Inscrição Estadual", "ie"]
-    IM: ["INSCRIÇÃO MUNICIPAL", "IM", "Inscrição Municipal", "im"]
-    SITUACAO: ["SITUAÇÃO", "Situação", "situacao"]
-    DEBITO: ["DÉBITO PREFEITURA", "Débito Prefeitura", "DEBITO"]
-    CERTIFICADO: ["CERTIFICADO DIGITAL", "Certificado Digital", "CERTIFICADO"]
-    OBS: ["OBS", "Obs", "obs", "OBSERVAÇÕES"]
-    PROPRIETARIO: ["PROPRIETÁRIO PRINCIPAL", "Proprietário Principal", "PROPRIETARIO"]
-    CPF: ["CPF", "cpf"]
-    TELEFONE: ["TELEFONE", "Telefone", "telefone"]
-    EMAIL: ["E-MAIL", "E-mail", "email", "EMAIL"]
-    RESPONSAVEL: ["RESPONSÁVEL FISCAL", "Responsável Fiscal", "RESPONSAVEL"]
-    UPDATED_AT: ["UPDATED_AT", "updated_at", "Data Atualização"]
-
-  licencas:
-    ID: ["ID", "id"]
-    EMPRESA: ["EMPRESA", "Empresa"]
-    CNPJ: ["CNPJ", "cnpj"]
-    MUNICIPIO: ["MUNICÍPIO", "Município"]
-    SANITARIA: ["ALVARÁ VIG SANITÁRIA", "SANITÁRIA", "Sanitária"]
-    CERCON: ["CERCON", "Cercon"]
-    FUNCIONAMENTO: ["ALVARÁ FUNCIONAMENTO", "FUNCIONAMENTO", "Funcionamento"]
-    AMBIENTAL: ["LICENÇA AMBIENTAL", "AMBIENTAL", "Ambiental"]
-    USO_SOLO: ["CERTIDÃO USO DO SOLO", "USO DO SOLO", "Uso do Solo"]
-
-  taxas:
-    ID: ["ID", "id"]
-    EMPRESA: ["EMPRESA", "Empresa"]
-    CNPJ: ["CNPJ", "cnpj"]
-    DATA_ENVIO: ["DATA ENVIO", "Data Envio"]
-    FUNCIONAMENTO: ["TAXA FUNCIONAMENTO", "FUNCIONAMENTO"]
-    PUBLICIDADE: ["PUBLICIDADE", "Publicidade"]
-    SANITARIA: ["VIG SANITÁRIA", "SANITÁRIA"]
-    LOCALIZACAO: ["LOCALIZ INSTALAÇÃO", "LOCALIZAÇÃO"]
-    OCUPACAO: ["OCUP ÁREA PÚBLICA", "OCUPAÇÃO"]
-    BOMBEIROS: ["BOMBEIROS", "Bombeiros"]
-    TPI: ["TPI", "tpi"]
-    STATUS_TAXAS: ["status_taxas", "Status Taxas"]
-
-  processos_comum:
-    ID: ["ID", "id"]
-    EMPRESA: ["EMPRESA", "Empresa"]
-    CNPJ: ["CNPJ", "cnpj"]
-    PROTOCOLO: ["PROTOCOLO", "Protocolo"]
-    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "Data Solicitação"]
-    SITUACAO: ["SITUAÇÃO", "Situação"]
-    OBS: ["OBS", "Obs"]
-
-# Status padronizados (para validação)
-status_licencas:
-  - "Sujeito"
-  - "Possui"
-  - "Vencido"
-  - "Vence≤30d"
-  - "Dispensa"
-  - "*"
-  - "NÃO"
-
-status_taxas:
-  - "Pago"
-  - "Não pago"
-  - "Em Aberto"
-  - "Vencido"
-  - "*"
-
-status_processos:
-  - "AGUARD DOCTO"
-  - "AGUARD PAGTO"
-  - "EM ANÁLISE"
-  - "PENDENTE"
-  - "INDEFERIDO"
-  - "CONCLUÍDO"
-  - "LICENCIADO"
-  - "NOTIFICAÇÃO"
-  - "AGUARD VISTORIA"
-  - "AGUARD REGULARIZAÇÃO"
-  - "AGUARD LIBERAÇÃO"
-  - "IR NA VISA"
-  - "Aguardando cliente"
-  - "Em análise"
-  - "Aprovado"
-  - "Vencido"
-  - "Pendente Documentação"
-
-# Cores por status (para UI)
-status_colors:
-  licencas:
-    "Possui": "🟢"
-    "Vence≤30d": "🟡"
-    "Vencido": "🔴"
-    "Sujeito": "⚪"
-    "Dispensa": "🔵"
-    "*": "⚪"
-    "NÃO": "🔴"
-  
-  taxas:
-    "Pago": "🟢"
-    "Não pago": "🔴"
-    "Em Aberto": "🔴"
-    "Vencido": "🔴"
-    "*": "⚪"
-  
+# Nomes das Tabelas (ListObjects) dentro da aba PROCESSOS
+# — estas strings devem bater exatamente com os nomes dos ListObjects no Excel
+table_names:
   processos:
-    "CONCLUÍDO": "🟢"
-    "LICENCIADO": "🟢"
-    "Aprovado": "🟢"
-    "EM ANÁLISE": "🔵"
-    "Em análise": "🔵"
-    "AGUARD DOCTO": "🟡"
-    "Aguardando cliente": "🟡"
-    "PENDENTE": "🟡"
-    "Pendente Documentação": "🟡"
-    "INDEFERIDO": "🔴"
-    "Vencido": "🔴"
+    diversos: "Diversos"
+    funcionamento: "Funcionamento"
+    bombeiros: "Bombeiros"
+    uso_solo: "UsoDoSolo"
+    sanitario: "Sanitario"
+    ambiental: "Ambiental"
 
-# Ícones por tipo de processo
-process_icons:
-  "Diversos": "⚙️"
-  "Alvará de Funcionamento": "📋"
-  "Bombeiros": "🛡️"
-  "Licença Ambiental": "🌳"
-  "Uso do Solo": "📍"
-  "Alvará Sanitário": "💧"
+  uteis:
+    contatos: "Contatos"
+    modelos: "Modelos"
 
-# UI - Temas por aba
-tab_themes:
-  painel: "#f0f9ff"      # sky-50
-  empresas: "#eef2ff"    # indigo-50
-  licencas: "#ecfdf5"    # emerald-50
-  taxas: "#fffbeb"       # amber-50
-  processos: "#f5f3ff"   # violet-50
-  uteis: "#f8fafc"       # slate-50
+column_aliases:
+
+  empresas:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL", "RAZAO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    PORTE: ["PORTE"]
+    MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
+    CATEGORIA: ["CATEGORIA", "ATIVIDADE", "RAMO"]
+    IE: ["IE", "INSCRIÇÃO ESTADUAL", "INSCRICAO ESTADUAL"]
+    IM: ["IM", "INSCRIÇÃO MUNICIPAL", "INSCRICAO MUNICIPAL"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
+    DEBITO_PREFEITURA: ["DÉBITO PREFEITURA", "DEBITO PREFEITURA", "DÉBITOS PREFEITURA", "DEBITOS PREFEITURA"]
+    CERTIFICADO_DIGITAL: ["CERTIFICADO DIGITAL", "CERTIFICADO", "CERT DIGITAL"]
+    OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES", "OBSERVAÇÕES"]
+    PROPRIETARIO_PRINCIPAL: ["PROPRIETÁRIO PRINCIPAL", "PROPRIETARIO PRINCIPAL", "SÓCIO PRINCIPAL", "SOCIO PRINCIPAL"]
+    CPF: ["CPF", "CPF PROPRIETÁRIO", "CPF PROPRIETARIO"]
+    TELEFONE: ["TELEFONE", "FONE", "CELULAR", "WHATSAPP"]
+    E_MAIL: ["E-MAIL", "EMAIL", "E MAIL"]
+    RESPONSAVEL_FISCAL: ["RESPONSÁVEL FISCAL", "RESPONSAVEL FISCAL", "CONTADOR RESPONSÁVEL", "CONTADOR RESPONSAVEL"]
+
+  licencas:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL", "RAZAO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
+
+    SANITARIA_STATUS: ["ALVARÁ VIG SANITÁRIA", "ALVARA VIG SANITARIA", "ALVARÁ SANITÁRIO", "ALVARA SANITARIO", "SANITÁRIA", "SANITARIA"]
+    SANITARIA_VAL: ["VALIDADE SANITÁRIA", "VALIDADE SANITARIA", "VAL SANITÁRIA", "VAL SANITARIA", "VEN SANITÁRIA", "VEN SANITARIA"]
+
+    FUNCIONAMENTO_STATUS: ["ALVARÁ FUNCIONAMENTO", "ALVARA FUNCIONAMENTO", "FUNCIONAMENTO", "ALVARÁ DE FUNCIONAMENTO"]
+    FUNCIONAMENTO_VAL: ["VALIDADE FUNCIONAMENTO", "VAL FUNCIONAMENTO", "VEN FUNCIONAMENTO"]
+
+    AMBIENTAL_STATUS: ["LICENÇA AMBIENTAL", "LICENCA AMBIENTAL", "AMBIENTAL"]
+    AMBIENTAL_VAL: ["VALIDADE AMBIENTAL", "VAL AMBIENTAL", "VEN AMBIENTAL"]
+
+    USO_SOLO_STATUS: ["CERTIDÃO USO DO SOLO", "CERTIDAO USO DO SOLO", "USO DO SOLO", "CERT. USO DO SOLO", "C.U.SOLO"]
+    USO_SOLO_VAL: ["VALIDADE USO DO SOLO", "VAL USO DO SOLO", "VEN USO DO SOLO"]
+
+    CERCON_STATUS: ["CERCON", "CERTIFICADO REGULARIDADE CONTRA INCÊNDIO", "CERTIFICADO REGULARIDADE CONTRA INCENDIO", "CERTIFICADO BOMBEIROS", "CERT. BOMBEIROS", "CBMGO"]
+    CERCON_VAL: ["VALIDADE CERCON", "VAL CERCON", "VALIDADE BOMBEIROS", "VAL BOMBEIROS", "VEN CERCON", "VEN BOMBEIROS"]
+
+    OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES", "OBSERVAÇÕES"]
+
+  taxas:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL", "RAZAO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
+
+    TPI: ["TPI", "SICABOM (TPI)", "TAXA POTENCIAL INCÊNDIO", "TAXA POTENCIAL INCENDIO", "TAXA DOS BOMBEIROS", "BOMBEIROS (TPI)"]
+    FUNCIONAMENTO: ["FUNCIONAMENTO", "TAXA DE FUNCIONAMENTO", "ALVARÁ FUNCIONAMENTO", "ALVARA FUNCIONAMENTO"]
+    PUBLICIDADE: ["PUBLICIDADE", "TAXA DE PUBLICIDADE", "TAXA PUBLICIDADE", "ANÚNCIO", "ANUNCIO"]
+    SANITARIA: ["SANITÁRIA", "SANITARIA", "VIGILÂNCIA SANITÁRIA", "VIGILANCIA SANITARIA", "VISA"]
+    OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES", "OBSERVAÇÕES"]
+
+  # Aliases de colunas para cada Tabela (ListObject) dentro de PROCESSOS.
+  # Colunas COMUNS a todos os tipos de processo
+  processos_diversos:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL", "RAZAO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
+    PROTOCOLO: ["PROTOCOLO", "Nº PROTOCOLO", "NUMERO PROTOCOLO", "N PROTOCOLO"]
+    TIPO: ["TIPO", "TIPO DE PROCESSO", "CLASSE", "DIVERSOS"]
+    ASSUNTO: ["ASSUNTO", "DESCRIÇÃO", "DESCRICAO"]
+    ORGAO: ["ÓRGÃO", "ORGAO", "SECRETARIA"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO", "SOLICITAÇÃO", "SOLICITACAO", "ABERTURA", "DATA ABERTURA"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
+    PRAZO: ["PRAZO", "DATA LIMITE", "DEADLINE"]
+    OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES", "OBSERVAÇÕES"]
+    # Campos específicos de Diversos
+    OPERACAO: ["OPERAÇÃO", "OPERACAO", "TIPO OPERAÇÃO", "TIPO OPERACAO"]
+
+  processos_funcionamento:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL", "RAZAO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    PROTOCOLO: ["PROTOCOLO", "Nº PROTOCOLO", "NUMERO PROTOCOLO"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO", "SOLICITAÇÃO", "SOLICITACAO"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
+    PRAZO: ["PRAZO", "DATA LIMITE"]
+    OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES"]
+    # Campos específicos de Funcionamento
+    ALVARA: ["ALVARÁ", "ALVARA", "TIPO ALVARÁ", "TIPO ALVARA"]
+    MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
+
+  processos_bombeiros:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL", "RAZAO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    PROTOCOLO: ["PROTOCOLO", "Nº PROTOCOLO"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
+    PRAZO: ["PRAZO"]
+    OBS: ["OBS", "OBSERVAÇÃO"]
+    # Campos específicos de Bombeiros
+    TPI: ["TPI", "TAXA POTENCIAL INCÊNDIO", "TAXA POTENCIAL INCENDIO"]
+
+  processos_uso_solo:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    PROTOCOLO: ["PROTOCOLO"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO"]
+    PRAZO: ["PRAZO"]
+    OBS: ["OBS"]
+    # Campos específicos de Uso do Solo
+    INSCRICAO_IMOBILIARIA: ["INSCRIÇÃO IMOBILIÁRIA", "INSCRICAO IMOBILIARIA", "INSC IMOBILIÁRIA", "INSC IMOBILIARIA"]
+
+  processos_sanitario:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    PROTOCOLO: ["PROTOCOLO"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO"]
+    PRAZO: ["PRAZO"]
+    OBS: ["OBS"]
+    # Campos específicos de Sanitário
+    SERVICO: ["SERVIÇO", "SERVICO", "TIPO SERVIÇO", "TIPO SERVICO"]
+    TAXA: ["TAXA", "SITUAÇÃO TAXA", "SITUACAO TAXA"]
+    NOTIFICACAO: ["NOTIFICAÇÃO", "NOTIFICACAO", "STATUS NOTIFICAÇÃO", "STATUS NOTIFICACAO"]
+    DATA_VAL: ["DATA VAL", "DATA VALIDADE", "VALIDADE"]
+
+  processos_ambiental:
+    ID: ["ID"]
+    EMPRESA: ["EMPRESA", "RAZÃO SOCIAL"]
+    CNPJ: ["CNPJ"]
+    PROTOCOLO: ["PROTOCOLO"]
+    DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO"]
+    PRAZO: ["PRAZO"]
+    OBS: ["OBS"]
+    # Ambiental não tem campos específicos adicionais segundo o dicionário
+
+  uteis_contatos:
+    CONTATO: ["CONTATO"]
+    MUNICIPIO: ["MUNICÍPIO"]
+    TELEFONE: ["TELEFONE"]
+    WHATSAPP: ["WHATSAPP"]
+    E_MAIL: ["E-MAIL"]
+    CATEGORIA: ["CATEGORIA"]
+  
+  uteis_modelos:
+    MODELO: ["MODELO"]
+    DESCRICAO: ["DESCRIÇÃO"]
+    UTILIZACAO: ["UTILIZAÇÃO"]
