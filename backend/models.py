@@ -91,6 +91,7 @@ class Processo:
     protocolo: str
     data_solicitacao: str
     situacao: str
+    status_padrao: Optional[str] = None
     obs: str = ""
     prazo: Optional[str] = None
     # Campos específicos por tipo (opcionais)
@@ -106,9 +107,14 @@ class Processo:
     data_val: Optional[str] = None  # Sanitário
 
     @property
+    def status_display(self) -> str:
+        """Status padronizado para exibição."""
+        return (self.status_padrao or self.situacao or "").strip()
+
+    @property
     def status_cor(self) -> str:
         """Retorna emoji de cor baseado no status"""
-        status_lower = self.situacao.lower()
+        status_lower = self.status_display.lower()
         if "concluído" in status_lower or "aprovado" in status_lower or "licenciado" in status_lower:
             return "🟢"
         if "vencido" in status_lower or "indeferido" in status_lower:
@@ -173,9 +179,11 @@ class TaxaRaw:
     funcionamento: str = "*"
     publicidade: str = "*"
     sanitaria: str = "*"
-    localizacao: str = "*"
-    ocupacao: str = "*"
-    bombeiros: str = "*"
+    localizacao_instalacao: str = "*"
+    area_publica: str = "*"
+    localizacao: str = "*"  # compatibilidade retroativa
+    ocupacao: str = "*"  # compatibilidade retroativa
+    bombeiros: str = "*"  # compatibilidade retroativa
     tpi: str = "*"
     status_taxas: str = "Regular"
     obs: str = ""
