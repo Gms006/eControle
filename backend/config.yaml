@@ -93,8 +93,10 @@ column_aliases:
     SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
     PRAZO: ["PRAZO", "DATA LIMITE", "DEADLINE"]
     OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES", "OBSERVAÇÕES"]
+    STATUS_PADRAO: ["status_procDiversos"]
     # Campos específicos de Diversos
     OPERACAO: ["OPERAÇÃO", "OPERACAO", "TIPO OPERAÇÃO", "TIPO OPERACAO"]
+    
 
   processos_funcionamento:
     ID: ["ID"]
@@ -105,6 +107,7 @@ column_aliases:
     SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
     PRAZO: ["PRAZO", "DATA LIMITE"]
     OBS: ["OBS", "OBSERVAÇÃO", "OBSERVACOES"]
+    STATUS_PADRAO: ["status_procFunc"]
     # Campos específicos de Funcionamento
     ALVARA: ["ALVARÁ", "ALVARA", "TIPO ALVARÁ", "TIPO ALVARA"]
     MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
@@ -118,6 +121,7 @@ column_aliases:
     SITUACAO: ["SITUAÇÃO", "SITUACAO", "STATUS"]
     PRAZO: ["PRAZO"]
     OBS: ["OBS", "OBSERVAÇÃO"]
+    STATUS_PADRAO: ["status_procCercon"]
     # Campos específicos de Bombeiros
     TPI: ["TPI", "TAXA POTENCIAL INCÊNDIO", "TAXA POTENCIAL INCENDIO"]
 
@@ -130,6 +134,7 @@ column_aliases:
     SITUACAO: ["SITUAÇÃO", "SITUACAO"]
     PRAZO: ["PRAZO"]
     OBS: ["OBS"]
+    STATUS_PADRAO: ["status_procUsoSolo"]
     # Campos específicos de Uso do Solo
     INSCRICAO_IMOBILIARIA: ["INSCRIÇÃO IMOBILIÁRIA", "INSCRICAO IMOBILIARIA", "INSC IMOBILIÁRIA", "INSC IMOBILIARIA"]
 
@@ -142,6 +147,7 @@ column_aliases:
     SITUACAO: ["SITUAÇÃO", "SITUACAO"]
     PRAZO: ["PRAZO"]
     OBS: ["OBS"]
+    STATUS_PADRAO: ["status_procSanitario"]
     # Campos específicos de Sanitário
     SERVICO: ["SERVIÇO", "SERVICO", "TIPO SERVIÇO", "TIPO SERVICO"]
     TAXA: ["TAXA", "SITUAÇÃO TAXA", "SITUACAO TAXA"]
@@ -157,6 +163,7 @@ column_aliases:
     SITUACAO: ["SITUAÇÃO", "SITUACAO"]
     PRAZO: ["PRAZO"]
     OBS: ["OBS"]
+    STATUS_PADRAO: ["status_procAmbiental"]
     # Ambiental não tem campos específicos adicionais segundo o dicionário
 
   uteis_contatos:
