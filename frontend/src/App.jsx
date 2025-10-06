@@ -137,6 +137,15 @@ const TAB_BACKGROUNDS = {
   uteis: "bg-slate-50",
 };
 
+const TAB_SHORTCUTS = {
+  1: "painel",
+  2: "empresas",
+  3: "licencas",
+  4: "taxas",
+  5: "processos",
+  6: "uteis",
+};
+
 const PROCESS_ICONS = {
   Diversos: <Settings className="h-4 w-4" />, // fallback genérico
   "Alvará de Funcionamento": <ClipboardCheck className="h-4 w-4" />,
@@ -235,12 +244,12 @@ const isProcessStatusInactive = (status) => {
 };
 
 const STATUS_VARIANT_CLASSES = {
-  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  warning: "bg-amber-100 text-amber-800 border-amber-200",
-  danger: "bg-red-100 text-red-700 border-red-200",
-  info: "bg-sky-100 text-sky-700 border-sky-200",
-  neutral: "bg-slate-100 text-slate-700 border-slate-200",
-  muted: "bg-slate-200 text-slate-700 border-slate-300",
+  success: "bg-emerald-500 text-white border-emerald-500",
+  warning: "bg-amber-500 text-white border-amber-500",
+  danger: "bg-red-500 text-white border-red-500",
+  info: "bg-sky-500 text-white border-sky-500",
+  neutral: "bg-slate-500 text-white border-slate-500",
+  muted: "bg-slate-400 text-white border-slate-400",
   plain: "bg-transparent border-transparent text-slate-500",
 };
 
@@ -251,55 +260,55 @@ const resolveStatusClass = (status) => {
   }
 
   if (key === "/") {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
   }
 
   if (key.includes("possui")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key.includes("pago") && !key.includes("nao")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key.includes("em aberto") || key.includes("emaberto") || key.includes("nao pago")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
   if (key.includes("sujeit")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
   if (key.includes("vencid") || key.includes("vence")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
   }
 
   if (key === "nao" || key.includes("nao possui") || key.includes("nao tem")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.muted };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
   }
 
   if (key.includes("indefer") || key.includes("negad")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
   if (key.includes("em andament") || key.includes("aguard")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
   }
 
   if (key.includes("pend")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.neutral };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
   }
 
   if (key.includes("conclu") || key.includes("aprov") || key.includes("licenc") || key.includes("defer") || key.includes("emit")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key.includes("nao se aplica") || key.includes("n/a")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.info };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
   }
 
   if (key.includes("dispens") || key.includes("orient") || key.includes("inform") || key.includes("consult")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.info };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
   }
 
   if (
@@ -310,14 +319,14 @@ const resolveStatusClass = (status) => {
     key.includes("em dia") ||
     key === "sim"
   ) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
-    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
-  return { variant: "outline", className: STATUS_VARIANT_CLASSES.neutral };
+  return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
 };
 
 const normalizeText = (value) => {
@@ -458,6 +467,44 @@ export default function App() {
   const [contatos, setContatos] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+    const handleKeyDown = (event) => {
+      if (!event.altKey || event.ctrlKey || event.metaKey) {
+        return;
+      }
+      const activeElement = event.target;
+      const isHtmlElement = typeof HTMLElement !== 'undefined' && activeElement instanceof HTMLElement;
+      if (isHtmlElement) {
+        const tag = activeElement.tagName;
+        const isFormField =
+          tag === 'INPUT' ||
+          tag === 'TEXTAREA' ||
+          activeElement.isContentEditable ||
+          activeElement.getAttribute('role') === 'combobox';
+        if (isFormField) {
+          return;
+        }
+      }
+      const shortcutValue = TAB_SHORTCUTS[event.key];
+      if (!shortcutValue) {
+        return;
+      }
+      event.preventDefault();
+      setTab(shortcutValue);
+      if (typeof document !== 'undefined') {
+        const trigger = document.querySelector(`[data-tab-target="${shortcutValue}"]`);
+        if (trigger && typeof trigger.focus === 'function') {
+          trigger.focus();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setTab]);
 
   const tiposLicenca = useMemo(() => {
     const seen = new Set();
@@ -918,22 +965,22 @@ export default function App() {
 
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="painel">
+          <TabsTrigger value="painel" data-tab-target="painel" title="Alt+1">
             <TrendingUp className="h-4 w-4 mr-2" /> Painel
           </TabsTrigger>
-          <TabsTrigger value="empresas">
+          <TabsTrigger value="empresas" data-tab-target="empresas" title="Alt+2">
             <Building2 className="h-4 w-4 mr-2" /> Empresas
           </TabsTrigger>
-          <TabsTrigger value="licencas">
+          <TabsTrigger value="licencas" data-tab-target="licencas" title="Alt+3">
             <FileText className="h-4 w-4 mr-2" /> Licenças
           </TabsTrigger>
-          <TabsTrigger value="taxas">
+          <TabsTrigger value="taxas" data-tab-target="taxas" title="Alt+4">
             <Clock className="h-4 w-4 mr-2" /> Taxas
           </TabsTrigger>
-          <TabsTrigger value="processos">
+          <TabsTrigger value="processos" data-tab-target="processos" title="Alt+5">
             <CheckCircle2 className="h-4 w-4 mr-2" /> Processos
           </TabsTrigger>
-          <TabsTrigger value="uteis">
+          <TabsTrigger value="uteis" data-tab-target="uteis" title="Alt+6">
             <MessageSquare className="h-4 w-4 mr-2" /> Úteis
           </TabsTrigger>
         </TabsList>
