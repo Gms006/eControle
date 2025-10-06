@@ -803,39 +803,34 @@ export default function App() {
     [matchesMunicipioFilter, matchesQuery, processosNormalizados],
   );
 
-  const filteredContatos = useMemo(
-    () =>
-      contatos.filter(
-        (contato) =>
-          matchesMunicipioFilter(contato) &&
-          matchesQuery([
-            contato.contato,
-            contato.categoria,
-            contato.municipio,
-            contato.email,
-            contato.telefone,
-            contato.whatsapp,
-          ]),
-      ),
-    [contatos, matchesMunicipioFilter, matchesQuery],
-  );
+  const filteredContatos = useMemo(() => {
+    const lista = Array.isArray(contatos) ? contatos : [];
+    return lista.filter(
+      (contato) =>
+        matchesMunicipioFilter(contato) &&
+        matchesQuery([
+          contato?.contato,
+          contato?.categoria,
+          contato?.municipio,
+          contato?.email,
+          contato?.telefone,
+          contato?.whatsapp,
+        ]),
+    );
+  }, [contatos, matchesMunicipioFilter, matchesQuery]);
 
-  const filteredModelos = useMemo(
-    () =>
-      modelos.filter(
-        (modelo) =>
-          matchesMunicipioFilter(modelo) &&
-          matchesQuery([
-            modelo.descricao,
-            modelo.utilizacao,
-            modelo.modelo,
-          ]),
-      ),
-    [matchesMunicipioFilter, matchesQuery, modelos],
-  );
+  const filteredModelos = useMemo(() => {
+    const lista = Array.isArray(modelos) ? modelos : [];
+    return lista.filter(
+      (modelo) =>
+        matchesMunicipioFilter(modelo) &&
+        matchesQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
+    );
+  }, [matchesMunicipioFilter, matchesQuery, modelos]);
 
   const contatosOrdenados = useMemo(() => {
-    return [...filteredContatos]
+    const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
+    return [...lista]
       .filter((item) => item && (item.contato || item.email || item.telefone))
       .sort((a, b) => {
         const catA = normalizeText(a?.categoria || "");
@@ -850,7 +845,8 @@ export default function App() {
   }, [filteredContatos]);
 
   const modelosOrdenados = useMemo(() => {
-    return [...filteredModelos]
+    const lista = Array.isArray(filteredModelos) ? filteredModelos : [];
+    return [...lista]
       .filter((item) => item && (item.modelo || item.descricao))
       .sort((a, b) => {
         const usoA = normalizeText(a?.utilizacao || "");
