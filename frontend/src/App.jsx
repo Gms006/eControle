@@ -149,6 +149,7 @@ const PROCESS_ICONS = {
 const LIC_ICONS = {
   Sanitária: <Droplets className="h-4 w-4" />,
   CERCON: <Shield className="h-4 w-4" />,
+  Funcionamento: <Building2 className="h-4 w-4" />,
   "Uso do Solo": <MapPin className="h-4 w-4" />,
   Ambiental: <Trees className="h-4 w-4" />,
 };
@@ -156,9 +157,12 @@ const LIC_ICONS = {
 const LIC_COLORS = {
   Sanitária: "border-sky-500 text-sky-700",
   CERCON: "border-indigo-500 text-indigo-700",
+  Funcionamento: "border-blue-500 text-blue-700",
   "Uso do Solo": "border-amber-500 text-amber-700",
   Ambiental: "border-emerald-600 text-emerald-700",
 };
+
+const DEFAULT_LICENCA_TIPOS = ["Sanitária", "CERCON", "Funcionamento", "Uso do Solo", "Ambiental"];
 
 const removeDiacritics = (value) => {
   if (typeof value !== "string") return "";
@@ -236,69 +240,84 @@ const STATUS_VARIANT_CLASSES = {
   danger: "bg-red-100 text-red-700 border-red-200",
   info: "bg-sky-100 text-sky-700 border-sky-200",
   neutral: "bg-slate-100 text-slate-700 border-slate-200",
+  muted: "bg-slate-200 text-slate-700 border-slate-300",
+  plain: "bg-transparent border-transparent text-slate-500",
 };
 
 const resolveStatusClass = (status) => {
   const key = getStatusKey(status);
   if (!key || key === "*" || key === "-" || key === "—") {
-    return STATUS_VARIANT_CLASSES.neutral;
+    return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
   }
+
+  if (key === "/") {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key.includes("possui")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("pago") && !key.includes("nao")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("em aberto") || key.includes("emaberto") || key.includes("nao pago")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("sujeit")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("vencid") || key.includes("vence")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key === "nao" || key.includes("nao possui") || key.includes("nao tem")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.muted };
+  }
+
+  if (key.includes("indefer") || key.includes("negad")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("em andament") || key.includes("aguard")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key.includes("pend")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.neutral };
+  }
+
+  if (key.includes("conclu") || key.includes("aprov") || key.includes("licenc") || key.includes("defer") || key.includes("emit")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
   if (key.includes("nao se aplica") || key.includes("n/a")) {
-    return STATUS_VARIANT_CLASSES.info;
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.info };
   }
-  if (
-    key.startsWith("nao ") ||
-    key === "nao" ||
-    key.includes("nao pago") ||
-    key.includes("inadimpl") ||
-    key.includes("negad") ||
-    key.includes("indefer") ||
-    key.includes("vencid") ||
-    key.includes("irregular") ||
-    key.includes("suspens") ||
-    key.includes("cancel") ||
-    key.includes("bloque")
-  ) {
-    return STATUS_VARIANT_CLASSES.danger;
+
+  if (key.includes("dispens") || key.includes("orient") || key.includes("inform") || key.includes("consult")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.info };
   }
+
   if (
-    key.includes("vence") ||
-    key.includes("pend") ||
-    key.includes("aguard") ||
-    key.includes("andament") ||
-    key.includes("analise") ||
-    key.includes("abert") ||
-    key.includes("tram") ||
-    key.includes("atraso")
-  ) {
-    return STATUS_VARIANT_CLASSES.warning;
-  }
-  if (
-    key.includes("dispens") ||
-    key.includes("sujeit") ||
-    key.includes("orient") ||
-    key.includes("inform") ||
-    key.includes("consult")
-  ) {
-    return STATUS_VARIANT_CLASSES.info;
-  }
-  if (
-    key.includes("conclu") ||
-    key.includes("aprov") ||
-    key.includes("licenc") ||
-    key.includes("defer") ||
-    key.includes("emit") ||
-    key.includes("vigent") ||
-    key.includes("pago") ||
     key.includes("regular") ||
     key.includes("quit") ||
-    key.includes("possui") ||
+    key.includes("vigent") ||
     key.includes("ativo") ||
+    key.includes("em dia") ||
     key === "sim"
   ) {
-    return STATUS_VARIANT_CLASSES.success;
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
   }
-  return STATUS_VARIANT_CLASSES.neutral;
+
+  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  return { variant: "outline", className: STATUS_VARIANT_CLASSES.neutral };
 };
 
 const normalizeText = (value) => {
@@ -355,6 +374,7 @@ function InlineBadge({ children, className = "", variant = "solid", ...props }) 
   const variants = {
     solid: "bg-slate-100 border-transparent text-slate-700",
     outline: "bg-white border-slate-200 text-slate-600",
+    plain: "bg-transparent border-transparent text-slate-500",
   };
   const variantClasses = variants[variant] || variants.solid;
   return (
@@ -385,9 +405,9 @@ function StatusBadge({ status }) {
   const normalized = normalizeText(status);
   const trimmed = normalized.trim();
   const displayValue = trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—" ? "—" : trimmed;
-  const style = resolveStatusClass(status);
+  const { variant, className } = resolveStatusClass(status);
   return (
-    <InlineBadge variant="outline" className={style}>
+    <InlineBadge variant={variant} className={className}>
       {displayValue}
     </InlineBadge>
   );
@@ -441,15 +461,23 @@ export default function App() {
 
   const tiposLicenca = useMemo(() => {
     const seen = new Set();
-    return licencas.reduce((acc, lic) => {
+    const ordered = [];
+    DEFAULT_LICENCA_TIPOS.forEach((tipoBase) => {
+      const trimmed = normalizeText(tipoBase).trim();
+      if (trimmed !== "" && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        ordered.push(trimmed);
+      }
+    });
+    licencas.forEach((lic) => {
       const tipo = normalizeText(lic?.tipo).trim();
       if (tipo === "" || seen.has(tipo)) {
-        return acc;
+        return;
       }
       seen.add(tipo);
-      acc.push(tipo);
-      return acc;
-    }, []);
+      ordered.push(tipo);
+    });
+    return ordered;
   }, [licencas]);
 
   useEffect(() => {
@@ -1085,12 +1113,18 @@ export default function App() {
               const processosAtivosEmpresa = processosEmpresa.filter(
                 (proc) => !isProcessStatusInactive(proc.status),
               );
+              const rawId =
+                empresa.empresa_id ?? empresa.empresaId ?? empresa.id ?? extractEmpresaId(empresa);
+              const avatarLabel =
+                rawId !== undefined && rawId !== null && `${rawId}`.toString().trim() !== ""
+                  ? `${rawId}`
+                  : "?";
               return (
                 <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
-                        {empresa.empresa?.[0] || "?"}
+                        {avatarLabel}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -1332,7 +1366,7 @@ export default function App() {
                                 <TableCell>
                                   <StatusBadge status={lic.status} />
                                 </TableCell>
-                                <TableCell>{lic.validade}</TableCell>
+                                <TableCell>{lic.validade || "—"}</TableCell>
                                 <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
                               </TableRow>
                             ))}
