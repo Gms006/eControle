@@ -828,7 +828,7 @@ export default function App() {
     );
   }, [matchesMunicipioFilter, matchesQuery, modelos]);
 
-  const contatosOrdenados = useMemo(() => {
+  const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
     return [...lista]
       .filter((item) => item && (item.contato || item.email || item.telefone))
@@ -844,7 +844,7 @@ export default function App() {
       });
   }, [filteredContatos]);
 
-  const modelosOrdenados = useMemo(() => {
+  const modelosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredModelos) ? filteredModelos : [];
     return [...lista]
       .filter((item) => item && (item.modelo || item.descricao))
@@ -1721,12 +1721,12 @@ export default function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {contatosOrdenados.length === 0 && (
+                {contatosOrdenadosLista.length === 0 && (
                   <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                     Nenhum contato cadastrado no Excel.
                   </div>
                 )}
-                {contatosOrdenados.map((contato) => {
+                {contatosOrdenadosLista.map((contato) => {
                   const whatsappTexto = normalizeTextLower(contato.whatsapp || "");
                   const temWhatsapp =
                     whatsappTexto !== "" &&
@@ -1787,12 +1787,12 @@ export default function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {modelosOrdenados.length === 0 && (
+                {modelosOrdenadosLista.length === 0 && (
                   <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                     Nenhum modelo cadastrado no Excel.
                   </div>
                 )}
-                {modelosOrdenados.map((modelo) => (
+                {modelosOrdenadosLista.map((modelo) => (
                   <div
                     key={`${modelo.descricao || "Modelo"}-${(modelo.modelo || "").slice(0, 20)}`}
                     className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
