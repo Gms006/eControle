@@ -17,7 +17,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from repo_excel import ExcelRepo
-from models import Empresa, Licenca, Taxa, Processo, LicencaRaw, TaxaRaw
+from models import (
+    Empresa,
+    Licenca,
+    Taxa,
+    Processo,
+    Contato,
+    Modelo,
+    LicencaRaw,
+    TaxaRaw,
+)
 from services import (
     filtrar_empresas, filtrar_processos,
     normalizar_licencas, normalizar_taxas,
@@ -63,6 +72,8 @@ cache: Dict[str, object] = {
     "licencas": [],
     "taxas": [],
     "processos": [],
+    "contatos": [],
+    "modelos": [],
     "last_update": None,
 }
 
@@ -90,6 +101,7 @@ class EmpresaResponse(BaseModel):
 
 
 class LicencaResponse(BaseModel):
+    empresa_id: int
     empresa: str
     tipo: str
     status: str
@@ -98,20 +110,52 @@ class LicencaResponse(BaseModel):
 
 
 class TaxaResponse(BaseModel):
+    empresa_id: int
     empresa: str
     tpi: str
     func: str
     publicidade: str
     sanitaria: str
+    localizacao_instalacao: str
+    area_publica: str
+    bombeiros: str
+    status_geral: Optional[str]
 
 
 class ProcessoResponse(BaseModel):
+    empresa_id: int
     empresa: str
     tipo: str
     codigo: str
     inicio: str
     prazo: Optional[str]
     status: str
+
+
+class ContatoResponse(BaseModel):
+    contato: str
+    municipio: str
+    telefone: str
+    whatsapp: str
+    email: str
+    categoria: str
+
+    class Config:
+        from_attributes = True
+
+
+class ModeloResponse(BaseModel):
+    descricao: str
+    utilizacao: str
+    modelo: str
+
+    class Config:
+        from_attributes = True
+
+
+class UteisResponse(BaseModel):
+    contatos: List[ContatoResponse]
+    modelos: List[ModeloResponse]
 
 
 class KPIsResponse(BaseModel):
@@ -178,6 +222,18 @@ PROCESSO_TIPOS = {
 }
 
 
+TAXA_TIPOS_OUTPUT = [
+    ("TPI", "tpi"),
+    ("Funcionamento", "func"),
+    ("Publicidade", "publicidade"),
+    ("Sanitária", "sanitaria"),
+    ("Localização/Instalação", "localizacao_instalacao"),
+    ("Área Pública", "area_publica"),
+    ("Bombeiros", "bombeiros"),
+    ("Status Geral", "status_geral"),
+]
+
+
 def _processo_tipo_label(proc_key: str) -> str:
     return PROCESSO_TIPOS.get(proc_key, proc_key.replace("_", " ").title())
 
@@ -187,21 +243,25 @@ def _rows_to_processos(proc_key: str, rows: List[Dict[str, Any]]) -> List[Proces
     tipo_label = _processo_tipo_label(proc_key)
 
     for row in rows:
+        empresa_id = _to_int(row.get("ID"))
         empresa = _to_str(row.get("EMPRESA"))
         protocolo = _to_str(row.get("PROTOCOLO"))
+        if not empresa_id:
+            continue
         if not empresa and not protocolo:
             continue
 
         processo = Processo(
-            id=_to_int(row.get("ID")),
+            empresa_id=empresa_id,
             empresa=empresa,
             cnpj=_to_str(row.get("CNPJ")),
             tipo=tipo_label,
             protocolo=protocolo,
             data_solicitacao=_format_excel_date(row.get("DATA_SOLICITACAO")) or _to_str(row.get("DATA_SOLICITACAO")),
             situacao=_to_str(row.get("SITUACAO")),
+            status_padrao=_to_str(row.get("STATUS_PADRAO")),
             obs=_to_str(row.get("OBS")),
-            prazo=_format_excel_date(row.get("PRAZO")),
+            prazo=_format_excel_date(row.get("PRAZO")) or _to_str(row.get("PRAZO")),
         )
 
         if proc_key == "diversos":
@@ -240,6 +300,7 @@ def carregar_dados_do_excel() -> None:
         lic_sheet = sheet_cfg.get("licencas", "LICENÇAS")
         tax_sheet = sheet_cfg.get("taxas", "TAXAS")
         proc_sheet = sheet_cfg.get("processos", "PROCESSOS")
+        uteis_sheet = sheet_cfg.get("uteis", "CONTATOS E MODELOS")
 
         # Empresas
         empresas_raw = repo.read_sheet(emp_sheet, "empresas")
@@ -273,7 +334,7 @@ def carregar_dados_do_excel() -> None:
         licencas_raw_data = repo.read_sheet(lic_sheet, "licencas")
         licencas_raw_objs = [
             LicencaRaw(
-                id=_to_int(r.get("ID")),
+                empresa_id=_to_int(r.get("ID")),
                 empresa=_to_str(r.get("EMPRESA")),
                 cnpj=_to_str(r.get("CNPJ")),
                 municipio=_to_str(r.get("MUNICIPIO")),
@@ -298,18 +359,27 @@ def carregar_dados_do_excel() -> None:
         taxas_raw_data = repo.read_sheet(tax_sheet, "taxas")
         taxas_raw_objs = [
             TaxaRaw(
-                id=_to_int(r.get("ID")),
+                empresa_id=_to_int(r.get("ID")),
                 empresa=_to_str(r.get("EMPRESA")),
                 cnpj=_to_str(r.get("CNPJ")),
                 data_envio=_format_excel_date(r.get("DATA_ENVIO")) or _to_str(r.get("DATA_ENVIO")),
                 funcionamento=_to_str(r.get("FUNCIONAMENTO"), "*"),
                 publicidade=_to_str(r.get("PUBLICIDADE"), "*"),
                 sanitaria=_to_str(r.get("SANITARIA"), "*"),
+                localizacao_instalacao=(
+                    _to_str(r.get("LOCALIZACAO_INSTALACAO"), "")
+                    or _to_str(r.get("LOCALIZACAO"), "*")
+                ),
+                area_publica=(
+                    _to_str(r.get("AREA_PUBLICA"), "")
+                    or _to_str(r.get("OCUPACAO"), "*")
+                ),
                 localizacao=_to_str(r.get("LOCALIZACAO"), "*"),
                 ocupacao=_to_str(r.get("OCUPACAO"), "*"),
                 bombeiros=_to_str(r.get("BOMBEIROS"), "*"),
                 tpi=_to_str(r.get("TPI"), "*"),
                 status_taxas=_to_str(r.get("STATUS_TAXAS")),
+                obs=_to_str(r.get("OBS")),
             )
             for r in taxas_raw_data
             if _to_int(r.get("ID")) and _to_str(r.get("EMPRESA"))
@@ -324,21 +394,63 @@ def carregar_dados_do_excel() -> None:
             if rows:
                 processos.extend(_rows_to_processos(proc_key, rows))
 
+        contatos: List[Contato] = []
+        modelos: List[Modelo] = []
+        uteis_tables = table_cfg.get("uteis", {})
+
+        contatos_table = uteis_tables.get("contatos")
+        if contatos_table:
+            contato_rows = repo.read_table(uteis_sheet, contatos_table, "uteis_contatos")
+            for row in contato_rows:
+                nome = _to_str(row.get("CONTATO"))
+                if not nome:
+                    continue
+                contatos.append(
+                    Contato(
+                        contato=nome,
+                        municipio=_to_str(row.get("MUNICIPIO")),
+                        telefone=_to_str(row.get("TELEFONE")),
+                        whatsapp=_to_str(row.get("WHATSAPP"), "NÃO"),
+                        email=_to_str(row.get("E_MAIL")),
+                        categoria=_to_str(row.get("CATEGORIA")),
+                    )
+                )
+
+        modelos_table = uteis_tables.get("modelos")
+        if modelos_table:
+            modelo_rows = repo.read_table(uteis_sheet, modelos_table, "uteis_modelos")
+            for row in modelo_rows:
+                texto = _to_str(row.get("MODELO"))
+                descricao = _to_str(row.get("DESCRICAO"))
+                if not texto and not descricao:
+                    continue
+                modelos.append(
+                    Modelo(
+                        modelo=texto,
+                        descricao=descricao or "Modelo",
+                        utilizacao=_to_str(row.get("UTILIZACAO")) or "WhatsApp",
+                    )
+                )
+
         cache.update(
             {
                 "empresas": empresas,
                 "licencas": licencas,
                 "taxas": taxas,
                 "processos": processos,
+                "contatos": contatos,
+                "modelos": modelos,
                 "last_update": datetime.now().isoformat(),
             }
         )
         logger.info(
-            "Dados carregados: %s empresas, %s licenças, %s taxas, %s processos",
+            "Dados carregados: %s empresas, %s licenças, %s taxas, %s processos, %s contatos, %s modelos",
             len(empresas),
             len(licencas),
             len(taxas),
             len(processos),
+            len(contatos),
+            len(modelos),
         )
     except Exception as e:
         logger.exception("Erro ao carregar dados")
@@ -402,9 +514,9 @@ def get_empresa(empresa_id: int):
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    licencas_stats = contar_licencas_por_status(cache["licencas"], empresa.empresa)
-    taxas_pend = contar_taxas_pendentes(cache["taxas"], empresa.empresa)
-    processos_count = contar_processos_empresa(cache["processos"], empresa.empresa)
+    licencas_stats = contar_licencas_por_status(cache["licencas"], empresa.id)
+    taxas_pend = contar_taxas_pendentes(cache["taxas"], empresa.id)
+    processos_count = contar_processos_empresa(cache["processos"], empresa.id)
 
     return {
         "empresa": EmpresaResponse.from_orm(empresa),
@@ -416,15 +528,18 @@ def get_empresa(empresa_id: int):
 
 
 @app.get("/api/licencas")
-def get_licencas(empresa: Optional[str] = None):
+def get_licencas(empresa_id: Optional[int] = None, empresa: Optional[str] = None):
     licencas: List[Licenca] = cache["licencas"]
-    if empresa:
+    if empresa_id is not None:
+        licencas = [l for l in licencas if l.empresa_id == empresa_id]
+    elif empresa:
         licencas = [l for l in licencas if l.empresa == empresa]
 
     result = []
     for lic in licencas:
         result.append(
             {
+                "empresa_id": lic.empresa_id,
                 "empresa": lic.empresa,
                 "tipo": lic.tipo,
                 "status": lic.status_display,
@@ -435,24 +550,39 @@ def get_licencas(empresa: Optional[str] = None):
     return result
 
 
-@app.get("/api/taxas")
+@app.get("/api/taxas", response_model=List[TaxaResponse])
 def get_taxas():
     taxas: List[Taxa] = cache["taxas"]
 
-    # Agrupar por empresa → formato "largo" p/ UI
-    result = []
-    empresas_unicas = sorted(set(t.empresa for t in taxas))
-    for emp in empresas_unicas:
-        taxas_emp = {t.tipo: t.status_display for t in taxas if t.empresa == emp}
-        result.append(
+    agrupado: Dict[int, Dict[str, Any]] = {}
+    defaults = {
+        output_key: ("*" if output_key != "status_geral" else None)
+        for _, output_key in TAXA_TIPOS_OUTPUT
+    }
+
+    for taxa in taxas:
+        if not taxa.empresa_id:
+            continue
+        linha = agrupado.setdefault(
+            taxa.empresa_id,
             {
-                "empresa": emp,
-                "tpi": taxas_emp.get("TPI", "*"),
-                "func": taxas_emp.get("Funcionamento", "*"),
-                "publicidade": taxas_emp.get("Publicidade", "*"),
-                "sanitaria": taxas_emp.get("Sanitária", "*"),
-            }
+                "empresa_id": taxa.empresa_id,
+                "empresa": taxa.empresa,
+                **defaults,
+            },
         )
+        for tipo_label, output_key in TAXA_TIPOS_OUTPUT:
+            if taxa.tipo == tipo_label:
+                valor = taxa.status_display
+                if output_key == "status_geral" and valor in {"", "*"}:
+                    valor = None
+                linha[output_key] = valor
+                break
+
+    result = sorted(
+        agrupado.values(),
+        key=lambda item: (item.get("empresa") or "").lower(),
+    )
     return result
 
 
@@ -463,15 +593,35 @@ def get_processos(tipo: Optional[str] = None, apenas_ativos: bool = False):
     )
     return [
         {
+            "empresa_id": p.empresa_id,
             "empresa": p.empresa,
             "tipo": p.tipo,
             "codigo": p.protocolo,
             "inicio": p.data_solicitacao,
             "prazo": p.prazo,
-            "status": p.situacao,
+            "status": p.status_display,
         }
         for p in processos
     ]
+
+
+@app.get("/api/uteis", response_model=UteisResponse)
+def get_uteis():
+    contatos = sorted(
+        cache["contatos"],
+        key=lambda c: (
+            (getattr(c, "categoria", "") or "").lower(),
+            (getattr(c, "contato", "") or "").lower(),
+        ),
+    )
+    modelos = sorted(
+        cache["modelos"],
+        key=lambda m: (
+            (getattr(m, "utilizacao", "") or "").lower(),
+            (getattr(m, "descricao", "") or "").lower(),
+        ),
+    )
+    return UteisResponse(contatos=contatos, modelos=modelos)
 
 
 @app.get("/api/kpis", response_model=KPIsResponse)
@@ -537,12 +687,12 @@ def diagnostico():
         proc_sheet = _sheet_name("processos", "PROCESSOS")
         processos_tables = repo.config.get("table_names", {}).get("processos", {})
         processos_required = {
-            "processos_diversos": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_funcionamento": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_bombeiros": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_uso_solo": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_sanitario": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
-            "processos_ambiental": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO"],
+            "processos_diversos": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_funcionamento": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_bombeiros": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_uso_solo": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_sanitario": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
+            "processos_ambiental": ["ID", "EMPRESA", "PROTOCOLO", "SITUACAO", "STATUS_PADRAO"],
         }
         for proc_key, table_name in processos_tables.items():
             sheet_key = f"processos_{proc_key}"
