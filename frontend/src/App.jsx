@@ -263,6 +263,14 @@ const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
   }
 
+  if (key.includes("possui debit")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("sem debit")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+  }
+
   if (key.includes("possui")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
@@ -458,6 +466,9 @@ export default function App() {
 
   const toastTimeoutsRef = useRef(new Map());
 
+  const normalizedQueryValue = useMemo(() => normalizeTextLower(query).trim(), [query]);
+  const municipioKey = useMemo(() => normalizeTextLower(municipio).trim(), [municipio]);
+
   const [empresas, setEmpresas] = useState([]);
   const [licencas, setLicencas] = useState([]);
   const [taxas, setTaxas] = useState([]);
@@ -642,6 +653,16 @@ export default function App() {
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const empresasById = useMemo(() => {
+    const map = new Map();
+    empresas.forEach((empresa) => {
+      const empresaId = extractEmpresaId(empresa);
+      if (empresaId === undefined) return;
+      map.set(empresaId, empresa);
+    });
+    return map;
+  }, [empresas]);
+
   const licencasByEmpresa = useMemo(() => {
     const map = new Map();
     licencas.forEach((lic) => {
@@ -689,6 +710,168 @@ export default function App() {
     });
     return map;
   }, [processosNormalizados]);
+
+  const matchesQuery = useCallback(
+    (fields) => {
+      if (normalizedQueryValue === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedQueryValue));
+    },
+    [normalizedQueryValue],
+  );
+
+  const matchesMunicipioFilter = useCallback(
+    (entity) => {
+      if (municipioKey === "") {
+        return true;
+      }
+      if (!entity || typeof entity !== "object") {
+        return false;
+      }
+      const candidates = [];
+      if ("municipio" in entity) {
+        candidates.push(entity.municipio);
+      }
+      const empresaId = extractEmpresaId(entity);
+      if (empresaId !== undefined) {
+        const empresaRelacionada = empresasById.get(empresaId);
+        if (empresaRelacionada) {
+          candidates.push(empresaRelacionada.municipio);
+        }
+      }
+      return candidates
+        .filter((value) => value !== null && value !== undefined)
+        .some((value) => normalizeTextLower(value).trim() === municipioKey);
+    },
+    [empresasById, municipioKey],
+  );
+
+  const filteredLicencas = useMemo(
+    () =>
+      licencas.filter(
+        (lic) =>
+          matchesMunicipioFilter(lic) &&
+          matchesQuery([
+            lic.empresa,
+            lic.cnpj,
+            lic.tipo,
+            lic.status,
+            lic.validade,
+            lic.obs,
+          ]),
+      ),
+    [licencas, matchesMunicipioFilter, matchesQuery],
+  );
+
+  const filteredTaxas = useMemo(
+    () =>
+      taxas.filter(
+        (taxa) =>
+          matchesMunicipioFilter(taxa) &&
+          matchesQuery([
+            taxa.empresa,
+            taxa.cnpj,
+            taxa.tpi,
+            taxa.func,
+            taxa.publicidade,
+            taxa.sanitaria,
+            taxa.status_geral,
+            taxa.data_envio,
+          ]),
+      ),
+    [matchesMunicipioFilter, matchesQuery, taxas],
+  );
+
+  const filteredProcessosBase = useMemo(
+    () =>
+      processosNormalizados.filter(
+        (proc) =>
+          matchesMunicipioFilter(proc) &&
+          matchesQuery([
+            proc.empresa,
+            proc.tipo,
+            proc.tipoNormalizado,
+            proc.status,
+            proc.codigo,
+            proc.inicio,
+            proc.prazo,
+          ]),
+      ),
+    [matchesMunicipioFilter, matchesQuery, processosNormalizados],
+  );
+
+  const filteredContatos = useMemo(
+    () =>
+      contatos.filter(
+        (contato) =>
+          matchesMunicipioFilter(contato) &&
+          matchesQuery([
+            contato.contato,
+            contato.categoria,
+            contato.municipio,
+            contato.email,
+            contato.telefone,
+            contato.whatsapp,
+          ]),
+      ),
+    [contatos, matchesMunicipioFilter, matchesQuery],
+  );
+
+  const filteredModelos = useMemo(
+    () =>
+      modelos.filter(
+        (modelo) =>
+          matchesMunicipioFilter(modelo) &&
+          matchesQuery([
+            modelo.descricao,
+            modelo.utilizacao,
+            modelo.modelo,
+          ]),
+      ),
+    [matchesMunicipioFilter, matchesQuery, modelos],
+  );
+
+  const contatosOrdenados = useMemo(() => {
+    return [...filteredContatos]
+      .filter((item) => item && (item.contato || item.email || item.telefone))
+      .sort((a, b) => {
+        const catA = normalizeText(a?.categoria || "");
+        const catB = normalizeText(b?.categoria || "");
+        if (catA !== catB) {
+          return catA.localeCompare(catB, "pt-BR");
+        }
+        const nomeA = normalizeText(a?.contato || "");
+        const nomeB = normalizeText(b?.contato || "");
+        return nomeA.localeCompare(nomeB, "pt-BR");
+      });
+  }, [filteredContatos]);
+
+  const modelosOrdenados = useMemo(() => {
+    return [...filteredModelos]
+      .filter((item) => item && (item.modelo || item.descricao))
+      .sort((a, b) => {
+        const usoA = normalizeText(a?.utilizacao || "");
+        const usoB = normalizeText(b?.utilizacao || "");
+        if (usoA !== usoB) {
+          return usoA.localeCompare(usoB, "pt-BR");
+        }
+        const descA = normalizeText(a?.descricao || "");
+        const descB = normalizeText(b?.descricao || "");
+        return descA.localeCompare(descB, "pt-BR");
+      });
+  }, [filteredModelos]);
+
+  const taxasVisiveis = useMemo(() => {
+    if (!modoFoco) {
+      return filteredTaxas;
+    }
+    return filteredTaxas.filter((taxa) =>
+      [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].some((status) => isAlertStatus(status)),
+    );
+  }, [filteredTaxas, modoFoco]);
 
   const enqueueToast = useCallback((message) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -750,28 +933,23 @@ export default function App() {
 
   const filterEmpresas = useCallback(
     (lista) => {
-      const normalizedQuery = normalizeTextLower(query).trim();
       return lista.filter((empresa) => {
         if (!empresa) return false;
-        const matchesQuery =
-          normalizedQuery === "" ||
-          [
-            empresa.empresa,
-            empresa.cnpj,
-            empresa.municipio,
-            empresa.categoria,
-            empresa.email,
-            empresa.ie,
-            empresa.im,
-          ]
-            .filter(Boolean)
-            .some((field) => normalizeTextLower(field).includes(normalizedQuery));
-        const matchesMunicipio = !municipio || empresa.municipio === municipio;
+        const matchesQueryEmpresa = matchesQuery([
+          empresa.empresa,
+          empresa.cnpj,
+          empresa.municipio,
+          empresa.categoria,
+          empresa.email,
+          empresa.ie,
+          empresa.im,
+        ]);
+        const matchesMunicipio = matchesMunicipioFilter(empresa);
         const matchesAlert = !soAlertas || companyHasAlert(empresa);
-        return matchesQuery && matchesMunicipio && matchesAlert;
+        return matchesQueryEmpresa && matchesMunicipio && matchesAlert;
       });
     },
-    [companyHasAlert, municipio, query, soAlertas],
+    [companyHasAlert, matchesMunicipioFilter, matchesQuery, soAlertas],
   );
 
   const filteredEmpresas = useMemo(
@@ -780,12 +958,12 @@ export default function App() {
   );
 
   const empresasComPendencias = useMemo(
-    () => empresas.filter((empresa) => companyHasAlert(empresa)).slice(0, 8),
-    [companyHasAlert, empresas],
+    () => filterEmpresas(empresas.filter((empresa) => companyHasAlert(empresa))).slice(0, 8),
+    [companyHasAlert, empresas, filterEmpresas],
   );
 
   const licencaResumo = useMemo(() => {
-    return licencas.reduce(
+    return filteredLicencas.reduce(
       (acc, lic) => {
         if (!hasRelevantStatus(lic?.status)) {
           return acc;
@@ -801,11 +979,11 @@ export default function App() {
       },
       { total: 0, ativas: 0, vencendo: 0, vencidas: 0, dispensa: 0, sujeito: 0 },
     );
-  }, [licencas]);
+  }, [filteredLicencas]);
 
   const alertTrendData = useMemo(() => {
     const monthly = new Map();
-    licencas.forEach((lic) => {
+    filteredLicencas.forEach((lic) => {
       const validade = parsePtDate(lic.validade);
       if (!validade) return;
       if (!hasRelevantStatus(lic.status)) return;
@@ -829,18 +1007,18 @@ export default function App() {
       vencidas: entry.vencidas,
       vencendo: entry.vencendo,
     }));
-  }, [licencas]);
+  }, [filteredLicencas]);
 
   const processosTipos = useMemo(() => {
     const counts = new Map();
-    processosNormalizados.forEach((proc) => {
+    filteredProcessosBase.forEach((proc) => {
       const current = counts.get(proc.tipoNormalizado) || 0;
       counts.set(proc.tipoNormalizado, current + 1);
     });
     const asArray = Array.from(counts.entries()).map(([tipo, count]) => ({ tipo, count }));
     asArray.sort((a, b) => a.tipo.localeCompare(b.tipo));
     return asArray;
-  }, [processosNormalizados]);
+  }, [filteredProcessosBase]);
 
   useEffect(() => {
     if (
@@ -854,11 +1032,11 @@ export default function App() {
   const processosFiltrados = useMemo(() => {
     const listaBase =
       selectedTipo === PROCESS_ALL
-        ? processosNormalizados
-        : processosNormalizados.filter((proc) => proc.tipoNormalizado === selectedTipo);
+        ? filteredProcessosBase
+        : filteredProcessosBase.filter((proc) => proc.tipoNormalizado === selectedTipo);
     if (!modoFoco) return listaBase;
     return listaBase.filter((proc) => !isProcessStatusInactive(proc.status));
-  }, [modoFoco, processosNormalizados, selectedTipo]);
+  }, [filteredProcessosBase, modoFoco, selectedTipo]);
 
   const processosAtivos = useMemo(() => {
     return processosNormalizados.filter((proc) => !isProcessStatusInactive(proc.status));
@@ -1298,7 +1476,7 @@ export default function App() {
         <TabsContent value="licencas" className="mt-4">
           <div className="grid md:grid-cols-2 gap-3 mb-3">
             {tiposLicenca.map((tipo) => {
-              const items = licencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo);
+              const items = filteredLicencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo);
               const venc = items.filter((item) => item.status === "Vencido").length;
               const soon = items.filter((item) => item.status === "Vence≤30d").length;
               const subj = items.filter((item) => item.status === "Sujeito").length;
@@ -1343,7 +1521,7 @@ export default function App() {
 
           <div className="flex flex-wrap gap-2 mb-3">
             {["Todos", ...tiposLicenca].map((tipo) => {
-              const count = licencas.filter((lic) => {
+              const count = filteredLicencas.filter((lic) => {
                 if (!hasRelevantStatus(lic.status)) {
                   return false;
                 }
@@ -1378,7 +1556,7 @@ export default function App() {
               </Card>
             ) : (
               tiposLicencaSelecionados.map((tipo) => {
-                const registros = licencas
+                const registros = filteredLicencas
                   .filter((lic) => normalizeText(lic?.tipo).trim() === tipo)
                   .filter((lic) => hasRelevantStatus(lic.status))
                   .filter((lic) =>
@@ -1450,31 +1628,23 @@ export default function App() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {taxas
-                      .filter((taxa) =>
-                        modoFoco
-                          ? [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].some((status) =>
-                              isAlertStatus(status),
-                            )
-                          : true,
-                      )
-                      .map((taxa, index) => (
-                        <TableRow key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}>
-                          <TableCell className="font-medium">{taxa.empresa}</TableCell>
-                          <TableCell>
-                            <StatusBadge status={taxa.tpi} />
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={taxa.func} />
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={taxa.publicidade} />
-                          </TableCell>
-                          <TableCell>
-                            <StatusBadge status={taxa.sanitaria} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
+                    {taxasVisiveis.map((taxa, index) => (
+                      <TableRow key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}>
+                        <TableCell className="font-medium">{taxa.empresa}</TableCell>
+                        <TableCell>
+                          <StatusBadge status={taxa.tpi} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={taxa.func} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={taxa.publicidade} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={taxa.sanitaria} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </ScrollArea>
@@ -1491,7 +1661,7 @@ export default function App() {
               className="inline-flex items-center gap-1"
             >
               <Filter className="h-3.5 w-3.5" /> Todos
-              <span className="text-xs">{processosNormalizados.length}</span>
+              <span className="text-xs">{filteredProcessosBase.length}</span>
             </Button>
             {processosTipos.map(({ tipo, count }) => (
               <Button
