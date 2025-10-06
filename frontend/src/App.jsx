@@ -226,12 +226,81 @@ const normalizeEmpresaRelacionada = (entity) => {
   };
 };
 
-const ALERT_STATUS_KEYWORDS = ["vencid", "vence", "nao pago", "nao-pago", "negad", "indefer"];
+const ALERT_STATUS_KEYWORDS = [
+  "vencid",
+  "vence",
+  "nao pago",
+  "nao-pago",
+  "negad",
+  "indefer",
+  "abert",
+];
+
+const TAXA_COLUMNS = [
+  { key: "tpi", label: "TPI" },
+  { key: "func", label: "Funcionamento" },
+  { key: "publicidade", label: "Publicidade" },
+  { key: "sanitaria", label: "Sanitária" },
+  { key: "localizacao_instalacao", label: "Localização/Instalação" },
+  { key: "area_publica", label: "Área Pública" },
+  { key: "bombeiros", label: "Bombeiros" },
+  { key: "status_geral", label: "Status geral" },
+];
+
+const TAXA_TYPE_KEYS = TAXA_COLUMNS.filter((column) => column.key !== "status_geral").map(
+  (column) => column.key,
+);
+
+const TAXA_ALERT_KEYS = [...TAXA_TYPE_KEYS, "status_geral"];
+
+const TAXA_SEARCH_KEYS = [...TAXA_COLUMNS.map((column) => column.key), "data_envio"];
+
+const parseProgressFraction = (status) => {
+  if (status === null || status === undefined) {
+    return null;
+  }
+  const text = normalizeText(status);
+  const match = text.match(/(-?\d+(?:[.,]\d+)?)\s*\/\s*(-?\d+(?:[.,]\d+)?)/);
+  if (!match) {
+    return null;
+  }
+  const parseNumber = (value) => {
+    const trimmed = value.replace(/\s+/g, "");
+    const hasComma = trimmed.includes(",");
+    const hasDot = trimmed.includes(".");
+    const normalized = hasComma && hasDot
+      ? trimmed.replace(/\./g, "").replace(",", ".")
+      : trimmed.replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
+  const current = parseNumber(match[1]);
+  const total = parseNumber(match[2]);
+  return { current, total };
+};
+
+const hasPendingFraction = (status) => {
+  const fraction = parseProgressFraction(status);
+  if (!fraction) {
+    return false;
+  }
+  const { current, total } = fraction;
+  if (!Number.isFinite(current) || !Number.isFinite(total)) {
+    return true;
+  }
+  if (total <= 0) {
+    return true;
+  }
+  return current < total;
+};
 
 const isAlertStatus = (status) => {
   const key = getStatusKey(status);
   if (!key) return false;
   if (key.includes("nao se aplica") || key.includes("n/a")) return false;
+  if (hasPendingFraction(status)) {
+    return true;
+  }
   return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
@@ -257,6 +326,18 @@ const resolveStatusClass = (status) => {
   const key = getStatusKey(status);
   if (!key || key === "*" || key === "-" || key === "—") {
     return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
+  }
+
+  const fraction = parseProgressFraction(status);
+  if (fraction) {
+    const { current, total } = fraction;
+    if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    }
+    if (current < total) {
+      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    }
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key === "/") {
@@ -463,11 +544,13 @@ export default function App() {
   const [selectedTipo, setSelectedTipo] = useState(PROCESS_ALL);
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
   const [toasts, setToasts] = useState([]);
+  const [uteisQuery, setUteisQuery] = useState("");
 
   const toastTimeoutsRef = useRef(new Map());
 
   const normalizedQueryValue = useMemo(() => normalizeTextLower(query).trim(), [query]);
   const municipioKey = useMemo(() => normalizeTextLower(municipio).trim(), [municipio]);
+  const normalizedUteisQuery = useMemo(() => normalizeTextLower(uteisQuery).trim(), [uteisQuery]);
 
   const [empresas, setEmpresas] = useState([]);
   const [licencas, setLicencas] = useState([]);
@@ -723,6 +806,18 @@ export default function App() {
     [normalizedQueryValue],
   );
 
+  const matchesUteisQuery = useCallback(
+    (fields) => {
+      if (normalizedUteisQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedUteisQuery));
+    },
+    [normalizedUteisQuery],
+  );
+
   const matchesMunicipioFilter = useCallback(
     (entity) => {
       if (municipioKey === "") {
@@ -768,20 +863,17 @@ export default function App() {
 
   const filteredTaxas = useMemo(
     () =>
-      taxas.filter(
-        (taxa) =>
-          matchesMunicipioFilter(taxa) &&
-          matchesQuery([
-            taxa.empresa,
-            taxa.cnpj,
-            taxa.tpi,
-            taxa.func,
-            taxa.publicidade,
-            taxa.sanitaria,
-            taxa.status_geral,
-            taxa.data_envio,
-          ]),
-      ),
+      taxas.filter((taxa) => {
+        if (!matchesMunicipioFilter(taxa)) {
+          return false;
+        }
+        const camposPesquisa = [
+          taxa.empresa,
+          taxa.cnpj,
+          ...TAXA_SEARCH_KEYS.map((key) => taxa?.[key]),
+        ];
+        return matchesQuery(camposPesquisa);
+      }),
     [matchesMunicipioFilter, matchesQuery, taxas],
   );
 
@@ -808,7 +900,7 @@ export default function App() {
     return lista.filter(
       (contato) =>
         matchesMunicipioFilter(contato) &&
-        matchesQuery([
+        matchesUteisQuery([
           contato?.contato,
           contato?.categoria,
           contato?.municipio,
@@ -817,16 +909,16 @@ export default function App() {
           contato?.whatsapp,
         ]),
     );
-  }, [contatos, matchesMunicipioFilter, matchesQuery]);
+  }, [contatos, matchesMunicipioFilter, matchesUteisQuery]);
 
   const filteredModelos = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
     return lista.filter(
       (modelo) =>
         matchesMunicipioFilter(modelo) &&
-        matchesQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
+        matchesUteisQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
     );
-  }, [matchesMunicipioFilter, matchesQuery, modelos]);
+  }, [matchesMunicipioFilter, matchesUteisQuery, modelos]);
 
   const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
@@ -865,7 +957,7 @@ export default function App() {
       return filteredTaxas;
     }
     return filteredTaxas.filter((taxa) =>
-      [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].some((status) => isAlertStatus(status)),
+      TAXA_ALERT_KEYS.some((key) => isAlertStatus(taxa?.[key])),
     );
   }, [filteredTaxas, modoFoco]);
 
@@ -916,7 +1008,7 @@ export default function App() {
       if (hasLicencaAlert) return true;
       const taxa = taxasByEmpresa.get(empresaId);
       if (taxa) {
-        const entries = [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria];
+        const entries = TAXA_TYPE_KEYS.map((key) => taxa?.[key]);
         if (entries.some((status) => isAlertStatus(status))) {
           return true;
         }
@@ -1420,8 +1512,8 @@ export default function App() {
                             <p>
                               Taxas pend.:
                               {taxa
-                                ? [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].filter((status) =>
-                                    isAlertStatus(status),
+                                ? TAXA_TYPE_KEYS.filter((key) =>
+                                    isAlertStatus(taxa?.[key]),
                                   ).length
                                 : 0}
                             </p>
@@ -1617,28 +1709,20 @@ export default function App() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Empresa</TableHead>
-                      <TableHead>TPI</TableHead>
-                      <TableHead>Funcionamento</TableHead>
-                      <TableHead>Publicidade</TableHead>
-                      <TableHead>Sanitária</TableHead>
+                      {TAXA_COLUMNS.map(({ key, label }) => (
+                        <TableHead key={key}>{label}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {taxasVisiveis.map((taxa, index) => (
                       <TableRow key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}>
                         <TableCell className="font-medium">{taxa.empresa}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.tpi} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.func} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.publicidade} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.sanitaria} />
-                        </TableCell>
+                        {TAXA_COLUMNS.map(({ key }) => (
+                          <TableCell key={key}>
+                            <StatusBadge status={taxa?.[key]} />
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1713,6 +1797,18 @@ export default function App() {
         </TabsContent>
 
         <TabsContent value="uteis" className="mt-4 space-y-4">
+          <div className="max-w-xl">
+            <Label className="text-xs uppercase">Pesquisa em úteis</Label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Buscar contato, categoria ou mensagem…"
+                className="pl-8"
+                value={uteisQuery}
+                onChange={(event) => setUteisQuery(event.target.value)}
+              />
+            </div>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className="shadow-sm">
               <CardHeader className="pb-2">
