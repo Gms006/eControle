@@ -38,7 +38,7 @@ class Empresa:
 @dataclass
 class Licenca:
     """Licença (estrutura normalizada em memória)"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     municipio: str
@@ -62,7 +62,7 @@ class Licenca:
 @dataclass
 class Taxa:
     """Taxa (estrutura normalizada em memória)"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     tipo: str  # TPI, FUNCIONAMENTO, PUBLICIDADE, SANITÁRIA, etc.
@@ -84,13 +84,14 @@ class Taxa:
 @dataclass
 class Processo:
     """Processo (comum a todos os tipos)"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     tipo: str  # Diversos, Funcionamento, Bombeiros, etc.
     protocolo: str
     data_solicitacao: str
     situacao: str
+    status_padrao: Optional[str] = None
     obs: str = ""
     prazo: Optional[str] = None
     # Campos específicos por tipo (opcionais)
@@ -106,9 +107,14 @@ class Processo:
     data_val: Optional[str] = None  # Sanitário
 
     @property
+    def status_display(self) -> str:
+        """Status padronizado para exibição."""
+        return (self.status_padrao or self.situacao or "").strip()
+
+    @property
     def status_cor(self) -> str:
         """Retorna emoji de cor baseado no status"""
-        status_lower = self.situacao.lower()
+        status_lower = self.status_display.lower()
         if "concluído" in status_lower or "aprovado" in status_lower or "licenciado" in status_lower:
             return "🟢"
         if "vencido" in status_lower or "indeferido" in status_lower:
@@ -146,7 +152,7 @@ class Modelo:
 @dataclass
 class LicencaRaw:
     """Licença raw (estrutura larga do Excel) - uso temporário para leitura"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     municipio: str
@@ -166,16 +172,18 @@ class LicencaRaw:
 @dataclass
 class TaxaRaw:
     """Taxa raw (estrutura larga do Excel) - uso temporário para leitura"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     data_envio: str = ""
     funcionamento: str = "*"
     publicidade: str = "*"
     sanitaria: str = "*"
-    localizacao: str = "*"
-    ocupacao: str = "*"
-    bombeiros: str = "*"
+    localizacao_instalacao: str = "*"
+    area_publica: str = "*"
+    localizacao: str = "*"  # compatibilidade retroativa
+    ocupacao: str = "*"  # compatibilidade retroativa
+    bombeiros: str = "*"  # compatibilidade retroativa
     tpi: str = "*"
     status_taxas: str = "Regular"
     obs: str = ""
