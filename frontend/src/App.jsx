@@ -226,12 +226,62 @@ const normalizeEmpresaRelacionada = (entity) => {
   };
 };
 
-const ALERT_STATUS_KEYWORDS = ["vencid", "vence", "nao pago", "nao-pago", "negad", "indefer"];
+const ALERT_STATUS_KEYWORDS = [
+  "vencid",
+  "vence",
+  "nao pago",
+  "nao-pago",
+  "negad",
+  "indefer",
+  "abert",
+];
+
+const parseProgressFraction = (status) => {
+  if (status === null || status === undefined) {
+    return null;
+  }
+  const text = normalizeText(status);
+  const match = text.match(/(-?\d+(?:[.,]\d+)?)\s*\/\s*(-?\d+(?:[.,]\d+)?)/);
+  if (!match) {
+    return null;
+  }
+  const parseNumber = (value) => {
+    const trimmed = value.replace(/\s+/g, "");
+    const hasComma = trimmed.includes(",");
+    const hasDot = trimmed.includes(".");
+    const normalized = hasComma && hasDot
+      ? trimmed.replace(/\./g, "").replace(",", ".")
+      : trimmed.replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
+  const current = parseNumber(match[1]);
+  const total = parseNumber(match[2]);
+  return { current, total };
+};
+
+const hasPendingFraction = (status) => {
+  const fraction = parseProgressFraction(status);
+  if (!fraction) {
+    return false;
+  }
+  const { current, total } = fraction;
+  if (!Number.isFinite(current) || !Number.isFinite(total)) {
+    return true;
+  }
+  if (total <= 0) {
+    return true;
+  }
+  return current < total;
+};
 
 const isAlertStatus = (status) => {
   const key = getStatusKey(status);
   if (!key) return false;
   if (key.includes("nao se aplica") || key.includes("n/a")) return false;
+  if (hasPendingFraction(status)) {
+    return true;
+  }
   return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
@@ -257,6 +307,18 @@ const resolveStatusClass = (status) => {
   const key = getStatusKey(status);
   if (!key || key === "*" || key === "-" || key === "—") {
     return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
+  }
+
+  const fraction = parseProgressFraction(status);
+  if (fraction) {
+    const { current, total } = fraction;
+    if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    }
+    if (current < total) {
+      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    }
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key === "/") {
@@ -463,11 +525,13 @@ export default function App() {
   const [selectedTipo, setSelectedTipo] = useState(PROCESS_ALL);
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
   const [toasts, setToasts] = useState([]);
+  const [uteisQuery, setUteisQuery] = useState("");
 
   const toastTimeoutsRef = useRef(new Map());
 
   const normalizedQueryValue = useMemo(() => normalizeTextLower(query).trim(), [query]);
   const municipioKey = useMemo(() => normalizeTextLower(municipio).trim(), [municipio]);
+  const normalizedUteisQuery = useMemo(() => normalizeTextLower(uteisQuery).trim(), [uteisQuery]);
 
   const [empresas, setEmpresas] = useState([]);
   const [licencas, setLicencas] = useState([]);
@@ -723,6 +787,18 @@ export default function App() {
     [normalizedQueryValue],
   );
 
+  const matchesUteisQuery = useCallback(
+    (fields) => {
+      if (normalizedUteisQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedUteisQuery));
+    },
+    [normalizedUteisQuery],
+  );
+
   const matchesMunicipioFilter = useCallback(
     (entity) => {
       if (municipioKey === "") {
@@ -808,7 +884,7 @@ export default function App() {
     return lista.filter(
       (contato) =>
         matchesMunicipioFilter(contato) &&
-        matchesQuery([
+        matchesUteisQuery([
           contato?.contato,
           contato?.categoria,
           contato?.municipio,
@@ -817,16 +893,16 @@ export default function App() {
           contato?.whatsapp,
         ]),
     );
-  }, [contatos, matchesMunicipioFilter, matchesQuery]);
+  }, [contatos, matchesMunicipioFilter, matchesUteisQuery]);
 
   const filteredModelos = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
     return lista.filter(
       (modelo) =>
         matchesMunicipioFilter(modelo) &&
-        matchesQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
+        matchesUteisQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
     );
-  }, [matchesMunicipioFilter, matchesQuery, modelos]);
+  }, [matchesMunicipioFilter, matchesUteisQuery, modelos]);
 
   const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
@@ -1713,6 +1789,18 @@ export default function App() {
         </TabsContent>
 
         <TabsContent value="uteis" className="mt-4 space-y-4">
+          <div className="max-w-xl">
+            <Label className="text-xs uppercase">Pesquisa em úteis</Label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Buscar contato, categoria ou mensagem…"
+                className="pl-8"
+                value={uteisQuery}
+                onChange={(event) => setUteisQuery(event.target.value)}
+              />
+            </div>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className="shadow-sm">
               <CardHeader className="pb-2">
