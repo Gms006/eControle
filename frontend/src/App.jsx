@@ -302,6 +302,8 @@ export default function App() {
   const [processos, setProcessos] = useState([]);
   const [kpis, setKpis] = useState({});
   const [municipios, setMunicipios] = useState([]);
+  const [contatos, setContatos] = useState([]);
+  const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const tiposLicenca = useMemo(() => {
@@ -346,6 +348,36 @@ export default function App() {
     }, []);
   }, [municipios]);
 
+  const contatosOrdenados = useMemo(() => {
+    return [...contatos]
+      .filter((item) => item && (item.contato || item.email || item.telefone))
+      .sort((a, b) => {
+        const catA = normalizeText(a?.categoria || "");
+        const catB = normalizeText(b?.categoria || "");
+        if (catA !== catB) {
+          return catA.localeCompare(catB, "pt-BR");
+        }
+        const nomeA = normalizeText(a?.contato || "");
+        const nomeB = normalizeText(b?.contato || "");
+        return nomeA.localeCompare(nomeB, "pt-BR");
+      });
+  }, [contatos]);
+
+  const modelosOrdenados = useMemo(() => {
+    return [...modelos]
+      .filter((item) => item && (item.modelo || item.descricao))
+      .sort((a, b) => {
+        const usoA = normalizeText(a?.utilizacao || "");
+        const usoB = normalizeText(b?.utilizacao || "");
+        if (usoA !== usoB) {
+          return usoA.localeCompare(usoB, "pt-BR");
+        }
+        const descA = normalizeText(a?.descricao || "");
+        const descB = normalizeText(b?.descricao || "");
+        return descA.localeCompare(descB, "pt-BR");
+      });
+  }, [modelos]);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -356,8 +388,9 @@ export default function App() {
       fetchJson("/processos"),
       fetchJson("/kpis"),
       fetchJson("/municipios"),
+      fetchJson("/uteis"),
     ])
-      .then(([emp, lic, tax, proc, kpi, mun]) => {
+      .then(([emp, lic, tax, proc, kpi, mun, uteis]) => {
         if (!mounted) return;
         const empresasNormalizadas = Array.isArray(emp)
           ? emp.map((item) => enhanceEmpresa(item))
@@ -368,6 +401,8 @@ export default function App() {
         setProcessos(Array.isArray(proc) ? proc : []);
         setKpis(kpi);
         setMunicipios(Array.isArray(mun) ? mun : []);
+        setContatos(Array.isArray(uteis?.contatos) ? uteis.contatos : []);
+        setModelos(Array.isArray(uteis?.modelos) ? uteis.modelos : []);
         setLoading(false);
       })
       .catch((error) => {
@@ -379,6 +414,8 @@ export default function App() {
           setProcessos([]);
           setKpis({});
           setMunicipios([]);
+          setContatos([]);
+          setModelos([]);
           setLoading(false);
           enqueueToast("Não foi possível carregar os dados.");
         }
@@ -1260,52 +1297,62 @@ export default function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {["Prefeitura de Anápolis", "Vigilância Sanitária", "Corpo de Bombeiros"]
-                  .map((org, index) => {
-                    const contato =
-                      index === 0
-                        ? {
-                            email: "atendimento@anapolis.go.gov.br",
-                            fone: "(62) 3902-0000",
-                            site: "https://www.anapolis.go.gov.br",
-                          }
-                        : index === 1
-                          ? {
-                              email: "visa@go.gov.br",
-                              fone: "(62) 3201-0000",
-                              site: "https://saude.go.gov.br",
-                            }
-                          : {
-                              email: "atendimento@bombeiros.go.gov.br",
-                              fone: "193",
-                              site: "https://www.bombeiros.go.gov.br",
-                            };
-                    return (
-                      <div key={org} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-slate-800">{org}</p>
-                            <p className="text-xs text-slate-500">{contato.site}</p>
-                          </div>
+                {contatosOrdenados.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Nenhum contato cadastrado no Excel.
+                  </div>
+                )}
+                {contatosOrdenados.map((contato) => {
+                  const whatsappTexto = normalizeTextLower(contato.whatsapp || "");
+                  const temWhatsapp =
+                    whatsappTexto !== "" &&
+                    !["nao", "não", "nao possui", "não possui"].some((neg) => whatsappTexto.includes(neg));
+                  const info = [contato.email, contato.telefone, temWhatsapp ? contato.whatsapp : null]
+                    .filter((value) => value && value.toString().trim() !== "")
+                    .join(" • ");
+                  const municipioInfo = [contato.categoria, contato.municipio]
+                    .filter((value) => value && value.toString().trim() !== "")
+                    .join(" • ");
+                  return (
+                    <div
+                      key={`${contato.contato}-${contato.email}-${contato.telefone}`}
+                      className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-800">{contato.contato}</p>
+                          {municipioInfo && <p className="text-xs text-slate-500">{municipioInfo}</p>}
+                        </div>
+                        {info && (
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleCopy(`${contato.email} • ${contato.fone}`, `Contato copiado de ${org}`)}
+                            onClick={() => handleCopy(info, `Contato copiado de ${contato.contato}`)}
                           >
                             <Clipboard className="h-4 w-4" />
                           </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {contato.email && (
                           <InlineBadge variant="outline" className="bg-white">
                             <Mail className="h-3 w-3 mr-1" /> {contato.email}
                           </InlineBadge>
+                        )}
+                        {contato.telefone && (
                           <InlineBadge variant="outline" className="bg-white">
-                            <Phone className="h-3 w-3 mr-1" /> {contato.fone}
+                            <Phone className="h-3 w-3 mr-1" /> {contato.telefone}
                           </InlineBadge>
-                        </div>
+                        )}
+                        {temWhatsapp && (
+                          <InlineBadge variant="outline" className="bg-white">
+                            <Phone className="h-3 w-3 mr-1" /> WhatsApp: {contato.whatsapp}
+                          </InlineBadge>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
 
@@ -1316,40 +1363,36 @@ export default function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {[
-                  {
-                    titulo: "Cobrança de documentos",
-                    texto:
-                      "Olá! Poderiam encaminhar os documentos pendentes listados no eControle para avançarmos no processo?",
-                  },
-                  {
-                    titulo: "Agendamento de vistoria",
-                    texto:
-                      "Boa tarde! Podemos agendar a vistoria para a próxima semana? Favor confirmar a disponibilidade da equipe.",
-                  },
-                  {
-                    titulo: "Lembrete de renovação",
-                    texto:
-                      "Estamos nos aproximando do prazo de renovação da licença. Poderiam verificar os documentos necessários?",
-                  },
-                ].map((modelo) => (
-                  <div key={modelo.titulo} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+                {modelosOrdenados.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Nenhum modelo cadastrado no Excel.
+                  </div>
+                )}
+                {modelosOrdenados.map((modelo) => (
+                  <div
+                    key={`${modelo.descricao || "Modelo"}-${(modelo.modelo || "").slice(0, 20)}`}
+                    className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-medium text-slate-800">{modelo.titulo}</p>
+                        <p className="font-medium text-slate-800">{modelo.descricao || "Modelo"}</p>
                         <p className="text-xs text-slate-500">
-                          Clique para copiar e enviar no canal preferido.
+                          {modelo.utilizacao ? `Uso: ${modelo.utilizacao}` : "Clique para copiar e enviar."}
                         </p>
                       </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleCopy(modelo.texto, `Mensagem copiada: ${modelo.titulo}`)}
-                      >
-                        <Clipboard className="h-4 w-4" />
-                      </Button>
+                      {modelo.modelo && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleCopy(modelo.modelo, `Mensagem copiada: ${modelo.descricao || "Modelo"}`)}
+                        >
+                          <Clipboard className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-600 leading-relaxed">{modelo.texto}</p>
+                    {modelo.modelo && (
+                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{modelo.modelo}</p>
+                    )}
                   </div>
                 ))}
               </CardContent>
