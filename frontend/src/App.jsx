@@ -322,6 +322,37 @@ const STATUS_VARIANT_CLASSES = {
   plain: "bg-transparent border-transparent text-slate-500",
 };
 
+const PROCESS_BASE_COLUMNS = [
+  { key: "protocolo", label: "Protocolo", copyable: true },
+  { key: "data_solicitacao", label: "Data de Solicitação" },
+  { key: "situacao", label: "Situação", isStatus: true },
+];
+
+const normalizeProcessColumnKey = (value) =>
+  removeDiacritics(String(value ?? "").toLowerCase()).replace(/[^a-z0-9]+/g, "_");
+
+const PROCESS_EXTRA_COLUMNS = {
+  diversos: [
+    { key: "operacao", label: "Operação" },
+    { key: "orgao", label: "Órgão" },
+  ],
+  funcionamento: [{ key: "alvara", label: "Alvará" }],
+  alvara_de_funcionamento: [{ key: "alvara", label: "Alvará" }],
+  uso_do_solo: [
+    { key: "inscricao_imobiliaria", label: "Inscrição Imobiliária", copyable: true },
+  ],
+  sanitario: [
+    { key: "servico", label: "Serviço" },
+    { key: "notificacao", label: "Notificação" },
+    { key: "data_val", label: "Data Val" },
+  ],
+  alvara_sanitario: [
+    { key: "servico", label: "Serviço" },
+    { key: "notificacao", label: "Notificação" },
+    { key: "data_val", label: "Data Val" },
+  ],
+};
+
 const resolveStatusClass = (status) => {
   const key = getStatusKey(status);
   if (!key || key === "*" || key === "-" || key === "—") {
@@ -400,19 +431,19 @@ const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
   }
 
+  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
   if (
-    key.includes("regular") ||
+    (key.includes("regular") && !key.includes("irregular")) ||
     key.includes("quit") ||
     key.includes("vigent") ||
     key.includes("ativo") ||
-    key.includes("em dia") ||
-    key === "sim"
+    (key.includes("em dia") && !key.includes("irregular")) ||
+    (key === "sim" && !key.includes("irregular"))
   ) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
   return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
@@ -772,11 +803,14 @@ export default function App() {
     () =>
       processos.map((proc) => {
         const empresaId = extractEmpresaId(proc);
+        const statusCandidates = [proc.status, proc.status_padrao, proc.situacao];
+        const resolvedStatus = statusCandidates.find((value) => normalizeIdentifier(value));
         return {
           ...proc,
           empresaId,
           empresa_id: empresaId,
           tipoNormalizado: normalizeProcessType(proc),
+          status: resolvedStatus ?? proc.status ?? proc.status_padrao ?? proc.situacao,
         };
       }),
     [processos],
@@ -887,9 +921,21 @@ export default function App() {
             proc.tipo,
             proc.tipoNormalizado,
             proc.status,
+            proc.situacao,
+            proc.status_padrao,
+            proc.protocolo,
+            proc.data_solicitacao,
+            proc.prazo,
+            proc.operacao,
+            proc.orgao,
+            proc.alvara,
+            proc.inscricao_imobiliaria,
+            proc.servico,
+            proc.notificacao,
+            proc.data_val,
+            proc.municipio,
             proc.codigo,
             proc.inicio,
-            proc.prazo,
           ]),
       ),
     [matchesMunicipioFilter, matchesQuery, processosNormalizados],
@@ -1126,6 +1172,51 @@ export default function App() {
     return listaBase.filter((proc) => !isProcessStatusInactive(proc.status));
   }, [filteredProcessosBase, modoFoco, selectedTipo]);
 
+  const processoColumns = useMemo(() => {
+    const unique = [];
+    const seen = new Set();
+    const pushColumn = (column) => {
+      if (!column || !column.key || seen.has(column.key)) {
+        return;
+      }
+      seen.add(column.key);
+      unique.push(column);
+    };
+
+    PROCESS_BASE_COLUMNS.forEach(pushColumn);
+
+    const includeExtrasForType = (tipo) => {
+      if (!tipo) return;
+      const normalized = normalizeProcessColumnKey(tipo);
+      let extras = PROCESS_EXTRA_COLUMNS[normalized];
+      if (!extras) {
+        if (normalized.includes("sanitario")) {
+          extras = PROCESS_EXTRA_COLUMNS.sanitario;
+        } else if (normalized.includes("uso_do_solo") || normalized.includes("usodosolo")) {
+          extras = PROCESS_EXTRA_COLUMNS.uso_do_solo;
+        } else if (normalized.includes("funcionamento")) {
+          extras = PROCESS_EXTRA_COLUMNS.funcionamento;
+        } else if (normalized.includes("divers")) {
+          extras = PROCESS_EXTRA_COLUMNS.diversos;
+        } else if (normalized.includes("alvara") && normalized.includes("sanit")) {
+          extras = PROCESS_EXTRA_COLUMNS.alvara_sanitario;
+        }
+      }
+      if (Array.isArray(extras)) {
+        extras.forEach(pushColumn);
+      }
+    };
+
+    if (selectedTipo === PROCESS_ALL) {
+      const tiposPresentes = new Set(processosFiltrados.map((proc) => proc.tipoNormalizado));
+      tiposPresentes.forEach(includeExtrasForType);
+    } else {
+      includeExtrasForType(selectedTipo);
+    }
+
+    return unique;
+  }, [processosFiltrados, selectedTipo]);
+
   const processosAtivos = useMemo(() => {
     return processosNormalizados.filter((proc) => !isProcessStatusInactive(proc.status));
   }, [processosNormalizados]);
@@ -1171,6 +1262,36 @@ export default function App() {
       }
     },
     [enqueueToast],
+  );
+
+  const renderProcessCell = useCallback(
+    (proc, column) => {
+      const rawValue = proc?.[column.key];
+      if (column.isStatus) {
+        return <StatusBadge status={proc.status ?? rawValue} />;
+      }
+      if (column.copyable) {
+        const normalizedValue = normalizeIdentifier(rawValue);
+        if (!normalizedValue) {
+          return "—";
+        }
+        return (
+          <button
+            type="button"
+            onClick={() =>
+              handleCopy(normalizedValue, `${column.label} copiado: ${normalizedValue}`)
+            }
+            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            <span>{normalizedValue}</span>
+            <Clipboard className="h-3 w-3 opacity-70" aria-hidden="true" />
+          </button>
+        );
+      }
+      const displayValue = normalizeText(rawValue).trim();
+      return displayValue !== "" ? displayValue : "—";
+    },
+    [handleCopy],
   );
 
   const selectMunicipioValue = municipio ?? MUNICIPIO_ALL;
@@ -1760,40 +1881,46 @@ export default function App() {
             ))}
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
-            {processosFiltrados.map((proc, index) => (
-              <Card key={`${proc.empresa}-${proc.codigo}-${index}`} className="shadow-sm">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-white/80 grid place-items-center text-slate-600">
-                      {PROCESS_ICONS[proc.tipoNormalizado] || <Settings className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-semibold text-slate-800 truncate">{proc.empresa}</h3>
-                        <StatusBadge status={proc.status} />
-                      </div>
-                      <p className="text-xs text-slate-500 truncate">{proc.tipoNormalizado}</p>
-                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                        <span>Código: {proc.codigo}</span>
-                        <span>Início: {proc.inicio}</span>
-                        {proc.prazo && (
-                          <span className="text-red-600 font-medium">Prazo: {proc.prazo}</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {processosFiltrados.length === 0 && (
-              <Card className="shadow-sm">
-                <CardContent className="p-6 text-sm text-slate-600">
-                  Nenhum processo correspondente ao filtro.
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <Card className="shadow-sm">
+            <CardContent className="p-0">
+              <ScrollArea className="h-[420px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Empresa</TableHead>
+                      <TableHead>Tipo</TableHead>
+                      {processoColumns.map((column) => (
+                        <TableHead key={column.key}>{column.label}</TableHead>
+                      ))}
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {processosFiltrados.map((proc, index) => (
+                      <TableRow key={`${proc.empresa}-${proc.protocolo || proc.codigo || index}`}>
+                        <TableCell className="font-medium">{proc.empresa || "—"}</TableCell>
+                        <TableCell className="text-sm text-slate-600">{proc.tipoNormalizado}</TableCell>
+                        {processoColumns.map((column) => (
+                          <TableCell key={column.key} className="text-sm">
+                            {renderProcessCell(proc, column)}
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                    {processosFiltrados.length === 0 && (
+                      <TableRow>
+                        <TableCell
+                          colSpan={processoColumns.length + 2}
+                          className="text-sm text-slate-500"
+                        >
+                          Nenhum processo correspondente ao filtro.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="uteis" className="mt-4 space-y-4">
