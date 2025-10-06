@@ -29,13 +29,14 @@ logger = logging.getLogger(__name__)
 class ExcelRepo:
     """Repositório para leitura/escrita segura em Excel com macros"""
 
-    def __init__(self, excel_path: str, config_path: str = "config.yaml"):
+    def __init__(self, excel_path: str, config_path: str = "config.yaml", *, data_only: bool = True):
         self.excel_path = Path(excel_path)
         self.config = self._load_config(config_path)
         self.wb: Optional[openpyxl.Workbook] = None
         # mapas de colunas (por chave lógica)
         self._column_maps: Dict[str, Dict[str, int]] = {}
         self._lock: Optional[portalocker.Lock] = None
+        self._data_only = data_only
 
     # ------------------------------------------------------------------
     # Config
@@ -156,7 +157,11 @@ class ExcelRepo:
                     str(self.excel_path), "r", timeout=lock_timeout, flags=portalocker.LOCK_SH
                 )
                 self._lock.acquire()
-                self.wb = load_workbook(self.excel_path, keep_vba=True, data_only=False)
+                self.wb = load_workbook(
+                    self.excel_path,
+                    keep_vba=True,
+                    data_only=self._data_only,
+                )
                 logger.info("Excel aberto: %s", self.excel_path)
                 return
             except (PermissionError, portalocker.exceptions.LockException) as e:

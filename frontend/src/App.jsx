@@ -149,6 +149,7 @@ const PROCESS_ICONS = {
 const LIC_ICONS = {
   Sanitária: <Droplets className="h-4 w-4" />,
   CERCON: <Shield className="h-4 w-4" />,
+  Funcionamento: <Building2 className="h-4 w-4" />,
   "Uso do Solo": <MapPin className="h-4 w-4" />,
   Ambiental: <Trees className="h-4 w-4" />,
 };
@@ -156,23 +157,168 @@ const LIC_ICONS = {
 const LIC_COLORS = {
   Sanitária: "border-sky-500 text-sky-700",
   CERCON: "border-indigo-500 text-indigo-700",
+  Funcionamento: "border-blue-500 text-blue-700",
   "Uso do Solo": "border-amber-500 text-amber-700",
   Ambiental: "border-emerald-600 text-emerald-700",
 };
 
-const STATUS_STYLES = {
-  Possui: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  Vencido: "bg-red-100 text-red-700 border-red-200",
-  "Vence≤30d": "bg-amber-100 text-amber-800 border-amber-200",
-  Dispensa: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  Sujeito: "bg-slate-200 text-slate-700 border-slate-300",
-  Pago: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  "Não pago": "bg-red-100 text-red-700 border-red-200",
-  SIM: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  NÃO: "bg-red-100 text-red-700 border-red-200",
+const DEFAULT_LICENCA_TIPOS = ["Sanitária", "CERCON", "Funcionamento", "Uso do Solo", "Ambiental"];
+
+const removeDiacritics = (value) => {
+  if (typeof value !== "string") return "";
+  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
-const ALERT_STATUSES = new Set(["Vencido", "Vence≤30d", "Não pago"]);
+const getStatusKey = (status) => removeDiacritics(normalizeTextLower(status));
+
+const hasRelevantStatus = (status) => {
+  const statusText = normalizeText(status).trim();
+  if (!statusText || statusText === "*" || statusText === "-" || statusText === "—") {
+    return false;
+  }
+  const statusKey = getStatusKey(statusText);
+  return Boolean(statusKey && statusKey !== "*");
+};
+
+const toFiniteNumber = (value) => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    if (trimmed === "") return undefined;
+    const parsed = Number(trimmed);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return undefined;
+};
+
+const extractEmpresaId = (entity) => {
+  if (!entity || typeof entity !== "object") return undefined;
+  const candidates = [entity.empresa_id, entity.empresaId, entity.id];
+  for (const candidate of candidates) {
+    const numeric = toFiniteNumber(candidate);
+    if (numeric !== undefined) {
+      return numeric;
+    }
+  }
+  return undefined;
+};
+
+const normalizeEmpresaRelacionada = (entity) => {
+  if (!entity || typeof entity !== "object") return entity;
+  const empresaId = extractEmpresaId(entity);
+  return {
+    ...entity,
+    empresaId,
+    empresa_id: empresaId,
+  };
+};
+
+const ALERT_STATUS_KEYWORDS = ["vencid", "vence", "nao pago", "nao-pago", "negad", "indefer"];
+
+const isAlertStatus = (status) => {
+  const key = getStatusKey(status);
+  if (!key) return false;
+  if (key.includes("nao se aplica") || key.includes("n/a")) return false;
+  return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
+};
+
+const PROCESS_INACTIVE_KEYWORDS = ["concluido", "licenciado", "aprovado", "indeferido", "negado", "finalizado"];
+
+const isProcessStatusInactive = (status) => {
+  const key = getStatusKey(status);
+  if (!key) return false;
+  return PROCESS_INACTIVE_KEYWORDS.some((keyword) => key.includes(keyword));
+};
+
+const STATUS_VARIANT_CLASSES = {
+  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  warning: "bg-amber-100 text-amber-800 border-amber-200",
+  danger: "bg-red-100 text-red-700 border-red-200",
+  info: "bg-sky-100 text-sky-700 border-sky-200",
+  neutral: "bg-slate-100 text-slate-700 border-slate-200",
+  muted: "bg-slate-200 text-slate-700 border-slate-300",
+  plain: "bg-transparent border-transparent text-slate-500",
+};
+
+const resolveStatusClass = (status) => {
+  const key = getStatusKey(status);
+  if (!key || key === "*" || key === "-" || key === "—") {
+    return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
+  }
+
+  if (key === "/") {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key.includes("possui")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("pago") && !key.includes("nao")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("em aberto") || key.includes("emaberto") || key.includes("nao pago")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("sujeit")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("vencid") || key.includes("vence")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key === "nao" || key.includes("nao possui") || key.includes("nao tem")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.muted };
+  }
+
+  if (key.includes("indefer") || key.includes("negad")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("em andament") || key.includes("aguard")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key.includes("pend")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.neutral };
+  }
+
+  if (key.includes("conclu") || key.includes("aprov") || key.includes("licenc") || key.includes("defer") || key.includes("emit")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("nao se aplica") || key.includes("n/a")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.info };
+  }
+
+  if (key.includes("dispens") || key.includes("orient") || key.includes("inform") || key.includes("consult")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.info };
+  }
+
+  if (
+    key.includes("regular") ||
+    key.includes("quit") ||
+    key.includes("vigent") ||
+    key.includes("ativo") ||
+    key.includes("em dia") ||
+    key === "sim"
+  ) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
+    return { variant: "outline", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  return { variant: "outline", className: STATUS_VARIANT_CLASSES.neutral };
+};
 
 const normalizeText = (value) => {
   if (value === null || value === undefined) {
@@ -213,10 +359,13 @@ const enhanceEmpresa = (empresa) => {
     normalizeIdentifier(empresa.inscricao_municipal) ||
     normalizeIdentifier(empresa.inscricaoMunicipal) ||
     normalizeIdentifier(empresa["inscrição_municipal"]);
+  const empresaId = extractEmpresaId(empresa);
   return {
     ...empresa,
     ie,
     im,
+    empresaId: empresaId ?? empresa?.id,
+    empresa_id: empresaId ?? empresa?.id,
   };
 };
 
@@ -225,6 +374,7 @@ function InlineBadge({ children, className = "", variant = "solid", ...props }) 
   const variants = {
     solid: "bg-slate-100 border-transparent text-slate-700",
     outline: "bg-white border-slate-200 text-slate-600",
+    plain: "bg-transparent border-transparent text-slate-500",
   };
   const variantClasses = variants[variant] || variants.solid;
   return (
@@ -252,10 +402,13 @@ function CopyableIdentifier({ label, value, onCopy }) {
 }
 
 function StatusBadge({ status }) {
-  const style = STATUS_STYLES[status] || "bg-slate-100 text-slate-700 border-slate-200";
+  const normalized = normalizeText(status);
+  const trimmed = normalized.trim();
+  const displayValue = trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—" ? "—" : trimmed;
+  const { variant, className } = resolveStatusClass(status);
   return (
-    <InlineBadge variant="outline" className={style}>
-      {status}
+    <InlineBadge variant={variant} className={className}>
+      {displayValue}
     </InlineBadge>
   );
 }
@@ -302,19 +455,29 @@ export default function App() {
   const [processos, setProcessos] = useState([]);
   const [kpis, setKpis] = useState({});
   const [municipios, setMunicipios] = useState([]);
+  const [contatos, setContatos] = useState([]);
+  const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   const tiposLicenca = useMemo(() => {
     const seen = new Set();
-    return licencas.reduce((acc, lic) => {
+    const ordered = [];
+    DEFAULT_LICENCA_TIPOS.forEach((tipoBase) => {
+      const trimmed = normalizeText(tipoBase).trim();
+      if (trimmed !== "" && !seen.has(trimmed)) {
+        seen.add(trimmed);
+        ordered.push(trimmed);
+      }
+    });
+    licencas.forEach((lic) => {
       const tipo = normalizeText(lic?.tipo).trim();
       if (tipo === "" || seen.has(tipo)) {
-        return acc;
+        return;
       }
       seen.add(tipo);
-      acc.push(tipo);
-      return acc;
-    }, []);
+      ordered.push(tipo);
+    });
+    return ordered;
   }, [licencas]);
 
   useEffect(() => {
@@ -346,6 +509,36 @@ export default function App() {
     }, []);
   }, [municipios]);
 
+  const contatosOrdenados = useMemo(() => {
+    return [...contatos]
+      .filter((item) => item && (item.contato || item.email || item.telefone))
+      .sort((a, b) => {
+        const catA = normalizeText(a?.categoria || "");
+        const catB = normalizeText(b?.categoria || "");
+        if (catA !== catB) {
+          return catA.localeCompare(catB, "pt-BR");
+        }
+        const nomeA = normalizeText(a?.contato || "");
+        const nomeB = normalizeText(b?.contato || "");
+        return nomeA.localeCompare(nomeB, "pt-BR");
+      });
+  }, [contatos]);
+
+  const modelosOrdenados = useMemo(() => {
+    return [...modelos]
+      .filter((item) => item && (item.modelo || item.descricao))
+      .sort((a, b) => {
+        const usoA = normalizeText(a?.utilizacao || "");
+        const usoB = normalizeText(b?.utilizacao || "");
+        if (usoA !== usoB) {
+          return usoA.localeCompare(usoB, "pt-BR");
+        }
+        const descA = normalizeText(a?.descricao || "");
+        const descB = normalizeText(b?.descricao || "");
+        return descA.localeCompare(descB, "pt-BR");
+      });
+  }, [modelos]);
+
   useEffect(() => {
     let mounted = true;
     setLoading(true);
@@ -356,18 +549,30 @@ export default function App() {
       fetchJson("/processos"),
       fetchJson("/kpis"),
       fetchJson("/municipios"),
+      fetchJson("/uteis"),
     ])
-      .then(([emp, lic, tax, proc, kpi, mun]) => {
+      .then(([emp, lic, tax, proc, kpi, mun, uteis]) => {
         if (!mounted) return;
         const empresasNormalizadas = Array.isArray(emp)
           ? emp.map((item) => enhanceEmpresa(item))
           : [];
+        const licencasNormalizadas = Array.isArray(lic)
+          ? lic.map((item) => normalizeEmpresaRelacionada(item))
+          : [];
+        const taxasNormalizadas = Array.isArray(tax)
+          ? tax.map((item) => normalizeEmpresaRelacionada(item))
+          : [];
+        const processosComEmpresa = Array.isArray(proc)
+          ? proc.map((item) => normalizeEmpresaRelacionada(item))
+          : [];
         setEmpresas(empresasNormalizadas);
-        setLicencas(Array.isArray(lic) ? lic : []);
-        setTaxas(Array.isArray(tax) ? tax : []);
-        setProcessos(Array.isArray(proc) ? proc : []);
+        setLicencas(licencasNormalizadas);
+        setTaxas(taxasNormalizadas);
+        setProcessos(processosComEmpresa);
         setKpis(kpi);
         setMunicipios(Array.isArray(mun) ? mun : []);
+        setContatos(Array.isArray(uteis?.contatos) ? uteis.contatos : []);
+        setModelos(Array.isArray(uteis?.modelos) ? uteis.modelos : []);
         setLoading(false);
       })
       .catch((error) => {
@@ -379,6 +584,8 @@ export default function App() {
           setProcessos([]);
           setKpis({});
           setMunicipios([]);
+          setContatos([]);
+          setModelos([]);
           setLoading(false);
           enqueueToast("Não foi possível carregar os dados.");
         }
@@ -391,9 +598,11 @@ export default function App() {
   const licencasByEmpresa = useMemo(() => {
     const map = new Map();
     licencas.forEach((lic) => {
-      const group = map.get(lic.empresa) || [];
+      const empresaId = extractEmpresaId(lic);
+      if (empresaId === undefined) return;
+      const group = map.get(empresaId) || [];
       group.push(lic);
-      map.set(lic.empresa, group);
+      map.set(empresaId, group);
     });
     return map;
   }, [licencas]);
@@ -401,26 +610,35 @@ export default function App() {
   const taxasByEmpresa = useMemo(() => {
     const map = new Map();
     taxas.forEach((tx) => {
-      map.set(tx.empresa, tx);
+      const empresaId = extractEmpresaId(tx);
+      if (empresaId === undefined) return;
+      map.set(empresaId, tx);
     });
     return map;
   }, [taxas]);
 
   const processosNormalizados = useMemo(
     () =>
-      processos.map((proc) => ({
-        ...proc,
-        tipoNormalizado: normalizeProcessType(proc),
-      })),
+      processos.map((proc) => {
+        const empresaId = extractEmpresaId(proc);
+        return {
+          ...proc,
+          empresaId,
+          empresa_id: empresaId,
+          tipoNormalizado: normalizeProcessType(proc),
+        };
+      }),
     [processos],
   );
 
   const processosByEmpresa = useMemo(() => {
     const map = new Map();
     processosNormalizados.forEach((proc) => {
-      const group = map.get(proc.empresa) || [];
+      const empresaId = extractEmpresaId(proc);
+      if (empresaId === undefined) return;
+      const group = map.get(empresaId) || [];
       group.push(proc);
-      map.set(proc.empresa, group);
+      map.set(empresaId, group);
     });
     return map;
   }, [processosNormalizados]);
@@ -460,24 +678,25 @@ export default function App() {
   const companyHasAlert = useCallback(
     (empresa) => {
       if (!empresa) return false;
+      const empresaId = extractEmpresaId(empresa);
+      if (empresaId === undefined) return false;
       const debitoLower = normalizeTextLower(empresa.debito);
       const certificadoLower = normalizeTextLower(empresa.certificado);
       if (debitoLower === "sim" || certificadoLower === "não") {
         return true;
       }
-      const licList = licencasByEmpresa.get(empresa.empresa) || [];
-      const hasLicencaAlert = licList.some((lic) => ALERT_STATUSES.has(lic.status));
+      const licList = licencasByEmpresa.get(empresaId) || [];
+      const hasLicencaAlert = licList.some((lic) => isAlertStatus(lic.status));
       if (hasLicencaAlert) return true;
-      const taxa = taxasByEmpresa.get(empresa.empresa);
+      const taxa = taxasByEmpresa.get(empresaId);
       if (taxa) {
         const entries = [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria];
-        if (entries.some((status) => ALERT_STATUSES.has(status))) {
+        if (entries.some((status) => isAlertStatus(status))) {
           return true;
         }
       }
-      const processosEmpresa = processosByEmpresa.get(empresa.empresa) || [];
-      const inativos = new Set(["CONCLUÍDO", "LICENCIADO", "Aprovado", "INDEFERIDO"]);
-      return processosEmpresa.some((proc) => !inativos.has(proc.status));
+      const processosEmpresa = processosByEmpresa.get(empresaId) || [];
+      return processosEmpresa.some((proc) => !isProcessStatusInactive(proc.status));
     },
     [licencasByEmpresa, processosByEmpresa, taxasByEmpresa],
   );
@@ -521,11 +740,15 @@ export default function App() {
   const licencaResumo = useMemo(() => {
     return licencas.reduce(
       (acc, lic) => {
+        if (!hasRelevantStatus(lic?.status)) {
+          return acc;
+        }
+        const statusKey = getStatusKey(lic.status);
         acc.total += 1;
-        if (lic.status === "Vencido") acc.vencidas += 1;
-        else if (lic.status === "Vence≤30d") acc.vencendo += 1;
-        else if (lic.status === "Dispensa") acc.dispensa += 1;
-        else if (lic.status === "Sujeito") acc.sujeito += 1;
+        if (statusKey.includes("vencid")) acc.vencidas += 1;
+        else if (statusKey.includes("vence")) acc.vencendo += 1;
+        else if (statusKey.includes("dispens")) acc.dispensa += 1;
+        else if (statusKey.includes("sujeit")) acc.sujeito += 1;
         else acc.ativas += 1;
         return acc;
       },
@@ -538,10 +761,12 @@ export default function App() {
     licencas.forEach((lic) => {
       const validade = parsePtDate(lic.validade);
       if (!validade) return;
+      if (!hasRelevantStatus(lic.status)) return;
+      const statusKey = getStatusKey(lic.status);
       const key = `${validade.getFullYear()}-${validade.getMonth()}`;
       const entry = monthly.get(key) || { date: validade, vencidas: 0, vencendo: 0 };
-      if (lic.status === "Vencido") entry.vencidas += 1;
-      else if (lic.status === "Vence≤30d") entry.vencendo += 1;
+      if (statusKey.includes("vencid")) entry.vencidas += 1;
+      else if (statusKey.includes("vence")) entry.vencendo += 1;
       monthly.set(key, entry);
     });
     if (monthly.size === 0) {
@@ -585,13 +810,11 @@ export default function App() {
         ? processosNormalizados
         : processosNormalizados.filter((proc) => proc.tipoNormalizado === selectedTipo);
     if (!modoFoco) return listaBase;
-    const inativos = new Set(["CONCLUÍDO", "LICENCIADO", "Aprovado", "INDEFERIDO"]);
-    return listaBase.filter((proc) => !inativos.has(proc.status));
+    return listaBase.filter((proc) => !isProcessStatusInactive(proc.status));
   }, [modoFoco, processosNormalizados, selectedTipo]);
 
   const processosAtivos = useMemo(() => {
-    const inativos = new Set(["CONCLUÍDO", "LICENCIADO", "Aprovado", "INDEFERIDO"]);
-    return processosNormalizados.filter((proc) => !inativos.has(proc.status));
+    return processosNormalizados.filter((proc) => !isProcessStatusInactive(proc.status));
   }, [processosNormalizados]);
 
   const selfTestResults = useMemo(
@@ -824,8 +1047,12 @@ export default function App() {
                       Nenhuma pendência identificada no momento.
                     </li>
                   )}
-                  {empresasComPendencias.map((empresa) => (
-                    <li key={empresa.id} className="px-4 py-3 text-sm">
+                  {empresasComPendencias.map((empresa) => {
+                    const empresaId = extractEmpresaId(empresa);
+                    const licencasPendentes =
+                      empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
+                    return (
+                      <li key={empresa.id} className="px-4 py-3 text-sm">
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <p className="font-medium text-slate-800">{empresa.empresa}</p>
@@ -838,16 +1065,17 @@ export default function App() {
                             <StatusBadge status="Não pago" />
                           )}
                           {normalizeTextLower(empresa.certificado) === "não" && <StatusBadge status="NÃO" />}
-                          {(licencasByEmpresa.get(empresa.empresa) || [])
-                            .filter((lic) => ALERT_STATUSES.has(lic.status))
+                          {licencasPendentes
+                            .filter((lic) => isAlertStatus(lic.status))
                             .slice(0, 2)
                             .map((lic) => (
                               <StatusBadge key={`${empresa.id}-${lic.tipo}`} status={lic.status} />
                             ))}
                         </div>
                       </div>
-                    </li>
-                  ))}
+                      </li>
+                    );
+                  })}
                 </ul>
               </ScrollArea>
             </CardContent>
@@ -863,28 +1091,40 @@ export default function App() {
           </div>
           <div className="grid gap-3 lg:grid-cols-2">
             {filteredEmpresas.map((empresa) => {
-              const licList = licencasByEmpresa.get(empresa.empresa) || [];
+              const empresaId = extractEmpresaId(empresa);
+              const licList = empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
               const licSummary = licList.reduce(
                 (acc, lic) => {
+                  if (!hasRelevantStatus(lic.status)) {
+                    return acc;
+                  }
+                  const statusKey = getStatusKey(lic.status);
                   acc.total += 1;
-                  if (lic.status === "Vencido") acc.vencidas += 1;
-                  else if (lic.status === "Vence≤30d") acc.vencendo += 1;
+                  if (statusKey.includes("vencid")) acc.vencidas += 1;
+                  else if (statusKey.includes("vence")) acc.vencendo += 1;
                   else acc.ativas += 1;
                   return acc;
                 },
                 { total: 0, ativas: 0, vencendo: 0, vencidas: 0 },
               );
-              const taxa = taxasByEmpresa.get(empresa.empresa);
-              const processosEmpresa = processosByEmpresa.get(empresa.empresa) || [];
-              const processosAtivosEmpresa = processosEmpresa.filter((proc) =>
-                processosAtivos.includes(proc),
+              const taxa = empresaId !== undefined ? taxasByEmpresa.get(empresaId) : undefined;
+              const processosEmpresa =
+                empresaId !== undefined ? processosByEmpresa.get(empresaId) || [] : [];
+              const processosAtivosEmpresa = processosEmpresa.filter(
+                (proc) => !isProcessStatusInactive(proc.status),
               );
+              const rawId =
+                empresa.empresa_id ?? empresa.empresaId ?? empresa.id ?? extractEmpresaId(empresa);
+              const avatarLabel =
+                rawId !== undefined && rawId !== null && `${rawId}`.toString().trim() !== ""
+                  ? `${rawId}`
+                  : "?";
               return (
                 <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-start gap-3">
                       <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
-                        {empresa.empresa?.[0] || "?"}
+                        {avatarLabel}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between gap-2">
@@ -960,7 +1200,7 @@ export default function App() {
                               Taxas pend.:
                               {taxa
                                 ? [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].filter((status) =>
-                                    ALERT_STATUSES.has(status),
+                                    isAlertStatus(status),
                                   ).length
                                 : 0}
                             </p>
@@ -1056,10 +1296,15 @@ export default function App() {
 
           <div className="flex flex-wrap gap-2 mb-3">
             {["Todos", ...tiposLicenca].map((tipo) => {
-              const count =
-                tipo === "Todos"
-                  ? licencas.length
-                  : licencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo).length;
+              const count = licencas.filter((lic) => {
+                if (!hasRelevantStatus(lic.status)) {
+                  return false;
+                }
+                if (tipo === "Todos") {
+                  return true;
+                }
+                return normalizeText(lic?.tipo).trim() === tipo;
+              }).length;
               const icon = tipo === "Todos" ? null : LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
               return (
                 <Button
@@ -1088,8 +1333,11 @@ export default function App() {
               tiposLicencaSelecionados.map((tipo) => {
                 const registros = licencas
                   .filter((lic) => normalizeText(lic?.tipo).trim() === tipo)
+                  .filter((lic) => hasRelevantStatus(lic.status))
                   .filter((lic) =>
-                    modoFoco ? ALERT_STATUSES.has(lic.status) || lic.status === "Sujeito" : true,
+                    modoFoco
+                      ? isAlertStatus(lic.status) || getStatusKey(lic.status).includes("sujeit")
+                      : true,
                   );
                 const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
                 return (
@@ -1113,12 +1361,12 @@ export default function App() {
                           </TableHeader>
                           <TableBody>
                             {registros.map((lic, index) => (
-                              <TableRow key={`${lic.empresa}-${lic.tipo}-${index}`}>
+                              <TableRow key={`${lic.empresa_id ?? lic.empresa}-${lic.tipo}-${index}`}>
                                 <TableCell className="font-medium">{lic.empresa}</TableCell>
                                 <TableCell>
                                   <StatusBadge status={lic.status} />
                                 </TableCell>
-                                <TableCell>{lic.validade}</TableCell>
+                                <TableCell>{lic.validade || "—"}</TableCell>
                                 <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
                               </TableRow>
                             ))}
@@ -1159,12 +1407,12 @@ export default function App() {
                       .filter((taxa) =>
                         modoFoco
                           ? [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].some((status) =>
-                              ALERT_STATUSES.has(status),
+                              isAlertStatus(status),
                             )
                           : true,
                       )
                       .map((taxa, index) => (
-                        <TableRow key={`${taxa.empresa}-${index}`}>
+                        <TableRow key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}>
                           <TableCell className="font-medium">{taxa.empresa}</TableCell>
                           <TableCell>
                             <StatusBadge status={taxa.tpi} />
@@ -1260,52 +1508,62 @@ export default function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {["Prefeitura de Anápolis", "Vigilância Sanitária", "Corpo de Bombeiros"]
-                  .map((org, index) => {
-                    const contato =
-                      index === 0
-                        ? {
-                            email: "atendimento@anapolis.go.gov.br",
-                            fone: "(62) 3902-0000",
-                            site: "https://www.anapolis.go.gov.br",
-                          }
-                        : index === 1
-                          ? {
-                              email: "visa@go.gov.br",
-                              fone: "(62) 3201-0000",
-                              site: "https://saude.go.gov.br",
-                            }
-                          : {
-                              email: "atendimento@bombeiros.go.gov.br",
-                              fone: "193",
-                              site: "https://www.bombeiros.go.gov.br",
-                            };
-                    return (
-                      <div key={org} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="font-medium text-slate-800">{org}</p>
-                            <p className="text-xs text-slate-500">{contato.site}</p>
-                          </div>
+                {contatosOrdenados.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Nenhum contato cadastrado no Excel.
+                  </div>
+                )}
+                {contatosOrdenados.map((contato) => {
+                  const whatsappTexto = normalizeTextLower(contato.whatsapp || "");
+                  const temWhatsapp =
+                    whatsappTexto !== "" &&
+                    !["nao", "não", "nao possui", "não possui"].some((neg) => whatsappTexto.includes(neg));
+                  const info = [contato.email, contato.telefone, temWhatsapp ? contato.whatsapp : null]
+                    .filter((value) => value && value.toString().trim() !== "")
+                    .join(" • ");
+                  const municipioInfo = [contato.categoria, contato.municipio]
+                    .filter((value) => value && value.toString().trim() !== "")
+                    .join(" • ");
+                  return (
+                    <div
+                      key={`${contato.contato}-${contato.email}-${contato.telefone}`}
+                      className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-800">{contato.contato}</p>
+                          {municipioInfo && <p className="text-xs text-slate-500">{municipioInfo}</p>}
+                        </div>
+                        {info && (
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => handleCopy(`${contato.email} • ${contato.fone}`, `Contato copiado de ${org}`)}
+                            onClick={() => handleCopy(info, `Contato copiado de ${contato.contato}`)}
                           >
                             <Clipboard className="h-4 w-4" />
                           </Button>
-                        </div>
-                        <div className="flex flex-wrap gap-2 text-xs">
+                        )}
+                      </div>
+                      <div className="flex flex-wrap gap-2 text-xs">
+                        {contato.email && (
                           <InlineBadge variant="outline" className="bg-white">
                             <Mail className="h-3 w-3 mr-1" /> {contato.email}
                           </InlineBadge>
+                        )}
+                        {contato.telefone && (
                           <InlineBadge variant="outline" className="bg-white">
-                            <Phone className="h-3 w-3 mr-1" /> {contato.fone}
+                            <Phone className="h-3 w-3 mr-1" /> {contato.telefone}
                           </InlineBadge>
-                        </div>
+                        )}
+                        {temWhatsapp && (
+                          <InlineBadge variant="outline" className="bg-white">
+                            <Phone className="h-3 w-3 mr-1" /> WhatsApp: {contato.whatsapp}
+                          </InlineBadge>
+                        )}
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
               </CardContent>
             </Card>
 
@@ -1316,40 +1574,36 @@ export default function App() {
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3 text-sm">
-                {[
-                  {
-                    titulo: "Cobrança de documentos",
-                    texto:
-                      "Olá! Poderiam encaminhar os documentos pendentes listados no eControle para avançarmos no processo?",
-                  },
-                  {
-                    titulo: "Agendamento de vistoria",
-                    texto:
-                      "Boa tarde! Podemos agendar a vistoria para a próxima semana? Favor confirmar a disponibilidade da equipe.",
-                  },
-                  {
-                    titulo: "Lembrete de renovação",
-                    texto:
-                      "Estamos nos aproximando do prazo de renovação da licença. Poderiam verificar os documentos necessários?",
-                  },
-                ].map((modelo) => (
-                  <div key={modelo.titulo} className="rounded-xl border border-slate-200 bg-white p-4 space-y-2">
+                {modelosOrdenados.length === 0 && (
+                  <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                    Nenhum modelo cadastrado no Excel.
+                  </div>
+                )}
+                {modelosOrdenados.map((modelo) => (
+                  <div
+                    key={`${modelo.descricao || "Modelo"}-${(modelo.modelo || "").slice(0, 20)}`}
+                    className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
+                  >
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <p className="font-medium text-slate-800">{modelo.titulo}</p>
+                        <p className="font-medium text-slate-800">{modelo.descricao || "Modelo"}</p>
                         <p className="text-xs text-slate-500">
-                          Clique para copiar e enviar no canal preferido.
+                          {modelo.utilizacao ? `Uso: ${modelo.utilizacao}` : "Clique para copiar e enviar."}
                         </p>
                       </div>
-                      <Button
-                        size="icon"
-                        variant="ghost"
-                        onClick={() => handleCopy(modelo.texto, `Mensagem copiada: ${modelo.titulo}`)}
-                      >
-                        <Clipboard className="h-4 w-4" />
-                      </Button>
+                      {modelo.modelo && (
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          onClick={() => handleCopy(modelo.modelo, `Mensagem copiada: ${modelo.descricao || "Modelo"}`)}
+                        >
+                          <Clipboard className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-600 leading-relaxed">{modelo.texto}</p>
+                    {modelo.modelo && (
+                      <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{modelo.modelo}</p>
+                    )}
                   </div>
                 ))}
               </CardContent>
