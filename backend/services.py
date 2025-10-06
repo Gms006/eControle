@@ -91,6 +91,8 @@ def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
     }
 
     for raw in licencas_raw:
+        if not getattr(raw, "empresa_id", None):
+            continue
         for campo, tipo in tipos_map.items():
             status_attr = f"{campo}_status"
             val_attr = f"{campo}_val"
@@ -111,8 +113,12 @@ def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
                 elif status not in {"Dispensa", "Sujeito", "Possui", "Vencido", "Vence≤30d"}:
                     status = calcular_status_vencimento(validade)
 
+            status = status.strip() if isinstance(status, str) else status
+            if status in {"", "*"}:
+                continue
+
             licencas_norm.append(Licenca(
-                id=raw.id,
+                empresa_id=raw.empresa_id,
                 empresa=raw.empresa,
                 cnpj=raw.cnpj,
                 municipio=raw.municipio,
@@ -145,6 +151,8 @@ def normalizar_taxas(taxas_raw: List[TaxaRaw]) -> List[Taxa]:
     ]
 
     for raw in taxas_raw:
+        if not getattr(raw, "empresa_id", None):
+            continue
         status_por_tipo: Dict[str, str] = {}
 
         for campo, tipo in tipos_map:
@@ -159,7 +167,7 @@ def normalizar_taxas(taxas_raw: List[TaxaRaw]) -> List[Taxa]:
 
         for tipo, status_valor in status_por_tipo.items():
             taxas_norm.append(Taxa(
-                id=raw.id,
+                empresa_id=raw.empresa_id,
                 empresa=raw.empresa,
                 cnpj=raw.cnpj,
                 tipo=tipo,
@@ -283,21 +291,21 @@ def filtrar_processos(
 # MÉTRICAS (helpers para UI)
 # ============================================================================
 
-def contar_licencas_por_status(licencas: List[Licenca], empresa_nome: str) -> Dict[str, int]:
+def contar_licencas_por_status(licencas: List[Licenca], empresa_id: int) -> Dict[str, int]:
     """Conta licenças por status para uma empresa"""
-    lics = [l for l in licencas if l.empresa == empresa_nome]
-    
+    lics = [l for l in licencas if l.empresa_id == empresa_id]
+
     return {
         "ativas": len([l for l in lics if l.status_display == "Possui"]),
         "vencendo": len([l for l in lics if l.status_display == "Vence≤30d"]),
         "vencidas": len([l for l in lics if l.status_display == "Vencido"]),
-        "total": len(lics)
+        "total": len([l for l in lics if l.status_display not in {"", "*"}])
     }
 
 
-def contar_taxas_pendentes(taxas: List[Taxa], empresa_nome: str) -> int:
+def contar_taxas_pendentes(taxas: List[Taxa], empresa_id: int) -> int:
     """Conta taxas pendentes de uma empresa"""
-    txs = [t for t in taxas if t.empresa == empresa_nome]
+    txs = [t for t in taxas if t.empresa_id == empresa_id]
     pendentes = [
         t for t in txs
         if t.status_display in ["Não pago", "Vencido"] or "Aberto" in t.status
@@ -305,9 +313,9 @@ def contar_taxas_pendentes(taxas: List[Taxa], empresa_nome: str) -> int:
     return len(pendentes)
 
 
-def contar_processos_empresa(processos: List[Processo], empresa_nome: str) -> int:
+def contar_processos_empresa(processos: List[Processo], empresa_id: int) -> int:
     """Conta processos de uma empresa"""
-    return len([p for p in processos if p.empresa == empresa_nome])
+    return len([p for p in processos if p.empresa_id == empresa_id])
 
 
 def calcular_kpis_globais(

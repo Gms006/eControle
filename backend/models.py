@@ -38,7 +38,7 @@ class Empresa:
 @dataclass
 class Licenca:
     """Licença (estrutura normalizada em memória)"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     municipio: str
@@ -62,7 +62,7 @@ class Licenca:
 @dataclass
 class Taxa:
     """Taxa (estrutura normalizada em memória)"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     tipo: str  # TPI, FUNCIONAMENTO, PUBLICIDADE, SANITÁRIA, etc.
@@ -84,7 +84,7 @@ class Taxa:
 @dataclass
 class Processo:
     """Processo (comum a todos os tipos)"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     tipo: str  # Diversos, Funcionamento, Bombeiros, etc.
@@ -152,7 +152,7 @@ class Modelo:
 @dataclass
 class LicencaRaw:
     """Licença raw (estrutura larga do Excel) - uso temporário para leitura"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     municipio: str
@@ -172,7 +172,7 @@ class LicencaRaw:
 @dataclass
 class TaxaRaw:
     """Taxa raw (estrutura larga do Excel) - uso temporário para leitura"""
-    id: int
+    empresa_id: int
     empresa: str
     cnpj: str
     data_envio: str = ""

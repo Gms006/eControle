@@ -101,6 +101,7 @@ class EmpresaResponse(BaseModel):
 
 
 class LicencaResponse(BaseModel):
+    empresa_id: int
     empresa: str
     tipo: str
     status: str
@@ -109,6 +110,7 @@ class LicencaResponse(BaseModel):
 
 
 class TaxaResponse(BaseModel):
+    empresa_id: int
     empresa: str
     tpi: str
     func: str
@@ -121,6 +123,7 @@ class TaxaResponse(BaseModel):
 
 
 class ProcessoResponse(BaseModel):
+    empresa_id: int
     empresa: str
     tipo: str
     codigo: str
@@ -240,13 +243,16 @@ def _rows_to_processos(proc_key: str, rows: List[Dict[str, Any]]) -> List[Proces
     tipo_label = _processo_tipo_label(proc_key)
 
     for row in rows:
+        empresa_id = _to_int(row.get("ID"))
         empresa = _to_str(row.get("EMPRESA"))
         protocolo = _to_str(row.get("PROTOCOLO"))
+        if not empresa_id:
+            continue
         if not empresa and not protocolo:
             continue
 
         processo = Processo(
-            id=_to_int(row.get("ID")),
+            empresa_id=empresa_id,
             empresa=empresa,
             cnpj=_to_str(row.get("CNPJ")),
             tipo=tipo_label,
@@ -328,7 +334,7 @@ def carregar_dados_do_excel() -> None:
         licencas_raw_data = repo.read_sheet(lic_sheet, "licencas")
         licencas_raw_objs = [
             LicencaRaw(
-                id=_to_int(r.get("ID")),
+                empresa_id=_to_int(r.get("ID")),
                 empresa=_to_str(r.get("EMPRESA")),
                 cnpj=_to_str(r.get("CNPJ")),
                 municipio=_to_str(r.get("MUNICIPIO")),
@@ -353,7 +359,7 @@ def carregar_dados_do_excel() -> None:
         taxas_raw_data = repo.read_sheet(tax_sheet, "taxas")
         taxas_raw_objs = [
             TaxaRaw(
-                id=_to_int(r.get("ID")),
+                empresa_id=_to_int(r.get("ID")),
                 empresa=_to_str(r.get("EMPRESA")),
                 cnpj=_to_str(r.get("CNPJ")),
                 data_envio=_format_excel_date(r.get("DATA_ENVIO")) or _to_str(r.get("DATA_ENVIO")),
@@ -508,9 +514,9 @@ def get_empresa(empresa_id: int):
     if not empresa:
         raise HTTPException(status_code=404, detail="Empresa não encontrada")
 
-    licencas_stats = contar_licencas_por_status(cache["licencas"], empresa.empresa)
-    taxas_pend = contar_taxas_pendentes(cache["taxas"], empresa.empresa)
-    processos_count = contar_processos_empresa(cache["processos"], empresa.empresa)
+    licencas_stats = contar_licencas_por_status(cache["licencas"], empresa.id)
+    taxas_pend = contar_taxas_pendentes(cache["taxas"], empresa.id)
+    processos_count = contar_processos_empresa(cache["processos"], empresa.id)
 
     return {
         "empresa": EmpresaResponse.from_orm(empresa),
@@ -522,15 +528,18 @@ def get_empresa(empresa_id: int):
 
 
 @app.get("/api/licencas")
-def get_licencas(empresa: Optional[str] = None):
+def get_licencas(empresa_id: Optional[int] = None, empresa: Optional[str] = None):
     licencas: List[Licenca] = cache["licencas"]
-    if empresa:
+    if empresa_id is not None:
+        licencas = [l for l in licencas if l.empresa_id == empresa_id]
+    elif empresa:
         licencas = [l for l in licencas if l.empresa == empresa]
 
     result = []
     for lic in licencas:
         result.append(
             {
+                "empresa_id": lic.empresa_id,
                 "empresa": lic.empresa,
                 "tipo": lic.tipo,
                 "status": lic.status_display,
@@ -545,15 +554,35 @@ def get_licencas(empresa: Optional[str] = None):
 def get_taxas():
     taxas: List[Taxa] = cache["taxas"]
 
-    # Agrupar por empresa → formato "largo" p/ UI
-    result = []
-    empresas_unicas = sorted(set(t.empresa for t in taxas))
-    for emp in empresas_unicas:
-        taxas_emp = {t.tipo: t.status_display for t in taxas if t.empresa == emp}
-        linha = {"empresa": emp}
+    agrupado: Dict[int, Dict[str, Any]] = {}
+    defaults = {
+        output_key: ("*" if output_key != "status_geral" else None)
+        for _, output_key in TAXA_TIPOS_OUTPUT
+    }
+
+    for taxa in taxas:
+        if not taxa.empresa_id:
+            continue
+        linha = agrupado.setdefault(
+            taxa.empresa_id,
+            {
+                "empresa_id": taxa.empresa_id,
+                "empresa": taxa.empresa,
+                **defaults,
+            },
+        )
         for tipo_label, output_key in TAXA_TIPOS_OUTPUT:
-            linha[output_key] = taxas_emp.get(tipo_label, "*")
-        result.append(linha)
+            if taxa.tipo == tipo_label:
+                valor = taxa.status_display
+                if output_key == "status_geral" and valor in {"", "*"}:
+                    valor = None
+                linha[output_key] = valor
+                break
+
+    result = sorted(
+        agrupado.values(),
+        key=lambda item: (item.get("empresa") or "").lower(),
+    )
     return result
 
 
@@ -564,6 +593,7 @@ def get_processos(tipo: Optional[str] = None, apenas_ativos: bool = False):
     )
     return [
         {
+            "empresa_id": p.empresa_id,
             "empresa": p.empresa,
             "tipo": p.tipo,
             "codigo": p.protocolo,
