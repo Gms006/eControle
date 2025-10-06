@@ -17,7 +17,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 from repo_excel import ExcelRepo
-from models import Empresa, Licenca, Taxa, Processo, LicencaRaw, TaxaRaw
+from models import (
+    Empresa,
+    Licenca,
+    Taxa,
+    Processo,
+    Contato,
+    Modelo,
+    LicencaRaw,
+    TaxaRaw,
+)
 from services import (
     filtrar_empresas, filtrar_processos,
     normalizar_licencas, normalizar_taxas,
@@ -63,6 +72,8 @@ cache: Dict[str, object] = {
     "licencas": [],
     "taxas": [],
     "processos": [],
+    "contatos": [],
+    "modelos": [],
     "last_update": None,
 }
 
@@ -116,6 +127,32 @@ class ProcessoResponse(BaseModel):
     inicio: str
     prazo: Optional[str]
     status: str
+
+
+class ContatoResponse(BaseModel):
+    contato: str
+    municipio: str
+    telefone: str
+    whatsapp: str
+    email: str
+    categoria: str
+
+    class Config:
+        from_attributes = True
+
+
+class ModeloResponse(BaseModel):
+    descricao: str
+    utilizacao: str
+    modelo: str
+
+    class Config:
+        from_attributes = True
+
+
+class UteisResponse(BaseModel):
+    contatos: List[ContatoResponse]
+    modelos: List[ModeloResponse]
 
 
 class KPIsResponse(BaseModel):
@@ -257,6 +294,7 @@ def carregar_dados_do_excel() -> None:
         lic_sheet = sheet_cfg.get("licencas", "LICENÇAS")
         tax_sheet = sheet_cfg.get("taxas", "TAXAS")
         proc_sheet = sheet_cfg.get("processos", "PROCESSOS")
+        uteis_sheet = sheet_cfg.get("uteis", "CONTATOS E MODELOS")
 
         # Empresas
         empresas_raw = repo.read_sheet(emp_sheet, "empresas")
@@ -350,21 +388,63 @@ def carregar_dados_do_excel() -> None:
             if rows:
                 processos.extend(_rows_to_processos(proc_key, rows))
 
+        contatos: List[Contato] = []
+        modelos: List[Modelo] = []
+        uteis_tables = table_cfg.get("uteis", {})
+
+        contatos_table = uteis_tables.get("contatos")
+        if contatos_table:
+            contato_rows = repo.read_table(uteis_sheet, contatos_table, "uteis_contatos")
+            for row in contato_rows:
+                nome = _to_str(row.get("CONTATO"))
+                if not nome:
+                    continue
+                contatos.append(
+                    Contato(
+                        contato=nome,
+                        municipio=_to_str(row.get("MUNICIPIO")),
+                        telefone=_to_str(row.get("TELEFONE")),
+                        whatsapp=_to_str(row.get("WHATSAPP"), "NÃO"),
+                        email=_to_str(row.get("E_MAIL")),
+                        categoria=_to_str(row.get("CATEGORIA")),
+                    )
+                )
+
+        modelos_table = uteis_tables.get("modelos")
+        if modelos_table:
+            modelo_rows = repo.read_table(uteis_sheet, modelos_table, "uteis_modelos")
+            for row in modelo_rows:
+                texto = _to_str(row.get("MODELO"))
+                descricao = _to_str(row.get("DESCRICAO"))
+                if not texto and not descricao:
+                    continue
+                modelos.append(
+                    Modelo(
+                        modelo=texto,
+                        descricao=descricao or "Modelo",
+                        utilizacao=_to_str(row.get("UTILIZACAO")) or "WhatsApp",
+                    )
+                )
+
         cache.update(
             {
                 "empresas": empresas,
                 "licencas": licencas,
                 "taxas": taxas,
                 "processos": processos,
+                "contatos": contatos,
+                "modelos": modelos,
                 "last_update": datetime.now().isoformat(),
             }
         )
         logger.info(
-            "Dados carregados: %s empresas, %s licenças, %s taxas, %s processos",
+            "Dados carregados: %s empresas, %s licenças, %s taxas, %s processos, %s contatos, %s modelos",
             len(empresas),
             len(licencas),
             len(taxas),
             len(processos),
+            len(contatos),
+            len(modelos),
         )
     except Exception as e:
         logger.exception("Erro ao carregar dados")
@@ -493,6 +573,25 @@ def get_processos(tipo: Optional[str] = None, apenas_ativos: bool = False):
         }
         for p in processos
     ]
+
+
+@app.get("/api/uteis", response_model=UteisResponse)
+def get_uteis():
+    contatos = sorted(
+        cache["contatos"],
+        key=lambda c: (
+            (getattr(c, "categoria", "") or "").lower(),
+            (getattr(c, "contato", "") or "").lower(),
+        ),
+    )
+    modelos = sorted(
+        cache["modelos"],
+        key=lambda m: (
+            (getattr(m, "utilizacao", "") or "").lower(),
+            (getattr(m, "descricao", "") or "").lower(),
+        ),
+    )
+    return UteisResponse(contatos=contatos, modelos=modelos)
 
 
 @app.get("/api/kpis", response_model=KPIsResponse)
