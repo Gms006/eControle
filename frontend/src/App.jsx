@@ -194,15 +194,6 @@ const hasRelevantStatus = (status) => {
   return Boolean(statusKey && statusKey !== "*");
 };
 
-const createFieldsMatcher = (normalizedQuery) => (fields = []) => {
-  if (!normalizedQuery) {
-    return true;
-  }
-  return fields
-    .filter((field) => field !== null && field !== undefined)
-    .some((field) => normalizeTextLower(field).includes(normalizedQuery));
-};
-
 const toFiniteNumber = (value) => {
   if (typeof value === "number" && Number.isFinite(value)) {
     return value;
@@ -523,81 +514,6 @@ const normalizeText = (value) => {
 
 const normalizeTextLower = (value) => normalizeText(value).toLowerCase();
 
-const sortContatos = (lista = []) =>
-  [...lista]
-    .filter((item) => item && (item.contato || item.email || item.telefone))
-    .sort((a, b) => {
-      const catA = normalizeText(a?.categoria || "");
-      const catB = normalizeText(b?.categoria || "");
-      if (catA !== catB) {
-        return catA.localeCompare(catB, "pt-BR");
-      }
-      const nomeA = normalizeText(a?.contato || "");
-      const nomeB = normalizeText(b?.contato || "");
-      return nomeA.localeCompare(nomeB, "pt-BR");
-    });
-
-const sortModelos = (lista = []) =>
-  [...lista]
-    .filter((item) => item && (item.modelo || item.descricao))
-    .sort((a, b) => {
-      const usoA = normalizeText(a?.utilizacao || "");
-      const usoB = normalizeText(b?.utilizacao || "");
-      if (usoA !== usoB) {
-        return usoA.localeCompare(usoB, "pt-BR");
-      }
-      const descA = normalizeText(a?.descricao || "");
-      const descB = normalizeText(b?.descricao || "");
-      return descA.localeCompare(descB, "pt-BR");
-    });
-
-const getLicencaTipo = (lic) => normalizeText(lic?.tipo).trim();
-
-const aggregateLicencasPorTipo = (licencas) => {
-  const mapa = new Map();
-  let totalRelevantes = 0;
-
-  licencas.forEach((lic) => {
-    const tipo = getLicencaTipo(lic);
-    if (!tipo) {
-      return;
-    }
-
-    const existente =
-      mapa.get(tipo) || {
-        tipo,
-        items: [],
-        relevantes: [],
-        contagens: { vencido: 0, vencendo: 0, sujeito: 0, dispensa: 0, possui: 0 },
-      };
-
-    existente.items.push(lic);
-
-    const statusNormalizado = normalizeText(lic?.status).trim();
-    if (statusNormalizado === "Vencido") existente.contagens.vencido += 1;
-    else if (statusNormalizado === "Vence≤30d") existente.contagens.vencendo += 1;
-    else if (statusNormalizado === "Sujeito") existente.contagens.sujeito += 1;
-    else if (statusNormalizado === "Dispensa") existente.contagens.dispensa += 1;
-
-    if (hasRelevantStatus(lic.status)) {
-      existente.relevantes.push(lic);
-      totalRelevantes += 1;
-    }
-
-    mapa.set(tipo, existente);
-  });
-
-  mapa.forEach((grupo) => {
-    const { contagens, items } = grupo;
-    contagens.possui = Math.max(
-      items.length - contagens.vencido - contagens.vencendo - contagens.sujeito - contagens.dispensa,
-      0,
-    );
-  });
-
-  return { byTipo: mapa, totalRelevant: totalRelevantes };
-};
-
 const normalizeProcessType = (proc) => {
   const rawValue =
     typeof proc === "string"
@@ -825,7 +741,7 @@ export default function App() {
       }
     });
     licencas.forEach((lic) => {
-      const tipo = getLicencaTipo(lic);
+      const tipo = normalizeText(lic?.tipo).trim();
       if (tipo === "" || seen.has(tipo)) {
         return;
       }
@@ -863,6 +779,36 @@ export default function App() {
       return acc;
     }, []);
   }, [municipios]);
+
+  const contatosOrdenados = useMemo(() => {
+    return [...contatos]
+      .filter((item) => item && (item.contato || item.email || item.telefone))
+      .sort((a, b) => {
+        const catA = normalizeText(a?.categoria || "");
+        const catB = normalizeText(b?.categoria || "");
+        if (catA !== catB) {
+          return catA.localeCompare(catB, "pt-BR");
+        }
+        const nomeA = normalizeText(a?.contato || "");
+        const nomeB = normalizeText(b?.contato || "");
+        return nomeA.localeCompare(nomeB, "pt-BR");
+      });
+  }, [contatos]);
+
+  const modelosOrdenados = useMemo(() => {
+    return [...modelos]
+      .filter((item) => item && (item.modelo || item.descricao))
+      .sort((a, b) => {
+        const usoA = normalizeText(a?.utilizacao || "");
+        const usoB = normalizeText(b?.utilizacao || "");
+        if (usoA !== usoB) {
+          return usoA.localeCompare(usoB, "pt-BR");
+        }
+        const descA = normalizeText(a?.descricao || "");
+        const descB = normalizeText(b?.descricao || "");
+        return descA.localeCompare(descB, "pt-BR");
+      });
+  }, [modelos]);
 
   useEffect(() => {
     let mounted = true;
@@ -989,13 +935,27 @@ export default function App() {
     return map;
   }, [processosNormalizados]);
 
-  const matchesQuery = useMemo(
-    () => createFieldsMatcher(normalizedQueryValue),
+  const matchesQuery = useCallback(
+    (fields) => {
+      if (normalizedQueryValue === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedQueryValue));
+    },
     [normalizedQueryValue],
   );
 
-  const matchesUteisQuery = useMemo(
-    () => createFieldsMatcher(normalizedUteisQuery),
+  const matchesUteisQuery = useCallback(
+    (fields) => {
+      if (normalizedUteisQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedUteisQuery));
+    },
     [normalizedUteisQuery],
   );
 
@@ -1122,20 +1082,37 @@ export default function App() {
     );
   }, [matchesMunicipioFilter, matchesUteisQuery, modelos]);
 
-  const { byTipo: licencasPorTipo, totalRelevant: licencasRelevantesTotal } = useMemo(
-    () => aggregateLicencasPorTipo(filteredLicencas),
-    [filteredLicencas],
-  );
+  const contatosOrdenadosLista = useMemo(() => {
+    const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
+    return [...lista]
+      .filter((item) => item && (item.contato || item.email || item.telefone))
+      .sort((a, b) => {
+        const catA = normalizeText(a?.categoria || "");
+        const catB = normalizeText(b?.categoria || "");
+        if (catA !== catB) {
+          return catA.localeCompare(catB, "pt-BR");
+        }
+        const nomeA = normalizeText(a?.contato || "");
+        const nomeB = normalizeText(b?.contato || "");
+        return nomeA.localeCompare(nomeB, "pt-BR");
+      });
+  }, [filteredContatos]);
 
-  const contatosOrdenadosLista = useMemo(
-    () => sortContatos(filteredContatos),
-    [filteredContatos],
-  );
-
-  const modelosOrdenadosLista = useMemo(
-    () => sortModelos(filteredModelos),
-    [filteredModelos],
-  );
+  const modelosOrdenadosLista = useMemo(() => {
+    const lista = Array.isArray(filteredModelos) ? filteredModelos : [];
+    return [...lista]
+      .filter((item) => item && (item.modelo || item.descricao))
+      .sort((a, b) => {
+        const usoA = normalizeText(a?.utilizacao || "");
+        const usoB = normalizeText(b?.utilizacao || "");
+        if (usoA !== usoB) {
+          return usoA.localeCompare(usoB, "pt-BR");
+        }
+        const descA = normalizeText(a?.descricao || "");
+        const descB = normalizeText(b?.descricao || "");
+        return descA.localeCompare(descB, "pt-BR");
+      });
+  }, [filteredModelos]);
 
   const taxasVisiveis = useMemo(() => {
     if (!modoFoco) {
@@ -1916,20 +1893,12 @@ export default function App() {
         <TabsContent value="licencas" className="mt-4">
           <div className="grid md:grid-cols-2 gap-3 mb-3">
             {tiposLicenca.map((tipo) => {
-              const grupo = licencasPorTipo.get(tipo);
-              const items = grupo?.items ?? [];
-              const contagens = grupo?.contagens ?? {
-                vencido: 0,
-                vencendo: 0,
-                sujeito: 0,
-                dispensa: 0,
-                possui: 0,
-              };
-              const venc = contagens.vencido;
-              const soon = contagens.vencendo;
-              const subj = contagens.sujeito;
-              const disp = contagens.dispensa;
-              const poss = contagens.possui;
+              const items = filteredLicencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo);
+              const venc = items.filter((item) => item.status === "Vencido").length;
+              const soon = items.filter((item) => item.status === "Vence≤30d").length;
+              const subj = items.filter((item) => item.status === "Sujeito").length;
+              const disp = items.filter((item) => item.status === "Dispensa").length;
+              const poss = Math.max(items.length - venc - soon - subj - disp, 0);
               const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
               const colorClasses = LIC_COLORS[tipo] || "border-slate-400 text-slate-700";
               return (
@@ -1969,10 +1938,15 @@ export default function App() {
 
           <div className="flex flex-wrap gap-2 mb-3">
             {["Todos", ...tiposLicenca].map((tipo) => {
-              const count =
-                tipo === "Todos"
-                  ? licencasRelevantesTotal
-                  : licencasPorTipo.get(tipo)?.relevantes.length || 0;
+              const count = filteredLicencas.filter((lic) => {
+                if (!hasRelevantStatus(lic.status)) {
+                  return false;
+                }
+                if (tipo === "Todos") {
+                  return true;
+                }
+                return normalizeText(lic?.tipo).trim() === tipo;
+              }).length;
               const icon = tipo === "Todos" ? null : LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
               return (
                 <Button
@@ -1999,12 +1973,14 @@ export default function App() {
               </Card>
             ) : (
               tiposLicencaSelecionados.map((tipo) => {
-                const baseRegistros = licencasPorTipo.get(tipo)?.relevantes ?? [];
-                const registros = modoFoco
-                  ? baseRegistros.filter(
-                      (lic) => isAlertStatus(lic.status) || getStatusKey(lic.status).includes("sujeit"),
-                    )
-                  : baseRegistros;
+                const registros = filteredLicencas
+                  .filter((lic) => normalizeText(lic?.tipo).trim() === tipo)
+                  .filter((lic) => hasRelevantStatus(lic.status))
+                  .filter((lic) =>
+                    modoFoco
+                      ? isAlertStatus(lic.status) || getStatusKey(lic.status).includes("sujeit")
+                      : true,
+                  );
                 const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
                 return (
                   <Card key={tipo} className="shadow-sm">
