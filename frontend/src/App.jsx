@@ -127,6 +127,9 @@ const fetchJson = async (path) => {
 
 const MUNICIPIO_ALL = "__ALL__";
 const PROCESS_ALL = "__PROCESS_ALL__";
+const PROCESS_DIVERSOS_LABEL = "Diversos";
+const DIVERSOS_OPERACAO_ALL = "__PROCESS_DIVERSOS_ALL__";
+const DIVERSOS_OPERACAO_SEM = "__PROCESS_DIVERSOS_SEM_OPERACAO__";
 
 const TAB_BACKGROUNDS = {
   painel: "bg-sky-50",
@@ -306,7 +309,23 @@ const isAlertStatus = (status) => {
   return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
-const PROCESS_INACTIVE_KEYWORDS = ["concluido", "licenciado", "aprovado", "indeferido", "negado", "finalizado"];
+const PROCESS_INACTIVE_KEYWORDS = [
+  "concluido",
+  "licenciado",
+  "aprovado",
+  "indeferido",
+  "negado",
+  "finalizado",
+  "arquiv",
+  "cancel",
+  "baix",
+  "encerr",
+  "deferid",
+  "liber",
+  "emitid",
+  "exped",
+  "entreg",
+];
 
 const isProcessStatusInactive = (status) => {
   const key = getStatusKey(status);
@@ -473,6 +492,46 @@ const normalizeProcessType = (proc) => {
   return trimmed !== "" ? trimmed : "Sem tipo";
 };
 
+const PROCESS_BASE_CANONICAL = [
+  { keywords: ["divers"], label: "Diversos" },
+  { keywords: ["funcion"], label: "Funcionamento" },
+  { keywords: ["alvara", "funcion"], label: "Funcionamento" },
+  { keywords: ["bombeir"], label: "Bombeiros" },
+  { keywords: ["cercon"], label: "Bombeiros" },
+  { keywords: ["uso", "solo"], label: "Uso do Solo" },
+  { keywords: ["ambient"], label: "Licença Ambiental" },
+  { keywords: ["licenc", "ambient"], label: "Licença Ambiental" },
+  { keywords: ["alvara", "sanit"], label: "Alvará Sanitário" },
+  { keywords: ["sanit"], label: "Alvará Sanitário" },
+];
+
+const getProcessBaseType = (value) => {
+  const normalized = normalizeProcessType(value);
+  const [base] = normalized.split(" - ");
+  const trimmed = base.trim();
+  if (trimmed === "") {
+    return normalized;
+  }
+  const normalizedKey = removeDiacritics(trimmed.toLowerCase());
+  const canonical = PROCESS_BASE_CANONICAL.find(({ keywords }) =>
+    keywords.every((keyword) => normalizedKey.includes(keyword)),
+  );
+  return canonical ? canonical.label : trimmed;
+};
+
+const buildDiversosOperacaoKey = (operacao) => {
+  const text = normalizeText(operacao).trim();
+  if (text === "") {
+    return DIVERSOS_OPERACAO_SEM;
+  }
+  return removeDiacritics(text).toLowerCase();
+};
+
+const getDiversosOperacaoLabel = (operacao) => {
+  const text = normalizeText(operacao).trim();
+  return text !== "" ? text : "Sem operação informada";
+};
+
 const normalizeIdentifier = (value) => {
   const normalized = normalizeText(value).trim();
   return normalized !== "" ? normalized : undefined;
@@ -576,7 +635,10 @@ export default function App() {
   const [municipio, setMunicipio] = useState();
   const [soAlertas, setSoAlertas] = useState(false);
   const [modoFoco, setModoFoco] = useState(true);
-  const [selectedTipo, setSelectedTipo] = useState(PROCESS_ALL);
+  const [selectedProcessType, setSelectedProcessType] = useState(PROCESS_ALL);
+  const [selectedDiversosOperacao, setSelectedDiversosOperacao] = useState(
+    DIVERSOS_OPERACAO_ALL,
+  );
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
   const [toasts, setToasts] = useState([]);
   const [uteisQuery, setUteisQuery] = useState("");
@@ -809,11 +871,19 @@ export default function App() {
         const empresaId = extractEmpresaId(proc);
         const statusCandidates = [proc.status, proc.status_padrao, proc.situacao];
         const resolvedStatus = statusCandidates.find((value) => normalizeIdentifier(value));
+        const tipoNormalizado = normalizeProcessType(proc);
+        const tipoBase = getProcessBaseType(tipoNormalizado);
+        const diversosOperacaoKey =
+          tipoBase === PROCESS_DIVERSOS_LABEL
+            ? buildDiversosOperacaoKey(proc.operacao)
+            : undefined;
         return {
           ...proc,
           empresaId,
           empresa_id: empresaId,
-          tipoNormalizado: normalizeProcessType(proc),
+          tipoNormalizado,
+          tipoBase,
+          diversosOperacaoKey,
           status: resolvedStatus ?? proc.status ?? proc.status_padrao ?? proc.situacao,
         };
       }),
@@ -946,6 +1016,13 @@ export default function App() {
       ),
     [matchesMunicipioFilter, matchesQuery, processosNormalizados],
   );
+
+  const processosDisponiveis = useMemo(() => {
+    if (!modoFoco) {
+      return filteredProcessosBase;
+    }
+    return filteredProcessosBase.filter((proc) => !isProcessStatusInactive(proc.status));
+  }, [filteredProcessosBase, modoFoco]);
 
   const filteredContatos = useMemo(() => {
     const lista = Array.isArray(contatos) ? contatos : [];
@@ -1150,33 +1227,93 @@ export default function App() {
   }, [filteredLicencas]);
 
   const processosTipos = useMemo(() => {
-    const counts = new Map();
-    filteredProcessosBase.forEach((proc) => {
-      const current = counts.get(proc.tipoNormalizado) || 0;
-      counts.set(proc.tipoNormalizado, current + 1);
+    const groups = new Map();
+    processosDisponiveis.forEach((proc) => {
+      const baseType = proc.tipoBase || proc.tipoNormalizado || proc.tipo;
+      const group = groups.get(baseType) || {
+        tipo: baseType,
+        count: 0,
+        operacoes: new Map(),
+      };
+      group.count += 1;
+      if (baseType === PROCESS_DIVERSOS_LABEL) {
+        const operacaoKey = proc.diversosOperacaoKey ?? DIVERSOS_OPERACAO_SEM;
+        const label = getDiversosOperacaoLabel(proc.operacao);
+        const currentOperacao = group.operacoes.get(operacaoKey) || {
+          key: operacaoKey,
+          label,
+          count: 0,
+        };
+        currentOperacao.count += 1;
+        group.operacoes.set(operacaoKey, currentOperacao);
+      }
+      groups.set(baseType, group);
     });
-    const asArray = Array.from(counts.entries()).map(([tipo, count]) => ({ tipo, count }));
-    asArray.sort((a, b) => a.tipo.localeCompare(b.tipo));
-    return asArray;
-  }, [filteredProcessosBase]);
+    return Array.from(groups.values())
+      .map((group) => ({
+        tipo: group.tipo,
+        count: group.count,
+        operacoes:
+          group.tipo === PROCESS_DIVERSOS_LABEL
+            ? Array.from(group.operacoes.values()).sort((a, b) =>
+                a.label.localeCompare(b.label),
+              )
+            : [],
+      }))
+      .sort((a, b) => a.tipo.localeCompare(b.tipo));
+  }, [processosDisponiveis]);
 
   useEffect(() => {
     if (
-      selectedTipo !== PROCESS_ALL &&
-      !processosTipos.some((item) => item.tipo === selectedTipo)
+      selectedProcessType !== PROCESS_ALL &&
+      !processosTipos.some((item) => item.tipo === selectedProcessType)
     ) {
-      setSelectedTipo(PROCESS_ALL);
+      setSelectedProcessType(PROCESS_ALL);
     }
-  }, [processosTipos, selectedTipo]);
+  }, [processosTipos, selectedProcessType]);
+
+  useEffect(() => {
+    if (selectedProcessType !== PROCESS_DIVERSOS_LABEL) {
+      if (selectedDiversosOperacao !== DIVERSOS_OPERACAO_ALL) {
+        setSelectedDiversosOperacao(DIVERSOS_OPERACAO_ALL);
+      }
+      return;
+    }
+    const diversosEntry = processosTipos.find((item) => item.tipo === PROCESS_DIVERSOS_LABEL);
+    const validKeys = (diversosEntry?.operacoes || []).map((op) => op.key);
+    if (
+      selectedDiversosOperacao !== DIVERSOS_OPERACAO_ALL &&
+      !validKeys.includes(selectedDiversosOperacao)
+    ) {
+      setSelectedDiversosOperacao(DIVERSOS_OPERACAO_ALL);
+    }
+  }, [processosTipos, selectedProcessType, selectedDiversosOperacao]);
 
   const processosFiltrados = useMemo(() => {
-    const listaBase =
-      selectedTipo === PROCESS_ALL
-        ? filteredProcessosBase
-        : filteredProcessosBase.filter((proc) => proc.tipoNormalizado === selectedTipo);
-    if (!modoFoco) return listaBase;
-    return listaBase.filter((proc) => !isProcessStatusInactive(proc.status));
-  }, [filteredProcessosBase, modoFoco, selectedTipo]);
+    let listaBase = processosDisponiveis;
+    if (selectedProcessType !== PROCESS_ALL) {
+      listaBase = listaBase.filter(
+        (proc) => (proc.tipoBase || proc.tipoNormalizado || proc.tipo) === selectedProcessType,
+      );
+    }
+    if (
+      selectedProcessType === PROCESS_DIVERSOS_LABEL &&
+      selectedDiversosOperacao !== DIVERSOS_OPERACAO_ALL
+    ) {
+      listaBase = listaBase.filter((proc) => {
+        if ((proc.tipoBase || proc.tipoNormalizado || proc.tipo) !== PROCESS_DIVERSOS_LABEL) {
+          return false;
+        }
+        const key = proc.diversosOperacaoKey ?? DIVERSOS_OPERACAO_SEM;
+        return key === selectedDiversosOperacao;
+      });
+    }
+    return listaBase;
+  }, [
+    processosDisponiveis,
+    selectedProcessType,
+    selectedDiversosOperacao,
+  ]);
 
   const resolveProcessExtraColumns = useCallback((proc) => {
     const extras = [];
@@ -1197,7 +1334,7 @@ export default function App() {
       }
     };
 
-    const tipoReferencia = proc?.tipoNormalizado || proc?.tipo;
+    const tipoReferencia = proc?.tipoBase || proc?.tipoNormalizado || proc?.tipo;
     const normalized = normalizeProcessColumnKey(tipoReferencia);
     if (normalized) {
       includeColumns(normalized);
@@ -1314,6 +1451,11 @@ export default function App() {
   }, []);
 
   const selectMunicipioValue = municipio ?? MUNICIPIO_ALL;
+  const diversosTipoEntry = useMemo(
+    () => processosTipos.find((item) => item.tipo === PROCESS_DIVERSOS_LABEL),
+    [processosTipos],
+  );
+  const diversosOperacoes = diversosTipoEntry?.operacoes || [];
 
   if (loading) {
     return <div className="p-6 text-center">Carregando dados...</div>;
@@ -1876,19 +2018,27 @@ export default function App() {
           <div className="flex flex-wrap gap-2">
             <Button
               size="sm"
-              variant={selectedTipo === PROCESS_ALL ? "default" : "outline"}
-              onClick={() => setSelectedTipo(PROCESS_ALL)}
+              variant={selectedProcessType === PROCESS_ALL ? "default" : "outline"}
+              onClick={() => {
+                setSelectedProcessType(PROCESS_ALL);
+                setSelectedDiversosOperacao(DIVERSOS_OPERACAO_ALL);
+              }}
               className="inline-flex items-center gap-1"
             >
               <Filter className="h-3.5 w-3.5" /> Todos
-              <span className="text-xs">{filteredProcessosBase.length}</span>
+              <span className="text-xs">{processosDisponiveis.length}</span>
             </Button>
             {processosTipos.map(({ tipo, count }) => (
               <Button
                 key={tipo}
                 size="sm"
-                variant={selectedTipo === tipo ? "default" : "secondary"}
-                onClick={() => setSelectedTipo(tipo)}
+                variant={selectedProcessType === tipo ? "default" : "secondary"}
+                onClick={() => {
+                  setSelectedProcessType(tipo);
+                  if (tipo !== PROCESS_DIVERSOS_LABEL) {
+                    setSelectedDiversosOperacao(DIVERSOS_OPERACAO_ALL);
+                  }
+                }}
                 className="inline-flex items-center gap-1"
               >
                 <span className="opacity-80">
@@ -1900,6 +2050,32 @@ export default function App() {
             ))}
           </div>
 
+          {selectedProcessType === PROCESS_DIVERSOS_LABEL && diversosOperacoes.length > 0 && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+              <Label className="text-xs uppercase text-violet-600">
+                Filtrar Diversos por operação
+              </Label>
+              <Select
+                value={selectedDiversosOperacao}
+                onValueChange={setSelectedDiversosOperacao}
+              >
+                <SelectTrigger className="w-full sm:w-64">
+                  <SelectValue placeholder="Todos os tipos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={DIVERSOS_OPERACAO_ALL}>
+                    Todos os tipos ({diversosTipoEntry?.count ?? 0})
+                  </SelectItem>
+                  {diversosOperacoes.map((operacao) => (
+                    <SelectItem key={operacao.key} value={operacao.key}>
+                      {operacao.label} ({operacao.count})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
           {processosFiltrados.length === 0 ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
               Nenhum processo correspondente ao filtro.
@@ -1907,11 +2083,11 @@ export default function App() {
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
               {processosFiltrados.map((proc, index) => {
+                const baseType = proc.tipoBase || proc.tipoNormalizado || proc.tipo;
                 const iconCandidate =
+                  PROCESS_ICONS[baseType] ||
                   PROCESS_ICONS[proc.tipoNormalizado] ||
-                  PROCESS_ICONS[proc.tipo] || (
-                    <FileText className="h-5 w-5" />
-                  );
+                  PROCESS_ICONS[proc.tipo] || <FileText className="h-5 w-5" />;
                 const tipoLabel = proc.tipoNormalizado || proc.tipo || "Processo";
                 const prazoColumn = { key: "prazo", label: "Prazo" };
                 const baseColumns = [...PROCESS_BASE_COLUMNS];

@@ -217,8 +217,8 @@ PROCESSO_TIPOS = {
     "funcionamento": "Funcionamento",
     "bombeiros": "Bombeiros",
     "uso_solo": "Uso do Solo",
-    "sanitario": "Sanitário",
-    "ambiental": "Ambiental",
+    "sanitario": "Alvará Sanitário",
+    "ambiental": "Licença Ambiental",
 }
 
 
@@ -265,9 +265,10 @@ def _rows_to_processos(proc_key: str, rows: List[Dict[str, Any]]) -> List[Proces
         )
 
         if proc_key == "diversos":
-            tipo_extra = _to_str(row.get("TIPO"))
-            processo.tipo = tipo_extra or processo.tipo
-            processo.operacao = _to_str(row.get("OPERACAO"))
+            operacao = _to_str(row.get("OPERACAO"))
+            if operacao:
+                processo.tipo = f"{processo.tipo} - {operacao}"
+            processo.operacao = operacao
             processo.orgao = _to_str(row.get("ORGAO"))
         elif proc_key == "funcionamento":
             processo.alvara = _to_str(row.get("ALVARA"))
