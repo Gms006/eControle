@@ -68,86 +68,38 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-
-const normalizeApiBase = (rawBase) => {
-  const fallback = "/api";
-  const trimmed = rawBase?.trim();
-  const base = trimmed && trimmed !== "" ? trimmed : fallback;
-  const collapseExtraSlashes = (value) => {
-    if (!value) return value;
-    const placeholder = "__TMP_PROTOCOL__";
-    const placeholderRegex = new RegExp(placeholder, "g");
-    const [path, ...rest] = value.split("?");
-    const withPlaceholder = path.replace(/:\/\//g, placeholder);
-    const collapsedPath = withPlaceholder
-      .replace(/\/{2,}/g, "/")
-      .replace(placeholderRegex, "://");
-    return rest.length > 0 ? `${collapsedPath}?${rest.join("?")}` : collapsedPath;
-  };
-  const collapsed = collapseExtraSlashes(base);
-  const withoutTrailing = collapsed.replace(/\/+$/, "");
-  const ensuredSuffix = withoutTrailing.endsWith("/api")
-    ? withoutTrailing
-    : `${withoutTrailing || ""}/api`;
-  const withLeadingSlash =
-    ensuredSuffix.startsWith("http://") || ensuredSuffix.startsWith("https://")
-      ? ensuredSuffix
-      : ensuredSuffix.startsWith("/")
-        ? ensuredSuffix
-        : `/${ensuredSuffix}`;
-  return collapseExtraSlashes(withLeadingSlash);
-};
-
-const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
-
-const apiUrl = (path = "") => {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE}${normalizedPath}`;
-};
-
-const fetchJson = async (path) => {
-  const response = await fetch(apiUrl(path));
-  if (!response.ok) {
-    let detail = "";
-    try {
-      const payload = await response.json();
-      detail = payload?.detail || JSON.stringify(payload);
-    } catch (jsonError) {
-      try {
-        detail = await response.text();
-      } catch (textError) {
-        detail = "";
-      }
-    }
-    const message = detail ? `Erro ${response.status}: ${detail}` : `Erro ${response.status}`;
-    throw new Error(message);
-  }
-  return await response.json();
-};
-
-const MUNICIPIO_ALL = "__ALL__";
-const PROCESS_ALL = "__PROCESS_ALL__";
-const PROCESS_DIVERSOS_LABEL = "Diversos";
-const DIVERSOS_OPERACAO_ALL = "__PROCESS_DIVERSOS_ALL__";
-const DIVERSOS_OPERACAO_SEM = "__PROCESS_DIVERSOS_SEM_OPERACAO__";
-
-const TAB_BACKGROUNDS = {
-  painel: "bg-sky-50",
-  empresas: "bg-indigo-50",
-  licencas: "bg-emerald-50",
-  taxas: "bg-amber-50",
-  processos: "bg-violet-50",
-  uteis: "bg-slate-50",
-};
-
-const TAB_SHORTCUTS = {
-  1: "painel",
-  2: "empresas",
-  3: "licencas",
-  4: "taxas",
-  5: "processos",
-  6: "uteis",
-};
+import { formatMonthLabel, normalizeText, normalizeTextLower, parsePtDate } from "@/lib/text";
+import {
+  DIVERSOS_OPERACAO_ALL,
+  DIVERSOS_OPERACAO_SEM,
+  PROCESS_BASE_COLUMNS,
+  PROCESS_DIVERSOS_LABEL,
+  buildDiversosOperacaoKey,
+  getDiversosOperacaoLabel,
+  getProcessBaseType,
+  normalizeProcessType,
+  resolveProcessExtraColumns,
+} from "@/lib/process";
+import {
+  DEFAULT_LICENCA_TIPOS,
+  MUNICIPIO_ALL,
+  PROCESS_ALL,
+  TAB_BACKGROUNDS,
+  TAB_SHORTCUTS,
+  TAXA_ALERT_KEYS,
+  TAXA_COLUMNS,
+  TAXA_SEARCH_KEYS,
+  TAXA_TYPE_KEYS,
+} from "@/lib/constants";
+import { apiUrl, fetchJson } from "@/lib/api";
+import {
+  getStatusKey,
+  hasRelevantStatus,
+  isAlertStatus,
+  isProcessStatusActiveOrPending,
+  isProcessStatusInactive,
+  resolveStatusClass,
+} from "@/lib/status";
 
 const PROCESS_ICONS = {
   Diversos: <Settings className="h-4 w-4" />, // fallback genérico
@@ -174,24 +126,6 @@ const LIC_COLORS = {
   Funcionamento: "border-blue-500 text-blue-700",
   "Uso do Solo": "border-amber-500 text-amber-700",
   Ambiental: "border-emerald-600 text-emerald-700",
-};
-
-const DEFAULT_LICENCA_TIPOS = ["Sanitária", "CERCON", "Funcionamento", "Uso do Solo", "Ambiental"];
-
-const removeDiacritics = (value) => {
-  if (typeof value !== "string") return "";
-  return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-};
-
-const getStatusKey = (status) => removeDiacritics(normalizeTextLower(status));
-
-const hasRelevantStatus = (status) => {
-  const statusText = normalizeText(status).trim();
-  if (!statusText || statusText === "*" || statusText === "-" || statusText === "—") {
-    return false;
-  }
-  const statusKey = getStatusKey(statusText);
-  return Boolean(statusKey && statusKey !== "*");
 };
 
 const toFiniteNumber = (value) => {
@@ -229,340 +163,6 @@ const normalizeEmpresaRelacionada = (entity) => {
     empresaId,
     empresa_id: empresaId,
   };
-};
-
-const ALERT_STATUS_KEYWORDS = [
-  "vencid",
-  "vence",
-  "nao pago",
-  "nao-pago",
-  "negad",
-  "indefer",
-  "abert",
-];
-
-const TAXA_COLUMNS = [
-  { key: "tpi", label: "TPI" },
-  { key: "func", label: "Funcionamento" },
-  { key: "publicidade", label: "Publicidade" },
-  { key: "sanitaria", label: "Sanitária" },
-  { key: "localizacao_instalacao", label: "Localização/Instalação" },
-  { key: "area_publica", label: "Área Pública" },
-  { key: "bombeiros", label: "Bombeiros" },
-  { key: "status_geral", label: "Status geral" },
-];
-
-const TAXA_TYPE_KEYS = TAXA_COLUMNS.filter((column) => column.key !== "status_geral").map(
-  (column) => column.key,
-);
-
-const TAXA_ALERT_KEYS = [...TAXA_TYPE_KEYS, "status_geral"];
-
-const TAXA_SEARCH_KEYS = [...TAXA_COLUMNS.map((column) => column.key), "data_envio"];
-
-const parseProgressFraction = (status) => {
-  if (status === null || status === undefined) {
-    return null;
-  }
-  const text = normalizeText(status);
-  const match = text.match(/(-?\d+(?:[.,]\d+)?)\s*\/\s*(-?\d+(?:[.,]\d+)?)/);
-  if (!match) {
-    return null;
-  }
-  const parseNumber = (value) => {
-    const trimmed = value.replace(/\s+/g, "");
-    const hasComma = trimmed.includes(",");
-    const hasDot = trimmed.includes(".");
-    const normalized = hasComma && hasDot
-      ? trimmed.replace(/\./g, "").replace(",", ".")
-      : trimmed.replace(",", ".");
-    const parsed = Number(normalized);
-    return Number.isFinite(parsed) ? parsed : NaN;
-  };
-  const current = parseNumber(match[1]);
-  const total = parseNumber(match[2]);
-  return { current, total };
-};
-
-const hasPendingFraction = (status) => {
-  const fraction = parseProgressFraction(status);
-  if (!fraction) {
-    return false;
-  }
-  const { current, total } = fraction;
-  if (!Number.isFinite(current) || !Number.isFinite(total)) {
-    return true;
-  }
-  if (total <= 0) {
-    return true;
-  }
-  return current < total;
-};
-
-const isAlertStatus = (status) => {
-  const key = getStatusKey(status);
-  if (!key) return false;
-  if (key.includes("nao se aplica") || key.includes("n/a")) return false;
-  if (hasPendingFraction(status)) {
-    return true;
-  }
-  return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
-};
-
-const PROCESS_INACTIVE_KEYWORDS = [
-  "concluido",
-  "licenciado",
-  "aprovado",
-  "indeferido",
-  "negado",
-  "finalizado",
-  "arquiv",
-  "cancel",
-  "baix",
-  "encerr",
-  "deferid",
-  "liber",
-  "emitid",
-  "exped",
-  "entreg",
-];
-
-const PROCESS_FOCUS_KEYWORDS = [
-  "andament",
-  "pend",
-  "aguard",
-  "analise",
-  "tram",
-  "vistori",
-  "process",
-  "solicit",
-  "enviad",
-  "protocol",
-  "fiscaliz",
-  "document",
-  "pagament",
-  "taxa",
-  "abert",
-  "receb",
-];
-
-const isProcessStatusInactive = (status) => {
-  const key = getStatusKey(status);
-  if (!key) return false;
-  return PROCESS_INACTIVE_KEYWORDS.some((keyword) => key.includes(keyword));
-};
-
-const isProcessStatusActiveOrPending = (status) => {
-  const key = getStatusKey(status);
-  if (!key || key === "*" || key === "-" || key === "—") {
-    return false;
-  }
-  if (isProcessStatusInactive(status)) {
-    return false;
-  }
-  if (hasPendingFraction(status)) {
-    return true;
-  }
-  return PROCESS_FOCUS_KEYWORDS.some((keyword) => key.includes(keyword));
-};
-
-const STATUS_VARIANT_CLASSES = {
-  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  warning: "bg-amber-100 text-amber-700 border-amber-200",
-  danger: "bg-red-100 text-red-700 border-red-200",
-  info: "bg-sky-100 text-sky-700 border-sky-200",
-  neutral: "bg-slate-200 text-slate-700 border-slate-300",
-  muted: "bg-slate-100 text-slate-600 border-slate-200",
-  plain: "bg-transparent border-transparent text-slate-500",
-};
-
-const PROCESS_BASE_COLUMNS = [
-  { key: "protocolo", label: "Protocolo", copyable: true },
-  { key: "data_solicitacao", label: "Data de Solicitação" },
-  { key: "situacao", label: "Situação", isStatus: true },
-];
-
-const normalizeProcessColumnKey = (value) =>
-  removeDiacritics(String(value ?? "").toLowerCase()).replace(/[^a-z0-9]+/g, "_");
-
-const PROCESS_EXTRA_COLUMNS = {
-  diversos: [
-    { key: "operacao", label: "Operação" },
-    { key: "orgao", label: "Órgão" },
-  ],
-  bombeiros: [{ key: "tpi", label: "TPI" }],
-  funcionamento: [{ key: "alvara", label: "Alvará" }],
-  alvara_de_funcionamento: [{ key: "alvara", label: "Alvará" }],
-  uso_do_solo: [
-    { key: "inscricao_imobiliaria", label: "Inscrição Imobiliária", copyable: true },
-  ],
-  sanitario: [
-    { key: "taxa", label: "Taxa" },
-    { key: "servico", label: "Serviço" },
-    { key: "notificacao", label: "Notificação" },
-    { key: "data_val", label: "Data Val" },
-  ],
-  alvara_sanitario: [
-    { key: "servico", label: "Serviço" },
-    { key: "notificacao", label: "Notificação" },
-    { key: "data_val", label: "Data Val" },
-  ],
-};
-
-const resolveStatusClass = (status) => {
-  const key = getStatusKey(status);
-  if (!key || key === "*" || key === "-" || key === "—") {
-    return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
-  }
-
-  const fraction = parseProgressFraction(status);
-  if (fraction) {
-    const { current, total } = fraction;
-    if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
-      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-    }
-    if (current < total) {
-      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-    }
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key === "/") {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-  }
-
-  if (key.includes("possui debit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
-  }
-
-  if (key.includes("sem debit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key.includes("possui")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key.includes("pago") && !key.includes("nao")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key.includes("em aberto") || key.includes("emaberto") || key.includes("nao pago")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
-  }
-
-  if (key.includes("sujeit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
-  }
-
-  if (key.includes("vencid") || key.includes("vence")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-  }
-
-  if (key === "nao" || key.includes("nao possui") || key.includes("nao tem")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
-  }
-
-  if (key.includes("indefer") || key.includes("negad")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
-  }
-
-  if (key.includes("em andament") || key.includes("aguard")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-  }
-
-  if (key.includes("pend")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
-  }
-
-  if (key.includes("conclu") || key.includes("aprov") || key.includes("licenc") || key.includes("defer") || key.includes("emit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key.includes("nao se aplica") || key.includes("n/a")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
-  }
-
-  if (key.includes("dispens") || key.includes("orient") || key.includes("inform") || key.includes("consult")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
-  }
-
-  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
-  }
-
-  if (
-    (key.includes("regular") && !key.includes("irregular")) ||
-    key.includes("quit") ||
-    key.includes("vigent") ||
-    key.includes("ativo") ||
-    (key.includes("em dia") && !key.includes("irregular")) ||
-    (key === "sim" && !key.includes("irregular"))
-  ) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
-};
-
-const normalizeText = (value) => {
-  if (value === null || value === undefined) {
-    return "";
-  }
-  return String(value);
-};
-
-const normalizeTextLower = (value) => normalizeText(value).toLowerCase();
-
-const normalizeProcessType = (proc) => {
-  const rawValue =
-    typeof proc === "string"
-      ? proc
-      : typeof proc?.tipo === "string"
-        ? proc.tipo
-        : undefined;
-  const trimmed = typeof rawValue === "string" ? rawValue.trim() : "";
-  return trimmed !== "" ? trimmed : "Sem tipo";
-};
-
-const PROCESS_BASE_CANONICAL = [
-  { keywords: ["divers"], label: "Diversos" },
-  { keywords: ["funcion"], label: "Funcionamento" },
-  { keywords: ["alvara", "funcion"], label: "Funcionamento" },
-  { keywords: ["bombeir"], label: "Bombeiros" },
-  { keywords: ["cercon"], label: "Bombeiros" },
-  { keywords: ["uso", "solo"], label: "Uso do Solo" },
-  { keywords: ["ambient"], label: "Licença Ambiental" },
-  { keywords: ["licenc", "ambient"], label: "Licença Ambiental" },
-  { keywords: ["alvara", "sanit"], label: "Alvará Sanitário" },
-  { keywords: ["sanit"], label: "Alvará Sanitário" },
-];
-
-const getProcessBaseType = (value) => {
-  const normalized = normalizeProcessType(value);
-  const [base] = normalized.split(" - ");
-  const trimmed = base.trim();
-  if (trimmed === "") {
-    return normalized;
-  }
-  const normalizedKey = removeDiacritics(trimmed.toLowerCase());
-  const canonical = PROCESS_BASE_CANONICAL.find(({ keywords }) =>
-    keywords.every((keyword) => normalizedKey.includes(keyword)),
-  );
-  return canonical ? canonical.label : trimmed;
-};
-
-const buildDiversosOperacaoKey = (operacao) => {
-  const text = normalizeText(operacao).trim();
-  if (text === "") {
-    return DIVERSOS_OPERACAO_SEM;
-  }
-  return removeDiacritics(text).toLowerCase();
-};
-
-const getDiversosOperacaoLabel = (operacao) => {
-  const text = normalizeText(operacao).trim();
-  return text !== "" ? text : "Sem operação informada";
 };
 
 const normalizeIdentifier = (value) => {
@@ -651,16 +251,6 @@ function KPI({ title, value, icon, accent }) {
     </Card>
   );
 }
-
-const formatMonthLabel = (date) =>
-  new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date);
-
-const parsePtDate = (value) => {
-  if (!value) return null;
-  const [day, month, year] = value.split("/").map(Number);
-  if (!day || !month || !year) return null;
-  return new Date(year, month - 1, day);
-};
 
 export default function App() {
   const [tab, setTab] = useState("painel");
@@ -1361,49 +951,6 @@ export default function App() {
     selectedProcessType,
     selectedDiversosOperacao,
   ]);
-
-  const resolveProcessExtraColumns = useCallback((proc) => {
-    const extras = [];
-    const seen = new Set();
-    const pushColumn = (column) => {
-      if (!column || !column.key || seen.has(column.key)) {
-        return;
-      }
-      seen.add(column.key);
-      extras.push(column);
-    };
-
-    const includeColumns = (key) => {
-      if (!key) return;
-      const columns = PROCESS_EXTRA_COLUMNS[key];
-      if (Array.isArray(columns)) {
-        columns.forEach(pushColumn);
-      }
-    };
-
-    const tipoReferencia = proc?.tipoBase || proc?.tipoNormalizado || proc?.tipo;
-    const normalized = normalizeProcessColumnKey(tipoReferencia);
-    if (normalized) {
-      includeColumns(normalized);
-      if (extras.length === 0) {
-        if (normalized.includes("sanitario")) {
-          includeColumns("sanitario");
-        } else if (normalized.includes("uso") && normalized.includes("solo")) {
-          includeColumns("uso_do_solo");
-        } else if (normalized.includes("funcion")) {
-          includeColumns("funcionamento");
-        } else if (normalized.includes("divers")) {
-          includeColumns("diversos");
-        } else if (normalized.includes("bombeir")) {
-          includeColumns("bombeiros");
-        } else if (normalized.includes("alvara") && normalized.includes("sanit")) {
-          includeColumns("alvara_sanitario");
-        }
-      }
-    }
-
-    return extras;
-  }, []);
 
   const processosAtivos = useMemo(() => {
     return processosNormalizados.filter((proc) => !isProcessStatusInactive(proc.status));
