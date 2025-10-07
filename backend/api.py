@@ -217,8 +217,8 @@ PROCESSO_TIPOS = {
     "funcionamento": "Funcionamento",
     "bombeiros": "Bombeiros",
     "uso_solo": "Uso do Solo",
-    "sanitario": "Sanitário",
-    "ambiental": "Ambiental",
+    "sanitario": "Alvará Sanitário",
+    "ambiental": "Licença Ambiental",
 }
 
 

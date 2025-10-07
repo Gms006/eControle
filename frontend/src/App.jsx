@@ -309,7 +309,23 @@ const isAlertStatus = (status) => {
   return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
-const PROCESS_INACTIVE_KEYWORDS = ["concluido", "licenciado", "aprovado", "indeferido", "negado", "finalizado"];
+const PROCESS_INACTIVE_KEYWORDS = [
+  "concluido",
+  "licenciado",
+  "aprovado",
+  "indeferido",
+  "negado",
+  "finalizado",
+  "arquiv",
+  "cancel",
+  "baix",
+  "encerr",
+  "deferid",
+  "liber",
+  "emitid",
+  "exped",
+  "entreg",
+];
 
 const isProcessStatusInactive = (status) => {
   const key = getStatusKey(status);
@@ -476,11 +492,31 @@ const normalizeProcessType = (proc) => {
   return trimmed !== "" ? trimmed : "Sem tipo";
 };
 
+const PROCESS_BASE_CANONICAL = [
+  { keywords: ["divers"], label: "Diversos" },
+  { keywords: ["funcion"], label: "Funcionamento" },
+  { keywords: ["alvara", "funcion"], label: "Funcionamento" },
+  { keywords: ["bombeir"], label: "Bombeiros" },
+  { keywords: ["cercon"], label: "Bombeiros" },
+  { keywords: ["uso", "solo"], label: "Uso do Solo" },
+  { keywords: ["ambient"], label: "Licença Ambiental" },
+  { keywords: ["licenc", "ambient"], label: "Licença Ambiental" },
+  { keywords: ["alvara", "sanit"], label: "Alvará Sanitário" },
+  { keywords: ["sanit"], label: "Alvará Sanitário" },
+];
+
 const getProcessBaseType = (value) => {
   const normalized = normalizeProcessType(value);
   const [base] = normalized.split(" - ");
   const trimmed = base.trim();
-  return trimmed !== "" ? trimmed : normalized;
+  if (trimmed === "") {
+    return normalized;
+  }
+  const normalizedKey = removeDiacritics(trimmed.toLowerCase());
+  const canonical = PROCESS_BASE_CANONICAL.find(({ keywords }) =>
+    keywords.every((keyword) => normalizedKey.includes(keyword)),
+  );
+  return canonical ? canonical.label : trimmed;
 };
 
 const buildDiversosOperacaoKey = (operacao) => {
