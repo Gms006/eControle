@@ -36,7 +36,7 @@ import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import KPI from "@/components/KPI";
-import ToastProvider, { useToast } from "@/providers/ToastProvider";
+import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import {
   AlertTriangle,
   BadgeAlert,
