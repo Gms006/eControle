@@ -20,6 +20,59 @@ table_names:
     contatos: "Contatos"
     modelos: "Modelos"
 
+# Enumerações para validação e dropdowns
+enums:
+  situacao_processos:
+    - "AGUARD DOCTO"
+    - "AGUARD PAGTO"
+    - "EM ANÁLISE"
+    - "PENDENTE"
+    - "INDEFERIDO"
+    - "CONCLUÍDO"
+    - "LICENCIADO"
+    - "NOTIFICAÇÃO"
+    - "AGUARD VISTORIA"
+    - "AGUARD REGULARIZAÇÃO"
+    - "AGUARD LIBERAÇÃO"
+    - "IR NA VISA"
+  
+  operacoes_diversos:
+    - "ALTERAÇÃO"
+    - "INSCRIÇÃO"
+    - "BAIXA"
+    - "CANCEL DE TRIBUTOS"
+    - "RESTITUIÇÃO"
+    - "RETIFICAÇÃO"
+  
+  orgaos_diversos:
+    - "PREFEITURA"
+    - "ANP"
+    - "RFB"
+    - "CARTÓRIO 2º TABELIONATO"
+  
+  alvaras_funcionamento:
+    - "CONDICIONADO"
+    - "PROVISÓRIO"
+    - "DEFINITIVO"
+  
+  servicos_sanitarios:
+    - "1º ALVARÁ"
+    - "RENOVAÇÃO"
+    - "ATUALIZAÇÃO"
+  
+  notificacoes_sanitarias:
+    - "–"
+    - "POSSUI PENDÊNCIAS"
+    - "SEM PENDÊNCIAS"
+    - "RESOLVIDAS"
+    - "PEGAR ORIGINAL"
+  
+  categorias_contato:
+    - "BOMBEIROS"
+    - "POSTURA"
+    - "AMBIENTAL/USO DO SOLO"
+    - "VISA"
+    
 column_aliases:
 
   empresas:
@@ -127,7 +180,6 @@ column_aliases:
     PROTOCOLO: ["PROTOCOLO"]
     DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO"]
     SITUACAO: ["SITUAÇÃO", "SITUACAO"]
-    PRAZO: ["PRAZO"]
     OBS: ["OBS"]
     STATUS_PADRAO: ["status_procSanitario"]
     # Campos específicos de Sanitário
@@ -143,7 +195,6 @@ column_aliases:
     PROTOCOLO: ["PROTOCOLO"]
     DATA_SOLICITACAO: ["DATA SOLICITAÇÃO", "DATA SOLICITACAO"]
     SITUACAO: ["SITUAÇÃO", "SITUACAO"]
-    PRAZO: ["PRAZO"]
     OBS: ["OBS"]
     STATUS_PADRAO: ["status_procAmbiental"]
     # Ambiental não tem campos específicos adicionais segundo o dicionário
