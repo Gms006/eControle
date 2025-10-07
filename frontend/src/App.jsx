@@ -148,10 +148,12 @@ const TAB_SHORTCUTS = {
 
 const PROCESS_ICONS = {
   Diversos: <Settings className="h-4 w-4" />, // fallback genérico
-  "Alvará de Funcionamento": <ClipboardCheck className="h-4 w-4" />,
+  Funcionamento: <ClipboardCheck className="h-4 w-4" />,
   Bombeiros: <Shield className="h-4 w-4" />,
+  Ambiental: <Sparkles className="h-4 w-4" />,
   "Licença Ambiental": <Sparkles className="h-4 w-4" />,
   "Uso do Solo": <MapPin className="h-4 w-4" />,
+  Sanitário: <BadgeAlert className="h-4 w-4" />,
   "Alvará Sanitário": <BadgeAlert className="h-4 w-4" />,
 };
 
@@ -226,12 +228,81 @@ const normalizeEmpresaRelacionada = (entity) => {
   };
 };
 
-const ALERT_STATUS_KEYWORDS = ["vencid", "vence", "nao pago", "nao-pago", "negad", "indefer"];
+const ALERT_STATUS_KEYWORDS = [
+  "vencid",
+  "vence",
+  "nao pago",
+  "nao-pago",
+  "negad",
+  "indefer",
+  "abert",
+];
+
+const TAXA_COLUMNS = [
+  { key: "tpi", label: "TPI" },
+  { key: "func", label: "Funcionamento" },
+  { key: "publicidade", label: "Publicidade" },
+  { key: "sanitaria", label: "Sanitária" },
+  { key: "localizacao_instalacao", label: "Localização/Instalação" },
+  { key: "area_publica", label: "Área Pública" },
+  { key: "bombeiros", label: "Bombeiros" },
+  { key: "status_geral", label: "Status geral" },
+];
+
+const TAXA_TYPE_KEYS = TAXA_COLUMNS.filter((column) => column.key !== "status_geral").map(
+  (column) => column.key,
+);
+
+const TAXA_ALERT_KEYS = [...TAXA_TYPE_KEYS, "status_geral"];
+
+const TAXA_SEARCH_KEYS = [...TAXA_COLUMNS.map((column) => column.key), "data_envio"];
+
+const parseProgressFraction = (status) => {
+  if (status === null || status === undefined) {
+    return null;
+  }
+  const text = normalizeText(status);
+  const match = text.match(/(-?\d+(?:[.,]\d+)?)\s*\/\s*(-?\d+(?:[.,]\d+)?)/);
+  if (!match) {
+    return null;
+  }
+  const parseNumber = (value) => {
+    const trimmed = value.replace(/\s+/g, "");
+    const hasComma = trimmed.includes(",");
+    const hasDot = trimmed.includes(".");
+    const normalized = hasComma && hasDot
+      ? trimmed.replace(/\./g, "").replace(",", ".")
+      : trimmed.replace(",", ".");
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : NaN;
+  };
+  const current = parseNumber(match[1]);
+  const total = parseNumber(match[2]);
+  return { current, total };
+};
+
+const hasPendingFraction = (status) => {
+  const fraction = parseProgressFraction(status);
+  if (!fraction) {
+    return false;
+  }
+  const { current, total } = fraction;
+  if (!Number.isFinite(current) || !Number.isFinite(total)) {
+    return true;
+  }
+  if (total <= 0) {
+    return true;
+  }
+  return current < total;
+};
 
 const isAlertStatus = (status) => {
   const key = getStatusKey(status);
   if (!key) return false;
   if (key.includes("nao se aplica") || key.includes("n/a")) return false;
+  if (hasPendingFraction(status)) {
+    return true;
+  }
   return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
@@ -253,10 +324,55 @@ const STATUS_VARIANT_CLASSES = {
   plain: "bg-transparent border-transparent text-slate-500",
 };
 
+const PROCESS_BASE_COLUMNS = [
+  { key: "protocolo", label: "Protocolo", copyable: true },
+  { key: "data_solicitacao", label: "Data de Solicitação" },
+  { key: "situacao", label: "Situação", isStatus: true },
+];
+
+const normalizeProcessColumnKey = (value) =>
+  removeDiacritics(String(value ?? "").toLowerCase()).replace(/[^a-z0-9]+/g, "_");
+
+const PROCESS_EXTRA_COLUMNS = {
+  diversos: [
+    { key: "operacao", label: "Operação" },
+    { key: "orgao", label: "Órgão" },
+  ],
+  bombeiros: [{ key: "tpi", label: "TPI" }],
+  funcionamento: [{ key: "alvara", label: "Alvará" }],
+  alvara_de_funcionamento: [{ key: "alvara", label: "Alvará" }],
+  uso_do_solo: [
+    { key: "inscricao_imobiliaria", label: "Inscrição Imobiliária", copyable: true },
+  ],
+  sanitario: [
+    { key: "taxa", label: "Taxa" },
+    { key: "servico", label: "Serviço" },
+    { key: "notificacao", label: "Notificação" },
+    { key: "data_val", label: "Data Val" },
+  ],
+  alvara_sanitario: [
+    { key: "servico", label: "Serviço" },
+    { key: "notificacao", label: "Notificação" },
+    { key: "data_val", label: "Data Val" },
+  ],
+};
+
 const resolveStatusClass = (status) => {
   const key = getStatusKey(status);
   if (!key || key === "*" || key === "-" || key === "—") {
     return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
+  }
+
+  const fraction = parseProgressFraction(status);
+  if (fraction) {
+    const { current, total } = fraction;
+    if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
+      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    }
+    if (current < total) {
+      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    }
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
   if (key === "/") {
@@ -319,19 +435,19 @@ const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
   }
 
+  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
   if (
-    key.includes("regular") ||
+    (key.includes("regular") && !key.includes("irregular")) ||
     key.includes("quit") ||
     key.includes("vigent") ||
     key.includes("ativo") ||
-    key.includes("em dia") ||
-    key === "sim"
+    (key.includes("em dia") && !key.includes("irregular")) ||
+    (key === "sim" && !key.includes("irregular"))
   ) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
-  }
-
-  if (key.includes("irregular") || key.includes("suspens") || key.includes("cancel") || key.includes("bloque") || key.includes("inadimpl")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
   return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
@@ -463,11 +579,13 @@ export default function App() {
   const [selectedTipo, setSelectedTipo] = useState(PROCESS_ALL);
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
   const [toasts, setToasts] = useState([]);
+  const [uteisQuery, setUteisQuery] = useState("");
 
   const toastTimeoutsRef = useRef(new Map());
 
   const normalizedQueryValue = useMemo(() => normalizeTextLower(query).trim(), [query]);
   const municipioKey = useMemo(() => normalizeTextLower(municipio).trim(), [municipio]);
+  const normalizedUteisQuery = useMemo(() => normalizeTextLower(uteisQuery).trim(), [uteisQuery]);
 
   const [empresas, setEmpresas] = useState([]);
   const [licencas, setLicencas] = useState([]);
@@ -689,11 +807,14 @@ export default function App() {
     () =>
       processos.map((proc) => {
         const empresaId = extractEmpresaId(proc);
+        const statusCandidates = [proc.status, proc.status_padrao, proc.situacao];
+        const resolvedStatus = statusCandidates.find((value) => normalizeIdentifier(value));
         return {
           ...proc,
           empresaId,
           empresa_id: empresaId,
           tipoNormalizado: normalizeProcessType(proc),
+          status: resolvedStatus ?? proc.status ?? proc.status_padrao ?? proc.situacao,
         };
       }),
     [processos],
@@ -721,6 +842,18 @@ export default function App() {
         .some((field) => normalizeTextLower(field).includes(normalizedQueryValue));
     },
     [normalizedQueryValue],
+  );
+
+  const matchesUteisQuery = useCallback(
+    (fields) => {
+      if (normalizedUteisQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedUteisQuery));
+    },
+    [normalizedUteisQuery],
   );
 
   const matchesMunicipioFilter = useCallback(
@@ -768,20 +901,17 @@ export default function App() {
 
   const filteredTaxas = useMemo(
     () =>
-      taxas.filter(
-        (taxa) =>
-          matchesMunicipioFilter(taxa) &&
-          matchesQuery([
-            taxa.empresa,
-            taxa.cnpj,
-            taxa.tpi,
-            taxa.func,
-            taxa.publicidade,
-            taxa.sanitaria,
-            taxa.status_geral,
-            taxa.data_envio,
-          ]),
-      ),
+      taxas.filter((taxa) => {
+        if (!matchesMunicipioFilter(taxa)) {
+          return false;
+        }
+        const camposPesquisa = [
+          taxa.empresa,
+          taxa.cnpj,
+          ...TAXA_SEARCH_KEYS.map((key) => taxa?.[key]),
+        ];
+        return matchesQuery(camposPesquisa);
+      }),
     [matchesMunicipioFilter, matchesQuery, taxas],
   );
 
@@ -795,9 +925,23 @@ export default function App() {
             proc.tipo,
             proc.tipoNormalizado,
             proc.status,
-            proc.codigo,
-            proc.inicio,
+            proc.situacao,
+            proc.status_padrao,
+            proc.obs,
+            proc.protocolo,
+            proc.cnpj,
+            proc.data_solicitacao,
             proc.prazo,
+            proc.operacao,
+            proc.orgao,
+            proc.alvara,
+            proc.inscricao_imobiliaria,
+            proc.servico,
+            proc.taxa,
+            proc.notificacao,
+            proc.data_val,
+            proc.municipio,
+            proc.tpi,
           ]),
       ),
     [matchesMunicipioFilter, matchesQuery, processosNormalizados],
@@ -808,7 +952,7 @@ export default function App() {
     return lista.filter(
       (contato) =>
         matchesMunicipioFilter(contato) &&
-        matchesQuery([
+        matchesUteisQuery([
           contato?.contato,
           contato?.categoria,
           contato?.municipio,
@@ -817,16 +961,16 @@ export default function App() {
           contato?.whatsapp,
         ]),
     );
-  }, [contatos, matchesMunicipioFilter, matchesQuery]);
+  }, [contatos, matchesMunicipioFilter, matchesUteisQuery]);
 
   const filteredModelos = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
     return lista.filter(
       (modelo) =>
         matchesMunicipioFilter(modelo) &&
-        matchesQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
+        matchesUteisQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
     );
-  }, [matchesMunicipioFilter, matchesQuery, modelos]);
+  }, [matchesMunicipioFilter, matchesUteisQuery, modelos]);
 
   const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
@@ -865,7 +1009,7 @@ export default function App() {
       return filteredTaxas;
     }
     return filteredTaxas.filter((taxa) =>
-      [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].some((status) => isAlertStatus(status)),
+      TAXA_ALERT_KEYS.some((key) => isAlertStatus(taxa?.[key])),
     );
   }, [filteredTaxas, modoFoco]);
 
@@ -916,7 +1060,7 @@ export default function App() {
       if (hasLicencaAlert) return true;
       const taxa = taxasByEmpresa.get(empresaId);
       if (taxa) {
-        const entries = [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria];
+        const entries = TAXA_TYPE_KEYS.map((key) => taxa?.[key]);
         if (entries.some((status) => isAlertStatus(status))) {
           return true;
         }
@@ -1034,6 +1178,49 @@ export default function App() {
     return listaBase.filter((proc) => !isProcessStatusInactive(proc.status));
   }, [filteredProcessosBase, modoFoco, selectedTipo]);
 
+  const resolveProcessExtraColumns = useCallback((proc) => {
+    const extras = [];
+    const seen = new Set();
+    const pushColumn = (column) => {
+      if (!column || !column.key || seen.has(column.key)) {
+        return;
+      }
+      seen.add(column.key);
+      extras.push(column);
+    };
+
+    const includeColumns = (key) => {
+      if (!key) return;
+      const columns = PROCESS_EXTRA_COLUMNS[key];
+      if (Array.isArray(columns)) {
+        columns.forEach(pushColumn);
+      }
+    };
+
+    const tipoReferencia = proc?.tipoNormalizado || proc?.tipo;
+    const normalized = normalizeProcessColumnKey(tipoReferencia);
+    if (normalized) {
+      includeColumns(normalized);
+      if (extras.length === 0) {
+        if (normalized.includes("sanitario")) {
+          includeColumns("sanitario");
+        } else if (normalized.includes("uso") && normalized.includes("solo")) {
+          includeColumns("uso_do_solo");
+        } else if (normalized.includes("funcion")) {
+          includeColumns("funcionamento");
+        } else if (normalized.includes("divers")) {
+          includeColumns("diversos");
+        } else if (normalized.includes("bombeir")) {
+          includeColumns("bombeiros");
+        } else if (normalized.includes("alvara") && normalized.includes("sanit")) {
+          includeColumns("alvara_sanitario");
+        }
+      }
+    }
+
+    return extras;
+  }, []);
+
   const processosAtivos = useMemo(() => {
     return processosNormalizados.filter((proc) => !isProcessStatusInactive(proc.status));
   }, [processosNormalizados]);
@@ -1080,6 +1267,51 @@ export default function App() {
     },
     [enqueueToast],
   );
+
+  const renderProcessValue = useCallback(
+    (proc, column) => {
+      const rawValue = proc?.[column.key];
+      if (column.isStatus) {
+        return <StatusBadge status={proc.status ?? rawValue} />;
+      }
+      if (column.copyable) {
+        const normalizedValue = normalizeIdentifier(rawValue);
+        if (!normalizedValue) {
+          return "—";
+        }
+        return (
+          <button
+            type="button"
+            onClick={() =>
+              handleCopy(normalizedValue, `${column.label} copiado: ${normalizedValue}`)
+            }
+            className="inline-flex items-center gap-1 text-xs font-medium text-indigo-600 transition-colors hover:text-indigo-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+          >
+            <span>{normalizedValue}</span>
+            <Clipboard className="h-3 w-3 opacity-70" aria-hidden="true" />
+          </button>
+        );
+      }
+      const displayValue = normalizeText(rawValue).trim();
+      return displayValue !== "" ? displayValue : "—";
+    },
+    [handleCopy],
+  );
+
+  const hasProcessColumnValue = useCallback((proc, column) => {
+    if (!proc || !column) return false;
+    const rawValue = proc?.[column.key];
+    if (column.isStatus) {
+      const statusValue = proc.status ?? rawValue;
+      const normalized = normalizeText(statusValue).trim();
+      return normalized !== "" && normalized !== "*" && normalized !== "-" && normalized !== "—";
+    }
+    if (column.copyable) {
+      return Boolean(normalizeIdentifier(rawValue));
+    }
+    const normalized = normalizeText(rawValue).trim();
+    return normalized !== "" && normalized !== "*" && normalized !== "-" && normalized !== "—";
+  }, []);
 
   const selectMunicipioValue = municipio ?? MUNICIPIO_ALL;
 
@@ -1420,8 +1652,8 @@ export default function App() {
                             <p>
                               Taxas pend.:
                               {taxa
-                                ? [taxa.tpi, taxa.func, taxa.publicidade, taxa.sanitaria].filter((status) =>
-                                    isAlertStatus(status),
+                                ? TAXA_TYPE_KEYS.filter((key) =>
+                                    isAlertStatus(taxa?.[key]),
                                   ).length
                                 : 0}
                             </p>
@@ -1617,28 +1849,20 @@ export default function App() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Empresa</TableHead>
-                      <TableHead>TPI</TableHead>
-                      <TableHead>Funcionamento</TableHead>
-                      <TableHead>Publicidade</TableHead>
-                      <TableHead>Sanitária</TableHead>
+                      {TAXA_COLUMNS.map(({ key, label }) => (
+                        <TableHead key={key}>{label}</TableHead>
+                      ))}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {taxasVisiveis.map((taxa, index) => (
                       <TableRow key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}>
                         <TableCell className="font-medium">{taxa.empresa}</TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.tpi} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.func} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.publicidade} />
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={taxa.sanitaria} />
-                        </TableCell>
+                        {TAXA_COLUMNS.map(({ key }) => (
+                          <TableCell key={key}>
+                            <StatusBadge status={taxa?.[key]} />
+                          </TableCell>
+                        ))}
                       </TableRow>
                     ))}
                   </TableBody>
@@ -1676,43 +1900,131 @@ export default function App() {
             ))}
           </div>
 
-          <div className="grid gap-3 lg:grid-cols-2">
-            {processosFiltrados.map((proc, index) => (
-              <Card key={`${proc.empresa}-${proc.codigo}-${index}`} className="shadow-sm">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-white/80 grid place-items-center text-slate-600">
-                      {PROCESS_ICONS[proc.tipoNormalizado] || <Settings className="h-4 w-4" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-semibold text-slate-800 truncate">{proc.empresa}</h3>
-                        <StatusBadge status={proc.status} />
+          {processosFiltrados.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
+              Nenhum processo correspondente ao filtro.
+            </div>
+          ) : (
+            <div className="grid gap-3 lg:grid-cols-2">
+              {processosFiltrados.map((proc, index) => {
+                const iconCandidate =
+                  PROCESS_ICONS[proc.tipoNormalizado] ||
+                  PROCESS_ICONS[proc.tipo] || (
+                    <FileText className="h-5 w-5" />
+                  );
+                const tipoLabel = proc.tipoNormalizado || proc.tipo || "Processo";
+                const prazoColumn = { key: "prazo", label: "Prazo" };
+                const baseColumns = [...PROCESS_BASE_COLUMNS];
+                if (hasProcessColumnValue(proc, prazoColumn)) {
+                  baseColumns.push(prazoColumn);
+                }
+                const extraColumns = resolveProcessExtraColumns(proc).filter((column) =>
+                  hasProcessColumnValue(proc, column),
+                );
+                const obsText = normalizeText(proc.obs).trim();
+                const hasObs =
+                  obsText !== "" && obsText !== "-" && obsText !== "—" && obsText !== "*";
+
+                return (
+                  <Card
+                    key={`${proc.empresa_id || proc.empresa || index}-${proc.protocolo || index}`}
+                    className="shadow-sm overflow-hidden border border-white/60"
+                  >
+                    <CardContent className="p-4 space-y-3">
+                      <div className="flex items-start gap-3">
+                        <div className="h-11 w-11 shrink-0 rounded-lg bg-violet-100 text-violet-700 grid place-items-center">
+                          {iconCandidate}
+                        </div>
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <h3 className="text-base font-semibold leading-tight text-slate-800 truncate">
+                                {proc.empresa || "—"}
+                              </h3>
+                              <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                <InlineBadge variant="outline" className="bg-white">
+                                  {tipoLabel}
+                                </InlineBadge>
+                                {hasProcessColumnValue(proc, { key: "municipio" }) && proc.municipio && (
+                                  <InlineBadge variant="outline" className="bg-white">
+                                    <MapPin className="h-3 w-3 mr-1" /> {proc.municipio}
+                                  </InlineBadge>
+                                )}
+                              </div>
+                            </div>
+                            <StatusBadge status={proc.status} />
+                          </div>
+                          <div className="flex flex-wrap gap-2 text-xs text-slate-500">
+                            <CopyableIdentifier label="CNPJ" value={proc.cnpj} onCopy={handleCopy} />
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-xs text-slate-500 truncate">{proc.tipoNormalizado}</p>
-                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-slate-500">
-                        <span>Código: {proc.codigo}</span>
-                        <span>Início: {proc.inicio}</span>
-                        {proc.prazo && (
-                          <span className="text-red-600 font-medium">Prazo: {proc.prazo}</span>
-                        )}
+
+                      <Separator />
+
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {baseColumns.map((column) => (
+                          <div key={column.key} className="space-y-1">
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              {column.label}
+                            </p>
+                            <div className="text-sm text-slate-700">
+                              {renderProcessValue(proc, column)}
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {processosFiltrados.length === 0 && (
-              <Card className="shadow-sm">
-                <CardContent className="p-6 text-sm text-slate-600">
-                  Nenhum processo correspondente ao filtro.
-                </CardContent>
-              </Card>
-            )}
-          </div>
+
+                      {extraColumns.length > 0 && (
+                        <>
+                          <Separator />
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {extraColumns.map((column) => (
+                              <div key={column.key} className="space-y-1">
+                                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                  {column.label}
+                                </p>
+                                <div className="text-sm text-slate-700">
+                                  {renderProcessValue(proc, column)}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+
+                      {hasObs && (
+                        <>
+                          <Separator />
+                          <div>
+                            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                              Observações
+                            </p>
+                            <p className="mt-1 whitespace-pre-wrap text-sm text-slate-700">{obsText}</p>
+                          </div>
+                        </>
+                      )}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="uteis" className="mt-4 space-y-4">
+          <div className="max-w-xl">
+            <Label className="text-xs uppercase">Pesquisa em úteis</Label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+              <Input
+                placeholder="Buscar contato, categoria ou mensagem…"
+                className="pl-8"
+                value={uteisQuery}
+                onChange={(event) => setUteisQuery(event.target.value)}
+              />
+            </div>
+          </div>
           <div className="grid gap-4 lg:grid-cols-2">
             <Card className="shadow-sm">
               <CardHeader className="pb-2">

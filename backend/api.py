@@ -591,18 +591,34 @@ def get_processos(tipo: Optional[str] = None, apenas_ativos: bool = False):
     processos = filtrar_processos(
         cache["processos"], tipo=tipo, apenas_ativos=apenas_ativos
     )
-    return [
-        {
-            "empresa_id": p.empresa_id,
-            "empresa": p.empresa,
-            "tipo": p.tipo,
-            "codigo": p.protocolo,
-            "inicio": p.data_solicitacao,
-            "prazo": p.prazo,
-            "status": p.status_display,
-        }
-        for p in processos
-    ]
+    resultado = []
+    for p in processos:
+        resultado.append(
+            {
+                "empresa_id": p.empresa_id,
+                "empresa": p.empresa,
+                "cnpj": p.cnpj,
+                "tipo": p.tipo,
+                "protocolo": p.protocolo,
+                "data_solicitacao": p.data_solicitacao,
+                "situacao": p.situacao,
+                "status": p.status_display,
+                "status_padrao": p.status_padrao,
+                "prazo": p.prazo,
+                "obs": p.obs,
+                "operacao": p.operacao,
+                "orgao": p.orgao,
+                "alvara": p.alvara,
+                "municipio": p.municipio,
+                "tpi": p.tpi,
+                "inscricao_imobiliaria": p.inscricao_imobiliaria,
+                "servico": p.servico,
+                "taxa": p.taxa,
+                "notificacao": p.notificacao,
+                "data_val": p.data_val,
+            }
+        )
+    return resultado
 
 
 @app.get("/api/uteis", response_model=UteisResponse)
