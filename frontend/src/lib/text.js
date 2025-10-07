@@ -12,6 +12,11 @@ export const removeDiacritics = (value) => {
   return value.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 };
 
+export const normalizeIdentifier = (value) => {
+  const normalized = normalizeText(value).trim();
+  return normalized !== "" ? normalized : undefined;
+};
+
 export const parsePtDate = (value) => {
   if (!value) return null;
   const [day, month, year] = value.split("/").map(Number);

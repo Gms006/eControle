@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Card,
   CardContent,
@@ -32,6 +32,11 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import InlineBadge from "@/components/InlineBadge";
+import StatusBadge from "@/components/StatusBadge";
+import CopyableIdentifier from "@/components/CopyableIdentifier";
+import KPI from "@/components/KPI";
+import ToastProvider, { useToast } from "@/providers/ToastProvider";
 import {
   AlertTriangle,
   BadgeAlert,
@@ -68,7 +73,13 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatMonthLabel, normalizeText, normalizeTextLower, parsePtDate } from "@/lib/text";
+import {
+  formatMonthLabel,
+  normalizeIdentifier,
+  normalizeText,
+  normalizeTextLower,
+  parsePtDate,
+} from "@/lib/text";
 import {
   DIVERSOS_OPERACAO_ALL,
   DIVERSOS_OPERACAO_SEM,
@@ -165,11 +176,6 @@ const normalizeEmpresaRelacionada = (entity) => {
   };
 };
 
-const normalizeIdentifier = (value) => {
-  const normalized = normalizeText(value).trim();
-  return normalized !== "" ? normalized : undefined;
-};
-
 const enhanceEmpresa = (empresa) => {
   if (!empresa || typeof empresa !== "object") {
     return empresa;
@@ -194,65 +200,7 @@ const enhanceEmpresa = (empresa) => {
   };
 };
 
-function InlineBadge({ children, className = "", variant = "solid", ...props }) {
-  const base = "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium";
-  const variants = {
-    solid: "bg-slate-100 border-transparent text-slate-700",
-    outline: "bg-white border-slate-200 text-slate-600",
-    plain: "bg-transparent border-transparent text-slate-500",
-  };
-  const variantClasses = variants[variant] || variants.solid;
-  return (
-    <span className={`${base} ${variantClasses} ${className}`} {...props}>
-      {children}
-    </span>
-  );
-}
-
-function CopyableIdentifier({ label, value, onCopy }) {
-  const normalizedValue = normalizeIdentifier(value);
-  const displayValue = normalizedValue || "—";
-  return (
-    <button
-      type="button"
-      onClick={() => onCopy(normalizedValue, normalizedValue ? `${label} copiado: ${normalizedValue}` : undefined)}
-      className="inline-flex items-center gap-1 rounded px-1 py-0.5 text-xs text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
-      title={`Copiar ${label}`}
-    >
-      <Clipboard className="h-3 w-3 opacity-70" aria-hidden="true" />
-      <span className="font-medium">{label}</span>
-      <span>{displayValue}</span>
-    </button>
-  );
-}
-
-function StatusBadge({ status }) {
-  const normalized = normalizeText(status);
-  const trimmed = normalized.trim();
-  const displayValue = trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—" ? "—" : trimmed;
-  const { variant, className } = resolveStatusClass(status);
-  return (
-    <InlineBadge variant={variant} className={className}>
-      {displayValue}
-    </InlineBadge>
-  );
-}
-
-function KPI({ title, value, icon, accent }) {
-  return (
-    <Card className={`shadow-sm border-none ${accent}`}>
-      <CardContent className="p-4 flex items-center gap-3">
-        <div className="p-2 rounded-xl bg-white/70 text-slate-700">{icon}</div>
-        <div>
-          <div className="text-xs text-slate-600 uppercase tracking-wide">{title}</div>
-          <div className="text-2xl font-semibold leading-tight">{value}</div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-export default function App() {
+function AppContent() {
   const [tab, setTab] = useState("painel");
   const [query, setQuery] = useState("");
   const [municipio, setMunicipio] = useState();
@@ -263,10 +211,7 @@ export default function App() {
     DIVERSOS_OPERACAO_ALL,
   );
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
-  const [toasts, setToasts] = useState([]);
   const [uteisQuery, setUteisQuery] = useState("");
-
-  const toastTimeoutsRef = useRef(new Map());
 
   const normalizedQueryValue = useMemo(() => normalizeTextLower(query).trim(), [query]);
   const municipioKey = useMemo(() => normalizeTextLower(municipio).trim(), [municipio]);
@@ -281,6 +226,7 @@ export default function App() {
   const [contatos, setContatos] = useState([]);
   const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { dismissToast, enqueueToast, toasts } = useToast();
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -712,38 +658,6 @@ export default function App() {
       TAXA_ALERT_KEYS.some((key) => isAlertStatus(taxa?.[key])),
     );
   }, [filteredTaxas, modoFoco]);
-
-  const enqueueToast = useCallback((message) => {
-    const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-    setToasts((prev) => [...prev, { id, message }]);
-    if (typeof window !== "undefined") {
-      const timeout = window.setTimeout(() => {
-        setToasts((prev) => prev.filter((toast) => toast.id !== id));
-        const stored = toastTimeoutsRef.current.get(id);
-        if (stored) {
-          clearTimeout(stored);
-          toastTimeoutsRef.current.delete(id);
-        }
-      }, 3200);
-      toastTimeoutsRef.current.set(id, timeout);
-    }
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      toastTimeoutsRef.current.forEach((timeout) => clearTimeout(timeout));
-      toastTimeoutsRef.current.clear();
-    };
-  }, []);
-
-  const dismissToast = useCallback((id) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-    const stored = toastTimeoutsRef.current.get(id);
-    if (stored) {
-      clearTimeout(stored);
-      toastTimeoutsRef.current.delete(id);
-    }
-  }, []);
 
   const companyHasAlert = useCallback(
     (empresa) => {
@@ -1930,5 +1844,13 @@ export default function App() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <ToastProvider>
+      <AppContent />
+    </ToastProvider>
   );
 }
