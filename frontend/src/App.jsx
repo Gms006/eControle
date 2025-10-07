@@ -367,12 +367,12 @@ const isProcessStatusActiveOrPending = (status) => {
 };
 
 const STATUS_VARIANT_CLASSES = {
-  success: "bg-emerald-500 text-white border-emerald-500",
-  warning: "bg-amber-500 text-white border-amber-500",
-  danger: "bg-red-500 text-white border-red-500",
-  info: "bg-sky-500 text-white border-sky-500",
-  neutral: "bg-slate-500 text-white border-slate-500",
-  muted: "bg-slate-400 text-white border-slate-400",
+  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
+  warning: "bg-orange-100 text-orange-700 border-orange-200",
+  danger: "bg-red-100 text-red-700 border-red-200",
+  info: "bg-sky-100 text-sky-700 border-sky-200",
+  neutral: "bg-slate-200 text-slate-700 border-slate-300",
+  muted: "bg-slate-100 text-slate-600 border-slate-200",
   plain: "bg-transparent border-transparent text-slate-500",
 };
 
@@ -592,6 +592,33 @@ const enhanceEmpresa = (empresa) => {
     empresaId: empresaId ?? empresa?.id,
     empresa_id: empresaId ?? empresa?.id,
   };
+};
+
+const resolveEmpresaDebitoStatus = (value) => {
+  const text = normalizeText(value).trim();
+  if (!text || text === "-" || text === "*" || text === "—") {
+    return undefined;
+  }
+  const key = getStatusKey(text);
+  if (!key) {
+    return undefined;
+  }
+  if (key.includes("nao inform") || key.includes("desconhec")) {
+    return undefined;
+  }
+  if (key.includes("sem debit") || key.includes("nao") || key.includes("regular")) {
+    return "Sem débitos";
+  }
+  if (
+    key.includes("possui debit") ||
+    key.includes("com debit") ||
+    key.includes("pend") ||
+    key.includes("em aberto") ||
+    (key.includes("sim") && !key.includes("nao"))
+  ) {
+    return "Possui débitos";
+  }
+  return text;
 };
 
 function InlineBadge({ children, className = "", variant = "solid", ...props }) {
@@ -1665,7 +1692,7 @@ export default function App() {
                         <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> OK
                       </InlineBadge>
                       ) : (
-                      <InlineBadge className="bg-amber-100 text-amber-700 border-amber-200">
+                      <InlineBadge className="bg-orange-100 text-orange-700 border-orange-200">
                         <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Verificar
                       </InlineBadge>
                       )}
@@ -1693,6 +1720,7 @@ export default function App() {
                     const empresaId = extractEmpresaId(empresa);
                     const licencasPendentes =
                       empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
+                    const debitoStatus = resolveEmpresaDebitoStatus(empresa.debito);
                     return (
                       <li key={empresa.id} className="px-4 py-3 text-sm">
                       <div className="flex items-start justify-between gap-4">
@@ -1703,9 +1731,7 @@ export default function App() {
                           </p>
                         </div>
                         <div className="flex flex-wrap gap-1">
-                          {normalizeTextLower(empresa.debito) === "sim" && (
-                            <StatusBadge status="Não pago" />
-                          )}
+                          {debitoStatus && <StatusBadge status={debitoStatus} />}
                           {normalizeTextLower(empresa.certificado) === "não" && <StatusBadge status="NÃO" />}
                           {licencasPendentes
                             .filter((lic) => isAlertStatus(lic.status))
@@ -1755,6 +1781,7 @@ export default function App() {
               const processosAtivosEmpresa = processosEmpresa.filter(
                 (proc) => !isProcessStatusInactive(proc.status),
               );
+              const debitoStatus = resolveEmpresaDebitoStatus(empresa.debito);
               const rawId =
                 empresa.empresa_id ?? empresa.empresaId ?? empresa.id ?? extractEmpresaId(empresa);
               const avatarLabel =
@@ -1804,9 +1831,13 @@ export default function App() {
                           <InlineBadge variant="outline" className="bg-white">
                             Certificado: {empresa.certificado}
                           </InlineBadge>
-                          <InlineBadge variant="outline" className="bg-white">
-                            Débito: {empresa.debito}
-                          </InlineBadge>
+                          {debitoStatus ? (
+                            <StatusBadge status={debitoStatus} />
+                          ) : (
+                            <InlineBadge variant="outline" className="bg-white">
+                              Débito: {normalizeText(empresa.debito) || "—"}
+                            </InlineBadge>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1917,13 +1948,13 @@ export default function App() {
                       <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
                         Possui {poss}
                       </InlineBadge>
-                      <InlineBadge className="bg-amber-100 text-amber-800 border-amber-200">
+                      <InlineBadge className="bg-orange-100 text-orange-800 border-orange-200">
                         ≤30d {soon}
                       </InlineBadge>
-                      <InlineBadge className="bg-red-100 text-red-700 border-red-200">
+                      <InlineBadge className="bg-orange-100 text-orange-800 border-orange-200">
                         Vencido {venc}
                       </InlineBadge>
-                      <InlineBadge className="bg-slate-200 text-slate-800 border-slate-300">
+                      <InlineBadge className="bg-red-100 text-red-700 border-red-200">
                         Sujeito {subj}
                       </InlineBadge>
                       <InlineBadge className="bg-indigo-100 text-indigo-700 border-indigo-200">
