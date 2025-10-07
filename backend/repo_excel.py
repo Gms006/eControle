@@ -12,16 +12,18 @@ Principais recursos:
 from __future__ import annotations
 
 import logging
+import re
 import time
+import unicodedata
 from pathlib import Path
-from typing import Dict, List, Optional, Any, Iterable
+from typing import Any, Dict, Iterable, List, Optional, Set
 
 import openpyxl
 from openpyxl import load_workbook
 from openpyxl.worksheet.worksheet import Worksheet
 from openpyxl.utils import range_boundaries
-import yaml
 import portalocker
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -71,18 +73,45 @@ class ExcelRepo:
         logger.warning("Cabeçalho não encontrado, usando linha 2 como padrão")
         return 2
 
+    def _normalize_alias(self, value: Any) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip().strip("'\"")
+        text = unicodedata.normalize("NFKD", text)
+        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        return text.upper()
+
+    def _canonical_from_header(self, value: Any) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip().strip("'\"")
+        text = unicodedata.normalize("NFKD", text)
+        text = "".join(ch for ch in text if not unicodedata.combining(ch))
+        text = re.sub(r"[^0-9A-Z]+", "_", text.upper())
+        return text.strip("_")
+
     def _build_column_map_from_header_cells(self, header_cells: Iterable[Any], sheet_key: str) -> Dict[str, int]:
         aliases = self.config.get("column_aliases", {}).get(sheet_key, {})
+        normalized_aliases: Dict[str, Set[str]] = {
+            canonical: {self._normalize_alias(alias) for alias in alias_list}
+            for canonical, alias_list in aliases.items()
+        }
         col_map: Dict[str, int] = {}
         for idx, cell in enumerate(header_cells, start=1):
             value = getattr(cell, "value", cell)
             if value is None:
                 continue
-            cell_value = str(value).strip()
-            for canonical, alias_list in aliases.items():
-                if any(cell_value.upper() == a.upper() for a in alias_list):
+            normalized_value = self._normalize_alias(value)
+            matched = False
+            for canonical, alias_set in normalized_aliases.items():
+                if normalized_value and normalized_value in alias_set:
                     col_map[canonical] = idx
+                    matched = True
                     break
+            if not matched:
+                fallback_key = self._canonical_from_header(value)
+                if fallback_key and fallback_key not in col_map:
+                    col_map[fallback_key] = idx
         if not col_map:
             logger.warning("Nenhuma coluna mapeada para %s", sheet_key)
         return col_map
