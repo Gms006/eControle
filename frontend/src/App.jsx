@@ -327,10 +327,43 @@ const PROCESS_INACTIVE_KEYWORDS = [
   "entreg",
 ];
 
+const PROCESS_FOCUS_KEYWORDS = [
+  "andament",
+  "pend",
+  "aguard",
+  "analise",
+  "tram",
+  "vistori",
+  "process",
+  "solicit",
+  "enviad",
+  "protocol",
+  "fiscaliz",
+  "document",
+  "pagament",
+  "taxa",
+  "abert",
+  "receb",
+];
+
 const isProcessStatusInactive = (status) => {
   const key = getStatusKey(status);
   if (!key) return false;
   return PROCESS_INACTIVE_KEYWORDS.some((keyword) => key.includes(keyword));
+};
+
+const isProcessStatusActiveOrPending = (status) => {
+  const key = getStatusKey(status);
+  if (!key || key === "*" || key === "-" || key === "—") {
+    return false;
+  }
+  if (isProcessStatusInactive(status)) {
+    return false;
+  }
+  if (hasPendingFraction(status)) {
+    return true;
+  }
+  return PROCESS_FOCUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
 const STATUS_VARIANT_CLASSES = {
@@ -1021,7 +1054,7 @@ export default function App() {
     if (!modoFoco) {
       return filteredProcessosBase;
     }
-    return filteredProcessosBase.filter((proc) => !isProcessStatusInactive(proc.status));
+    return filteredProcessosBase.filter((proc) => isProcessStatusActiveOrPending(proc.status));
   }, [filteredProcessosBase, modoFoco]);
 
   const filteredContatos = useMemo(() => {
@@ -1227,10 +1260,10 @@ export default function App() {
   }, [filteredLicencas]);
 
   const processosTipos = useMemo(() => {
-    const groups = new Map();
+    const focusGroups = new Map();
     processosDisponiveis.forEach((proc) => {
       const baseType = proc.tipoBase || proc.tipoNormalizado || proc.tipo;
-      const group = groups.get(baseType) || {
+      const group = focusGroups.get(baseType) || {
         tipo: baseType,
         count: 0,
         operacoes: new Map(),
@@ -1247,21 +1280,35 @@ export default function App() {
         currentOperacao.count += 1;
         group.operacoes.set(operacaoKey, currentOperacao);
       }
-      groups.set(baseType, group);
+      focusGroups.set(baseType, group);
     });
-    return Array.from(groups.values())
-      .map((group) => ({
-        tipo: group.tipo,
-        count: group.count,
-        operacoes:
-          group.tipo === PROCESS_DIVERSOS_LABEL
-            ? Array.from(group.operacoes.values()).sort((a, b) =>
+
+    const baseGroups = new Set();
+    filteredProcessosBase.forEach((proc) => {
+      const baseType = proc.tipoBase || proc.tipoNormalizado || proc.tipo;
+      baseGroups.add(baseType);
+    });
+
+    const allTipos = new Set([...baseGroups, ...focusGroups.keys()]);
+
+    return Array.from(allTipos)
+      .filter(Boolean)
+      .map((tipo) => {
+        const focusGroup = focusGroups.get(tipo);
+        const operacoes =
+          tipo === PROCESS_DIVERSOS_LABEL && focusGroup
+            ? Array.from(focusGroup.operacoes.values()).sort((a, b) =>
                 a.label.localeCompare(b.label),
               )
-            : [],
-      }))
+            : [];
+        return {
+          tipo,
+          count: focusGroup?.count ?? 0,
+          operacoes,
+        };
+      })
       .sort((a, b) => a.tipo.localeCompare(b.tipo));
-  }, [processosDisponiveis]);
+  }, [filteredProcessosBase, processosDisponiveis]);
 
   useEffect(() => {
     if (
