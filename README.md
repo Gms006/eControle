@@ -1,88 +1,151 @@
 # eControle
 
-Sistema interno para gestão de empresas, licenças, taxas e processos administrativos. O backend em **FastAPI** lê um
-arquivo Excel macro-enabled (`.xlsm`) e expõe endpoints REST; o frontend em **React + Vite** consome essas APIs para
-montar dashboards e listagens interativas.
+Sistema interno para gestão integrada de empresas, licenças, taxas, processos administrativos e materiais de apoio. O fluxo principal é:
 
-## Visão geral
+1. **Excel macro-enabled (.xlsm)** com abas e tabelas padronizadas é lido pelo backend.
+2. **Backend FastAPI** (Python) usa `ExcelRepo` para importar, normalizar e manter os dados em cache em memória.
+3. **Frontend React + Vite** consome os endpoints REST e monta dashboards, listagens com filtros e cards interativos.
 
-- **Importação única de dados** a partir de um arquivo Excel configurável (`backend/config.yaml`).
-- **Cache em memória** para evitar leituras constantes do Excel e melhorar a performance dos endpoints.
-- **Filtros de negócios** para empresas, licenças, taxas e processos (status, município, buscas livres, etc.).
-- **Painel analítico** com KPIs e componentes reutilizáveis baseados em Radix UI / shadcn.
+> **Importante:** o arquivo Excel real **não deve ser versionado**. Crie a pasta `data/` localmente e mantenha o `.xlsm` apenas em ambientes controlados.
 
-## Stack principal
+---
 
-| Área      | Tecnologias                                                                 |
-| --------- | ---------------------------------------------------------------------------- |
-| Backend   | Python 3.10+, FastAPI, Pydantic v2, Uvicorn, OpenPyXL, Portalocker           |
-| Frontend  | React 18, Vite, Tailwind CSS, Radix UI, Lucide Icons, Recharts               |
-| Configuração | Arquivo Excel `.xlsm` + `backend/config.yaml` para mapeamento de abas e colunas |
+## Arquitetura em alto nível
+
+```
+┌─────────────────────────┐        ┌─────────────────────────────┐
+│ Excel (.xlsm) +         │        │ config.yaml                 │
+│ ListObjects + abas      │        │ aliases / nomes de abas     │
+└───────────────┬─────────┘        └──────────────┬──────────────┘
+                │                                 │
+        portalocker + openpyxl                    │
+                ▼                                 │
+┌─────────────────────────────────────────────────▼──────────────┐
+│ backend/repo_excel.py (ExcelRepo)                              │
+│ • Lock de arquivo (.env → EXCEL_PATH)                          │
+│ • Mapeamento dinâmico de colunas/abas/tabelas                  │
+│ • Leitura por aba e por tabela (ListObject)                    │
+└───────────────┬────────────────────────────────────────────────┘
+                │                                               cache em memória
+                ▼
+┌──────────────────────────────────────────────────────────────┐
+│ backend/api.py (FastAPI)                                     │
+│ • Endpoints REST (/api/*, /health, /api/diagnostico)          │
+│ • Normalização via services.py (licenças, taxas, processos)   │
+│ • KPIs globais e filtros reutilizáveis                        │
+└───────────────┬──────────────────────────────────────────────┘
+                │ HTTP (CORS configurável)
+                ▼
+┌──────────────────────────────────────────────────────────────┐
+│ frontend (React 18 + Vite)                                   │
+│ • App.jsx com tabs (Painel, Empresas, Licenças, Taxas, etc.)  │
+│ • Hooks para busca, filtros, modo foco e toasts               │
+│ • Componentes shadcn/ui + gráficos com Recharts               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+---
 
 ## Estrutura do repositório
 
 ```
 .
 ├── backend/
-│   ├── api.py              # Endpoints FastAPI e cache em memória
-│   ├── models.py           # Modelos de domínio (dataclasses)
-│   ├── repo_excel.py       # Leitura/normalização das planilhas Excel
-│   ├── services.py         # Funções de filtragem, agregação e KPIs
-│   ├── config.yaml         # Mapeamento de abas e aliases de colunas
-│   └── requirements.txt    # Dependências do backend
+│   ├── api.py             # Endpoints FastAPI + cache em memória
+│   ├── repo_excel.py      # Repositório Excel com portalocker/openpyxl
+│   ├── services.py        # Validações, normalização e métricas
+│   ├── models.py          # Dataclasses de domínio
+│   ├── config.yaml        # Nomes de abas/tabelas + aliases de colunas
+│   └── requirements.txt   # Dependências do backend
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx, main.jsx, index.css
-│   │   ├── components/ui/  # Componentes (badge, button, card, input, etc.)
-│   │   └── lib/utils.js
-│   ├── package.json, vite.config.js, tailwind.config.js, postcss.config.js
-│   └── index.html
-├── data/                   # NÃO versionar (contém o arquivo Excel real)
-├── ESTRUTURA_PROJETO.md    # Descrição detalhada da arquitetura
-├── GUIA_SETUP.md           # Passo a passo expandido de configuração
-└── README.md
+│   │   ├── features/      # Telas (painel, empresas, licenças, taxas, ...)
+│   │   ├── components/    # shadcn/ui wrappers + badges/custom UI
+│   │   ├── lib/           # helpers (API, texto, status, constantes)
+│   │   └── providers/     # ToastProvider (notificações)
+│   ├── package.json, vite.config.js, tailwind.config.js
+│   └── postcss.config.js, index.html
+├── ESTRUTURA_PROJETO.md   # Blueprint original do projeto
+├── GUIA_SETUP.md          # Passo a passo detalhado (histórico)
+└── README.md              # Este documento
 ```
 
-## Pré-requisitos
+---
 
-- Python 3.10 ou superior
-- Node.js 18 LTS ou superior + npm
-- Arquivo Excel `.xlsm` com abas e colunas compatíveis (ver seção **Estrutura do Excel**)
+## Backend (FastAPI)
 
-## Configuração rápida
+### Principais responsabilidades
 
-### 1. Backend (FastAPI)
+- Carregar o `.xlsm` informado em `EXCEL_PATH` usando `ExcelRepo` (locking com `portalocker`).
+- Normalizar a estrutura "larga" do Excel para objetos específicos (`Licenca`, `Taxa`, `Processo`, etc.).
+- Manter um **cache global** em memória (listas de empresas, licenças, taxas, processos, contatos e modelos).
+- Expor endpoints REST para consulta e diagnóstico (`/api/diagnostico` reconstrói mapas de colunas/aliases).
+- Calcular métricas agregadas para o painel (`/api/kpis`).
 
-```bash
-cd backend
+### Variáveis de ambiente
 
-# Ambiente virtual
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+Crie um arquivo `.env` dentro de `backend/`:
 
-# Dependências
-pip install -r requirements.txt
-```
-
-Crie um arquivo `.env` em `backend/` (o backend carrega automaticamente na inicialização):
-
-```bash
-EXCEL_PATH=../data/arquivo.xlsm   # caminho absoluto ou relativo para o Excel
+```ini
+EXCEL_PATH=../data/arquivo.xlsm   # Caminho absoluto ou relativo
+CONFIG_PATH=./config.yaml         # Opcional: customizar mapeamento
 CORS_ORIGINS=http://localhost:5173
 API_HOST=0.0.0.0
 API_PORT=8000
 LOG_LEVEL=INFO
 ```
 
-Execute o servidor:
+### Instalação e execução
 
 ```bash
+cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 uvicorn api:app --reload --host $API_HOST --port $API_PORT
 ```
 
-A API ficará disponível em `http://localhost:8000`.
+### Endpoints principais
 
-### 2. Frontend (React + Vite)
+| Método | Caminho             | Descrição                                                                    |
+| ------ | ------------------- | ---------------------------------------------------------------------------- |
+| GET    | `/`                 | Metadados da API + timestamp da última carga                                |
+| GET    | `/health`           | Healthcheck simples + quantidade de empresas em cache                       |
+| GET    | `/api/empresas`     | Lista empresas (filtros `query`, `municipio`, `so_alertas`)                  |
+| GET    | `/api/empresas/{id}`| Detalhe da empresa + contagem de licenças/processos/taxas                    |
+| GET    | `/api/licencas`     | Licenças normalizadas (filtros `empresa_id`, `empresa`)                      |
+| GET    | `/api/taxas`        | Taxas normalizadas por empresa                                               |
+| GET    | `/api/processos`    | Processos (diversos, funcionamento, bombeiros, uso do solo, sanitário, etc.) |
+| GET    | `/api/municipios`   | Lista de municípios deduplicados                                             |
+| GET    | `/api/kpis`         | KPIs globais (empresas, licenças vencidas, TPI pendente, etc.)              |
+| GET    | `/api/uteis`        | Contatos e modelos de mensagem                                               |
+| POST   | `/api/refresh`      | Agenda recarga assíncrona do Excel                                           |
+| GET    | `/api/diagnostico`  | Mapas de colunas detectados + avisos de colunas ausentes                     |
+
+### Diagnóstico rápido
+
+```bash
+cd backend
+python repo_excel.py          # Imprime mapas de colunas e tabelas configuradas
+curl http://localhost:8000/health
+curl http://localhost:8000/api/diagnostico | jq
+```
+
+---
+
+## Frontend (React + Vite)
+
+### Destaques da interface
+
+- **Tabs com atalhos (Alt+1…6)** para navegar entre Painel, Empresas, Licenças, Taxas, Processos e Úteis.
+- **Filtros combinados**: busca textual, município, modo "somente alertas" (integra status de licenças, taxas e processos).
+- **Modo foco** que reduz densidade visual nas telas de licenças/taxas/processos.
+- **Painel analítico** com cartões, gráficos (`Recharts`), contagens agregadas e destaques de risco.
+- **Toasts leves** (`ToastProvider`) para feedback de cópia/ações rápidas.
+- Componentes baseados em shadcn/ui (button, card, table, tabs, switch, select, etc.) estilizados via Tailwind.
+
+### Configuração
 
 ```bash
 cd frontend
@@ -90,67 +153,54 @@ npm install
 npm run dev
 ```
 
-O Vite abrirá o navegador em `http://localhost:5173`. Garanta que o backend esteja em execução para que as requisições
-de dados funcionem.
-
-### 3. Fluxo de desenvolvimento sugerido
-
-- Terminal 1: `cd backend && uvicorn api:app --reload`
-- Terminal 2: `cd frontend && npm run dev`
-
-Para inspeções rápidas dos dados carregados do Excel:
+Crie um arquivo `frontend/.env` (ou configure via shell) para apontar o backend:
 
 ```bash
-cd backend
-python repo_excel.py
+VITE_API_URL=http://localhost:8000/api
 ```
 
-## Estrutura do Excel
+> Se não informado, o helper `normalizeApiBase` cai no fallback `/api`, útil quando o frontend é servido pelo mesmo host do backend (ex.: FastAPI montando `StaticFiles`).
 
-O arquivo Excel pode ter nomes de abas customizados; o mapeamento padrão está em `backend/config.yaml`. As principais
-abas esperadas são:
+### Build de produção
 
-- **EMPRESAS** – dados cadastrais (ID, empresa, CNPJ, município, situação, certificados, contatos, etc.).
-- **LICENÇAS** – status por tipo de licença (sanitária, funcionamento, ambiental, uso do solo, etc.).
-- **TAXAS** – status das taxas municipais (funcionamento, publicidade, sanitária, bombeiros, TPI...).
-- **Diversos / Processos** – protocolos e andamento de processos administrativos.
+```bash
+npm run build           # gera frontend/dist
+npm run preview         # testa build localmente
+```
 
-A primeira linha com cabeçalhos deve estar na linha 2 (há heurísticas para detectar, mas essa é a convenção adotada). O
-arquivo **não pode estar aberto** enquanto o backend estiver lendo ou gravando para evitar bloqueios de arquivo.
+Para servir os arquivos estáticos via FastAPI, monte `StaticFiles` apontando para `../frontend/dist`.
 
-## Endpoints principais
+---
 
-| Método | Caminho               | Descrição                                                                 |
-| ------ | --------------------- | ------------------------------------------------------------------------- |
-| GET    | `/`                   | Metadados básicos da API e data do último carregamento                    |
-| GET    | `/health`             | Healthcheck simples                                                       |
-| GET    | `/api/empresas`       | Lista empresas com filtros (`query`, `municipio`, `so_alertas`)           |
-| GET    | `/api/empresas/{id}`  | Detalhes completos de uma empresa e seus agregados                        |
-| GET    | `/api/licencas`       | Licenças normalizadas por empresa e tipo                                  |
-| GET    | `/api/taxas`          | Situação das taxas por empresa                                            |
-| GET    | `/api/processos`      | Processos em andamento ou concluídos                                      |
-| GET    | `/api/kpis`           | Indicadores do painel (total de empresas, licenças vencidas, etc.)        |
-| GET    | `/api/municipios`     | Lista única de municípios cadastrados                                     |
-| POST   | `/api/refresh`        | Recarrega manualmente o Excel e atualiza o cache                          |
-| GET    | `/api/diagnostico`    | Expõe o mapeamento de colunas e status detectados (útil para depuração)   |
+## Estrutura do Excel e configuração (`backend/config.yaml`)
+
+- `sheet_names`: nomes reais das abas (EMPRESAS, LICENÇAS, TAXAS, PROCESSOS, CONTATOS E MODELOS).
+- `table_names`: mapeia ListObjects específicos dentro da aba PROCESSOS e da aba de Úteis.
+- `column_aliases`: aliases por aba/tabela (normalização de cabeçalhos com/sem acentos, variações de nomenclatura).
+- `enums`: opções padronizadas para dropdowns/validações (status, órgãos, tipos de serviços, etc.).
+
+`ExcelRepo` tenta identificar a linha de cabeçalho automaticamente (até 10 primeiras linhas) e suporta leitura tanto de abas simples quanto de tabelas nomeadas. Colunas sem correspondência geram avisos no endpoint `/api/diagnostico`.
+
+---
 
 ## Troubleshooting
 
-- **Backend não inicia / erro de arquivo**
-  - Confirme o caminho em `EXCEL_PATH` e se o arquivo existe.
-  - Feche o Excel local antes de iniciar o backend (para evitar lock).
-- **Erro de CORS no frontend**
-  - Ajuste `CORS_ORIGINS` no `.env` do backend para incluir a URL do Vite.
-- **Dados vazios ou incompletos**
-  - Rode `python repo_excel.py` para verificar como as colunas estão sendo mapeadas.
-  - Ajuste `backend/config.yaml` adicionando aliases ou novos nomes de abas.
+- **Erro ao abrir o Excel / arquivo bloqueado**: garanta que o `.xlsm` esteja fechado e que `EXCEL_PATH` aponte corretamente para o arquivo.
+- **Endpoint retorna vazio**: revise `config.yaml` (aliases e nomes de abas) e execute `python repo_excel.py` para conferir o mapeamento.
+- **CORS no navegador**: ajuste `CORS_ORIGINS` no `.env` do backend para incluir a URL do Vite (`http://localhost:5173`).
+- **Frontend não encontra API**: confirme `VITE_API_URL` ou utilize o proxy reverso do próprio backend (montando arquivos estáticos e expondo `/api`).
+
+---
 
 ## Próximos passos sugeridos
 
-- Implementar camadas de autenticação (JWT) e autorização.
-- Versionar testes automatizados para `repo_excel`, `services` e endpoints da API.
-- Adicionar Docker Compose para orquestrar backend, frontend e dependências.
-- Publicar documentação interativa com `FastAPI`/`Swagger` e exemplos de payloads reais.
+- Autenticação/autorização (JWT) e segregação de permissões por usuário.
+- Testes automatizados para `services.py`, `api.py` e fluxo de integração.
+- Docker Compose com serviços backend/frontend e volume compartilhado para `data/`.
+- Exportação/importação incremental do Excel (logs de alterações, histórico).
+- Observabilidade: logs estruturados e métricas (Prometheus) para monitoramento do cache e tempo de resposta.
+
+---
 
 ## Licença
 
