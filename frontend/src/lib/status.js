@@ -143,7 +143,7 @@ export const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
-  if (key.includes("sem debit")) {
+  if (key.includes("sem debit") || key.includes("nao possui debit")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
