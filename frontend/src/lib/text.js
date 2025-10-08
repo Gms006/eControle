@@ -1,5 +1,7 @@
+const isNil = (value) => value === null || value === undefined;
+
 export const normalizeText = (value) => {
-  if (value === null || value === undefined) {
+  if (isNil(value)) {
     return "";
   }
   return String(value);
@@ -14,7 +16,7 @@ export const removeDiacritics = (value) => {
 
 export const normalizeIdentifier = (value) => {
   const normalized = normalizeText(value).trim();
-  return normalized !== "" ? normalized : undefined;
+  return normalized === "" ? undefined : normalized;
 };
 
 export const parsePtDate = (value) => {
