@@ -21,14 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
@@ -38,6 +30,7 @@ import CopyableIdentifier from "@/components/CopyableIdentifier";
 import KPI from "@/components/KPI";
 import EmpresasScreen from "@/features/empresas/EmpresasScreen";
 import LicencasScreen from "@/features/licencas/LicencasScreen";
+import TaxasScreen from "@/features/taxas/TaxasScreen";
 import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import {
   AlertTriangle,
@@ -96,9 +89,6 @@ import {
   PROCESS_ALL,
   TAB_BACKGROUNDS,
   TAB_SHORTCUTS,
-  TAXA_ALERT_KEYS,
-  TAXA_COLUMNS,
-  TAXA_SEARCH_KEYS,
   TAXA_TYPE_KEYS,
 } from "@/lib/constants";
 import { apiUrl, fetchJson } from "@/lib/api";
@@ -488,22 +478,6 @@ function AppContent() {
     [licencas, matchesMunicipioFilter, matchesQuery],
   );
 
-  const filteredTaxas = useMemo(
-    () =>
-      taxas.filter((taxa) => {
-        if (!matchesMunicipioFilter(taxa)) {
-          return false;
-        }
-        const camposPesquisa = [
-          taxa.empresa,
-          taxa.cnpj,
-          ...TAXA_SEARCH_KEYS.map((key) => taxa?.[key]),
-        ];
-        return matchesQuery(camposPesquisa);
-      }),
-    [matchesMunicipioFilter, matchesQuery, taxas],
-  );
-
   const filteredProcessosBase = useMemo(
     () =>
       processosNormalizados.filter(
@@ -599,15 +573,6 @@ function AppContent() {
         return descA.localeCompare(descB, "pt-BR");
       });
   }, [filteredModelos]);
-
-  const taxasVisiveis = useMemo(() => {
-    if (!modoFoco) {
-      return filteredTaxas;
-    }
-    return filteredTaxas.filter((taxa) =>
-      TAXA_ALERT_KEYS.some((key) => isAlertStatus(taxa?.[key])),
-    );
-  }, [filteredTaxas, modoFoco]);
 
   const companyHasAlert = useCallback(
     (empresa) => {
@@ -1154,34 +1119,12 @@ function AppContent() {
         </TabsContent>
 
         <TabsContent value="taxas" className="mt-4">
-          <Card className="shadow-sm">
-            <CardContent className="p-0">
-              <ScrollArea className="h-[420px]">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Empresa</TableHead>
-                      {TAXA_COLUMNS.map(({ key, label }) => (
-                        <TableHead key={key}>{label}</TableHead>
-                      ))}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {taxasVisiveis.map((taxa, index) => (
-                      <TableRow key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}>
-                        <TableCell className="font-medium">{taxa.empresa}</TableCell>
-                        {TAXA_COLUMNS.map(({ key }) => (
-                          <TableCell key={key}>
-                            <StatusBadge status={taxa?.[key]} />
-                          </TableCell>
-                        ))}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
-            </CardContent>
-          </Card>
+          <TaxasScreen
+            taxas={taxas}
+            modoFoco={modoFoco}
+            matchesMunicipioFilter={matchesMunicipioFilter}
+            matchesQuery={matchesQuery}
+          />
         </TabsContent>
 
         <TabsContent value="processos" className="mt-4 space-y-3">
