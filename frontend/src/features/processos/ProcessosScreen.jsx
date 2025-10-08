@@ -209,7 +209,7 @@ export default function ProcessosScreen({
     (proc, column) => {
       const rawValue = proc?.[column.key];
       if (column.isStatus) {
-        return <StatusBadge status={proc.status ?? rawValue} />;
+        return <StatusBadge status={proc.situacao ?? rawValue} />;
       }
       if (column.copyable) {
         const normalizedValue = normalizeIdentifier(rawValue);
