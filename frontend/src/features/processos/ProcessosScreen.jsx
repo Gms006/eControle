@@ -24,7 +24,7 @@ import {
 import { PROCESS_ALL } from "@/lib/constants";
 import { normalizeIdentifier, normalizeText } from "@/lib/text";
 import {
-  BadgeAlert,
+  Droplets,
   Clipboard,
   ClipboardCheck,
   Filter,
@@ -32,7 +32,7 @@ import {
   MapPin,
   Settings,
   Shield,
-  Sparkles,
+  Trees,
 } from "lucide-react";
 import { isProcessStatusActiveOrPending } from "@/lib/status";
 
@@ -40,11 +40,11 @@ const PROCESS_ICONS = {
   Diversos: <Settings className="h-4 w-4" />, // fallback genérico
   Funcionamento: <ClipboardCheck className="h-4 w-4" />,
   Bombeiros: <Shield className="h-4 w-4" />,
-  Ambiental: <Sparkles className="h-4 w-4" />,
-  "Licença Ambiental": <Sparkles className="h-4 w-4" />,
+  Ambiental: <Trees className="h-4 w-4" />,
+  "Licença Ambiental": <Trees className="h-4 w-4" />,
   "Uso do Solo": <MapPin className="h-4 w-4" />,
-  Sanitário: <BadgeAlert className="h-4 w-4" />,
-  "Alvará Sanitário": <BadgeAlert className="h-4 w-4" />,
+  Sanitário: <Droplets className="h-4 w-4" />,
+  "Alvará Sanitário": <Droplets className="h-4 w-4" />,
 };
 
 export default function ProcessosScreen({
