@@ -24,13 +24,15 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { formatMonthLabel, normalizeTextLower, parsePtDate } from "@/lib/text";
+import { normalizeTextLower, parsePtDate } from "@/lib/text";
 import {
   getStatusKey,
   hasRelevantStatus,
   isAlertStatus,
   isProcessStatusInactive,
 } from "@/lib/status";
+
+const MONTHS_WINDOW = 12;
 
 export default function PainelScreen(props) {
   const {
@@ -73,18 +75,21 @@ export default function PainelScreen(props) {
   }, [filteredLicencas]);
 
   const alertTrendData = useMemo(() => {
-    if (!Array.isArray(filteredLicencas) || filteredLicencas.length === 0) {
+    if (!Array.isArray(filteredLicencas)) {
       return [];
     }
 
-    const monthlyTotals = new Map();
+    const now = new Date();
+    const end = new Date(now.getFullYear(), now.getMonth(), 1);
+    const start = new Date(end.getFullYear(), end.getMonth() - (MONTHS_WINDOW - 1), 1);
+
+    const counts = new Map();
 
     filteredLicencas.forEach((lic) => {
-      if (!lic) return;
+      if (!lic || !isAlertStatus(lic.status)) return;
 
       const statusKey = getStatusKey(lic.status);
       if (!statusKey) return;
-      if (!isAlertStatus(lic.status)) return;
       if (!statusKey.includes("vencid") && !statusKey.includes("vence")) return;
 
       let validade = parsePtDate(lic.validade);
@@ -99,20 +104,42 @@ export default function PainelScreen(props) {
         return;
       }
 
-      const normalizedDate = new Date(validade.getFullYear(), validade.getMonth(), 1);
-      const key = `${normalizedDate.getFullYear()}-${normalizedDate.getMonth()}`;
-      const entry = monthlyTotals.get(key) || { date: normalizedDate, total_alertas: 0 };
-      entry.total_alertas += 1;
-      monthlyTotals.set(key, entry);
+      const monthDate = new Date(validade.getFullYear(), validade.getMonth(), 1);
+      if (monthDate < start || monthDate > end) {
+        return;
+      }
+
+      const key = `${monthDate.getFullYear()}-${monthDate.getMonth()}`;
+      counts.set(key, (counts.get(key) ?? 0) + 1);
     });
 
-    return Array.from(monthlyTotals.values())
-      .sort((a, b) => a.date.getTime() - b.date.getTime())
-      .map((entry) => {
-        const rawLabel = formatMonthLabel(entry.date);
-        const monthLabel = rawLabel.replace(/\./g, "").slice(0, 3).toLowerCase();
-        return { mes: monthLabel, total_alertas: entry.total_alertas };
+    const data = [];
+    for (
+      let year = start.getFullYear(), month = start.getMonth();
+      year < end.getFullYear() || (year === end.getFullYear() && month <= end.getMonth());
+    ) {
+      const currentDate = new Date(year, month, 1);
+      const key = `${year}-${month}`;
+      const total = counts.get(key) ?? 0;
+      const monthLabel = currentDate
+        .toLocaleDateString("pt-BR", { month: "short" })
+        .replace(/\./g, "")
+        .toLowerCase();
+      data.push({
+        date: currentDate,
+        ts: currentDate.getTime(),
+        label: `${monthLabel}/${String(year).slice(-2)}`,
+        total_alertas: total,
       });
+
+      month += 1;
+      if (month > 11) {
+        month = 0;
+        year += 1;
+      }
+    }
+
+    return data;
   }, [filteredLicencas]);
 
   const processosAtivos = useMemo(() => {
@@ -176,7 +203,22 @@ export default function PainelScreen(props) {
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart data={alertTrendData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis dataKey="mes" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+                    <XAxis
+                      dataKey="ts"
+                      type="number"
+                      scale="time"
+                      domain={["dataMin", "dataMax"]}
+                      tickFormatter={(ts) => {
+                        const d = new Date(ts);
+                        const month = d
+                          .toLocaleDateString("pt-BR", { month: "short" })
+                          .replace(/\./g, "")
+                          .toLowerCase();
+                        return `${month}/${String(d.getFullYear()).slice(-2)}`;
+                      }}
+                      tick={{ fontSize: 12 }}
+                      stroke="#94a3b8"
+                    />
                     <YAxis
                       tick={{ fontSize: 12 }}
                       stroke="#94a3b8"
@@ -186,6 +228,14 @@ export default function PainelScreen(props) {
                       cursor={{ strokeDasharray: "3 3" }}
                       contentStyle={{ fontSize: 12 }}
                       labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                      labelFormatter={(ts) => {
+                        const d = new Date(ts);
+                        const month = d
+                          .toLocaleDateString("pt-BR", { month: "short" })
+                          .replace(/\./g, "")
+                          .toLowerCase();
+                        return `${month}/${String(d.getFullYear()).slice(-2)}`;
+                      }}
                     />
                     <Area
                       type="monotone"
