@@ -94,9 +94,10 @@ export default function EmpresasScreen({
                       <InlineBadge variant="outline" className="bg-white">
                         Certificado: {empresa.certificado}
                       </InlineBadge>
-                      <InlineBadge variant="outline" className="bg-white">
-                        Débito: {empresa.debito}
-                      </InlineBadge>
+                      <div className="inline-flex items-center gap-1">
+                        <span>Débito:</span>
+                        <StatusBadge status={empresa.debito} />
+                      </div>
                     </div>
                   </div>
                 </div>
