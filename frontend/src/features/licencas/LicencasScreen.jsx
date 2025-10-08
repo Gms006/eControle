@@ -15,12 +15,12 @@ import StatusBadge from "@/components/StatusBadge";
 import { DEFAULT_LICENCA_TIPOS } from "@/lib/constants";
 import { normalizeText } from "@/lib/text";
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
-import { Droplets, Shield, Building2, MapPin, Trees, Settings } from "lucide-react";
+import { Droplets, Shield, ClipboardCheck, MapPin, Trees, Settings } from "lucide-react";
 
 const LIC_ICONS = {
   Sanitária: <Droplets className="h-4 w-4" />,
   CERCON: <Shield className="h-4 w-4" />,
-  Funcionamento: <Building2 className="h-4 w-4" />,
+  Funcionamento: <ClipboardCheck className="h-4 w-4" />,
   "Uso do Solo": <MapPin className="h-4 w-4" />,
   Ambiental: <Trees className="h-4 w-4" />,
 };
@@ -182,7 +182,7 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                  <ScrollArea className="h-[260px]">
+                  <ScrollArea className="h-[500px]">
                     <Table>
                       <TableHeader>
                         <TableRow>
