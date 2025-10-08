@@ -15,7 +15,15 @@ import {
   ShieldAlert,
   Sparkles,
 } from "lucide-react";
-import { LineChart, Line, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Area,
+  AreaChart,
+  CartesianGrid,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { formatMonthLabel, normalizeTextLower, parsePtDate } from "@/lib/text";
 import {
   getStatusKey,
@@ -65,31 +73,46 @@ export default function PainelScreen(props) {
   }, [filteredLicencas]);
 
   const alertTrendData = useMemo(() => {
-    const monthly = new Map();
-    filteredLicencas.forEach((lic) => {
-      const validade = parsePtDate(lic.validade);
-      if (!validade) return;
-      if (!hasRelevantStatus(lic.status)) return;
-      const statusKey = getStatusKey(lic.status);
-      const key = `${validade.getFullYear()}-${validade.getMonth()}`;
-      const entry = monthly.get(key) || { date: validade, vencidas: 0, vencendo: 0 };
-      if (statusKey.includes("vencid")) entry.vencidas += 1;
-      else if (statusKey.includes("vence")) entry.vencendo += 1;
-      monthly.set(key, entry);
-    });
-    if (monthly.size === 0) {
-      return [
-        { mes: "Sem dados", vencidas: 0, vencendo: 0 },
-      ];
+    if (!Array.isArray(filteredLicencas) || filteredLicencas.length === 0) {
+      return [];
     }
-    const sorted = Array.from(monthly.values())
-      .filter((entry) => entry.date !== null)
-      .sort((a, b) => a.date.getTime() - b.date.getTime());
-    return sorted.slice(-6).map((entry) => ({
-      mes: `${formatMonthLabel(entry.date)}`,
-      vencidas: entry.vencidas,
-      vencendo: entry.vencendo,
-    }));
+
+    const monthlyTotals = new Map();
+
+    filteredLicencas.forEach((lic) => {
+      if (!lic) return;
+
+      const statusKey = getStatusKey(lic.status);
+      if (!statusKey) return;
+      if (!isAlertStatus(lic.status)) return;
+      if (!statusKey.includes("vencid") && !statusKey.includes("vence")) return;
+
+      let validade = parsePtDate(lic.validade);
+      if (!validade && typeof lic.validade === "string") {
+        const isoCandidate = new Date(lic.validade);
+        if (!Number.isNaN(isoCandidate?.getTime())) {
+          validade = isoCandidate;
+        }
+      }
+
+      if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
+        return;
+      }
+
+      const normalizedDate = new Date(validade.getFullYear(), validade.getMonth(), 1);
+      const key = `${normalizedDate.getFullYear()}-${normalizedDate.getMonth()}`;
+      const entry = monthlyTotals.get(key) || { date: normalizedDate, total_alertas: 0 };
+      entry.total_alertas += 1;
+      monthlyTotals.set(key, entry);
+    });
+
+    return Array.from(monthlyTotals.values())
+      .sort((a, b) => a.date.getTime() - b.date.getTime())
+      .map((entry) => {
+        const rawLabel = formatMonthLabel(entry.date);
+        const monthLabel = rawLabel.replace(/\./g, "").slice(0, 3).toLowerCase();
+        return { mes: monthLabel, total_alertas: entry.total_alertas };
+      });
   }, [filteredLicencas]);
 
   const processosAtivos = useMemo(() => {
@@ -148,33 +171,38 @@ export default function PainelScreen(props) {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="h-56">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={alertTrendData}>
-                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} stroke="#94a3b8" />
-                  <YAxis tick={{ fontSize: 12 }} stroke="#94a3b8" allowDecimals={false} />
-                  <Tooltip
-                    contentStyle={{ fontSize: 12 }}
-                    labelStyle={{ color: "#0f172a", fontWeight: 600 }}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="vencendo"
-                    strokeWidth={2}
-                    dot={false}
-                    stroke="#f59e0b"
-                    name="Vencendo"
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="vencidas"
-                    strokeWidth={2}
-                    dot={false}
-                    stroke="#ef4444"
-                    name="Vencidas"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+            <div className="h-56 md:h-64">
+              {alertTrendData.length > 0 ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={alertTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                    <XAxis dataKey="mes" tick={{ fontSize: 12 }} stroke="#94a3b8" />
+                    <YAxis
+                      tick={{ fontSize: 12 }}
+                      stroke="#94a3b8"
+                      allowDecimals={false}
+                    />
+                    <Tooltip
+                      cursor={{ strokeDasharray: "3 3" }}
+                      contentStyle={{ fontSize: 12 }}
+                      labelStyle={{ color: "#0f172a", fontWeight: 600 }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="total_alertas"
+                      stroke="#f97316"
+                      strokeWidth={2}
+                      fill="#fb923c"
+                      fillOpacity={0.2}
+                      name="Alertas de vencimento"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center px-4 text-center text-sm text-slate-500">
+                  Sem dados para o período/filtro.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
