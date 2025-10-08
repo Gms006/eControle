@@ -118,12 +118,16 @@ export const STATUS_VARIANT_CLASSES = {
 };
 
 export const resolveStatusClass = (status) => {
-  const key = getStatusKey(status);
-  if (!key || key === "*" || key === "-" || key === "—") {
+  const normalized = normalizeText(status);
+  const trimmed = normalized.trim();
+
+  if (trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—") {
     return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
   }
 
-  const fraction = parseProgressFraction(status);
+  const key = removeDiacritics(trimmed.toLowerCase());
+
+  const fraction = parseProgressFraction(trimmed);
   if (fraction) {
     const { current, total } = fraction;
     if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
@@ -135,16 +139,24 @@ export const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
   }
 
-  if (key === "/") {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-  }
-
   if (key.includes("possui debit")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
   if (key.includes("sem debit")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("sujeit")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("vencid") || key.includes("vence")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+  }
+
+  if (key === "nao" || key.startsWith("nao ") || key.includes(" nao ")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
   }
 
   if (key.includes("possui")) {
@@ -159,34 +171,20 @@ export const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
-  if (key.includes("sujeit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
-  }
-
-  if (key.includes("vencid") || key.includes("vence")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
-  }
-
-  if (key === "nao" || key.includes("nao possui") || key.includes("nao tem")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
-  }
-
   if (key.includes("indefer") || key.includes("negad")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
-  if (key.includes("em andament") || key.includes("aguard")) {
+  if (key.includes("conclu")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("andament") || key.includes("aguard")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
   }
 
-  if (key.includes("pend")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
-  }
-
-  if (
-    (key.includes("conclu") || key.includes("aprov") || key.includes("licenc") || key.includes("defer") || key.includes("emit"))
-  ) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+  if (key.includes("pendent")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
   }
 
   if (key.includes("nao se aplica") || key.includes("n/a")) {
