@@ -36,6 +36,8 @@ import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import KPI from "@/components/KPI";
+import EmpresasScreen from "@/features/empresas/EmpresasScreen";
+import LicencasScreen from "@/features/licencas/LicencasScreen";
 import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import {
   AlertTriangle,
@@ -46,7 +48,6 @@ import {
   CheckCircle2,
   Clipboard,
   ClipboardCheck,
-  Droplets,
   Clock,
   FileText,
   Filter,
@@ -61,7 +62,6 @@ import {
   ShieldAlert,
   Sparkles,
   TrendingUp,
-  Trees,
   Users,
   X,
 } from "lucide-react";
@@ -121,22 +121,6 @@ const PROCESS_ICONS = {
   "Uso do Solo": <MapPin className="h-4 w-4" />,
   Sanitário: <BadgeAlert className="h-4 w-4" />,
   "Alvará Sanitário": <BadgeAlert className="h-4 w-4" />,
-};
-
-const LIC_ICONS = {
-  Sanitária: <Droplets className="h-4 w-4" />,
-  CERCON: <Shield className="h-4 w-4" />,
-  Funcionamento: <Building2 className="h-4 w-4" />,
-  "Uso do Solo": <MapPin className="h-4 w-4" />,
-  Ambiental: <Trees className="h-4 w-4" />,
-};
-
-const LIC_COLORS = {
-  Sanitária: "border-sky-500 text-sky-700",
-  CERCON: "border-indigo-500 text-indigo-700",
-  Funcionamento: "border-blue-500 text-blue-700",
-  "Uso do Solo": "border-amber-500 text-amber-700",
-  Ambiental: "border-emerald-600 text-emerald-700",
 };
 
 const toFiniteNumber = (value) => {
@@ -1186,309 +1170,31 @@ function AppContent() {
         </TabsContent>
 
         <TabsContent value="empresas" className="mt-4 space-y-3">
-          <div className="flex items-center justify-between text-sm text-slate-600">
-            <span>
-              {filteredEmpresas.length} de {empresas.length} empresas exibidas
-            </span>
-            {soAlertas && <InlineBadge variant="outline">Modo alertas ativo</InlineBadge>}
-          </div>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {filteredEmpresas.map((empresa) => {
-              const empresaId = extractEmpresaId(empresa);
-              const licList = empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
-              const licSummary = licList.reduce(
-                (acc, lic) => {
-                  if (!hasRelevantStatus(lic.status)) {
-                    return acc;
-                  }
-                  const statusKey = getStatusKey(lic.status);
-                  acc.total += 1;
-                  if (statusKey.includes("vencid")) acc.vencidas += 1;
-                  else if (statusKey.includes("vence")) acc.vencendo += 1;
-                  else acc.ativas += 1;
-                  return acc;
-                },
-                { total: 0, ativas: 0, vencendo: 0, vencidas: 0 },
-              );
-              const taxa = empresaId !== undefined ? taxasByEmpresa.get(empresaId) : undefined;
-              const processosEmpresa =
-                empresaId !== undefined ? processosByEmpresa.get(empresaId) || [] : [];
-              const processosAtivosEmpresa = processosEmpresa.filter(
-                (proc) => !isProcessStatusInactive(proc.status),
-              );
-              const rawId =
-                empresa.empresa_id ?? empresa.empresaId ?? empresa.id ?? extractEmpresaId(empresa);
-              const avatarLabel =
-                rawId !== undefined && rawId !== null && `${rawId}`.toString().trim() !== ""
-                  ? `${rawId}`
-                  : "?";
-              return (
-                <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
-                        {avatarLabel}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <h3 className="text-base font-semibold leading-tight text-slate-800">
-                              {empresa.empresa}
-                            </h3>
-                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                              <CopyableIdentifier
-                                label="CNPJ"
-                                value={empresa.cnpj}
-                                onCopy={handleCopy}
-                              />
-                              <span className="text-slate-300">•</span>
-                              <CopyableIdentifier
-                                label="IE"
-                                value={empresa.ie}
-                                onCopy={handleCopy}
-                              />
-                              <span className="text-slate-300">•</span>
-                              <CopyableIdentifier
-                                label="IM"
-                                value={empresa.im}
-                                onCopy={handleCopy}
-                              />
-                              <span className="text-slate-400">• {empresa.municipio}</span>
-                            </div>
-                          </div>
-                          <StatusBadge status={empresa.situacao || "Ativa"} />
-                        </div>
-                        <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                          <InlineBadge variant="outline" className="bg-white">
-                            Categoria: {empresa.categoria || "—"}
-                          </InlineBadge>
-                          <InlineBadge variant="outline" className="bg-white">
-                            Certificado: {empresa.certificado}
-                          </InlineBadge>
-                          <InlineBadge variant="outline" className="bg-white">
-                            Débito: {empresa.debito}
-                          </InlineBadge>
-                        </div>
-                      </div>
-                    </div>
-                    <Separator />
-                    <div className="grid grid-cols-2 gap-3 text-xs">
-                      <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-3">
-                        <p className="text-[11px] uppercase text-emerald-600 font-semibold">
-                          Licenças
-                        </p>
-                        <div className="mt-1 flex items-end gap-2">
-                          <span className="text-2xl font-semibold text-emerald-700">
-                            {licSummary.total}
-                          </span>
-                          <div className="space-y-0.5 text-[11px] text-emerald-700/80">
-                            <p>Ativas: {licSummary.ativas}</p>
-                            <p>Vencendo: {licSummary.vencendo}</p>
-                            <p>Vencidas: {licSummary.vencidas}</p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-3">
-                        <p className="text-[11px] uppercase text-sky-600 font-semibold">
-                          Processos
-                        </p>
-                        <div className="mt-1 flex items-end gap-2">
-                          <span className="text-2xl font-semibold text-sky-700">
-                            {processosEmpresa.length}
-                          </span>
-                          <div className="space-y-0.5 text-[11px] text-sky-700/80">
-                            <p>Ativos: {processosAtivosEmpresa.length}</p>
-                            <p>Encerrados: {processosEmpresa.length - processosAtivosEmpresa.length}</p>
-                            <p>
-                              Taxas pend.:
-                              {taxa
-                                ? TAXA_TYPE_KEYS.filter((key) =>
-                                    isAlertStatus(taxa?.[key]),
-                                  ).length
-                                : 0}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                    <Separator />
-                    <div className="flex flex-wrap gap-2">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopy(empresa.email, `E-mail copiado: ${empresa.email}`)}
-                        className="text-xs"
-                      >
-                        <Mail className="h-3.5 w-3.5 mr-1" /> Copiar e-mail
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleCopy(empresa.telefone, `Telefone copiado: ${empresa.telefone}`)}
-                        className="text-xs"
-                      >
-                        <Phone className="h-3.5 w-3.5 mr-1" /> Copiar telefone
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={() => enqueueToast(`Solicitar documentos para ${empresa.empresa}`)}
-                        className="text-xs"
-                      >
-                        <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-            {filteredEmpresas.length === 0 && (
-              <Card className="shadow-sm">
-                <CardContent className="p-6 text-center text-sm text-slate-600">
-                  Nenhuma empresa encontrada com os filtros atuais.
-                </CardContent>
-              </Card>
-            )}
-          </div>
+          <EmpresasScreen
+            filteredEmpresas={filteredEmpresas}
+            empresas={empresas}
+            soAlertas={soAlertas}
+            extractEmpresaId={extractEmpresaId}
+            licencasByEmpresa={licencasByEmpresa}
+            taxasByEmpresa={taxasByEmpresa}
+            processosByEmpresa={processosByEmpresa}
+            handleCopy={handleCopy}
+            enqueueToast={enqueueToast}
+          />
         </TabsContent>
 
         <TabsContent value="licencas" className="mt-4">
-          <div className="grid md:grid-cols-2 gap-3 mb-3">
-            {tiposLicenca.map((tipo) => {
-              const items = filteredLicencas.filter((lic) => normalizeText(lic?.tipo).trim() === tipo);
-              const venc = items.filter((item) => item.status === "Vencido").length;
-              const soon = items.filter((item) => item.status === "Vence≤30d").length;
-              const subj = items.filter((item) => item.status === "Sujeito").length;
-              const disp = items.filter((item) => item.status === "Dispensa").length;
-              const poss = Math.max(items.length - venc - soon - subj - disp, 0);
-              const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
-              const colorClasses = LIC_COLORS[tipo] || "border-slate-400 text-slate-700";
-              return (
-                <Card key={tipo} className="shadow-sm">
-                  <CardContent className={`p-4 rounded-xl border-l-4 ${colorClasses}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs text-slate-500">{tipo}</div>
-                        <div className="text-2xl font-semibold">{items.length}</div>
-                      </div>
-                      <div className="h-8 w-8 rounded-full bg-white/70 grid place-items-center text-slate-600">
-                        {icon}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                        Possui {poss}
-                      </InlineBadge>
-                      <InlineBadge className="bg-amber-100 text-amber-800 border-amber-200">
-                        ≤30d {soon}
-                      </InlineBadge>
-                      <InlineBadge className="bg-orange-100 text-orange-800 border-orange-200">
-                        Vencido {venc}
-                      </InlineBadge>
-                      <InlineBadge className="bg-red-100 text-red-700 border-red-200">
-                        Sujeito {subj}
-                      </InlineBadge>
-                      <InlineBadge className="bg-indigo-100 text-indigo-700 border-indigo-200">
-                        Dispensa {disp}
-                      </InlineBadge>
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-
-          <div className="flex flex-wrap gap-2 mb-3">
-            {["Todos", ...tiposLicenca].map((tipo) => {
-              const count = filteredLicencas.filter((lic) => {
-                if (!hasRelevantStatus(lic.status)) {
-                  return false;
-                }
-                if (tipo === "Todos") {
-                  return true;
-                }
-                return normalizeText(lic?.tipo).trim() === tipo;
-              }).length;
-              const icon = tipo === "Todos" ? null : LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
-              return (
-                <Button
-                  key={tipo}
-                  size="sm"
-                  variant={tipo === selectedLicTipo ? "default" : "secondary"}
-                  onClick={() => setSelectedLicTipo(tipo)}
-                  className="inline-flex items-center gap-1"
-                >
-                  {icon && <span className="opacity-80">{icon}</span>}
-                  {tipo}
-                  <span className="ml-1 text-xs opacity-70">{count}</span>
-                </Button>
-              );
-            })}
-          </div>
-
-          <div className="space-y-3">
-            {tiposLicencaSelecionados.length === 0 ? (
-              <Card className="shadow-sm">
-                <CardContent className="p-6 text-center text-sm text-slate-600">
-                  Nenhuma licença cadastrada no momento.
-                </CardContent>
-              </Card>
-            ) : (
-              tiposLicencaSelecionados.map((tipo) => {
-                const registros = filteredLicencas
-                  .filter((lic) => normalizeText(lic?.tipo).trim() === tipo)
-                  .filter((lic) => hasRelevantStatus(lic.status))
-                  .filter((lic) =>
-                    modoFoco
-                      ? isAlertStatus(lic.status) || getStatusKey(lic.status).includes("sujeit")
-                      : true,
-                  );
-                const icon = LIC_ICONS[tipo] || <Settings className="h-4 w-4" />;
-                return (
-                  <Card key={tipo} className="shadow-sm">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <span className="opacity-80">{icon}</span>
-                        {tipo}
-                      </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <ScrollArea className="h-[260px]">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Empresa</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Validade</TableHead>
-                              <TableHead>Observação</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {registros.map((lic, index) => (
-                              <TableRow key={`${lic.empresa_id ?? lic.empresa}-${lic.tipo}-${index}`}>
-                                <TableCell className="font-medium">{lic.empresa}</TableCell>
-                                <TableCell>
-                                  <StatusBadge status={lic.status} />
-                                </TableCell>
-                                <TableCell>{lic.validade || "—"}</TableCell>
-                                <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
-                              </TableRow>
-                            ))}
-                            {registros.length === 0 && (
-                              <TableRow>
-                                <TableCell colSpan={4} className="text-sm text-slate-500">
-                                  Nenhum registro para este tipo.
-                                </TableCell>
-                              </TableRow>
-                            )}
-                          </TableBody>
-                        </Table>
-                      </ScrollArea>
-                    </CardContent>
-                  </Card>
-                );
-              })
-            )}
-          </div>
+          <LicencasScreen
+            filteredLicencas={filteredLicencas}
+            tiposLicenca={tiposLicenca}
+            selectedLicTipo={selectedLicTipo}
+            setSelectedLicTipo={setSelectedLicTipo}
+            tiposLicencaSelecionados={tiposLicencaSelecionados}
+            modoFoco={modoFoco}
+            query={query}
+            municipio={municipio}
+            soAlertas={soAlertas}
+          />
         </TabsContent>
 
         <TabsContent value="taxas" className="mt-4">
