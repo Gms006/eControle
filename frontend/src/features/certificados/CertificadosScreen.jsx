@@ -11,7 +11,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InlineBadge from "@/components/InlineBadge";
 import CertificadoCard from "@/features/certificados/CertificadoCard";
 import AgendamentosTable from "@/features/certificados/AgendamentosTable";
-import { normalizeTextLower, removeDiacritics } from "@/lib/text";
+import { categorizeCertificadoSituacao } from "@/lib/certificados";
+import { normalizeTextLower } from "@/lib/text";
 
 const DATE_REGEX = /(\d{2}\/\d{2}\/\d{4})/;
 
@@ -24,23 +25,6 @@ const extractDate = (value) => {
     return match[1];
   }
   return value.trim();
-};
-
-const categorizeSituacao = (situacao) => {
-  const key = removeDiacritics(normalizeTextLower(situacao)).trim();
-  if (!key) {
-    return "Outros";
-  }
-  if (key.includes("vencid")) {
-    return "Vencido";
-  }
-  if (key.includes("vencend") || key.includes("vence")) {
-    return "Vencendo em breve";
-  }
-  if (key.includes("valido") || key.includes("vigent") || key.includes("ativo")) {
-    return "Válido";
-  }
-  return "Outros";
 };
 
 const SITUACAO_OPTIONS = ["Todos", "Válido", "Vencendo em breve", "Vencido"];
@@ -64,7 +48,7 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
     const query = normalizeTextLower(search).trim();
     return certificadosLista.filter((item) => {
       const titular = normalizeTextLower(item?.titular ?? "");
-      const categoria = categorizeSituacao(item?.situacao ?? "");
+      const categoria = categorizeCertificadoSituacao(item?.situacao ?? "");
       if (situacao !== "Todos" && categoria !== situacao) {
         return false;
       }

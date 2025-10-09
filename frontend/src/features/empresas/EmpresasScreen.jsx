@@ -7,6 +7,7 @@ import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import { Mail, Phone, Clipboard } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
+import { DEFAULT_CERTIFICADO_SITUACAO } from "@/lib/certificados";
 import {
   getStatusKey,
   hasRelevantStatus,
@@ -92,7 +93,7 @@ export default function EmpresasScreen({
                         Categoria: {empresa.categoria || "—"}
                       </InlineBadge>
                       <InlineBadge variant="outline" className="bg-white">
-                        Certificado: {empresa.certificado}
+                        Certificado: {empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO}
                       </InlineBadge>
                       <InlineBadge variant="outline" className="bg-white">
                         Débito: {empresa.debito}
