@@ -126,6 +126,15 @@ export const resolveStatusClass = (status) => {
   }
 
   const key = removeDiacritics(trimmed.toLowerCase());
+  const normalizedKey = key.replace(/\s+/g, " ").trim();
+
+  if (normalizedKey === "valido") {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (normalizedKey === "vencido") {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+  }
 
   const fraction = parseProgressFraction(trimmed);
   if (fraction) {
