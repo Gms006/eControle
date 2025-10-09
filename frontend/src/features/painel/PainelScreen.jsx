@@ -25,6 +25,7 @@ import {
   YAxis,
 } from "recharts";
 import { normalizeTextLower, parsePtDate } from "@/lib/text";
+import { DEFAULT_CERTIFICADO_SITUACAO, isCertificadoSituacaoAlert } from "@/lib/certificados";
 import {
   getStatusKey,
   hasRelevantStatus,
@@ -303,6 +304,8 @@ export default function PainelScreen(props) {
                 const empresaId = extractEmpresaId(empresa);
                 const licencasPendentes =
                   empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
+                const situacaoCertificado = empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO;
+                const mostrarCertificado = isCertificadoSituacaoAlert(situacaoCertificado);
                 return (
                   <li key={empresa.id} className="px-4 py-3 text-sm">
                     <div className="flex items-start justify-between gap-4">
@@ -316,7 +319,7 @@ export default function PainelScreen(props) {
                         {normalizeTextLower(empresa.debito) === "sim" && (
                           <StatusBadge status="Não pago" />
                         )}
-                        {normalizeTextLower(empresa.certificado) === "não" && <StatusBadge status="NÃO" />}
+                        {mostrarCertificado && <StatusBadge status={situacaoCertificado} />}
                         {licencasPendentes
                           .filter((lic) => isAlertStatus(lic.status))
                           .slice(0, 2)

@@ -50,6 +50,11 @@ import {
 } from "@/lib/constants";
 import { fetchJson } from "@/lib/api";
 import { isAlertStatus, isProcessStatusInactive } from "@/lib/status";
+import {
+  buildCertificadoIndex,
+  isCertificadoSituacaoAlert,
+  resolveEmpresaCertificadoSituacao,
+} from "@/lib/certificados";
 
 const toFiniteNumber = (value) => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -132,6 +137,21 @@ function AppContent() {
   const [modelos, setModelos] = useState([]);
   const [loading, setLoading] = useState(true);
   const { dismissToast, enqueueToast, toasts } = useToast();
+
+  const certificadoIndex = useMemo(() => buildCertificadoIndex(certificados), [certificados]);
+
+  const empresasComCertificados = useMemo(
+    () =>
+      empresas.map((empresa) => {
+        const situacao = resolveEmpresaCertificadoSituacao(empresa, certificadoIndex);
+        return {
+          ...empresa,
+          certificadoSituacao: situacao,
+          certificado: situacao,
+        };
+      }),
+    [certificadoIndex, empresas],
+  );
 
   useEffect(() => {
     if (typeof window === 'undefined') {
@@ -253,13 +273,13 @@ function AppContent() {
 
   const empresasById = useMemo(() => {
     const map = new Map();
-    empresas.forEach((empresa) => {
+    empresasComCertificados.forEach((empresa) => {
       const empresaId = extractEmpresaId(empresa);
       if (empresaId === undefined) return;
       map.set(empresaId, empresa);
     });
     return map;
-  }, [empresas]);
+  }, [empresasComCertificados]);
 
   const licencasByEmpresa = useMemo(() => {
     const map = new Map();
@@ -381,8 +401,11 @@ function AppContent() {
       const empresaId = extractEmpresaId(empresa);
       if (empresaId === undefined) return false;
       const debitoLower = normalizeTextLower(empresa.debito);
-      const certificadoLower = normalizeTextLower(empresa.certificado);
-      if (debitoLower === "sim" || certificadoLower === "não") {
+      if (debitoLower === "sim") {
+        return true;
+      }
+      const situacaoCertificado = empresa.certificadoSituacao ?? empresa.certificado;
+      if (isCertificadoSituacaoAlert(situacaoCertificado)) {
         return true;
       }
       const licList = licencasByEmpresa.get(empresaId) || [];
@@ -423,8 +446,8 @@ function AppContent() {
   );
 
   const filteredEmpresas = useMemo(
-    () => filterEmpresas(empresas),
-    [empresas, filterEmpresas],
+    () => filterEmpresas(empresasComCertificados),
+    [empresasComCertificados, filterEmpresas],
   );
 
 
@@ -548,7 +571,7 @@ function AppContent() {
             municipio={municipio}
             soAlertas={soAlertas}
             kpis={kpis}
-            empresas={empresas}
+            empresas={empresasComCertificados}
             licencas={licencas}
             taxas={taxas}
             filteredLicencas={filteredLicencas}
@@ -563,7 +586,7 @@ function AppContent() {
         <TabsContent value="empresas" className="mt-4 space-y-3">
           <EmpresasScreen
             filteredEmpresas={filteredEmpresas}
-            empresas={empresas}
+            empresas={empresasComCertificados}
             soAlertas={soAlertas}
             extractEmpresaId={extractEmpresaId}
             licencasByEmpresa={licencasByEmpresa}
