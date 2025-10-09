@@ -21,6 +21,7 @@ import TaxasScreen from "@/features/taxas/TaxasScreen";
 import ProcessosScreen from "@/features/processos/ProcessosScreen";
 import UteisScreen from "@/features/uteis/UteisScreen";
 import PainelScreen from "@/features/painel/PainelScreen";
+import CertificadosScreen from "@/features/certificados/CertificadosScreen";
 import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import {
   Building2,
@@ -29,6 +30,7 @@ import {
   FileText,
   MessageSquare,
   Search,
+  ShieldCheck,
   Sparkles,
   TrendingUp,
   X,
@@ -122,6 +124,8 @@ function AppContent() {
   const [licencas, setLicencas] = useState([]);
   const [taxas, setTaxas] = useState([]);
   const [processos, setProcessos] = useState([]);
+  const [certificados, setCertificados] = useState([]);
+  const [agendamentos, setAgendamentos] = useState([]);
   const [kpis, setKpis] = useState({});
   const [municipios, setMunicipios] = useState([]);
   const [contatos, setContatos] = useState([]);
@@ -193,11 +197,13 @@ function AppContent() {
       fetchJson("/licencas"),
       fetchJson("/taxas"),
       fetchJson("/processos"),
+      fetchJson("/certificados"),
+      fetchJson("/agendamentos"),
       fetchJson("/kpis"),
       fetchJson("/municipios"),
       fetchJson("/uteis"),
     ])
-      .then(([emp, lic, tax, proc, kpi, mun, uteis]) => {
+      .then(([emp, lic, tax, proc, certs, agds, kpi, mun, uteis]) => {
         if (!mounted) return;
         const empresasNormalizadas = Array.isArray(emp)
           ? emp.map((item) => enhanceEmpresa(item))
@@ -215,6 +221,8 @@ function AppContent() {
         setLicencas(licencasNormalizadas);
         setTaxas(taxasNormalizadas);
         setProcessos(processosComEmpresa);
+        setCertificados(Array.isArray(certs) ? certs : []);
+        setAgendamentos(Array.isArray(agds) ? agds : []);
         setKpis(kpi);
         setMunicipios(Array.isArray(mun) ? mun : []);
         setContatos(Array.isArray(uteis?.contatos) ? uteis.contatos : []);
@@ -228,6 +236,8 @@ function AppContent() {
           setLicencas([]);
           setTaxas([]);
           setProcessos([]);
+          setCertificados([]);
+          setAgendamentos([]);
           setKpis({});
           setMunicipios([]);
           setContatos([]);
@@ -508,7 +518,7 @@ function AppContent() {
       </div>
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="painel" data-tab-target="painel" title="Alt+1">
             <TrendingUp className="h-4 w-4 mr-2" /> Painel
           </TabsTrigger>
@@ -526,6 +536,9 @@ function AppContent() {
           </TabsTrigger>
           <TabsTrigger value="uteis" data-tab-target="uteis" title="Alt+6">
             <MessageSquare className="h-4 w-4 mr-2" /> Úteis
+          </TabsTrigger>
+          <TabsTrigger value="certificados" data-tab-target="certificados" title="Alt+7">
+            <ShieldCheck className="h-4 w-4 mr-2" /> Certificados
           </TabsTrigger>
         </TabsList>
 
@@ -593,6 +606,14 @@ function AppContent() {
             modelos={modelos}
             matchesMunicipioFilter={matchesMunicipioFilter}
             handleCopy={handleCopy}
+          />
+        </TabsContent>
+
+        <TabsContent value="certificados" className="mt-4">
+          <CertificadosScreen
+            certificados={certificados}
+            agendamentos={agendamentos}
+            soAlertas={soAlertas}
           />
         </TabsContent>
       </Tabs>

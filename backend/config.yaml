@@ -4,6 +4,9 @@ sheet_names:
   taxas: "TAXAS"
   processos: "PROCESSOS"   # ÚNICA ABA de Processos
   uteis: "CONTATOS E MODELOS"
+  # === NOVAS ENTRADAS PARA A NOVA PLANILHA CERTIFICADOS.xlsm ===
+  certificados: "Certificados"
+  certificados_agendamentos: "Agendamentos"
 
 # Nomes das Tabelas (ListObjects) dentro da aba PROCESSOS
 # — estas strings devem bater exatamente com os nomes dos ListObjects no Excel
@@ -19,6 +22,12 @@ table_names:
   uteis:
     contatos: "Contatos"
     modelos: "Modelos"
+
+  # === NOVAS ENTRADAS PARA A NOVA PLANILHA CERTIFICADOS.xlsm ===
+  certificados:
+    certificados: "Certificados"
+  certificados_agendamentos:
+    agendamentos: "Agendamentos"
 
 # Enumerações para validação e dropdowns
 enums:
@@ -198,6 +207,22 @@ column_aliases:
     OBS: ["OBS"]
     STATUS_PADRAO: ["status_procAmbiental"]
     # Ambiental não tem campos específicos adicionais segundo o dicionário
+
+  # === NOVAS ENTRADAS PARA A NOVA PLANILHA CERTIFICADOS.xlsm ===
+  certificados:
+    CERTIFICADO: ["CERTIFICADO"]
+    VALIDO_DE: ["VÁLIDO DE", "VALIDO DE", "VALIDO_DE", "VÁLIDO_DE"]
+    VALIDO_ATE: ["VÁLIDO ATÉ", "VALIDO ATE", "VALIDO_ATÉ", "VALIDO_ATE", "VÁLIDO_ATÉ"]
+    SENHA: ["SENHA"]
+    SITUACAO: ["SITUAÇÃO", "SITUACAO"]
+  certificados_agendamentos:
+    CLIENTE: ["CLIENTE"]
+    CPF_CNPJ: ["CPF/CNPJ", "CPF_CNPJ", "CPF-CPNJ", "CPFCNPJ"]
+    CERTIFICADO_TIPO: ["CERTIFICADO"]
+    DATA: ["DATA"]
+    MEIO: ["MEIO"]
+    HORA: ["HORA"]
+    METODO_PAGAMENTO: ["MÉTODO PAGAMENTO", "METODO PAGAMENTO", "MÉTODO_PAGAMENTO", "METODO_PAGAMENTO"]
 
   uteis_contatos:
     CONTATO: ["CONTATO"]
