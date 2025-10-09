@@ -8,6 +8,7 @@ export const TAB_BACKGROUNDS = {
   taxas: "bg-amber-50",
   processos: "bg-violet-50",
   uteis: "bg-slate-50",
+  certificados: "bg-lime-50",
 };
 
 export const TAB_SHORTCUTS = {
@@ -17,6 +18,7 @@ export const TAB_SHORTCUTS = {
   4: "taxas",
   5: "processos",
   6: "uteis",
+  7: "certificados",
 };
 
 export const DEFAULT_LICENCA_TIPOS = [

@@ -151,7 +151,15 @@ export const resolveStatusClass = (status) => {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
   }
 
-  if (key.includes("vencid") || key.includes("vence")) {
+  if (key.includes("valido")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+  }
+
+  if (key.includes("vencid")) {
+    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+  }
+
+  if (key.includes("vencend") || key.includes("vence")) {
     return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
   }
 

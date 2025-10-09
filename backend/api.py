@@ -33,6 +33,7 @@ from services import (
     contar_licencas_por_status, contar_taxas_pendentes,
     contar_processos_empresa, calcular_kpis_globais,
 )
+from routes_certificados import router as certificados_router
 
 from dotenv import load_dotenv
 from pathlib import Path
@@ -65,6 +66,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(certificados_router, prefix="/api")
 
 # Cache em memória (simples)
 cache: Dict[str, object] = {
