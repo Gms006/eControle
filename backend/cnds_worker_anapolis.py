@@ -68,58 +68,67 @@ async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
     os.makedirs(destino_dir, exist_ok=True)
     destino = os.path.join(destino_dir, _nome_arquivo_destino())
 
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(
-            headless=MODO_HEADLESS, executable_path=EXECUTABLE_PATH
-        )
-        context = await browser.new_context(ignore_https_errors=True)
-        page = await context.new_page()
-        try:
-            await _abrir_portal(page)
-            try:
-                await page.locator(
-                    "span.select2-chosen, .select2-selection__rendered, [class*='select2']"
-                ).first.click()
-                await page.wait_for_timeout(500)
-                for sel in [
-                    "li:has-text(\"CNPJ\")",
-                    ".select2-results__option:has-text(\"CNPJ\")",
-                ]:
-                    if await page.locator(sel).count():
-                        await page.locator(sel).first.click()
-                        break
-            except Exception:
-                pass
-
-            if not await _preencher_cnpj(page, cnpj):
-                return False, "Campo de CNPJ não encontrado.", None
-
-            await page.bring_to_front()
-            await _clicar_consultar(page)
-            await page.wait_for_load_state("networkidle", timeout=30000)
-            await page.wait_for_timeout(1000)
-
-            tried = await page.evaluate(
-                """
-              () => {
-                const Q = (s)=>[...document.querySelectorAll(s)];
-                const hits = [...Q('a[href$=".pdf"]'), ...Q('a[href*="download"]'),
-                              ...Q('button[title*="Download" i]'), ...Q('i[class*="download" i]')];
-                if (hits.length) { hits[0].click(); return true; }
-                const any = [...Q('a,button')].find(el => /pdf|imprimir|gerar/i.test(el.textContent||''));
-                if (any) { any.click(); return true; }
-                return false;
-              }
-            """
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(
+                headless=MODO_HEADLESS, executable_path=EXECUTABLE_PATH
             )
-            if not tried:
-                return False, "Botão/link de PDF não identificado.", None
+            context = await browser.new_context(ignore_https_errors=True)
+            page = await context.new_page()
+            try:
+                await _abrir_portal(page)
+                try:
+                    await page.locator(
+                        "span.select2-chosen, .select2-selection__rendered, [class*='select2']"
+                    ).first.click()
+                    await page.wait_for_timeout(500)
+                    for sel in [
+                        "li:has-text(\"CNPJ\")",
+                        ".select2-results__option:has-text(\"CNPJ\")",
+                    ]:
+                        if await page.locator(sel).count():
+                            await page.locator(sel).first.click()
+                            break
+                except Exception:
+                    pass
 
-            async with page.expect_download(timeout=30000) as di:
-                download = await di.value
-                await download.save_as(destino)
-            return True, "CND emitida com sucesso.", destino
-        finally:
-            await context.close()
-            await browser.close()
+                if not await _preencher_cnpj(page, cnpj):
+                    return False, "Campo de CNPJ não encontrado.", None
+
+                await page.bring_to_front()
+                await _clicar_consultar(page)
+                await page.wait_for_load_state("networkidle", timeout=30000)
+                await page.wait_for_timeout(1000)
+
+                tried = await page.evaluate(
+                    """
+                  () => {
+                    const Q = (s)=>[...document.querySelectorAll(s)];
+                    const hits = [...Q('a[href$=".pdf"]'), ...Q('a[href*="download"]'),
+                                  ...Q('button[title*="Download" i]'), ...Q('i[class*="download" i]')];
+                    if (hits.length) { hits[0].click(); return true; }
+                    const any = [...Q('a,button')].find(el => /pdf|imprimir|gerar/i.test(el.textContent||''));
+                    if (any) { any.click(); return true; }
+                    return false;
+                  }
+                """
+                )
+                if not tried:
+                    return False, "Botão/link de PDF não identificado.", None
+
+                async with page.expect_download(timeout=30000) as di:
+                    download = await di.value
+                    await download.save_as(destino)
+                return True, "CND emitida com sucesso.", destino
+            finally:
+                await context.close()
+                await browser.close()
+    except NotImplementedError:
+        return (
+            False,
+            "Automação indisponível neste sistema (Playwright não suportado). Utilize o fallback manual.",
+            None,
+        )
+    except Exception as exc:  # pragma: no cover - proteção defensiva
+        return False, f"Falha inesperada na automação: {exc}", None
 
