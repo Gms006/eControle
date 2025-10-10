@@ -30,3 +30,25 @@ export async function openCartaoCNPJ(
   onToast?.(`CNPJ copiado — abrindo Cartão CNPJ`);
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
+
+export async function openCNDAnapolis(
+  cnpjRaw: string,
+  onToast?: (msg: string) => void,
+) {
+  const cnpj = onlyDigits(cnpjRaw || "");
+  if (!cnpj || cnpj.length !== 14) {
+    onToast?.("CNPJ inválido.");
+    return;
+  }
+  try {
+    await navigator.clipboard?.writeText(cnpj);
+  } catch {
+    /* ignore */
+  }
+  onToast?.("CNPJ copiado — abrindo Portal do Cidadão (Anápolis).");
+  window.open(
+    "https://portaldocidadao.anapolis.go.gov.br/processos/",
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
