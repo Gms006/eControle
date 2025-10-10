@@ -2,10 +2,18 @@ import React from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
-import { Mail, Phone, Clipboard } from "lucide-react";
+import { Mail, Phone, Clipboard, ExternalLink } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { DEFAULT_CERTIFICADO_SITUACAO } from "@/lib/certificados";
 import {
@@ -14,6 +22,7 @@ import {
   isAlertStatus,
   isProcessStatusInactive,
 } from "@/lib/status";
+import { openCartaoCNPJ } from "@/lib/quickLinks";
 
 export default function EmpresasScreen({
   filteredEmpresas,
@@ -26,6 +35,7 @@ export default function EmpresasScreen({
   handleCopy,
   enqueueToast,
 }) {
+  const toast = (msg) => enqueueToast?.(msg);
   return (
     <>
       <div className="flex items-center justify-between text-sm text-slate-600">
@@ -149,13 +159,25 @@ export default function EmpresasScreen({
                   >
                     <Phone className="h-3.5 w-3.5 mr-1" /> Copiar telefone
                   </Button>
-                  <Button
-                    size="sm"
-                    onClick={() => enqueueToast(`Solicitar documentos para ${empresa.empresa}`)}
-                    className="text-xs"
-                  >
-                    <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" className="text-xs">
+                        <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem
+                        onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
+                        className="cursor-pointer"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5 mr-2" />
+                        Cartão CNPJ (RFB)
+                      </DropdownMenuItem>
+                      {/* próximos itens ficarão aqui: CND Goiânia, CND Megasoft, Centi etc. */}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardContent>
             </Card>
