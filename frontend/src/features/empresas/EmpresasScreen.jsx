@@ -7,8 +7,10 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
   DropdownMenuLabel,
-  DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuItemFancy,
+  MiniBadge,
+  Kbd,
 } from "@/components/ui/dropdown-menu";
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
@@ -36,6 +38,7 @@ export default function EmpresasScreen({
   enqueueToast,
 }) {
   const toast = (msg) => enqueueToast?.(msg);
+
   return (
     <>
       <div className="flex items-center justify-between text-sm text-slate-600">
@@ -44,15 +47,14 @@ export default function EmpresasScreen({
         </span>
         {soAlertas && <InlineBadge variant="outline">Modo alertas ativo</InlineBadge>}
       </div>
+
       <div className="grid gap-3 lg:grid-cols-2">
         {filteredEmpresas.map((empresa) => {
           const empresaId = extractEmpresaId(empresa);
           const licList = empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
           const licSummary = licList.reduce(
             (acc, lic) => {
-              if (!hasRelevantStatus(lic.status)) {
-                return acc;
-              }
+              if (!hasRelevantStatus(lic.status)) return acc;
               const statusKey = getStatusKey(lic.status);
               acc.total += 1;
               if (statusKey.includes("vencid")) acc.vencidas += 1;
@@ -60,13 +62,13 @@ export default function EmpresasScreen({
               else acc.ativas += 1;
               return acc;
             },
-            { total: 0, ativas: 0, vencendo: 0, vencidas: 0 },
+            { total: 0, ativas: 0, vencendo: 0, vencidas: 0 }
           );
           const taxa = empresaId !== undefined ? taxasByEmpresa.get(empresaId) : undefined;
           const processosEmpresa =
             empresaId !== undefined ? processosByEmpresa.get(empresaId) || [] : [];
           const processosAtivosEmpresa = processosEmpresa.filter(
-            (proc) => !isProcessStatusInactive(proc.status),
+            (proc) => !isProcessStatusInactive(proc.status)
           );
           const rawId =
             empresa.empresa_id ?? empresa.empresaId ?? empresa.id ?? extractEmpresaId(empresa);
@@ -74,6 +76,7 @@ export default function EmpresasScreen({
             rawId !== undefined && rawId !== null && `${rawId}`.toString().trim() !== ""
               ? `${rawId}`
               : "?";
+
           return (
             <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
               <CardContent className="p-4 space-y-3">
@@ -98,6 +101,7 @@ export default function EmpresasScreen({
                       </div>
                       <StatusBadge status={empresa.situacao || "Ativa"} />
                     </div>
+
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
                       <InlineBadge variant="outline" className="bg-white">
                         Categoria: {empresa.categoria || "—"}
@@ -111,12 +115,16 @@ export default function EmpresasScreen({
                     </div>
                   </div>
                 </div>
+
                 <Separator />
+
                 <div className="grid grid-cols-2 gap-3 text-xs">
                   <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-3">
                     <p className="text-[11px] uppercase text-emerald-600 font-semibold">Licenças</p>
                     <div className="mt-1 flex items-end gap-2">
-                      <span className="text-2xl font-semibold text-emerald-700">{licSummary.total}</span>
+                      <span className="text-2xl font-semibold text-emerald-700">
+                        {licSummary.total}
+                      </span>
                       <div className="space-y-0.5 text-[11px] text-emerald-700/80">
                         <p>Ativas: {licSummary.ativas}</p>
                         <p>Vencendo: {licSummary.vencendo}</p>
@@ -127,7 +135,9 @@ export default function EmpresasScreen({
                   <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-3">
                     <p className="text-[11px] uppercase text-sky-600 font-semibold">Processos</p>
                     <div className="mt-1 flex items-end gap-2">
-                      <span className="text-2xl font-semibold text-sky-700">{processosEmpresa.length}</span>
+                      <span className="text-2xl font-semibold text-sky-700">
+                        {processosEmpresa.length}
+                      </span>
                       <div className="space-y-0.5 text-[11px] text-sky-700/80">
                         <p>Ativos: {processosAtivosEmpresa.length}</p>
                         <p>Encerrados: {processosEmpresa.length - processosAtivosEmpresa.length}</p>
@@ -141,7 +151,9 @@ export default function EmpresasScreen({
                     </div>
                   </div>
                 </div>
+
                 <Separator />
+
                 <div className="flex flex-wrap gap-2">
                   <Button
                     size="sm"
@@ -154,28 +166,38 @@ export default function EmpresasScreen({
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => handleCopy(empresa.telefone, `Telefone copiado: ${empresa.telefone}`)}
+                    onClick={() =>
+                      handleCopy(empresa.telefone, `Telefone copiado: ${empresa.telefone}`)
+                    }
                     className="text-xs"
                   >
                     <Phone className="h-3.5 w-3.5 mr-1" /> Copiar telefone
                   </Button>
+
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="sm" className="text-xs">
                         <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
                       </Button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-56">
+
+                    <DropdownMenuContent align="end" className="w-72">
                       <DropdownMenuLabel>Ações</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem
+
+                      <DropdownMenuItemFancy
+                        icon={ExternalLink}
+                        title={
+                          <span className="inline-flex items-center">
+                            Cartão CNPJ <MiniBadge>RFB</MiniBadge>
+                          </span>
+                        }
+                        description="Ir para site da RFB."
+                        hint={<Kbd>Ctrl</Kbd>}
                         onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
-                        className="cursor-pointer"
-                      >
-                        <ExternalLink className="h-3.5 w-3.5 mr-2" />
-                        Cartão CNPJ (RFB)
-                      </DropdownMenuItem>
-                      {/* próximos itens ficarão aqui: CND Goiânia, CND Megasoft, Centi etc. */}
+                      />
+
+                      {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -183,6 +205,7 @@ export default function EmpresasScreen({
             </Card>
           );
         })}
+
         {filteredEmpresas.length === 0 && (
           <Card className="shadow-sm">
             <CardContent className="p-6 text-center text-sm text-slate-600">
