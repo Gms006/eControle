@@ -140,21 +140,33 @@ if platform.system() == "Windows":
 
 async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
     if sys.platform.startswith("win"):
-        try:
-            running_loop = asyncio.get_running_loop()
-        except RuntimeError:
-            running_loop = None
-        else:
-            # FastAPI/Uvicorn força WindowsSelectorEventLoopPolicy por compatibilidade,
-            # mas o Playwright precisa do ProactorEventLoop para spawnar o Chromium.
-            if running_loop.__class__.__name__ == "SelectorEventLoop":
-                loop = running_loop
+        selector_loop_cls = getattr(asyncio, "SelectorEventLoop", None)
+        proactor_policy_cls = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
+        if selector_loop_cls is not None and proactor_policy_cls is not None:
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+            else:
+                # FastAPI/Uvicorn força WindowsSelectorEventLoopPolicy por compatibilidade,
+                # mas o Playwright precisa do ProactorEventLoop para spawnar o Chromium.
+                if isinstance(running_loop, selector_loop_cls):
+                    loop = running_loop
 
-                def _runner() -> Tuple[bool, str, Optional[str]]:
-                    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
-                    return asyncio.run(_emitir_cnd_anapolis_impl(cnpj))
+                    def _runner() -> Tuple[bool, str, Optional[str]]:
+                        previous_policy = None
+                        try:
+                            previous_policy = asyncio.get_event_loop_policy()
+                        except Exception:
+                            pass
+                        asyncio.set_event_loop_policy(proactor_policy_cls())
+                        try:
+                            return asyncio.run(_emitir_cnd_anapolis_impl(cnpj))
+                        finally:
+                            if previous_policy is not None:
+                                asyncio.set_event_loop_policy(previous_policy)
 
-                return await loop.run_in_executor(None, _runner)
+                    return await loop.run_in_executor(None, _runner)
 
     return await _emitir_cnd_anapolis_impl(cnpj)
 
