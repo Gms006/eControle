@@ -14,8 +14,15 @@ from playwright.async_api import async_playwright
 
 # CORREÇÃO: Configurar event loop ANTES de qualquer import do FastAPI
 if sys.platform.startswith("win"):
-    # Força o uso do SelectorEventLoop no Windows, que é compatível com Playwright
-    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+    proactor_policy_cls = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
+    if proactor_policy_cls is not None:
+        try:
+            policy = asyncio.get_event_loop_policy()
+        except Exception:
+            policy = None
+        if not isinstance(policy, proactor_policy_cls):
+            # Playwright exige ProactorEventLoop no Windows moderno
+            asyncio.set_event_loop_policy(proactor_policy_cls())
 
 MODO_HEADLESS = os.getenv("CND_HEADLESS", "false").lower() == "true"
 EXECUTABLE_PATH = os.getenv("CND_CHROME_PATH")
@@ -132,6 +139,39 @@ if platform.system() == "Windows":
 
 
 async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
+    if sys.platform.startswith("win"):
+        selector_loop_cls = getattr(asyncio, "SelectorEventLoop", None)
+        proactor_policy_cls = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
+        if selector_loop_cls is not None and proactor_policy_cls is not None:
+            try:
+                running_loop = asyncio.get_running_loop()
+            except RuntimeError:
+                running_loop = None
+            else:
+                # FastAPI/Uvicorn força WindowsSelectorEventLoopPolicy por compatibilidade,
+                # mas o Playwright precisa do ProactorEventLoop para spawnar o Chromium.
+                if isinstance(running_loop, selector_loop_cls):
+                    loop = running_loop
+
+                    def _runner() -> Tuple[bool, str, Optional[str]]:
+                        previous_policy = None
+                        try:
+                            previous_policy = asyncio.get_event_loop_policy()
+                        except Exception:
+                            pass
+                        asyncio.set_event_loop_policy(proactor_policy_cls())
+                        try:
+                            return asyncio.run(_emitir_cnd_anapolis_impl(cnpj))
+                        finally:
+                            if previous_policy is not None:
+                                asyncio.set_event_loop_policy(previous_policy)
+
+                    return await loop.run_in_executor(None, _runner)
+
+    return await _emitir_cnd_anapolis_impl(cnpj)
+
+
+async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]]:
     # Verificar dependências primeiro
     if not _check_playwright_deps():
         return False, "Playwright não instalado corretamente.", None
