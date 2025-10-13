@@ -8,6 +8,8 @@ Ajustes aplicados:
 from __future__ import annotations
 
 import os
+import sys
+import asyncio
 import logging
 from datetime import datetime, date, timedelta
 from typing import List, Optional, Dict, Any
@@ -34,10 +36,17 @@ from services import (
     contar_processos_empresa, calcular_kpis_globais,
 )
 from routes_certificados import router as certificados_router
+from routes_cnds import router as cnds_router
 
 from dotenv import load_dotenv
 from pathlib import Path
 load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
 
 
 # ----------------------------------------------------------------------------
@@ -68,6 +77,7 @@ app.add_middleware(
 )
 
 app.include_router(certificados_router, prefix="/api")
+app.include_router(cnds_router, prefix="/api")
 
 # Cache em memória (simples)
 cache: Dict[str, object] = {
