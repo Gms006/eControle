@@ -40,11 +40,18 @@ def _nome_arquivo_destino() -> str:
 
 
 async def _abrir_portal(page) -> None:
-    await page.goto(
-        "https://portaldocidadao.anapolis.go.gov.br/processos/",
-        wait_until="domcontentloaded",
-    )
+    # navega pela HOME + menu, garantindo a tela certa (como no script base)
+    await page.goto("https://portaldocidadao.anapolis.go.gov.br/", wait_until="domcontentloaded")
     await page.wait_for_load_state("networkidle")
+    try:
+        await page.hover("a.pure-menu-link:text('Certidões')")
+        await page.wait_for_selector("a.pure-menu-link[data-navigation='7021']", timeout=10000)
+        await page.click("a.pure-menu-link[data-navigation='7021']")
+        await page.wait_for_load_state("networkidle")
+    except Exception:
+        # fallback: se o menu mudar, ainda assim tenta a rota /processos/
+        await page.goto("https://portaldocidadao.anapolis.go.gov.br/processos/", wait_until="domcontentloaded")
+        await page.wait_for_load_state("networkidle")
 
 
 async def _preencher_cnpj(page, cnpj: str) -> bool:
@@ -255,8 +262,21 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
 
                 await _clicar_consultar(page)
                 await page.wait_for_load_state("networkidle", timeout=30000)
-                await page.wait_for_timeout(1000)
+                await page.wait_for_timeout(1500)
 
+                # --- SweetAlert de erro de captcha (igual ao script base) ---
+                try:
+                    popup = page.locator("div.swal2-popup:has-text('O código de verificação não confere')")
+                    if await popup.count() > 0:
+                        try:
+                            await page.click(".swal2-confirm")
+                        except Exception:
+                            pass
+                        return False, "Captcha inválido: o código de verificação não confere.", None
+                except Exception:
+                    pass
+
+                # 1) Tenta clicar em elementos de download/imprimir/gerar
                 tried = await page.evaluate(
                     """
                   () => {
@@ -270,13 +290,62 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                   }
                 """
                 )
-                if not tried:
-                    return False, "Botão/link de PDF não identificado.", None
+                if tried:
+                    # 2) Se clicar disparar um "download event", ótimo:
+                    try:
+                        async with page.expect_download(timeout=15000) as di:
+                            download = await di.value
+                            await download.save_as(destino)
+                        return True, "CND emitida com sucesso.", destino
+                    except Exception:
+                        # 3) Se NÃO houve 'download', pode ter aberto em NOVA ABA ou inline (PDF viewer)
+                        pass
 
-                async with page.expect_download(timeout=30000) as di:
-                    download = await di.value
-                    await download.save_as(destino)
-                return True, "CND emitida com sucesso.", destino
+                # 4) Captura de NOVA PÁGINA com PDF (target=_blank)
+                new_page = None
+                try:
+                    new_page = await page.context.wait_for_event("page", timeout=5000)
+                    await new_page.wait_for_load_state("domcontentloaded", timeout=10000)
+                except Exception:
+                    new_page = None
+
+                candidate_page = new_page or page
+                url_now = candidate_page.url or ""
+                if url_now.lower().endswith(".pdf"):
+                    try:
+                        # Baixa usando a própria API de requests do Playwright (mantém cookies/sessão)
+                        resp = await candidate_page.request.get(url_now)
+                        if resp.ok:
+                            content = await resp.body()
+                            os.makedirs(os.path.dirname(destino), exist_ok=True)
+                            with open(destino, "wb") as f:
+                                f.write(content)
+                            return True, "CND emitida com sucesso (inline).", destino
+                    except Exception:
+                        pass
+
+                # 5) Às vezes o PDF está embedado em <iframe>/<embed>
+                try:
+                    pdf_src = await candidate_page.evaluate("""
+                      () => {
+                        const fr = document.querySelector('iframe, embed');
+                        if (!fr) return null;
+                        const src = fr.getAttribute('src') || fr.src;
+                        return (src && /\.pdf(\?|$)/i.test(src)) ? src : null;
+                      }
+                    """)
+                    if pdf_src:
+                        resp = await candidate_page.request.get(pdf_src)
+                        if resp.ok:
+                            content = await resp.body()
+                            os.makedirs(os.path.dirname(destino), exist_ok=True)
+                            with open(destino, "wb") as f:
+                                f.write(content)
+                            return True, "CND emitida com sucesso (iframe).", destino
+                except Exception:
+                    pass
+
+                return False, "Botão/link de PDF não identificado (nem inline/nova aba).", None
             finally:
                 await context.close()
                 await browser.close()
