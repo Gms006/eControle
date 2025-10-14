@@ -34,7 +34,6 @@ if sys.platform.startswith("win"):
             # Playwright exige ProactorEventLoop no Windows moderno
             asyncio.set_event_loop_policy(proactor_policy_cls())
 
-MODO_HEADLESS = os.getenv("CND_HEADLESS", "false").lower() == "true"
 EXECUTABLE_PATH = os.getenv("CND_CHROME_PATH")
 SAIDA_BASE = os.getenv("CND_DIR_BASE", "certidoes")
 CAPTCHA_MODE = (os.getenv("CAPTCHA_MODE") or "manual").lower().strip()
@@ -50,34 +49,71 @@ def _nome_arquivo_destino() -> str:
 
 
 async def _abrir_portal(page) -> None:
-    # navega pela HOME + menu, garantindo a tela certa (como no script base)
+    # Fluxo validado no seu script base:
     await page.goto("https://portaldocidadao.anapolis.go.gov.br/", wait_until="domcontentloaded")
     await page.wait_for_load_state("networkidle")
     try:
-        await page.hover("a.pure-menu-link:text('Certidões')")
+        # menu "Certidões" → item com data-navigation="7021"
+        menu_certidoes = page.locator("a.pure-menu-link").filter(has_text="Certidões")
+        if await menu_certidoes.count():
+            await menu_certidoes.first.hover()
         await page.wait_for_selector("a.pure-menu-link[data-navigation='7021']", timeout=10000)
         await page.click("a.pure-menu-link[data-navigation='7021']")
         await page.wait_for_load_state("networkidle")
     except Exception:
-        # fallback: se o menu mudar, ainda assim tenta a rota /processos/
+        # fallback, se o menu mudar temporariamente
         await page.goto("https://portaldocidadao.anapolis.go.gov.br/processos/", wait_until="domcontentloaded")
         await page.wait_for_load_state("networkidle")
 
 
 async def _preencher_cnpj(page, cnpj: str) -> bool:
-    candidatos = [
-        "input[name*='cnpj']",
-        "input[id*='cnpj']",
-        "input[placeholder*='CNPJ' i]",
-        "input[type='text']",
-    ]
-    for css in candidatos:
-        loc = page.locator(css)
+    # 1) Selecionar "CNPJ" no Select2 (como no script base)
+    try:
+        s2 = page.locator('span.select2-chosen, .select2-selection__rendered, [class*="select2"]').first
+        if await s2.count():
+            await s2.click()
+            await page.wait_for_timeout(600)
+            for opt in ['li:has-text("CNPJ")','.select2-results__option:has-text("CNPJ")','div.select2-result-label:has-text("CNPJ")','div:has-text("CNPJ")']:
+                if await page.locator(opt).count():
+                    await page.locator(opt).first.click()
+                    break
+    except Exception:
+        pass
+
+    # 2) Heurística de input (placeholder/maxlength) replicando o base
+    ok = await page.evaluate(
+        """(cnpj) => {
+            const inputs = Array.from(document.querySelectorAll('input[type="text"]'));
+            let cnpjInput = null;
+            for (const input of inputs) {
+              if (input.placeholder && (input.placeholder.includes('CNPJ') || input.placeholder.includes('Informe'))) {
+                cnpjInput = input; break;
+              }
+              if (input.maxLength >= 14 && input.maxLength <= 18) {
+                cnpjInput = input; // keep last best guess
+              }
+            }
+            if (cnpjInput) {
+              cnpjInput.focus();
+              cnpjInput.value = cnpj;
+              cnpjInput.dispatchEvent(new Event('input', {bubbles:true}));
+              cnpjInput.dispatchEvent(new Event('change', {bubbles:true}));
+              return true;
+            }
+            return false;
+        }""",
+        cnpj,
+    )
+    if ok:
+        return True
+    # 3) fallback leve: tente inputs genéricos “cnpj” por atributo
+    for sel in ['input[name*="cnpj" i]','input[id*="cnpj" i]','input[placeholder*="CNPJ" i]']:
+        loc = page.locator(sel).first
         if await loc.count():
             try:
-                await loc.first.fill(cnpj)
-                await loc.first.dispatch_event("input")
-                await loc.first.dispatch_event("change")
+                await loc.fill(cnpj)
+                await loc.dispatch_event("input")
+                await loc.dispatch_event("change")
                 return True
             except Exception:
                 pass
@@ -201,8 +237,10 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
 
     try:
         async with async_playwright() as p:
+            # LER headless no runtime (não no import)
+            headless = (os.getenv("CND_HEADLESS", "false").lower() == "true")
             launch_args = {
-                "headless": MODO_HEADLESS,
+                "headless": headless,
                 "args": [
                     "--disable-gpu",
                     "--disable-dev-shm-usage",
@@ -213,6 +251,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
             }
             if EXECUTABLE_PATH:
                 launch_args["executable_path"] = EXECUTABLE_PATH
+            print(f"[CND] headless={launch_args['headless']} (CND_HEADLESS={os.getenv('CND_HEADLESS')})")
             try:
                 browser = await p.chromium.launch(**launch_args)
             except Exception as exc:
@@ -221,20 +260,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
             page = await context.new_page()
             try:
                 await _abrir_portal(page)
-                try:
-                    await page.locator(
-                        "span.select2-chosen, .select2-selection__rendered, [class*='select2']"
-                    ).first.click()
-                    await page.wait_for_timeout(500)
-                    for sel in [
-                        "li:has-text(\"CNPJ\")",
-                        ".select2-results__option:has-text(\"CNPJ\")",
-                    ]:
-                        if await page.locator(sel).count():
-                            await page.locator(sel).first.click()
-                            break
-                except Exception:
-                    pass
+                await page.wait_for_selector("input, select, .select2, button", timeout=8000)
 
                 if not await _preencher_cnpj(page, cnpj):
                     return False, "Campo de CNPJ não encontrado.", None
