@@ -10,7 +10,17 @@ import re
 from datetime import datetime
 from typing import Optional, Tuple
 
+from pathlib import Path
+from dotenv import load_dotenv, find_dotenv
 from playwright.async_api import async_playwright
+
+# Garante que variáveis do .env estejam disponíveis antes de qualquer uso
+_DOTENV_PATH = find_dotenv(filename=".env", raise_error_if_not_found=False)
+if not _DOTENV_PATH:
+    candidate = Path(__file__).resolve().parent / ".env"
+    if candidate.exists():
+        _DOTENV_PATH = str(candidate)
+load_dotenv(dotenv_path=_DOTENV_PATH or None)
 
 # CORREÇÃO: Configurar event loop ANTES de qualquer import do FastAPI
 if sys.platform.startswith("win"):
