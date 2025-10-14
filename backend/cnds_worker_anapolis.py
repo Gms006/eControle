@@ -54,9 +54,7 @@ async def _abrir_portal(page) -> None:
     await page.wait_for_load_state("networkidle")
     try:
         # menu "Certidões" → item com data-navigation="7021"
-        menu_certidoes = page.locator("a.pure-menu-link").filter(has_text="Certidões")
-        if await menu_certidoes.count():
-            await menu_certidoes.first.hover()
+        await page.hover("a.pure-menu-link:text('Certidões')")
         await page.wait_for_selector("a.pure-menu-link[data-navigation='7021']", timeout=10000)
         await page.click("a.pure-menu-link[data-navigation='7021']")
         await page.wait_for_load_state("networkidle")
