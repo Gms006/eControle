@@ -7,7 +7,26 @@ Ajustes aplicados:
 """
 from __future__ import annotations
 
+import sys
+import asyncio
 import os
+from pathlib import Path
+
+# 1) Event loop correto (antes de qualquer import que possa iniciar Playwright)
+if sys.platform.startswith("win"):
+    try:
+        asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+    except Exception:
+        pass
+
+# 2) Carregar .env bem cedo (antes de importar routers/serviços que leem env)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(dotenv_path=Path(__file__).parent / ".env")
+except Exception:
+    pass
+
+# (daqui pra baixo, imports normais da app)
 import logging
 from datetime import datetime, date, timedelta
 from typing import List, Optional, Dict, Any
@@ -18,14 +37,7 @@ from pydantic import BaseModel
 
 from repo_excel import ExcelRepo
 from models import (
-    Empresa,
-    Licenca,
-    Taxa,
-    Processo,
-    Contato,
-    Modelo,
-    LicencaRaw,
-    TaxaRaw,
+    Empresa, Licenca, Taxa, Processo, Contato, Modelo, LicencaRaw, TaxaRaw,
 )
 from services import (
     filtrar_empresas, filtrar_processos,
@@ -35,11 +47,6 @@ from services import (
 )
 from routes_certificados import router as certificados_router
 from routes_cnds import router as cnds_router
-
-from dotenv import load_dotenv
-from pathlib import Path
-load_dotenv(dotenv_path=Path(__file__).parent / ".env")
-
 
 # ----------------------------------------------------------------------------
 # Config
