@@ -65,46 +65,87 @@ async def _abrir_portal(page) -> None:
 
 
 async def _preencher_cnpj(page, cnpj: str) -> bool:
-    # 1) Selecionar "CNPJ" no Select2 (como no script base)
+    """
+    Preenche o campo CNPJ após selecionar a opção CNPJ no dropdown Select2.
+    Retorna True se conseguiu preencher, False caso contrário.
+    """
+    # 1) Selecionar "CNPJ" no Select2 - baseado no script funcional
     try:
-        s2 = page.locator('span.select2-chosen, .select2-selection__rendered, [class*="select2"]').first
-        if await s2.count():
-            await s2.click()
-            await page.wait_for_timeout(600)
-            for opt in ['li:has-text("CNPJ")','.select2-results__option:has-text("CNPJ")','div.select2-result-label:has-text("CNPJ")','div:has-text("CNPJ")']:
-                if await page.locator(opt).count():
-                    await page.locator(opt).first.click()
+        # Clicar diretamente no dropdown visível (igual ao script base)
+        await page.locator('span.select2-chosen, .select2-selection__rendered, [class*="select2"]:visible').first.click()
+        await page.wait_for_timeout(1000)  # Aguardar a reação do dropdown
+        
+        # Tentar clicar na opção CNPJ (mesma ordem do script base)
+        cnpj_options = [
+            'li:has-text("CNPJ")',
+            '.select2-results__option:has-text("CNPJ")', 
+            'div.select2-result-label:has-text("CNPJ")', 
+            'div:has-text("CNPJ")'
+        ]
+        
+        cnpj_selected = False
+        for option in cnpj_options:
+            try:
+                if await page.locator(option).count() > 0:
+                    await page.locator(option).first.click()
+                    print("[CONFIG] Opção CNPJ selecionada com sucesso.")
+                    cnpj_selected = True
                     break
-    except Exception:
-        pass
+            except Exception as e:
+                print(f"[DEBUG] Erro ao selecionar opção CNPJ {option}: {str(e)}")
+        
+        if not cnpj_selected:
+            print("[AVISO] Não conseguiu clicar na opção CNPJ")
+            
+    except Exception as e:
+        print(f"[AVISO] Erro ao selecionar CNPJ no dropdown: {e}")
 
-    # 2) Heurística de input (placeholder/maxlength) replicando o base
+    # 2) Aguardar para garantir que a interface foi atualizada (igual ao script base)
+    await page.wait_for_timeout(2000)
+
+    # 3) Localizar e preencher o campo CNPJ via JavaScript (EXATAMENTE como no script base)
     ok = await page.evaluate(
         """(cnpj) => {
+            // Tentar encontrar o campo correto para CNPJ
             const inputs = Array.from(document.querySelectorAll('input[type="text"]'));
             let cnpjInput = null;
+            
+            // Procurar por input que pareça ser para CNPJ
             for (const input of inputs) {
-              if (input.placeholder && (input.placeholder.includes('CNPJ') || input.placeholder.includes('Informe'))) {
-                cnpjInput = input; break;
-              }
-              if (input.maxLength >= 14 && input.maxLength <= 18) {
-                cnpjInput = input; // keep last best guess
-              }
+                // Verificar por atributos ou elementos próximos
+                if (input.placeholder && (input.placeholder.includes('CNPJ') || input.placeholder.includes('Informe'))) {
+                    cnpjInput = input;
+                    break;
+                }
+                
+                // Verificar maxlength (CNPJ geralmente tem 18 caracteres com formatação)
+                if (input.maxLength >= 14 && input.maxLength <= 18) {
+                    cnpjInput = input;
+                }
             }
+            
+            // Se encontramos um input, preenchê-lo
             if (cnpjInput) {
-              cnpjInput.focus();
-              cnpjInput.value = cnpj;
-              cnpjInput.dispatchEvent(new Event('input', {bubbles:true}));
-              cnpjInput.dispatchEvent(new Event('change', {bubbles:true}));
-              return true;
+                cnpjInput.focus();
+                cnpjInput.value = cnpj;
+                
+                // Disparar eventos para garantir que o sistema reconheça a alteração
+                cnpjInput.dispatchEvent(new Event('input', { bubbles: true }));
+                cnpjInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                return true;
             }
+            
             return false;
         }""",
         cnpj,
     )
+    
     if ok:
+        print(f"[CONFIG] CNPJ {cnpj} preenchido no formulário")
         return True
-    # 3) fallback leve: tente inputs genéricos “cnpj” por atributo
+    
+    # 4) Fallback usando seletores Playwright (só se o JavaScript falhar)
     for sel in ['input[name*="cnpj" i]','input[id*="cnpj" i]','input[placeholder*="CNPJ" i]']:
         loc = page.locator(sel).first
         if await loc.count():
@@ -112,26 +153,13 @@ async def _preencher_cnpj(page, cnpj: str) -> bool:
                 await loc.fill(cnpj)
                 await loc.dispatch_event("input")
                 await loc.dispatch_event("change")
+                print(f"[OK] Campo CNPJ preenchido usando seletor: {sel}")
                 return True
             except Exception:
                 pass
+    
+    print("[ERRO] Não foi possível encontrar ou preencher o campo CNPJ")
     return False
-
-
-async def _clicar_consultar(page) -> None:
-    ok = await page.evaluate(
-        """
-      () => {
-        const btns = [...document.querySelectorAll('button,input[type="button"],input[type="submit"]')];
-        const b = btns.find(b => (b.value||b.textContent||'').toLowerCase().includes('consultar'));
-        if (b) { b.click(); return true; }
-        return false;
-      }
-    """
-    )
-    if not ok:
-        await page.keyboard.press("Enter")
-
 
 def _solve_image_captcha_2captcha(image_b64: str) -> str:
     if not API_KEY_2CAPTCHA:
@@ -223,6 +251,7 @@ async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
 
 
 async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]]:
+    """Implementação da emissão de CND - VERSÃO CORRIGIDA"""
     # Verificar dependências primeiro
     if not _check_playwright_deps():
         return False, "Playwright não instalado corretamente.", None
@@ -244,25 +273,43 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                     "--disable-dev-shm-usage",
                     "--no-first-run",
                     "--no-default-browser-check",
-                    "--no-sandbox",  # Adiciona esta opção
+                    "--no-sandbox",
                 ],
             }
             if EXECUTABLE_PATH:
                 launch_args["executable_path"] = EXECUTABLE_PATH
             print(f"[CND] headless={launch_args['headless']} (CND_HEADLESS={os.getenv('CND_HEADLESS')})")
+            
             try:
                 browser = await p.chromium.launch(**launch_args)
             except Exception as exc:
                 return False, f"Falha ao iniciar Chromium ({type(exc).__name__}): {exc}", None
+            
             context = await browser.new_context(ignore_https_errors=True)
             page = await context.new_page()
+            
             try:
+                # Abrir portal
                 await _abrir_portal(page)
-                await page.wait_for_selector("input, select, .select2, button", timeout=8000)
+                
+                # CORREÇÃO: Aguardar elementos VISÍVEIS, não hidden
+                # Remover o wait_for_selector problemático e usar uma abordagem mais robusta
+                print("[INFO] Aguardando página de certidão carregar...")
+                await page.wait_for_load_state("domcontentloaded")
+                await page.wait_for_timeout(3000)  # Tempo para a página renderizar completamente
+                
+                # Verificar se chegamos na página correta procurando pelo Select2
+                try:
+                    await page.wait_for_selector('span.select2-chosen:visible, .select2-choice:visible', timeout=10000)
+                    print("[INFO] Página de certidão carregada com sucesso")
+                except Exception as e:
+                    print(f"[AVISO] Select2 não encontrado, tentando continuar: {e}")
 
+                # Preencher CNPJ
                 if not await _preencher_cnpj(page, cnpj):
-                    return False, "Campo de CNPJ não encontrado.", None
+                    return False, "Campo de CNPJ não encontrado ou não preenchido.", None
 
+                # Resolver captcha
                 solved = False
                 try:
                     img = page.locator('img[src*="captcha"]').first
@@ -271,71 +318,134 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                             png_bytes = await img.screenshot(type="png")
                             b64 = base64.b64encode(png_bytes).decode()
                             answer = _solve_image_captcha_2captcha(b64)
-                            candidatos = [
-                                "input[name*='captcha']",
-                                "input[id*='captcha']",
-                                "input[placeholder*='captcha' i]",
-                                "input[type='text']",
-                            ]
-                            for css in candidatos:
-                                loc = page.locator(css)
-                                if await loc.count():
-                                    try:
-                                        await loc.first.fill(answer)
-                                        await loc.first.dispatch_event("input")
-                                        await loc.first.dispatch_event("change")
-                                        solved = True
-                                        break
-                                    except Exception:
-                                        continue
-                except Exception:
-                    pass
+                            
+                            # Preencher captcha usando a mesma lógica do script base
+                            captcha_input_found = await page.evaluate(
+                                """(resposta) => {
+                                    const img = document.querySelector('img[src*="captcha"]');
+                                    if (!img) return false;
+
+                                    const candidates = Array.from(document.querySelectorAll('input[type="text"]')).filter(i => !i.value);
+                                    const imgRect = img.getBoundingClientRect();
+
+                                    for (const input of candidates) {
+                                        const rect = input.getBoundingClientRect();
+                                        const nearVertically = rect.top >= imgRect.top - 50 && rect.top <= imgRect.bottom + 50;
+                                        const nearHorizontally = Math.abs(rect.left - imgRect.left) < 300;
+                                        if (nearVertically && nearHorizontally) {
+                                            input.focus();
+                                            input.value = resposta;
+                                            input.dispatchEvent(new Event('input', { bubbles: true }));
+                                            input.dispatchEvent(new Event('change', { bubbles: true }));
+                                            return true;
+                                        }
+                                    }
+
+                                    if (candidates.length > 0) {
+                                        const input = candidates[0];
+                                        input.focus();
+                                        input.value = resposta;
+                                        input.dispatchEvent(new Event('input', { bubbles: true }));
+                                        input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        return true;
+                                    }
+                                    return false;
+                                }""",
+                                answer
+                            )
+                            
+                            if captcha_input_found:
+                                solved = True
+                                print("[CONFIG] CAPTCHA preenchido automaticamente")
+                            else:
+                                print("[AVISO] Não foi possível preencher o CAPTCHA automaticamente")
+                except Exception as e:
+                    print(f"[DEBUG] Erro ao processar captcha: {e}")
 
                 if not solved:
+                    print("[INFO] Aguardando resolução manual do CAPTCHA...")
                     await page.bring_to_front()
 
-                await _clicar_consultar(page)
+                # Clicar no botão Consultar (usando lógica do script base)
+                await page.evaluate("""
+                    () => {
+                        const buttons = Array.from(document.querySelectorAll('input[type="button"], button'));
+                        for (const btn of buttons) {
+                            if ((btn.value && btn.value.includes('Consultar')) || 
+                                (btn.textContent && btn.textContent.includes('Consultar'))) {
+                                btn.click();
+                                return true;
+                            }
+                        }
+                        return false;
+                    }
+                """)
+                
+                print("[CONFIG] Aguardando carregamento da certidão...")
                 await page.wait_for_load_state("networkidle", timeout=30000)
-                await page.wait_for_timeout(1500)
 
-                # --- SweetAlert de erro de captcha (igual ao script base) ---
+                # Verificar popup de erro de captcha (igual ao script base)
                 try:
                     popup = page.locator("div.swal2-popup:has-text('O código de verificação não confere')")
                     if await popup.count() > 0:
                         try:
-                            await page.click(".swal2-confirm")
+                            await page.click('.swal2-confirm')
                         except Exception:
                             pass
                         return False, "Captcha inválido: o código de verificação não confere.", None
                 except Exception:
                     pass
 
-                # 1) Tenta clicar em elementos de download/imprimir/gerar
-                tried = await page.evaluate(
-                    """
-                  () => {
-                    const Q = (s)=>[...document.querySelectorAll(s)];
-                    const hits = [...Q('a[href$=".pdf"]'), ...Q('a[href*="download"]'),
-                                  ...Q('button[title*="Download" i]'), ...Q('i[class*="download" i]')];
-                    if (hits.length) { hits[0].click(); return true; }
-                    const any = [...Q('a,button')].find(el => /pdf|imprimir|gerar/i.test(el.textContent||''));
-                    if (any) { any.click(); return true; }
-                    return false;
-                  }
-                """
-                )
-                if tried:
-                    # 2) Se clicar disparar um "download event", ótimo:
-                    try:
-                        async with page.expect_download(timeout=15000) as di:
-                            download = await di.value
-                            await download.save_as(destino)
-                        return True, "CND emitida com sucesso.", destino
-                    except Exception:
-                        # 3) Se NÃO houve 'download', pode ter aberto em NOVA ABA ou inline (PDF viewer)
-                        pass
+                # Esperar um tempo adicional
+                await page.wait_for_timeout(5000)
 
-                # 4) Captura de NOVA PÁGINA com PDF (target=_blank)
+                # Detectar e clicar no ícone de download (EXATAMENTE como no script base)
+                download_click_success = await page.evaluate("""
+                    () => {
+                        // Procurar todos os elementos que possam ser botões de download
+                        const downloadElements = [
+                            ...document.querySelectorAll('img[src*="download"]'),
+                            ...document.querySelectorAll('a[href*="download"]'),
+                            ...document.querySelectorAll('button[title*="Download"]'),
+                            ...document.querySelectorAll('i[class*="download"]')
+                        ];
+                        
+                        if (downloadElements.length > 0) {
+                            downloadElements[0].click();
+                            return true;
+                        }
+                        
+                        // Procurar qualquer elemento que tenha 'download' em seu conteúdo
+                        const elements = document.evaluate(
+                            "//*[contains(@src, 'download') or contains(@href, 'download') or contains(@class, 'download') or contains(@title, 'download')]",
+                            document,
+                            null,
+                            XPathResult.ORDERED_NODE_SNAPSHOT_TYPE,
+                            null
+                        );
+                        
+                        if (elements.snapshotLength > 0) {
+                            elements.snapshotItem(0).click();
+                            return true;
+                        }
+                        
+                        return false;
+                    }
+                """)
+                    
+                if download_click_success:
+                    # Se clicou com sucesso, aguardar o download
+                    try:
+                        async with page.expect_download(timeout=30000) as download_info:
+                            download = await download_info.value
+                            await download.save_as(destino)
+                            print(f"[DOWNLOAD] Certidão salva em: {destino}")
+                            return True, "CND emitida com sucesso.", destino
+                    except Exception as e:
+                        print(f"[AVISO] Erro ao aguardar download: {e}")
+                        # Continua para tentar métodos alternativos
+                
+                # Fallback: Tentar capturar de nova página/iframe (como estava no original)
                 new_page = None
                 try:
                     new_page = await page.context.wait_for_event("page", timeout=5000)
@@ -345,9 +455,9 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
 
                 candidate_page = new_page or page
                 url_now = candidate_page.url or ""
+                
                 if url_now.lower().endswith(".pdf"):
                     try:
-                        # Baixa usando a própria API de requests do Playwright (mantém cookies/sessão)
                         resp = await candidate_page.request.get(url_now)
                         if resp.ok:
                             content = await resp.body()
@@ -358,7 +468,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                     except Exception:
                         pass
 
-                # 5) Às vezes o PDF está embedado em <iframe>/<embed>
+                # Tentar iframe/embed
                 try:
                     pdf_src = await candidate_page.evaluate("""
                       () => {
@@ -380,9 +490,11 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                     pass
 
                 return False, "Botão/link de PDF não identificado (nem inline/nova aba).", None
+                
             finally:
                 await context.close()
                 await browser.close()
+                
     except NotImplementedError:
         return (
             False,
