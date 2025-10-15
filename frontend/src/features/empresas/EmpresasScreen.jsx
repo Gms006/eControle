@@ -16,7 +16,7 @@ import {
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
-import { Mail, Phone, Clipboard, ExternalLink } from "lucide-react";
+import { Mail, Phone, Clipboard, ExternalLink, Loader2 } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { DEFAULT_CERTIFICADO_SITUACAO } from "@/lib/certificados";
 import {
@@ -25,7 +25,17 @@ import {
   isAlertStatus,
   isProcessStatusInactive,
 } from "@/lib/status";
-import { openCartaoCNPJ, openCNDAnapolis } from "@/lib/quickLinks";
+import { openCartaoCNPJ, openCNDAnapolis, onlyDigits } from "@/lib/quickLinks";
+
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+
+const ensureAbsoluteUrl = (url) => {
+  if (!url) return url;
+  if (/^https?:/i.test(url)) {
+    return url;
+  }
+  return `${API_BASE_URL}${url}`;
+};
 
 export default function EmpresasScreen({
   filteredEmpresas,
@@ -39,6 +49,56 @@ export default function EmpresasScreen({
   enqueueToast,
 }) {
   const toast = (msg) => enqueueToast?.(msg);
+
+  const [cndCache, setCndCache] = React.useState({});
+  const cndCacheRef = React.useRef(cndCache);
+
+  React.useEffect(() => {
+    cndCacheRef.current = cndCache;
+  }, [cndCache]);
+
+  const ensureCNDs = React.useCallback(
+    async (cnpjRaw, { force = false } = {}) => {
+      const digits = onlyDigits(cnpjRaw || "");
+      if (!digits) {
+        return [];
+      }
+
+      const cached = cndCacheRef.current[digits];
+      if (!force) {
+        if (cached?.loading) {
+          return cached.items || [];
+        }
+        if (cached?.items) {
+          return cached.items;
+        }
+      }
+
+      setCndCache((prev) => ({
+        ...prev,
+        [digits]: { ...(prev[digits] || {}), loading: true },
+      }));
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/api/cnds/${digits}/list`);
+        const items = response.ok ? await response.json() : [];
+        setCndCache((prev) => ({
+          ...prev,
+          [digits]: { items, loading: false },
+        }));
+        return items;
+      } catch (error) {
+        console.error("[CND] Falha ao listar PDFs:", error);
+        setCndCache((prev) => ({
+          ...prev,
+          [digits]: { items: [], loading: false, error: true },
+        }));
+        toast?.("Não foi possível verificar as CNDs desta empresa.");
+        return [];
+      }
+    },
+    [toast]
+  );
 
   const isMunicipioAnapolis = React.useCallback((municipio) => {
     const normalized = (municipio || "")
@@ -63,8 +123,7 @@ export default function EmpresasScreen({
 
       try {
         toast?.("Iniciando emissão da CND (Anápolis)...");
-        const baseUrl = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
-        const resp = await fetch(`${baseUrl}/api/cnds/emitir`, {
+        const resp = await fetch(`${API_BASE_URL}/api/cnds/emitir`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ cidade: "anapolis", cnpj }),
@@ -75,7 +134,9 @@ export default function EmpresasScreen({
         }
         if (data?.ok) {
           toast?.("CND emitida com sucesso.");
-          if (data?.path) {
+          if (data?.url) {
+            console.info("CND Anápolis disponível em:", ensureAbsoluteUrl(data.url));
+          } else if (data?.path) {
             console.info("CND Anápolis salva em:", data.path);
           }
         } else {
@@ -127,6 +188,10 @@ export default function EmpresasScreen({
               : "?";
 
           const municipioEhAnapolis = isMunicipioAnapolis(empresa.municipio);
+          const cnpjDigits = onlyDigits(empresa.cnpj || "");
+          const cndEntry = cndCache[cnpjDigits] || {};
+          const cndLoading = Boolean(cndEntry.loading);
+          const hasCND = Array.isArray(cndEntry.items) && cndEntry.items.length > 0;
 
           return (
             <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
@@ -262,6 +327,53 @@ export default function EmpresasScreen({
                       </DropdownMenuItem>
 
                       {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  <DropdownMenu
+                    onOpenChange={(open) => {
+                      if (open) {
+                        ensureCNDs(empresa.cnpj);
+                      }
+                    }}
+                  >
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="text-xs">
+                        Certidões
+                      </Button>
+                    </DropdownMenuTrigger>
+
+                    <DropdownMenuContent align="end" className="w-72">
+                      <DropdownMenuLabel>Certidões</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+
+                      <DropdownMenuItem
+                        disabled={cndLoading || !hasCND}
+                        onSelect={async () => {
+                          let lista = cndEntry.items;
+                          if (!Array.isArray(lista) || lista.length === 0) {
+                            lista = await ensureCNDs(empresa.cnpj, { force: true });
+                          }
+
+                          if (!lista || lista.length === 0) {
+                            toast?.("Nenhuma CND encontrada para esta empresa.");
+                            return;
+                          }
+
+                          const url = lista[0]?.url;
+                          if (url) {
+                            window.open(ensureAbsoluteUrl(url), "_blank", "noopener,noreferrer");
+                          } else {
+                            toast?.("Não foi possível localizar o arquivo da CND.");
+                          }
+                        }}
+                        className="flex items-center justify-between"
+                      >
+                        <span>Abrir CND (mais recente)</span>
+                        {cndLoading && (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                        )}
+                      </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>

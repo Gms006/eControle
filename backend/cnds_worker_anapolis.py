@@ -217,7 +217,7 @@ if platform.system() == "Windows":
         asyncio.set_event_loop(loop)
 
 
-async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
+async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str], Optional[str]]:
     if sys.platform.startswith("win"):
         selector_loop_cls = getattr(asyncio, "SelectorEventLoop", None)
         proactor_policy_cls = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
@@ -232,7 +232,7 @@ async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
                 if isinstance(running_loop, selector_loop_cls):
                     loop = running_loop
 
-                    def _runner() -> Tuple[bool, str, Optional[str]]:
+                    def _runner() -> Tuple[bool, str, Optional[str], Optional[str]]:
                         previous_policy = None
                         try:
                             previous_policy = asyncio.get_event_loop_policy()
@@ -250,17 +250,19 @@ async def emitir_cnd_anapolis(cnpj: str) -> Tuple[bool, str, Optional[str]]:
     return await _emitir_cnd_anapolis_impl(cnpj)
 
 
-async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]]:
+async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str], Optional[str]]:
     """Implementação da emissão de CND - VERSÃO CORRIGIDA"""
     # Verificar dependências primeiro
     if not _check_playwright_deps():
-        return False, "Playwright não instalado corretamente.", None
+        return False, "Playwright não instalado corretamente.", None, None
 
     cnpj = only_digits(cnpj)
     os.makedirs(SAIDA_BASE, exist_ok=True)
     destino_dir = os.path.join(SAIDA_BASE, cnpj)
     os.makedirs(destino_dir, exist_ok=True)
-    destino = os.path.join(destino_dir, _nome_arquivo_destino())
+    filename = _nome_arquivo_destino()
+    destino = os.path.join(destino_dir, filename)
+    url_relativo = f"/cnds/{cnpj}/{filename}"
 
     try:
         async with async_playwright() as p:
@@ -283,7 +285,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
             try:
                 browser = await p.chromium.launch(**launch_args)
             except Exception as exc:
-                return False, f"Falha ao iniciar Chromium ({type(exc).__name__}): {exc}", None
+                return False, f"Falha ao iniciar Chromium ({type(exc).__name__}): {exc}", None, None
             
             context = await browser.new_context(ignore_https_errors=True)
             page = await context.new_page()
@@ -307,7 +309,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
 
                 # Preencher CNPJ
                 if not await _preencher_cnpj(page, cnpj):
-                    return False, "Campo de CNPJ não encontrado ou não preenchido.", None
+                    return False, "Campo de CNPJ não encontrado ou não preenchido.", None, None
 
                 # Resolver captcha
                 solved = False
@@ -392,7 +394,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                             await page.click('.swal2-confirm')
                         except Exception:
                             pass
-                        return False, "Captcha inválido: o código de verificação não confere.", None
+                        return False, "Captcha inválido: o código de verificação não confere.", None, None
                 except Exception:
                     pass
 
@@ -440,7 +442,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                             download = await download_info.value
                             await download.save_as(destino)
                             print(f"[DOWNLOAD] Certidão salva em: {destino}")
-                            return True, "CND emitida com sucesso.", destino
+                            return True, "CND emitida com sucesso.", destino, url_relativo
                     except Exception as e:
                         print(f"[AVISO] Erro ao aguardar download: {e}")
                         # Continua para tentar métodos alternativos
@@ -464,7 +466,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                             os.makedirs(os.path.dirname(destino), exist_ok=True)
                             with open(destino, "wb") as f:
                                 f.write(content)
-                            return True, "CND emitida com sucesso (inline).", destino
+                            return True, "CND emitida com sucesso (inline).", destino, url_relativo
                     except Exception:
                         pass
 
@@ -485,11 +487,11 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
                             os.makedirs(os.path.dirname(destino), exist_ok=True)
                             with open(destino, "wb") as f:
                                 f.write(content)
-                            return True, "CND emitida com sucesso (iframe).", destino
+                            return True, "CND emitida com sucesso (iframe).", destino, url_relativo
                 except Exception:
                     pass
 
-                return False, "Botão/link de PDF não identificado (nem inline/nova aba).", None
+                return False, "Botão/link de PDF não identificado (nem inline/nova aba).", None, None
                 
             finally:
                 await context.close()
@@ -500,6 +502,7 @@ async def _emitir_cnd_anapolis_impl(cnpj: str) -> Tuple[bool, str, Optional[str]
             False,
             "Automação indisponível neste sistema (Playwright não suportado). Utilize o fallback manual.",
             None,
+            None,
         )
     except Exception as exc:
-        return False, f"Falha inesperada na automação: {exc}", None
+        return False, f"Falha inesperada na automação: {exc}", None, None
