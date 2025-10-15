@@ -33,6 +33,7 @@ from typing import List, Optional, Dict, Any
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from repo_excel import ExcelRepo
@@ -77,6 +78,11 @@ app.add_middleware(
 
 app.include_router(certificados_router, prefix="/api")
 app.include_router(cnds_router, prefix="/api")
+
+# Expor diretório de CNDs como estático para consumo pelo frontend
+CND_DIR_BASE = os.getenv("CND_DIR_BASE", "certidoes")
+os.makedirs(CND_DIR_BASE, exist_ok=True)
+app.mount("/cnds", StaticFiles(directory=CND_DIR_BASE), name="cnds")
 
 # Cache em memória (simples)
 cache: Dict[str, object] = {
