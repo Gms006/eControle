@@ -27,14 +27,38 @@ import {
 } from "@/lib/status";
 import { openCartaoCNPJ, openCNDAnapolis, onlyDigits } from "@/lib/quickLinks";
 
-const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const resolveApiBaseUrl = () => {
+  const fromEnv = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+  if (fromEnv) {
+    return fromEnv;
+  }
+
+  if (typeof window !== "undefined") {
+    const { protocol, hostname, port } = window.location;
+    if (port === "5173") {
+      return `${protocol}//${hostname}:8000`;
+    }
+    if (port) {
+      return `${protocol}//${hostname}:${port}`;
+    }
+    return `${protocol}//${hostname}`;
+  }
+
+  return "";
+};
+
+const API_BASE_URL = resolveApiBaseUrl();
 
 const ensureAbsoluteUrl = (url) => {
   if (!url) return url;
   if (/^https?:/i.test(url)) {
     return url;
   }
-  return `${API_BASE_URL}${url}`;
+  const normalized = url.startsWith("/") ? url : `/${url}`;
+  if (!API_BASE_URL) {
+    return normalized;
+  }
+  return `${API_BASE_URL}${normalized}`;
 };
 
 export default function EmpresasScreen({
