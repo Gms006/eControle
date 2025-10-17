@@ -16,7 +16,7 @@ table_names:
     funcionamento: "Funcionamento"
     bombeiros: "Bombeiros"
     uso_solo: "UsoDoSolo"
-    sanitario: "Sanitario"
+    sanitario: "Sanitário"
     ambiental: "Ambiental"
 
   uteis:
