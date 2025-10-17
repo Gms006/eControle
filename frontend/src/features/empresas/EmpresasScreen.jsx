@@ -8,7 +8,6 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuItem,
   DropdownMenuItemFancy,
   MiniBadge,
   Kbd,
@@ -16,7 +15,7 @@ import {
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
-import { Mail, Phone, Clipboard, ExternalLink, Loader2 } from "lucide-react";
+import { Mail, Phone, Clipboard, ExternalLink, File, Loader2 } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { DEFAULT_CERTIFICADO_SITUACAO } from "@/lib/certificados";
 import {
@@ -337,18 +336,24 @@ export default function EmpresasScreen({
                         onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
                       />
 
-                      <DropdownMenuItem
+                      <DropdownMenuItemFancy
+                        icon={ExternalLink}
+                        title={
+                          <span className="inline-flex items-center">
+                            CND Municipal <MiniBadge>PM</MiniBadge>
+                          </span>
+                        }
+                        description="Emitir a partir do portal de Anápolis."
+                        hint={<Kbd>Ctrl</Kbd>}
                         disabled={!municipioEhAnapolis}
-                        onSelect={(event) => {
+                        onClick={(event) => {
                           const originalEvent = event?.detail?.originalEvent;
                           const abrirPortal = Boolean(
                             originalEvent?.ctrlKey || originalEvent?.metaKey
                           );
                           emitirCNDMunicipal(empresa.cnpj, empresa.municipio, abrirPortal);
                         }}
-                      >
-                        CND Municipal (Anápolis)
-                      </DropdownMenuItem>
+                      />
 
                       {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
                     </DropdownMenuContent>
@@ -363,7 +368,7 @@ export default function EmpresasScreen({
                   >
                     <DropdownMenuTrigger asChild>
                       <Button size="sm" variant="outline" className="text-xs">
-                        Certidões
+                        <File className="h-3.5 w-3.5 mr-1" /> Certidões
                       </Button>
                     </DropdownMenuTrigger>
 
@@ -371,9 +376,17 @@ export default function EmpresasScreen({
                       <DropdownMenuLabel>Certidões</DropdownMenuLabel>
                       <DropdownMenuSeparator />
 
-                      <DropdownMenuItem
+                      <DropdownMenuItemFancy
+                        icon={File}
+                        title="CND Municipal"
+                        description="Abrir a última CND emitida."
                         disabled={cndLoading || !hasCND}
-                        onSelect={async () => {
+                        hint={
+                          cndLoading ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                          ) : undefined
+                        }
+                        onClick={async () => {
                           let lista = cndEntry.items;
                           if (!Array.isArray(lista) || lista.length === 0) {
                             lista = await ensureCNDs(empresa.cnpj, { force: true });
@@ -391,13 +404,7 @@ export default function EmpresasScreen({
                             toast?.("Não foi possível localizar o arquivo da CND.");
                           }
                         }}
-                        className="flex items-center justify-between"
-                      >
-                        <span>Abrir CND (mais recente)</span>
-                        {cndLoading && (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
-                        )}
-                      </DropdownMenuItem>
+                      />
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
