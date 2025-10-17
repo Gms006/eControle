@@ -343,7 +343,7 @@ export default function EmpresasScreen({
                             CND Municipal <MiniBadge>PM</MiniBadge>
                           </span>
                         }
-                        description="Emitir a partir do portal de Anápolis."
+                        description="Emitir a partir do portal da Prefeitura."
                         hint={<Kbd>Ctrl</Kbd>}
                         disabled={!municipioEhAnapolis}
                         onClick={(event) => {
