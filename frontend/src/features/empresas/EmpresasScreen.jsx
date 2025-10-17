@@ -138,38 +138,51 @@ export default function EmpresasScreen({
 
   const emitirCNDMunicipal = React.useCallback(
     async (cnpj, municipio, abrirPortal = false) => {
-      const ehAnapolis = isMunicipioAnapolis(municipio);
-      if (!ehAnapolis || abrirPortal) {
-        await openCNDAnapolis(cnpj, toast);
+      const digits = onlyDigits(cnpj || "");
+      if (!digits || digits.length !== 14) {
+        toast?.("CNPJ inválido para emissão da CND.");
         return;
       }
 
+      if (abrirPortal) {
+        if (isMunicipioAnapolis(municipio)) {
+          await openCNDAnapolis(cnpj, toast);
+        } else {
+          toast?.("Abertura manual disponível apenas para Anápolis no momento.");
+        }
+        return;
+      }
+
+      const municipioNome = (municipio || "").trim();
+
       try {
-        toast?.("Iniciando emissão da CND (Anápolis)...");
+        const destinoLabel = municipioNome || "município informado";
+        toast?.(`Iniciando emissão da CND (${destinoLabel}).`);
         const resp = await fetch(`${API_BASE_URL}/api/cnds/emitir`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ cidade: "anapolis", cnpj }),
+          body: JSON.stringify({ cnpj, municipio: municipioNome }),
         });
         const data = await resp.json().catch(() => ({}));
         if (!resp.ok) {
-          throw new Error(data?.detail || "Falha ao emitir a CND.");
+          throw new Error(data?.detail || data?.info || "Falha ao emitir a CND.");
         }
         if (data?.ok) {
           toast?.("CND emitida com sucesso.");
           if (data?.url) {
-            console.info("CND Anápolis disponível em:", ensureAbsoluteUrl(data.url));
+            console.info("CND Municipal disponível em:", ensureAbsoluteUrl(data.url));
           } else if (data?.path) {
-            console.info("CND Anápolis salva em:", data.path);
+            console.info("CND Municipal salva em:", data.path);
           }
+          await ensureCNDs(cnpj, { force: true });
         } else {
-          toast?.(`Não foi possível emitir: ${data?.info || "verifique os dados."}`);
+          toast?.(data?.info || "Não foi possível emitir a CND.");
         }
       } catch (error) {
         toast?.(error?.message || "Erro inesperado ao emitir a CND.");
       }
     },
-    [isMunicipioAnapolis, toast]
+    [ensureCNDs, isMunicipioAnapolis, toast]
   );
 
   return (
@@ -210,11 +223,11 @@ export default function EmpresasScreen({
               ? `${rawId}`
               : "?";
 
-          const municipioEhAnapolis = isMunicipioAnapolis(empresa.municipio);
           const cnpjDigits = onlyDigits(empresa.cnpj || "");
           const cndEntry = cndCache[cnpjDigits] || {};
           const cndLoading = Boolean(cndEntry.loading);
           const hasCND = Array.isArray(cndEntry.items) && cndEntry.items.length > 0;
+          const municipioInformado = Boolean((empresa.municipio || "").trim());
 
           return (
             <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
@@ -345,7 +358,7 @@ export default function EmpresasScreen({
                         }
                         description="Emitir a partir do portal da Prefeitura."
                         hint={<Kbd>Ctrl</Kbd>}
-                        disabled={!municipioEhAnapolis}
+                        disabled={!municipioInformado}
                         onClick={(event) => {
                           const originalEvent = event?.detail?.originalEvent;
                           const abrirPortal = Boolean(
