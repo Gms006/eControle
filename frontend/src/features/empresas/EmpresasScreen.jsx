@@ -338,8 +338,12 @@ export default function EmpresasScreen({
 
                       <DropdownMenuItemFancy
                         icon={ExternalLink}
-                        title="CND Municipal"
-                        description="Emitir a partir do portal de Anápolis."
+                        title={
+                          <span className="inline-flex items-center">
+                            CND Municipal <MiniBadge>PM</MiniBadge>
+                          </span>
+                        }
+                        description="Emitir a partir do portal da Prefeitura."
                         hint={<Kbd>Ctrl</Kbd>}
                         disabled={!municipioEhAnapolis}
                         onClick={(event) => {
