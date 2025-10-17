@@ -1,5 +1,7 @@
+import asyncio
 import os
 import re
+import sys
 
 from datetime import datetime
 from pathlib import Path
@@ -71,6 +73,13 @@ def _static_url(cnpj: str, filename: str) -> str:
     return f"/cnds/{cnpj}/{filename}"
 
 
+async def _to_thread(func, *args, **kwargs):
+    if hasattr(asyncio, "to_thread"):
+        return await asyncio.to_thread(func, *args, **kwargs)
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
+
+
 async def _wait_for_toast_message(page, timeout: int = 5000) -> Optional[str]:
     try:
         toast = await page.wait_for_selector(".toast-message", timeout=timeout)
@@ -85,28 +94,16 @@ async def _wait_for_toast_message(page, timeout: int = 5000) -> Optional[str]:
     return None
 
 
-async def emitir_cnd_megasoft(
-    cnpj: str,
-    base_url: str,
-    cidade: str,
+async def _emitir_cnd_megasoft_impl(
     *,
-    download_dir: Path,
-    headless: bool = True,
+    cnpj_digits: str,
+    url: str,
+    cidade: str,
+    slug: str,
+    destino: Path,
+    filename: str,
+    headless: bool,
 ) -> Dict[str, object]:
-    """Emite CND no portal Megasoft e retorna o resultado padronizado."""
-
-    cnpj_digits = _only_digits(cnpj)
-    if len(cnpj_digits) != 14:
-        return {"ok": False, "info": "CNPJ inválido (14 dígitos).", "path": None, "url": None}
-
-    url = _ensure_https(base_url)
-    slug = _resolve_slug(url, cidade)
-    destino_base = Path(download_dir)
-    destino_dir = destino_base / cnpj_digits
-    destino_dir.mkdir(parents=True, exist_ok=True)
-    filename = _build_filename(slug)
-    destino = destino_dir / filename
-
     print(f"[MEGASOFT] Iniciando emissão para {cidade} ({slug}) em {url}")
 
     try:
@@ -183,10 +180,106 @@ async def emitir_cnd_megasoft(
             "url": None,
         }
     except Exception as exc:
+        message = str(exc).strip()
+        if isinstance(exc, NotImplementedError):
+            message = "Playwright não é suportado pelo event loop atual (Windows)."
         print(f"[MEGASOFT] Erro inesperado: {exc}")
         return {
             "ok": False,
-            "info": f"Falha ao emitir CND ({type(exc).__name__}).",
+            "info": message or f"Falha ao emitir CND ({type(exc).__name__}).",
             "path": None,
             "url": None,
         }
+
+
+def _run_in_dedicated_event_loop(
+    *,
+    cnpj_digits: str,
+    url: str,
+    cidade: str,
+    slug: str,
+    destino: Path,
+    filename: str,
+    headless: bool,
+) -> Dict[str, object]:
+    """Executa o worker em um novo event loop (necessário no Windows)."""
+
+    if sys.platform.startswith("win") and hasattr(asyncio, "WindowsProactorEventLoopPolicy"):
+        policy = asyncio.WindowsProactorEventLoopPolicy()
+    else:
+        policy = asyncio.DefaultEventLoopPolicy()
+
+    loop = policy.new_event_loop()
+    try:
+        asyncio.set_event_loop(loop)
+        return loop.run_until_complete(
+            _emitir_cnd_megasoft_impl(
+                cnpj_digits=cnpj_digits,
+                url=url,
+                cidade=cidade,
+                slug=slug,
+                destino=destino,
+                filename=filename,
+                headless=headless,
+            )
+        )
+    finally:
+        try:
+            loop.run_until_complete(loop.shutdown_asyncgens())
+        except Exception:
+            pass
+        asyncio.set_event_loop(None)
+        loop.close()
+
+
+async def emitir_cnd_megasoft(
+    cnpj: str,
+    base_url: str,
+    cidade: str,
+    *,
+    download_dir: Path,
+    headless: bool = True,
+) -> Dict[str, object]:
+    """Emite CND no portal Megasoft e retorna o resultado padronizado."""
+
+    cnpj_digits = _only_digits(cnpj)
+    if len(cnpj_digits) != 14:
+        return {"ok": False, "info": "CNPJ inválido (14 dígitos).", "path": None, "url": None}
+
+    url = _ensure_https(base_url)
+    slug = _resolve_slug(url, cidade)
+    destino_base = Path(download_dir)
+    destino_dir = destino_base / cnpj_digits
+    destino_dir.mkdir(parents=True, exist_ok=True)
+    filename = _build_filename(slug)
+    destino = destino_dir / filename
+
+    should_use_thread = False
+    if sys.platform.startswith("win"):
+        try:
+            running_loop = asyncio.get_running_loop()
+            should_use_thread = running_loop.__class__.__name__.lower().startswith("selector")
+        except RuntimeError:
+            should_use_thread = True
+
+    if should_use_thread:
+        return await _to_thread(
+            _run_in_dedicated_event_loop,
+            cnpj_digits=cnpj_digits,
+            url=url,
+            cidade=cidade,
+            slug=slug,
+            destino=destino,
+            filename=filename,
+            headless=headless,
+        )
+
+    return await _emitir_cnd_megasoft_impl(
+        cnpj_digits=cnpj_digits,
+        url=url,
+        cidade=cidade,
+        slug=slug,
+        destino=destino,
+        filename=filename,
+        headless=headless,
+    )
