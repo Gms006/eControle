@@ -1,0 +1,13 @@
+[
+  {"municipio": "Abadia de Goiás", "slug": "abadiadegoias", "base_url": "https://abadiadegoias.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Abadiânia", "slug": "abadiania", "base_url": "https://abadiania.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Corumbá de Goiás", "slug": "corumbadegoias", "base_url": "https://corumbadegoias.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Goianápolis", "slug": "goianapolis", "base_url": "https://goianapolis.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Itapaci", "slug": "itapaci", "base_url": "https://itapaci.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Jaraguá", "slug": "jaragua", "base_url": "https://jaragua.megasoftservicos.com.br/cidadao/autent-certidao-negat"},
+  {"municipio": "Rubiataba", "slug": "rubiataba", "base_url": "https://rubiataba.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Silvânia", "slug": "silvania", "base_url": "https://silvania.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Uruaçu", "slug": "uruacu", "base_url": "https://uruacu.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Uruana", "slug": "uruana", "base_url": "https://uruana.megasoftservicos.com.br/cidadao/emissao-certidao-negat"},
+  {"municipio": "Vila Propício", "slug": "vilapropicio", "base_url": "https://vilapropicio.megasoftservicos.com.br/cidadao/emissao-certidao-negat"}
+]
