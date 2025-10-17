@@ -120,8 +120,11 @@ cd backend
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
 pip install -r requirements.txt
+python -m playwright install chromium  # necessário para a automação de CNDs
 uvicorn api:app --reload --host $API_HOST --port $API_PORT
 ```
+
+> O passo `python -m playwright install chromium` baixa o navegador controlado pela automação da rota `/api/cnds`. Execute-o em qualquer ambiente novo ou após upgrades do Playwright.
 
 ### Endpoints principais
 
@@ -141,6 +144,22 @@ uvicorn api:app --reload --host $API_HOST --port $API_PORT
 | GET    | `/api/agendamentos`     | Agenda de emissões de certificados                                              |
 | POST   | `/api/refresh`          | Agenda recarga assíncrona do Excel                                              |
 | GET    | `/api/diagnostico`      | Mapas de colunas detectados + avisos de colunas ausentes                        |
+| POST   | `/api/cnds/emitir`      | Dispara emissão automatizada de CND em Anápolis (Playwright)                   |
+| GET    | `/api/cnds/{cnpj}/list` | Lista PDFs de CND já emitidos para o CNPJ informado                             |
+
+### Automação de CND (Anápolis)
+
+A rota `/api/cnds/emitir` utiliza o script `backend/cnds_worker_anapolis.py` para abrir o portal municipal via Playwright e baixar a certidão. Configure as variáveis abaixo no `.env` do backend para ajustar o comportamento:
+
+| Variável             | Descrição |
+| -------------------- | --------- |
+| `CND_DIR_BASE`       | Pasta onde os PDFs serão salvos. Padrão: `certidoes/` (o app expõe `/cnds` como estático). |
+| `CND_HEADLESS`       | `true` para rodar sem interface gráfica. Mantém `false` em ambientes que precisam resolver CAPTCHA manualmente. |
+| `CND_CHROME_PATH`    | Caminho absoluto para um executável Chromium/Chrome customizado (opcional). |
+| `CAPTCHA_MODE`       | `manual` (padrão) ou `image_2captcha` para resolução automática via 2Captcha. |
+| `API_KEY_2CAPTCHA`   | Chave de API utilizada quando `CAPTCHA_MODE=image_2captcha`. |
+
+> Em ambientes Windows, o módulo ajusta a `event_loop_policy` automaticamente para compatibilidade com Playwright. Garanta também que as dependências de sistema do Chromium estejam instaladas (veja a [documentação oficial](https://playwright.dev/python/docs/intro)).
 
 ### Diagnóstico rápido
 
