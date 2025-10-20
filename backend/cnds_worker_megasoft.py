@@ -81,33 +81,41 @@ async def _to_thread(func, *args, **kwargs):
 
 
 async def _wait_for_toast_message(page, timeout: int = 5000) -> Optional[str]:
+    """Aguarda e captura mensagem de toast (geralmente erros)."""
     try:
-        handle = await page.wait_for_function(
-            """
-                () => {
-                    const el = document.querySelector('.toast-message');
-                    if (!el) {
-                        return false;
-                    }
-                    const text = (el.innerText || el.textContent || '').trim();
-                    return text.length ? text : false;
-                }
-            """,
-            timeout=timeout,
-        )
-        if handle:
-            try:
-                message = (await handle.json_value() or "").strip()
-            finally:
-                await handle.dispose()
-            if message:
-                print(f"[MEGASOFT] Toast exibido: {message}")
-                return message
+        toast = await page.wait_for_selector(".toast-message", timeout=timeout)
+        message = (await toast.inner_text() or "").strip()
+        if message:
+            print(f"[MEGASOFT] 🔔 Toast detectado: {message}")
+            return message
     except PlaywrightTimeoutError:
         return None
     except Exception as exc:
-        print(f"[MEGASOFT] Falha ao ler toast: {exc}")
+        print(f"[MEGASOFT] ⚠️ Falha ao ler toast: {exc}")
     return None
+
+
+def _classify_error_message(message: str) -> str:
+    """Classifica e formata mensagens de erro de forma amigável."""
+    if not message:
+        return "Erro desconhecido ao processar a solicitação."
+    
+    message_lower = message.lower()
+    
+    # CNPJ/CPF não encontrado
+    if "não encontrado" in message_lower or "nao encontrado" in message_lower:
+        return "❌ CNPJ/CPF NÃO ENCONTRADO - O contribuinte não está cadastrado no município. Entre em contato com a Prefeitura para regularizar o cadastro."
+    
+    # Pendências/débitos
+    if "pendência" in message_lower or "pendencia" in message_lower or "débito" in message_lower or "debito" in message_lower:
+        return f"⚠️ PENDÊNCIA ENCONTRADA - {message}"
+    
+    # Outros erros conhecidos
+    if "inválido" in message_lower or "invalido" in message_lower:
+        return f"❌ DADO INVÁLIDO - {message}"
+    
+    # Retorna mensagem original se não identificada
+    return f"⚠️ {message}"
 
 
 async def _emitir_cnd_megasoft_impl(
@@ -120,7 +128,9 @@ async def _emitir_cnd_megasoft_impl(
     filename: str,
     headless: bool,
 ) -> Dict[str, object]:
-    print(f"[MEGASOFT] Iniciando emissão para {cidade} ({slug}) em {url}")
+    print(f"[MEGASOFT] 🚀 Iniciando emissão para {cidade} ({slug})")
+    print(f"[MEGASOFT] 🔗 URL: {url}")
+    print(f"[MEGASOFT] 📋 CNPJ: {cnpj_digits}")
 
     try:
         async with async_playwright() as p:
@@ -143,7 +153,10 @@ async def _emitir_cnd_megasoft_impl(
             page = await context.new_page()
 
             try:
-                await page.goto(url, wait_until="networkidle")
+                print("[MEGASOFT] 🌐 Carregando página...")
+                await page.goto(url, wait_until="networkidle", timeout=30000)
+                
+                print("[MEGASOFT] 🔍 Selecionando tipo de contribuinte...")
                 await page.wait_for_selector(".ng-select-container", timeout=20000)
                 await page.locator(".ng-select-container").first.click()
                 await page.wait_for_selector(
@@ -152,127 +165,165 @@ async def _emitir_cnd_megasoft_impl(
                 )
                 await page.locator("span.ng-option-label:has-text(\"1 - Contribuinte\")").click()
 
+                print("[MEGASOFT] ⌨️ Preenchendo CNPJ...")
                 cnpj_input = page.locator("#cpfCnpj")
                 await cnpj_input.wait_for(state="visible", timeout=20000)
                 await cnpj_input.fill(cnpj_digits)
                 await cnpj_input.press("Enter")
 
+                print("[MEGASOFT] 🖱️ Clicando em 'GERAR CERTIDÃO'...")
                 botao = page.locator("button.btn.btn-mega:has-text(\"GERAR CERTIDÃO\")")
                 await botao.wait_for(state="visible", timeout=20000)
-                download_task = asyncio.create_task(page.wait_for_event("download"))
-                toast_task = asyncio.create_task(_wait_for_toast_message(page, timeout=8000))
+                
+                # Inicia monitoramento de toast ANTES do clique
+                toast_task = asyncio.create_task(_wait_for_toast_message(page, timeout=10000))
+                
+                # Clica no botão
                 await botao.click()
+                
+                # Aguarda um curto período para toast aparecer (erros aparecem rápido)
+                print("[MEGASOFT] ⏱️ Aguardando resposta do servidor...")
+                await asyncio.sleep(1.5)
+                
+                # Verifica se toast já apareceu
+                if toast_task.done():
+                    mensagem = await toast_task
+                    if mensagem:
+                        erro_formatado = _classify_error_message(mensagem)
+                        print(f"[MEGASOFT] ❌ Erro identificado: {erro_formatado}")
+                        return {
+                            "ok": False,
+                            "info": erro_formatado,
+                            "path": None,
+                            "url": None,
+                        }
+                
+                # Se não houve toast de erro, aguarda o download
+                print("[MEGASOFT] 📥 Aguardando download...")
+                download_task = asyncio.create_task(page.wait_for_event("download", timeout=20000))
+                
+                # Aguarda download OU toast (o que vier primeiro)
                 done, pending = await asyncio.wait(
                     {download_task, toast_task},
                     return_when=asyncio.FIRST_COMPLETED,
-                    timeout=20000,
+                    timeout=25,
                 )
 
+                # Cancela tarefas pendentes
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+
+                # Timeout geral
                 if not done:
-                    for task in pending:
-                        task.cancel()
-                    await asyncio.gather(*pending, return_exceptions=True)
+                    print("[MEGASOFT] ⏰ Timeout: nenhuma resposta do servidor")
                     return {
                         "ok": False,
-                        "info": "Não foi possível gerar a certidão (timeout).",
+                        "info": "⏰ TIMEOUT - O servidor não respondeu dentro do tempo esperado. Tente novamente.",
                         "path": None,
                         "url": None,
                     }
 
-                download = None
-
-                if download_task in done:
+                # Identifica qual completou
+                completed_task = done.pop()
+                
+                # Se toast completou primeiro = ERRO
+                if completed_task == toast_task:
                     try:
-                        download = await download_task
-                    except PlaywrightTimeoutError:
-                        mensagem = None
-                        if not toast_task.done():
-                            try:
-                                mensagem = await toast_task
-                            except Exception:
-                                mensagem = None
-                        else:
-                            mensagem = await toast_task
-
+                        mensagem = await toast_task
                         if mensagem:
+                            erro_formatado = _classify_error_message(mensagem)
+                            print(f"[MEGASOFT] ❌ Erro no toast: {erro_formatado}")
                             return {
                                 "ok": False,
-                                "info": mensagem,
+                                "info": erro_formatado,
                                 "path": None,
                                 "url": None,
                             }
-                        return {
-                            "ok": False,
-                            "info": "Não foi possível gerar a certidão (timeout).",
-                            "path": None,
-                            "url": None,
-                        }
-                    finally:
-                        if not toast_task.done():
-                            toast_task.cancel()
-                            try:
-                                await toast_task
-                            except Exception:
-                                pass
-                else:
-                    mensagem = await toast_task
-                    if mensagem:
-                        if not download_task.done():
-                            download_task.cancel()
-                            try:
-                                await download_task
-                            except Exception:
-                                pass
-                        return {"ok": False, "info": mensagem, "path": None, "url": None}
-
-                    # Se nenhum toast específico apareceu, aguarda o download normalmente
-                    try:
-                        download = await download_task
-                    except PlaywrightTimeoutError:
-                        return {
-                            "ok": False,
-                            "info": "Não foi possível gerar a certidão (timeout).",
-                            "path": None,
-                            "url": None,
-                        }
-
-                if not download:
+                    except Exception as exc:
+                        print(f"[MEGASOFT] ⚠️ Erro ao processar toast: {exc}")
+                    
+                    # Toast sem mensagem - situação indefinida
+                    print("[MEGASOFT] ⚠️ Toast vazio detectado")
                     return {
                         "ok": False,
-                        "info": "Não foi possível gerar a certidão (resultado indefinido).",
+                        "info": "⚠️ ERRO INDEFINIDO - O servidor retornou uma resposta inesperada.",
                         "path": None,
                         "url": None,
                     }
-
-                await download.save_as(str(destino))
-                caminho_absoluto = str(destino.resolve())
-                url_publica = _static_url(cnpj_digits, filename)
-                print(f"[MEGASOFT] Certidão salva em {caminho_absoluto}")
-                return {
-                    "ok": True,
-                    "info": "Certidão emitida com sucesso.",
-                    "path": caminho_absoluto,
-                    "url": url_publica,
-                }
+                
+                # Se download completou primeiro = SUCESSO
+                try:
+                    download = await download_task
+                    print("[MEGASOFT] ✅ Download iniciado!")
+                    
+                    await download.save_as(str(destino))
+                    caminho_absoluto = str(destino.resolve())
+                    url_publica = _static_url(cnpj_digits, filename)
+                    
+                    print(f"[MEGASOFT] 💾 Certidão salva: {caminho_absoluto}")
+                    return {
+                        "ok": True,
+                        "info": "✅ Certidão emitida com sucesso!",
+                        "path": caminho_absoluto,
+                        "url": url_publica,
+                    }
+                    
+                except PlaywrightTimeoutError:
+                    # Verifica se há toast de erro tardio
+                    try:
+                        if not toast_task.done():
+                            mensagem = await asyncio.wait_for(toast_task, timeout=2.0)
+                            if mensagem:
+                                erro_formatado = _classify_error_message(mensagem)
+                                print(f"[MEGASOFT] ❌ Erro tardio: {erro_formatado}")
+                                return {
+                                    "ok": False,
+                                    "info": erro_formatado,
+                                    "path": None,
+                                    "url": None,
+                                }
+                    except Exception:
+                        pass
+                    
+                    print("[MEGASOFT] ⏰ Timeout no download")
+                    return {
+                        "ok": False,
+                        "info": "⏰ TIMEOUT NO DOWNLOAD - O arquivo não foi gerado no tempo esperado.",
+                        "path": None,
+                        "url": None,
+                    }
+                    
+                except Exception as exc:
+                    print(f"[MEGASOFT] ❌ Erro no download: {exc}")
+                    return {
+                        "ok": False,
+                        "info": f"❌ ERRO NO DOWNLOAD - {str(exc)}",
+                        "path": None,
+                        "url": None,
+                    }
+                    
             finally:
                 await context.close()
                 await browser.close()
-    except PlaywrightTimeoutError:
+                
+    except PlaywrightTimeoutError as exc:
+        print(f"[MEGASOFT] ⏰ Timeout na navegação: {exc}")
         return {
             "ok": False,
-            "info": "Tempo excedido durante a navegação no portal Megasoft.",
+            "info": "⏰ TIMEOUT - Tempo excedido ao acessar o portal. Verifique a conexão e tente novamente.",
             "path": None,
             "url": None,
         }
-    except NotImplementedError as exc:
-        print("[MEGASOFT] Playwright não pôde iniciar no event loop atual; tentando fallback...")
+    except NotImplementedError:
+        print("[MEGASOFT] ⚠️ Event loop incompatível, tentando fallback...")
         raise
     except Exception as exc:
         message = str(exc).strip()
-        print(f"[MEGASOFT] Erro inesperado: {exc}")
+        print(f"[MEGASOFT] ❌ Erro inesperado: {exc}")
         return {
             "ok": False,
-            "info": message or f"Falha ao emitir CND ({type(exc).__name__}).",
+            "info": f"❌ ERRO INESPERADO - {message or type(exc).__name__}",
             "path": None,
             "url": None,
         }
@@ -330,7 +381,12 @@ async def emitir_cnd_megasoft(
 
     cnpj_digits = _only_digits(cnpj)
     if len(cnpj_digits) != 14:
-        return {"ok": False, "info": "CNPJ inválido (14 dígitos).", "path": None, "url": None}
+        return {
+            "ok": False,
+            "info": "❌ CNPJ INVÁLIDO - O CNPJ deve conter exatamente 14 dígitos.",
+            "path": None,
+            "url": None
+        }
 
     url = _ensure_https(base_url)
     slug = _resolve_slug(url, cidade)
