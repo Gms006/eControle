@@ -82,11 +82,27 @@ async def _to_thread(func, *args, **kwargs):
 
 async def _wait_for_toast_message(page, timeout: int = 5000) -> Optional[str]:
     try:
-        toast = await page.wait_for_selector(".toast-message", timeout=timeout)
-        message = (await toast.inner_text() or "").strip()
-        if message:
-            print(f"[MEGASOFT] Toast exibido: {message}")
-            return message
+        handle = await page.wait_for_function(
+            """
+                () => {
+                    const el = document.querySelector('.toast-message');
+                    if (!el) {
+                        return false;
+                    }
+                    const text = (el.innerText || el.textContent || '').trim();
+                    return text.length ? text : false;
+                }
+            """,
+            timeout=timeout,
+        )
+        if handle:
+            try:
+                message = (await handle.json_value() or "").strip()
+            finally:
+                await handle.dispose()
+            if message:
+                print(f"[MEGASOFT] Toast exibido: {message}")
+                return message
     except PlaywrightTimeoutError:
         return None
     except Exception as exc:
@@ -143,18 +159,87 @@ async def _emitir_cnd_megasoft_impl(
 
                 botao = page.locator("button.btn.btn-mega:has-text(\"GERAR CERTIDÃO\")")
                 await botao.wait_for(state="visible", timeout=20000)
-                download_future = page.wait_for_event("download")
+                download_task = asyncio.create_task(page.wait_for_event("download"))
+                toast_task = asyncio.create_task(_wait_for_toast_message(page, timeout=8000))
                 await botao.click()
+                done, pending = await asyncio.wait(
+                    {download_task, toast_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                    timeout=20000,
+                )
 
-                try:
-                    download = await download_future
-                except PlaywrightTimeoutError:
-                    mensagem = await _wait_for_toast_message(page, timeout=8000)
-                    if mensagem:
-                        return {"ok": False, "info": mensagem, "path": None, "url": None}
+                if not done:
+                    for task in pending:
+                        task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
                     return {
                         "ok": False,
                         "info": "Não foi possível gerar a certidão (timeout).",
+                        "path": None,
+                        "url": None,
+                    }
+
+                download = None
+
+                if download_task in done:
+                    try:
+                        download = await download_task
+                    except PlaywrightTimeoutError:
+                        mensagem = None
+                        if not toast_task.done():
+                            try:
+                                mensagem = await toast_task
+                            except Exception:
+                                mensagem = None
+                        else:
+                            mensagem = await toast_task
+
+                        if mensagem:
+                            return {
+                                "ok": False,
+                                "info": mensagem,
+                                "path": None,
+                                "url": None,
+                            }
+                        return {
+                            "ok": False,
+                            "info": "Não foi possível gerar a certidão (timeout).",
+                            "path": None,
+                            "url": None,
+                        }
+                    finally:
+                        if not toast_task.done():
+                            toast_task.cancel()
+                            try:
+                                await toast_task
+                            except Exception:
+                                pass
+                else:
+                    mensagem = await toast_task
+                    if mensagem:
+                        if not download_task.done():
+                            download_task.cancel()
+                            try:
+                                await download_task
+                            except Exception:
+                                pass
+                        return {"ok": False, "info": mensagem, "path": None, "url": None}
+
+                    # Se nenhum toast específico apareceu, aguarda o download normalmente
+                    try:
+                        download = await download_task
+                    except PlaywrightTimeoutError:
+                        return {
+                            "ok": False,
+                            "info": "Não foi possível gerar a certidão (timeout).",
+                            "path": None,
+                            "url": None,
+                        }
+
+                if not download:
+                    return {
+                        "ok": False,
+                        "info": "Não foi possível gerar a certidão (resultado indefinido).",
                         "path": None,
                         "url": None,
                     }
