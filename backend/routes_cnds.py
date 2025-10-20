@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field
 
 from cnds_worker_anapolis import emitir_cnd_anapolis
 from cnds_worker_megasoft import emitir_cnd_megasoft
+from cnds_worker_sig import emitir_cnd_sig
 
 router = APIRouter(tags=["cnds"])
 
@@ -57,8 +58,10 @@ def _ensure_https(url: str) -> str:
 
 
 MEGASOFT_MAP_PATH = Path(__file__).parent / "megasoft_map.json"
+SIG_MAP_PATH = Path(__file__).parent / "sig_map.json"
 CND_DIR_BASE = Path(os.getenv("CND_DIR_BASE", "certidoes"))
 CND_HEADLESS = (os.getenv("CND_HEADLESS", "true").strip().lower() in {"1", "true", "yes", "on"})
+CND_CHROME_PATH = os.getenv("CND_CHROME_PATH") or None
 
 CND_DIR_BASE.mkdir(parents=True, exist_ok=True)
 
@@ -85,6 +88,33 @@ def _load_megasoft_map() -> Dict[str, Dict[str, str]]:
             "municipio": municipio,
             "base_url": base_url,
             "slug": item.get("slug") or "",
+        }
+    return mapping
+
+
+@lru_cache()
+def _load_sig_map() -> Dict[str, Dict[str, str]]:
+    if not SIG_MAP_PATH.exists():
+        return {}
+    try:
+        entries = json.loads(SIG_MAP_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+    mapping: Dict[str, Dict[str, str]] = {}
+    for item in entries:
+        municipio = item.get("municipio", "")
+        base_url = (item.get("base_url") or "").strip()
+        slug = (item.get("slug") or "").strip()
+        if not municipio or not base_url:
+            continue
+        normalized = _normalize_text(municipio)
+        if not normalized:
+            continue
+        mapping[normalized] = {
+            "municipio": municipio,
+            "base_url": base_url,
+            "slug": slug,
         }
     return mapping
 
@@ -118,6 +148,30 @@ async def cnds_emitir(ped: EmitirPedido):
             cidade=info["municipio"],
             download_dir=CND_DIR_BASE,
             headless=CND_HEADLESS,
+        )
+        return {
+            "ok": result.get("ok", False),
+            "info": result.get("info"),
+            "path": result.get("path"),
+            "url": result.get("url"),
+        }
+
+    sig_map = _load_sig_map()
+    sig_info: Optional[Dict[str, str]] = sig_map.get(municipio_norm)
+    if not sig_info:
+        for key, data in sig_map.items():
+            if key in municipio_norm or municipio_norm in key:
+                sig_info = data
+                break
+
+    if sig_info:
+        result = await emitir_cnd_sig(
+            cnpj=cnpj,
+            base_url=sig_info["base_url"],
+            cidade=sig_info["municipio"],
+            download_dir=CND_DIR_BASE,
+            headless=CND_HEADLESS,
+            chrome_path=CND_CHROME_PATH,
         )
         return {
             "ok": result.get("ok", False),
