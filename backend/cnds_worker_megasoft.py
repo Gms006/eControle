@@ -179,10 +179,11 @@ async def _emitir_cnd_megasoft_impl(
             "path": None,
             "url": None,
         }
+    except NotImplementedError as exc:
+        print("[MEGASOFT] Playwright não pôde iniciar no event loop atual; tentando fallback...")
+        raise
     except Exception as exc:
         message = str(exc).strip()
-        if isinstance(exc, NotImplementedError):
-            message = "Playwright não é suportado pelo event loop atual (Windows)."
         print(f"[MEGASOFT] Erro inesperado: {exc}")
         return {
             "ok": False,
@@ -262,6 +263,17 @@ async def emitir_cnd_megasoft(
         except RuntimeError:
             should_use_thread = True
 
+    async def _run_direct():
+        return await _emitir_cnd_megasoft_impl(
+            cnpj_digits=cnpj_digits,
+            url=url,
+            cidade=cidade,
+            slug=slug,
+            destino=destino,
+            filename=filename,
+            headless=headless,
+        )
+
     if should_use_thread:
         return await _to_thread(
             _run_in_dedicated_event_loop,
@@ -274,12 +286,18 @@ async def emitir_cnd_megasoft(
             headless=headless,
         )
 
-    return await _emitir_cnd_megasoft_impl(
-        cnpj_digits=cnpj_digits,
-        url=url,
-        cidade=cidade,
-        slug=slug,
-        destino=destino,
-        filename=filename,
-        headless=headless,
-    )
+    try:
+        return await _run_direct()
+    except NotImplementedError:
+        if sys.platform.startswith("win"):
+            return await _to_thread(
+                _run_in_dedicated_event_loop,
+                cnpj_digits=cnpj_digits,
+                url=url,
+                cidade=cidade,
+                slug=slug,
+                destino=destino,
+                filename=filename,
+                headless=headless,
+            )
+        raise
