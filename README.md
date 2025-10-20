@@ -124,7 +124,7 @@ python -m playwright install chromium  # necessário para a automação de CNDs
 uvicorn api:app --reload --host $API_HOST --port $API_PORT
 ```
 
-> O passo `python -m playwright install chromium` baixa o navegador controlado pela automação da rota `/api/cnds`. Execute-o em qualquer ambiente novo ou após upgrades do Playwright.
+> O passo `python -m playwright install chromium` baixa o navegador controlado pela automação da rota `/api/cnds`. Execute-o em qualquer ambiente novo ou após upgrades do Playwright. O `requirements.txt` traz `aiofiles` (obrigatório para servir `/cnds` com `StaticFiles`), `python-dotenv` (carregamento antecipado do `.env`) e `playwright`/`requests` para os robôs de emissão de CND.
 
 ### Endpoints principais
 
@@ -160,6 +160,10 @@ A rota `/api/cnds/emitir` utiliza o script `backend/cnds_worker_anapolis.py` par
 | `API_KEY_2CAPTCHA`   | Chave de API utilizada quando `CAPTCHA_MODE=image_2captcha`. |
 
 > Em ambientes Windows, o módulo ajusta a `event_loop_policy` automaticamente para compatibilidade com Playwright. Garanta também que as dependências de sistema do Chromium estejam instaladas (veja a [documentação oficial](https://playwright.dev/python/docs/intro)).
+
+### Automação de CND (Megasoft)
+
+Municípios que utilizam portais Megasoft também são atendidos pela mesma rota `/api/cnds/emitir`, que delega o fluxo ao worker `backend/cnds_worker_megasoft.py`. O arquivo `backend/megasoft_map.json` contém a lista de municípios suportados, com `municipio`, `base_url` do portal e, opcionalmente, um `slug` usado para nomear o PDF. Ajuste ou adicione entradas conforme necessário; o carregamento é feito uma única vez por processo via `_load_megasoft_map()` em `backend/routes_cnds.py`. Independentemente do worker, os PDFs ficam dentro de `CND_DIR_BASE` (padrão `certidoes/`) e podem ser servidos diretamente em `/cnds/<CNPJ>/<arquivo.pdf>`.
 
 ### Diagnóstico rápido
 
@@ -201,6 +205,7 @@ VITE_API_URL=http://localhost:8000/api
 ```
 
 O script `npm run dev` inicia o Vite com `--open`. Ajuste `VITE_API_URL` conforme a URL de produção ou túnel.
+Sem essa variável, o helper `normalizeApiBase` cai para `/api`, funcionando em conjunto com o proxy definido em `frontend/vite.config.js`.
 
 Para gerar build de produção:
 
