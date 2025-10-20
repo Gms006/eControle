@@ -171,20 +171,79 @@ async def _emitir_cnd_megasoft_impl(
                 await cnpj_input.fill(cnpj_digits)
                 await cnpj_input.press("Enter")
 
-                print("[MEGASOFT] 🖱️ Clicando em 'GERAR CERTIDÃO'...")
+                print("[MEGASOFT] ⏳ Aguardando resposta do portal...")
                 botao = page.locator("button.btn.btn-mega:has-text(\"GERAR CERTIDÃO\")")
-                await botao.wait_for(state="visible", timeout=20000)
-                
+                botao_task = asyncio.create_task(
+                    botao.wait_for(state="visible", timeout=20000)
+                )
+                toast_task = asyncio.create_task(
+                    _wait_for_toast_message(page, timeout=10000)
+                )
+
+                done, pending = await asyncio.wait(
+                    {botao_task, toast_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                    timeout=25,
+                )
+
+                if not done:
+                    print("[MEGASOFT] ⏰ Timeout: nenhuma resposta do portal após enviar o CNPJ")
+                    for task in (botao_task, toast_task):
+                        task.cancel()
+                    await asyncio.gather(botao_task, toast_task, return_exceptions=True)
+                    return {
+                        "ok": False,
+                        "info": "⏰ TIMEOUT - O servidor não respondeu dentro do tempo esperado. Tente novamente.",
+                        "path": None,
+                        "url": None,
+                    }
+
+                if toast_task in done:
+                    mensagem = await toast_task
+                    for task in pending:
+                        task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
+
+                    if mensagem:
+                        erro_formatado = _classify_error_message(mensagem)
+                        print(f"[MEGASOFT] ❌ Erro identificado: {erro_formatado}")
+                        return {
+                            "ok": False,
+                            "info": erro_formatado,
+                            "path": None,
+                            "url": None,
+                        }
+
+                    print("[MEGASOFT] ⚠️ Toast vazio detectado")
+                    return {
+                        "ok": False,
+                        "info": "⚠️ ERRO INDEFINIDO - O servidor retornou uma resposta inesperada.",
+                        "path": None,
+                        "url": None,
+                    }
+
+                # Botão ficou visível primeiro
+                await botao_task
+                for task in pending:
+                    task.cancel()
+                await asyncio.gather(*pending, return_exceptions=True)
+
+                if not toast_task.done():
+                    toast_task.cancel()
+                await asyncio.gather(toast_task, return_exceptions=True)
+
+                print("[MEGASOFT] 🖱️ Clicando em 'GERAR CERTIDÃO'...")
+
                 # Inicia monitoramento de toast ANTES do clique
                 toast_task = asyncio.create_task(_wait_for_toast_message(page, timeout=10000))
-                
+
                 # Clica no botão
                 await botao.click()
-                
+
                 # Aguarda um curto período para toast aparecer (erros aparecem rápido)
                 print("[MEGASOFT] ⏱️ Aguardando resposta do servidor...")
                 await asyncio.sleep(1.5)
-                
+
                 # Verifica se toast já apareceu
                 if toast_task.done():
                     mensagem = await toast_task
