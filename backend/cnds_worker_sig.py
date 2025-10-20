@@ -231,11 +231,18 @@ async def _emitir_cnd_sig_impl(
                     except PlaywrightTimeoutError:
                         pass
 
-                    input_cnpj = page.locator('[id="63inputText"]')
-                    await page.wait_for_selector('body, .pd-app, md-content', timeout=timeout_ms)
-                    botao_pesquisar = page.locator('button[ng-click="vm.pesquisar()"]')
-                    botao_imprimir = page.locator('button[ng-click="vm.imprimir()"]')
+                    input_cnpj = page.locator('input[id$="inputText"][type="text"]').first
+                    if await input_cnpj.count() == 0:
+                        input_cnpj = page.locator(
+                            'xpath=//label[contains(normalize-space(.),"CPF/CNPJ")]/following::input[1]'
+                        )
 
+                    botao_pesquisar = page.locator('button[ng-click="vm.pesquisar()"]').first
+                    botao_imprimir = page.locator('button[ng-click^="vm.imprimir"]').first
+
+                    await page.wait_for_selector(
+                        'md-content, .pd-app, .ui-view, [ui-view]', timeout=timeout_ms
+                    )
                     try:
                         await input_cnpj.wait_for(state="visible", timeout=timeout_ms)
                         await input_cnpj.scroll_into_view_if_needed()
@@ -254,46 +261,50 @@ async def _emitir_cnd_sig_impl(
                     print("[SIG] 🔍 Clicando em 'Pesquisar'...")
                     await botao_pesquisar.click()
 
-                    mensagem_task = asyncio.create_task(_wait_for_message(page, timeout_ms))
+                    def _fmt_cnpj(n: str) -> str:
+                        n = "".join(ch for ch in n if ch.isdigit()).zfill(14)
+                        return f"{n[0:2]}.{n[2:5]}.{n[5:8]}/{n[8:12]}-{n[12:14]}"
+
+                    cnpj_masked = _fmt_cnpj(cnpj)
+
+                    banner_nenhum = page.locator(
+                        '.pd-grid-nenhum-registro span:has-text("Nenhum registro")'
+                    )
+                    grid_hit = page.locator(
+                        f'.ui-grid-canvas >> text="{cnpj_masked}"'
+                    )
+
                     try:
-                        await botao_imprimir.wait_for(state="attached", timeout=timeout_ms)
-                        await botao_imprimir.wait_for(state="visible", timeout=timeout_ms)
-                        await botao_imprimir.scroll_into_view_if_needed()
+                        await banner_nenhum.wait_for(state="visible", timeout=3000)
+                        info = "Nenhum registro — o SIG não retornou certidão para o CNPJ informado."
+                        print(f"[SIG] ⚠️ {info}")
+                        return {"ok": False, "info": info, "path": None, "url": None}
                     except PlaywrightTimeoutError:
-                        mensagem = None
-                        if mensagem_task.done():
-                            try:
-                                mensagem = mensagem_task.result()
-                            except Exception:
-                                mensagem = None
-                        else:
-                            mensagem = await _collect_messages(page)
-                        info = "Elementos SIG não encontrados (input/pesquisar/imprimir)."
-                        if mensagem:
-                            info = f"{info} Detalhes: {mensagem}"
+                        pass
+
+                    try:
+                        await grid_hit.wait_for(state="visible", timeout=timeout_ms)
+                        print(f"[SIG] ✅ CNPJ localizado na grade: {cnpj_masked}")
+                    except PlaywrightTimeoutError:
+                        linhas = await page.locator('.ui-grid-row').count()
+                        if linhas == 0 and await banner_nenhum.count() > 0:
+                            info = "Nenhum registro — o SIG não retornou certidão para o CNPJ informado."
+                            print(f"[SIG] ⚠️ {info}")
+                            return {"ok": False, "info": info, "path": None, "url": None}
+                        info = "Elementos SIG não retornaram resultado (nem grade com CNPJ, nem banner)."
                         print(f"[SIG] ❌ {info}")
                         return {"ok": False, "info": info, "path": None, "url": None}
-                    finally:
-                        if not mensagem_task.done():
-                            mensagem_task.cancel()
-                            await asyncio.gather(mensagem_task, return_exceptions=True)
 
-                    # Se houve mensagem após a pesquisa, tratar como erro
-                    if mensagem_task.done() and not mensagem_task.cancelled():
-                        try:
-                            mensagem = mensagem_task.result()
-                        except Exception:
-                            mensagem = None
-                        if mensagem:
-                            print(f"[SIG] ⚠️ Mensagem do portal: {mensagem}")
-                            return {
-                                "ok": False,
-                                "info": mensagem,
-                                "path": None,
-                                "url": None,
-                            }
+                    try:
+                        await botao_imprimir.wait_for(state="visible", timeout=timeout_ms)
+                    except PlaywrightTimeoutError:
+                        mensagens = await _collect_messages(page)
+                        info = "Elementos SIG não encontrados (input/pesquisar/imprimir)."
+                        if mensagens:
+                            info = f"{info} Detalhes: {mensagens}"
+                        print(f"[SIG] ❌ {info}")
+                        return {"ok": False, "info": info, "path": None, "url": None}
 
-                    # Garantir que o botão está habilitado
                     try:
                         is_disabled = await botao_imprimir.get_attribute("disabled")
                         if is_disabled:
@@ -312,17 +323,12 @@ async def _emitir_cnd_sig_impl(
                         page.wait_for_event("popup", timeout=popup_timeout)
                     )
 
+                    await botao_imprimir.scroll_into_view_if_needed()
                     try:
                         await botao_imprimir.click()
-                    except Exception as exc:
-                        if not popup_task.done():
-                            popup_task.cancel()
-                            await asyncio.gather(popup_task, return_exceptions=True)
-                        info = f"Falha ao acionar impressão: {exc}"
-                        print(f"[SIG] ❌ {info}")
-                        return {"ok": False, "info": info, "path": None, "url": None}
+                    except Exception:
+                        await botao_imprimir.click(force=True)
 
-                    jasper_page = None
                     try:
                         jasper_page = await popup_task
                     except PlaywrightTimeoutError:
@@ -348,7 +354,6 @@ async def _emitir_cnd_sig_impl(
                                 info = f"{info} Detalhes: {mensagem}"
                             print(f"[SIG] ❌ {info}")
                             return {"ok": False, "info": info, "path": None, "url": None}
-
                     try:
                         await jasper_page.wait_for_load_state("load", timeout=timeout_ms)
                     except PlaywrightTimeoutError:
