@@ -231,12 +231,14 @@ async def _emitir_cnd_sig_impl(
                     except PlaywrightTimeoutError:
                         pass
 
-                    input_cnpj = page.locator("#63inputText")
+                    input_cnpj = page.locator('[id="63inputText"]')
+                    await page.wait_for_selector('body, .pd-app, md-content', timeout=timeout_ms)
                     botao_pesquisar = page.locator('button[ng-click="vm.pesquisar()"]')
                     botao_imprimir = page.locator('button[ng-click="vm.imprimir()"]')
 
                     try:
                         await input_cnpj.wait_for(state="visible", timeout=timeout_ms)
+                        await input_cnpj.scroll_into_view_if_needed()
                         await botao_pesquisar.wait_for(state="visible", timeout=timeout_ms)
                     except PlaywrightTimeoutError:
                         mensagens = await _collect_messages(page)
@@ -256,6 +258,7 @@ async def _emitir_cnd_sig_impl(
                     try:
                         await botao_imprimir.wait_for(state="attached", timeout=timeout_ms)
                         await botao_imprimir.wait_for(state="visible", timeout=timeout_ms)
+                        await botao_imprimir.scroll_into_view_if_needed()
                     except PlaywrightTimeoutError:
                         mensagem = None
                         if mensagem_task.done():
