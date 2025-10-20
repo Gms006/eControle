@@ -137,13 +137,9 @@ async def emitir_cnd_sig(
 
 
 def _should_run_in_dedicated_loop() -> bool:
-    if not sys.platform.startswith("win"):
-        return False
-    try:
-        loop = asyncio.get_running_loop()
-    except RuntimeError:
-        return False
-    return loop.__class__.__name__ == "WindowsSelectorEventLoop"
+    # No Windows, o Playwright lança o Chromium via subprocess.
+    # Para evitar NotImplementedError em loops Selector, SEMPRE use um loop Proactor dedicado.
+    return sys.platform.startswith("win")
 
 
 async def _run_in_dedicated_loop(**kwargs) -> Dict:
@@ -400,6 +396,19 @@ async def _emitir_cnd_sig_impl(
         info = f"Timeout ao acessar o portal SIG: {exc}"
         print(f"[SIG] ⏰ {info}")
         return {"ok": False, "info": info, "path": None, "url": None}
+    except NotImplementedError:
+        # Fallback extra: se por algum motivo chegamos aqui, força execução no loop dedicado.
+        if not _should_run_in_dedicated_loop() and sys.platform.startswith("win"):
+            return await _run_in_dedicated_loop(
+                cnpj=cnpj,
+                base_url=base_url,
+                cidade=cidade,
+                download_dir=download_dir,
+                headless=headless,
+                chrome_path=chrome_path,
+                timeout_ms=timeout_ms,
+            )
+        raise
     except Exception as exc:
         info = f"Erro inesperado no fluxo SIG: {exc}"
         print(f"[SIG] ❌ {info}")
