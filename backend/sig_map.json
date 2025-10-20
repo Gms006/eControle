@@ -1,0 +1,8 @@
+[
+  {"municipio": "Carmo do Rio Verde", "slug": "carmorioverde", "base_url": "https://carmorioverde.prodataweb.inf.br/sig/app.html#/servicosonline/debito-contribuinte"},
+  {"municipio": "Catalão", "slug": "catalao", "base_url": "https://sig.catalao.go.gov.br/sig/app.html#/servicosonline/debito-contribuinte"},
+  {"municipio": "Ceres", "slug": "ceres", "base_url": "http://177.10.239.123:8080/sig/app.html#/servicosonline/debito-contribuinte"},
+  {"municipio": "Goianésia", "slug": "goianesia", "base_url": "https://aplicacoes.goianesia.go.gov.br/sig/app.html#/servicosonline/debito-contribuinte"},
+  {"municipio": "Niquelândia", "slug": "niquelandia", "base_url": "https://niquelandia.prodataweb.inf.br/sig/app.html#/servicosonline/debito-contribuinte"},
+  {"municipio": "Pirenópolis", "slug": "pirenopolis", "base_url": "https://pirenopolis.prodataweb.inf.br/sig/app.html#/servicosonline/debito-contribuinte"}
+]
