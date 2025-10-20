@@ -1,5 +1,6 @@
 import asyncio
 import re
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
@@ -111,6 +112,70 @@ async def emitir_cnd_sig(
     headless: bool = True,
     chrome_path: Optional[str] = None,
     timeout_ms: int = 30000,
+) -> Dict:
+    if _should_run_in_dedicated_loop():
+        kwargs = {
+            "cnpj": cnpj,
+            "base_url": base_url,
+            "cidade": cidade,
+            "download_dir": download_dir,
+            "headless": headless,
+            "chrome_path": chrome_path,
+            "timeout_ms": timeout_ms,
+        }
+        return await _run_in_dedicated_loop(**kwargs)
+
+    return await _emitir_cnd_sig_impl(
+        cnpj=cnpj,
+        base_url=base_url,
+        cidade=cidade,
+        download_dir=download_dir,
+        headless=headless,
+        chrome_path=chrome_path,
+        timeout_ms=timeout_ms,
+    )
+
+
+def _should_run_in_dedicated_loop() -> bool:
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return False
+    return loop.__class__.__name__ == "WindowsSelectorEventLoop"
+
+
+async def _run_in_dedicated_loop(**kwargs) -> Dict:
+    def runner() -> Dict:
+        try:
+            from asyncio import windows_events  # type: ignore
+
+            loop = windows_events.ProactorEventLoop()
+            try:
+                asyncio.set_event_loop(loop)
+                return loop.run_until_complete(_emitir_cnd_sig_impl(**kwargs))
+            finally:
+                loop.close()
+        except ImportError:
+            return asyncio.run(_emitir_cnd_sig_impl(**kwargs))
+
+    if hasattr(asyncio, "to_thread"):
+        return await asyncio.to_thread(runner)
+
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, runner)
+
+
+async def _emitir_cnd_sig_impl(
+    *,
+    cnpj: str,
+    base_url: str,
+    cidade: str,
+    download_dir: Path,
+    headless: bool,
+    chrome_path: Optional[str],
+    timeout_ms: int,
 ) -> Dict:
     cnpj_digits = _only_digits(cnpj)
     if len(cnpj_digits) != 14:
