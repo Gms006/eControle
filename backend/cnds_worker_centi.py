@@ -13,6 +13,7 @@ from playwright.async_api import (
     async_playwright,
 )
 
+
 def _should_run_in_dedicated_loop() -> bool:
     """Determina se devemos usar um loop Proactor dedicado (Windows/Selector)."""
     if not sys.platform.startswith("win"):
@@ -22,6 +23,7 @@ def _should_run_in_dedicated_loop() -> bool:
         return loop.__class__.__name__.lower().startswith("selector")
     except RuntimeError:
         return True
+
 
 def _run_in_dedicated_event_loop(coro):
     """Executa a coroutine em uma thread com policy Proactor no Windows."""
@@ -54,6 +56,7 @@ def _run_in_dedicated_event_loop(coro):
         raise result_container["exc"]
     return result_container["result"]
 
+
 def _only_digits(value: str) -> str:
     return re.sub(r"\D+", "", value or "")
 
@@ -65,6 +68,7 @@ def _mask_cnpj(value: str) -> str:
     return (
         f"{digits[0:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:14]}"
     )
+
 
 def _slug_from_base_url(base_url: str, fallback: str) -> str:
     hostname = ""
@@ -85,12 +89,23 @@ def _slug_from_base_url(base_url: str, fallback: str) -> str:
     slug = normalized.replace(" ", "")
     return slug or "municipio"
 
+
 def _build_filename(slug: str) -> str:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     return f"{timestamp}_CND_Municipal_{slug}.pdf"
 
+
 def _static_url(cnpj: str, filename: str) -> str:
     return f"/cnds/{cnpj}/{filename}"
+
+
+def _is_valid_pdf(data: bytes) -> bool:
+    """Valida se os bytes representam um PDF válido."""
+    if not data or len(data) < 5:
+        return False
+    # Verifica magic bytes do PDF
+    return data[:4] == b'%PDF' or data[:5] == b'%PDF-'
+
 
 async def _collect_messages(page) -> List[str]:
     selectors = [
@@ -117,7 +132,66 @@ async def _collect_messages(page) -> List[str]:
             continue
     return messages
 
+
 async def _fetch_blob(page, blob_url: str) -> Optional[bytes]:
+    """FIX: Extração de blob melhorada com múltiplas estratégias"""
+    # Estratégia 1: Usar CDP (Chrome DevTools Protocol) se disponível
+    try:
+        cdp = await page.context.new_cdp_session(page)
+        result = await cdp.send("Network.loadNetworkResource", {
+            "url": blob_url,
+            "frameId": page.main_frame.name or "",
+        })
+        if result and "resource" in result:
+            import base64
+            content = result["resource"].get("content", "")
+            if content:
+                pdf_bytes = base64.b64decode(content)
+                print(f"[CENTI] 🔧 Blob extraído via CDP ({len(pdf_bytes)} bytes)")
+                return pdf_bytes
+    except Exception as exc:
+        print(f"[CENTI] ⚠️ CDP não disponível: {exc}")
+
+    # Estratégia 2: Fetch via JavaScript (método original melhorado)
+    try:
+        # Usa base64 para transferência mais confiável
+        data = await page.evaluate(
+            """
+            async blobUrl => {
+                try {
+                    const response = await fetch(blobUrl);
+                    if (!response.ok) {
+                        console.error('Fetch failed:', response.status);
+                        return null;
+                    }
+                    const blob = await response.blob();
+                    return new Promise((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            // Remove o prefixo "data:application/pdf;base64,"
+                            const base64 = reader.result.split(',')[1];
+                            resolve(base64);
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (error) {
+                    console.error('Blob fetch error:', error);
+                    return null;
+                }
+            }
+            """,
+            blob_url,
+        )
+        if data:
+            import base64
+            pdf_bytes = base64.b64decode(data)
+            print(f"[CENTI] 🔧 Blob extraído via JS base64 ({len(pdf_bytes)} bytes)")
+            return pdf_bytes
+    except Exception as exc:
+        print(f"[CENTI] ⚠️ JS base64 falhou: {exc}")
+
+    # Estratégia 3: Array conversion (original, como fallback)
     try:
         data = await page.evaluate(
             """
@@ -130,10 +204,14 @@ async def _fetch_blob(page, blob_url: str) -> Optional[bytes]:
             blob_url,
         )
         if isinstance(data, list) and data:
-            return bytes(data)
-    except Exception:
-        return None
+            pdf_bytes = bytes(data)
+            print(f"[CENTI] 🔧 Blob extraído via Array ({len(pdf_bytes)} bytes)")
+            return pdf_bytes
+    except Exception as exc:
+        print(f"[CENTI] ⚠️ Array conversion falhou: {exc}")
+    
     return None
+
 
 def _ensure_absolute(url: str, base: str) -> str:
     if not url:
@@ -142,11 +220,22 @@ def _ensure_absolute(url: str, base: str) -> str:
         return url
     return urljoin(base, url)
 
+
 async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
     try:
         await page.wait_for_load_state("domcontentloaded", timeout=timeout_ms)
     except PlaywrightTimeoutError:
         pass
+
+    # FIX: Se a URL da página JÁ É um blob, tenta extrair diretamente primeiro
+    if page.url.startswith("blob:"):
+        print(f"[CENTI] 🔍 Página popup é blob URL direta: {page.url}")
+        blob_bytes = await _fetch_blob(page, page.url)
+        if blob_bytes and _is_valid_pdf(blob_bytes):
+            print(f"[CENTI] ✅ PDF válido extraído de blob URL da página ({len(blob_bytes)} bytes)")
+            return blob_bytes
+        else:
+            print(f"[CENTI] ⚠️ Falha ao extrair blob da URL da página (bytes: {len(blob_bytes) if blob_bytes else 0})")
 
     try:
         await page.wait_for_load_state("networkidle", timeout=timeout_ms)
@@ -175,14 +264,18 @@ async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
             url = _ensure_absolute(attribute, page.url)
             if url.startswith("blob:"):
                 blob_bytes = await _fetch_blob(page, url)
-                if blob_bytes:
+                if blob_bytes and _is_valid_pdf(blob_bytes):
+                    print(f"[CENTI] ✅ PDF válido extraído de blob ({len(blob_bytes)} bytes)")
                     return blob_bytes
                 continue
             response = await page.request.get(url)
             if response.ok:
                 content_type = (response.headers.get("content-type") or "").lower()
                 if "application/pdf" in content_type:
-                    return await response.body()
+                    pdf_data = await response.body()
+                    if _is_valid_pdf(pdf_data):
+                        print(f"[CENTI] ✅ PDF válido extraído via request ({len(pdf_data)} bytes)")
+                        return pdf_data
         except PlaywrightTimeoutError:
             continue
         except Exception:
@@ -192,54 +285,6 @@ async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
         await page.wait_for_timeout(500)
     except Exception:
         pass
-    return None
-
-async def _extract_pdf_bytes_from_blob_page(p: "Page", *, timeout_ms: int = 4000) -> bytes | None:
-    """
-    Se a aba/popup renderiza um PDF via blob: (Chrome PDF Viewer),
-    captura os bytes do PDF a partir do src do <embed>/<iframe>/<object>.
-    Retorna bytes ou None.
-    """
-    try:
-        await p.wait_for_selector(
-            "embed[type='application/pdf'], iframe, object[type='application/pdf']",
-            timeout=timeout_ms,
-        )
-    except Exception:
-        return None
-
-    js = r"""
-    (async () => {
-      const el = document.querySelector("embed[type='application/pdf'], object[type='application/pdf']") 
-               || document.querySelector("iframe");
-      if (!el) return null;
-
-      const src = el.src || el.getAttribute('src') || el.getAttribute('data');
-      if (!src) return null;
-
-      if (!src.startsWith('blob:')) {
-        // não é blob; o caller tenta via request HTTP
-        return { kind: "nonblob", src };
-      }
-
-      const res = await fetch(src);
-      if (!res.ok) return null;
-      const buf = await res.arrayBuffer();
-      const arr = Array.from(new Uint8Array(buf));
-      return { kind: "blob", bytes: arr };
-    })();
-    """
-
-    try:
-        result = await p.evaluate(js)
-    except Exception:
-        return None
-
-    if not result:
-        return None
-    if result.get("kind") == "blob":
-        arr = result.get("bytes") or []
-        return bytes(arr)
     return None
 
 async def _emitir_cnd_centi_impl(
@@ -317,17 +362,24 @@ async def _emitir_cnd_centi_impl(
             pdf_future: asyncio.Future = loop.create_future()
             dialog_messages: List[str] = []
 
-            def handle_response(response):
+            async def handle_response(response):
+                """FIX: Captura bytes IMEDIATAMENTE para evitar corrupção"""
                 try:
-                    content_type = (
-                        response.headers.get("content-type") or ""
-                    ).lower()
+                    content_type = (response.headers.get("content-type") or "").lower()
+                    if "application/pdf" in content_type and not pdf_future.done():
+                        try:
+                            pdf_bytes = await response.body()
+                            if _is_valid_pdf(pdf_bytes):
+                                print(f"[CENTI] 📥 PDF capturado via response ({len(pdf_bytes)} bytes): {response.url}")
+                                pdf_future.set_result(pdf_bytes)
+                            else:
+                                print(f"[CENTI] ⚠️ Response PDF inválido de {response.url}")
+                        except Exception as exc:
+                            print(f"[CENTI] ⚠️ Erro ao capturar body da response: {exc}")
                 except Exception:
-                    content_type = ""
-                if "application/pdf" in content_type and not pdf_future.done():
-                    pdf_future.set_result(response)
+                    pass
 
-            context.on("response", handle_response)
+            context.on("response", lambda r: asyncio.create_task(handle_response(r)))
 
             async def handle_dialog(dialog):
                 message = (dialog.message or "").strip()
@@ -341,8 +393,7 @@ async def _emitir_cnd_centi_impl(
             page.on("dialog", lambda dialog: asyncio.create_task(handle_dialog(dialog)))
 
             download_task: Optional[asyncio.Task] = None
-            popup_task_ctx: Optional[asyncio.Task] = None
-            popup_task_page: Optional[asyncio.Task] = None
+            popup_task: Optional[asyncio.Task] = None
 
             try:
                 try:
@@ -385,10 +436,15 @@ async def _emitir_cnd_centi_impl(
                     }
 
                 print("[CENTI] ⌨️ Preenchendo CNPJ (somente dígitos; máscara automática do portal)…")
+                # Foco e limpeza
                 await input_cnpj.click()
                 await input_cnpj.press("Control+A")
                 await input_cnpj.press("Delete")
+
+                # Digita APENAS dígitos; o portal aplica a máscara sozinho
                 await input_cnpj.type(cnpj_digits, delay=50)
+
+                # Dispara validações reativas e segue em frente (não precisamos aguardar botão)
                 try:
                     await page.dispatch_event("#cpfcnpjcontribuinte", "input")
                     await page.dispatch_event("#cpfcnpjcontribuinte", "change")
@@ -417,83 +473,20 @@ async def _emitir_cnd_centi_impl(
                         },
                     }
 
-                # Snapshot das páginas existentes (vamos comparar depois do clique)
-                existing_pages = set(context.pages)
-
+                print("[CENTI] 🖱️ Acionando emissão...")
+                
+                # Criar os listeners IMEDIATAMENTE ANTES do clique
                 download_task = asyncio.create_task(
                     page.wait_for_event("download", timeout=timeout_ms)
                 )
-                # Escutar abertura por duas vias: popup (page-level) e nova page (context-level)
                 popup_task_ctx = asyncio.create_task(
                     context.wait_for_event("page", timeout=timeout_ms)
                 )
                 popup_task_page = asyncio.create_task(
                     page.wait_for_event("popup", timeout=timeout_ms)
                 )
-
-                print("[CENTI] 🖱️ Acionando emissão...")
+                
                 await button.click()
-
-                self_page_bytes = await _extract_pdf_from_popup(page, timeout_ms=1500)
-                if not self_page_bytes:
-                    self_page_bytes = await _extract_pdf_bytes_from_blob_page(
-                        page, timeout_ms=2000
-                    )
-
-                if self_page_bytes:
-                    try:
-                        destino.write_bytes(self_page_bytes)
-                        print(f"[CENTI] ✅ Certidão salva via bytes (aba atual): {destino}")
-                        return {
-                            "ok": True,
-                            "portal": "Centi",
-                            "municipio": municipio,
-                            "cnpj": cnpj_digits,
-                            "file_path": str(destino),
-                            "public_url": public_url,
-                            "message": "Certidão emitida com sucesso.",
-                            "details": {
-                                "slug": slug,
-                                "base_url": base_url,
-                                "dialog_messages": dialog_messages,
-                            },
-                        }
-                    except Exception as exc:
-                        print(f"[CENTI] ❌ Falha ao salvar bytes (aba atual): {exc}")
-
-                new_pages = [p for p in context.pages if p not in existing_pages]
-                for np in new_pages:
-                    try:
-                        popup_bytes_now = await _extract_pdf_from_popup(
-                            np, timeout_ms=2000
-                        )
-                        if not popup_bytes_now:
-                            popup_bytes_now = await _extract_pdf_bytes_from_blob_page(
-                                np, timeout_ms=3000
-                            )
-                        if popup_bytes_now:
-                            destino.write_bytes(popup_bytes_now)
-                            print(
-                                f"[CENTI] ✅ Certidão salva via bytes (aba nova encontrada): {destino}"
-                            )
-                            return {
-                                "ok": True,
-                                "portal": "Centi",
-                                "municipio": municipio,
-                                "cnpj": cnpj_digits,
-                                "file_path": str(destino),
-                                "public_url": public_url,
-                                "message": "Certidão emitida com sucesso.",
-                                "details": {
-                                    "slug": slug,
-                                    "base_url": base_url,
-                                    "dialog_messages": dialog_messages,
-                                },
-                            }
-                    except Exception as exc:
-                        print(
-                            f"[CENTI] ⚠️ Falha ao extrair PDF da aba nova imediatamente: {exc}"
-                        )
 
                 pdf_bytes: Optional[bytes] = None
                 download_obj = None
@@ -535,28 +528,16 @@ async def _emitir_cnd_centi_impl(
 
                         if pdf_future in done:
                             try:
-                                response = pdf_future.result()
-                                url_resp = response.url
-                                ct = (response.headers.get("content-type") or "").lower()
-
-                                if url_resp.startswith("blob:"):
-                                    print(f"[CENTI] ⚠️ Ignorando response blob: {url_resp}")
-                                else:
-                                    if "application/pdf" in ct:
-                                        pdf_bytes = await response.body()
-                                        print(
-                                            f"[CENTI] 📥 PDF capturado via response HTTP: {url_resp}"
-                                        )
-                                        for t in (download_task, popup_task_ctx, popup_task_page):
-                                            if t and not t.done():
-                                                t.cancel()
-                                        break
-                                    else:
-                                        print(
-                                            f"[CENTI] ⚠️ Response sem content-type PDF: {url_resp} ({ct})"
-                                        )
+                                # FIX: pdf_future agora contém bytes diretos, não response
+                                pdf_bytes = pdf_future.result()
+                                print(f"[CENTI] ✅ PDF validado e pronto ({len(pdf_bytes)} bytes)")
+                                # Cancela outras tasks para encerrar
+                                for t in (download_task, popup_task_ctx, popup_task_page):
+                                    if t and not t.done():
+                                        t.cancel()
+                                break
                             except Exception as exc:
-                                print(f"[CENTI] ⚠️ Falha ao obter PDF da response: {exc}")
+                                print(f"[CENTI] ⚠️ Falha ao processar PDF: {exc}")
                                 continue
 
                         if download_task in done:
@@ -572,25 +553,17 @@ async def _emitir_cnd_centi_impl(
                         if popup_task_ctx in done:
                             popup_page_ctx = popup_task_ctx.result()
                             popup_handled = True
-                            print(
-                                f"[CENTI] 🪟 Nova aba detectada (context.page): {popup_page_ctx.url}"
-                            )
+                            print(f"[CENTI] 🪟 Nova aba detectada (context.page): {popup_page_ctx.url}")
                             try:
                                 popup_bytes = await _extract_pdf_from_popup(
-                                    popup_page_ctx, timeout_ms=int(remaining * 1000)
+                                    popup_page_ctx, timeout_ms=10000
                                 )
-                                if not popup_bytes:
-                                    popup_bytes = await _extract_pdf_bytes_from_blob_page(
-                                        popup_page_ctx, timeout_ms=3000
-                                    )
-
                                 if popup_bytes:
                                     pdf_bytes = popup_bytes
                                     print("[CENTI] 📥 PDF extraído da nova aba (context.page)")
-                                    for t in (download_task, popup_task_ctx, popup_task_page):
-                                        if t and not t.done():
-                                            t.cancel()
                                     break
+                                else:
+                                    print("[CENTI] ⚠️ Nenhum PDF encontrado na nova aba (context.page)")
                             except Exception as exc:
                                 popup_error = str(exc)
                                 print(f"[CENTI] ⚠️ Falha ao extrair PDF (context.page): {exc}")
@@ -602,25 +575,17 @@ async def _emitir_cnd_centi_impl(
                         if popup_task_page in done:
                             popup_page_pop = popup_task_page.result()
                             popup_handled = True
-                            print(
-                                f"[CENTI] 🪟 Nova aba detectada (page.popup): {popup_page_pop.url}"
-                            )
+                            print(f"[CENTI] 🪟 Nova aba detectada (page.popup): {popup_page_pop.url}")
                             try:
                                 popup_bytes = await _extract_pdf_from_popup(
-                                    popup_page_pop, timeout_ms=int(remaining * 1000)
+                                    popup_page_pop, timeout_ms=10000
                                 )
-                                if not popup_bytes:
-                                    popup_bytes = await _extract_pdf_bytes_from_blob_page(
-                                        popup_page_pop, timeout_ms=3000
-                                    )
-
                                 if popup_bytes:
                                     pdf_bytes = popup_bytes
                                     print("[CENTI] 📥 PDF extraído da popup (page.popup)")
-                                    for t in (download_task, popup_task_ctx, popup_task_page):
-                                        if t and not t.done():
-                                            t.cancel()
                                     break
+                                else:
+                                    print("[CENTI] ⚠️ Nenhum PDF encontrado na popup (page.popup)")
                             except Exception as exc:
                                 popup_error = str(exc)
                                 print(f"[CENTI] ⚠️ Falha ao extrair PDF (page.popup): {exc}")
@@ -642,28 +607,35 @@ async def _emitir_cnd_centi_impl(
                 if download_obj:
                     try:
                         await download_obj.save_as(destino)
-                        print(f"[CENTI] ✅ Certidão salva via download: {destino}")
-                        return {
-                            "ok": True,
-                            "portal": "Centi",
-                            "municipio": municipio,
-                            "cnpj": cnpj_digits,
-                            "file_path": str(destino),
-                            "public_url": public_url,
-                            "message": "Certidão emitida com sucesso.",
-                            "details": {
-                                "slug": slug,
-                                "base_url": base_url,
-                                "dialog_messages": dialog_messages,
-                            },
-                        }
+                        # FIX: Valida PDF após salvar
+                        if destino.exists():
+                            saved_bytes = destino.read_bytes()
+                            if _is_valid_pdf(saved_bytes):
+                                print(f"[CENTI] ✅ Certidão salva via download ({len(saved_bytes)} bytes): {destino}")
+                                return {
+                                    "ok": True,
+                                    "portal": "Centi",
+                                    "municipio": municipio,
+                                    "cnpj": cnpj_digits,
+                                    "file_path": str(destino),
+                                    "public_url": public_url,
+                                    "message": "Certidão emitida com sucesso.",
+                                    "details": {
+                                        "slug": slug,
+                                        "base_url": base_url,
+                                        "dialog_messages": dialog_messages,
+                                    },
+                                }
+                            else:
+                                print(f"[CENTI] ❌ PDF inválido salvo via download")
+                                destino.unlink()  # Remove arquivo corrompido
                     except Exception as exc:
                         print(f"[CENTI] ❌ Falha ao salvar download: {exc}")
 
                 if pdf_bytes:
                     try:
                         destino.write_bytes(pdf_bytes)
-                        print(f"[CENTI] ✅ Certidão salva via bytes: {destino}")
+                        print(f"[CENTI] ✅ Certidão salva via bytes ({len(pdf_bytes)} bytes): {destino}")
                         return {
                             "ok": True,
                             "portal": "Centi",
@@ -714,7 +686,7 @@ async def _emitir_cnd_centi_impl(
                 }
             finally:
                 try:
-                    context.off("response", handle_response)
+                    context.off("response", lambda r: asyncio.create_task(handle_response(r)))
                 except Exception:
                     pass
                 await context.close()
@@ -741,6 +713,7 @@ async def _emitir_cnd_centi_impl(
             "message": f"Erro inesperado no portal Centi: {exc}",
             "details": {"slug": slug, "base_url": base_url},
         }
+
 
 def emitir_cnd_centi(
     cnpj: str,
