@@ -282,4 +282,3 @@ async def cnds_list(cnpj: str):
         )
 
     return itens
-
