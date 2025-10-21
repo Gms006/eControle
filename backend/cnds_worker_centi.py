@@ -3,6 +3,7 @@ import re
 import sys
 from datetime import datetime
 from pathlib import Path
+from threading import Thread
 from typing import Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
@@ -10,6 +11,49 @@ from playwright.async_api import (
     TimeoutError as PlaywrightTimeoutError,
     async_playwright,
 )
+
+
+def _should_run_in_dedicated_loop() -> bool:
+    """Determina se devemos usar um loop Proactor dedicado (Windows/Selector)."""
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        loop = asyncio.get_running_loop()
+        return loop.__class__.__name__.lower().startswith("selector")
+    except RuntimeError:
+        return True
+
+
+def _run_in_dedicated_event_loop(coro):
+    """Executa a coroutine em uma thread com policy Proactor no Windows."""
+    result_container = {"exc": None, "result": None}
+
+    def _worker():
+        if sys.platform.startswith("win") and hasattr(
+            asyncio, "WindowsProactorEventLoopPolicy"
+        ):
+            asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+        else:
+            asyncio.set_event_loop_policy(asyncio.DefaultEventLoopPolicy())
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result_container["result"] = loop.run_until_complete(coro)
+        except BaseException as exc:  # noqa: BLE001
+            result_container["exc"] = exc
+        finally:
+            try:
+                loop.run_until_complete(loop.shutdown_asyncgens())
+            except Exception:
+                pass
+            loop.close()
+
+    thread = Thread(target=_worker, daemon=True)
+    thread.start()
+    thread.join()
+    if result_container["exc"]:
+        raise result_container["exc"]
+    return result_container["result"]
 
 
 def _only_digits(value: str) -> str:
@@ -52,13 +96,6 @@ def _build_filename(slug: str) -> str:
 
 def _static_url(cnpj: str, filename: str) -> str:
     return f"/cnds/{cnpj}/{filename}"
-
-
-async def _to_thread(func, *args, **kwargs):
-    if hasattr(asyncio, "to_thread"):
-        return await asyncio.to_thread(func, *args, **kwargs)
-    loop = asyncio.get_running_loop()
-    return await loop.run_in_executor(None, lambda: func(*args, **kwargs))
 
 
 async def _collect_messages(page) -> List[str]:
@@ -168,17 +205,52 @@ async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
 
 
 async def _emitir_cnd_centi_impl(
-    *,
-    cnpj_digits: str,
+    cnpj: str,
     base_url: str,
     municipio: str,
-    slug: str,
-    destino: Path,
-    public_url: str,
-    headless: bool,
-    chrome_path: Optional[str],
-    timeout_ms: int,
+    download_dir: str,
+    *,
+    headless: bool = True,
+    chrome_path: Optional[str] = None,
+    timeout_ms: int = 30000,
 ) -> Dict[str, object]:
+    cnpj_digits = _only_digits(cnpj)
+    if len(cnpj_digits) != 14:
+        return {
+            "ok": False,
+            "portal": "Centi",
+            "municipio": municipio,
+            "cnpj": cnpj_digits,
+            "file_path": None,
+            "public_url": None,
+            "message": "CNPJ inválido (14 dígitos).",
+            "details": {"slug": None, "base_url": base_url},
+        }
+
+    if not base_url:
+        return {
+            "ok": False,
+            "portal": "Centi",
+            "municipio": municipio,
+            "cnpj": cnpj_digits,
+            "file_path": None,
+            "public_url": None,
+            "message": "URL do portal Centi não configurada.",
+            "details": {"slug": None, "base_url": base_url},
+        }
+
+    download_path = Path(download_dir)
+    slug = _slug_from_base_url(base_url, municipio)
+    filename = _build_filename(slug)
+    destino_dir = download_path / cnpj_digits
+    destino_dir.mkdir(parents=True, exist_ok=True)
+    destino = destino_dir / filename
+    public_url = _static_url(cnpj_digits, filename)
+
+    print(f"[CENTI] 🚀 Iniciando emissão para {municipio} ({slug})")
+    print(f"[CENTI] 🔗 URL base: {base_url}")
+    print(f"[CENTI] 📋 CNPJ: {cnpj_digits}")
+
     timeout_seconds = max(timeout_ms, 1000) / 1000
     loop = asyncio.get_running_loop()
 
@@ -510,49 +582,7 @@ async def _emitir_cnd_centi_impl(
         }
 
 
-def _run_in_dedicated_event_loop(
-    *,
-    cnpj_digits: str,
-    base_url: str,
-    municipio: str,
-    slug: str,
-    destino: Path,
-    public_url: str,
-    headless: bool,
-    chrome_path: Optional[str],
-    timeout_ms: int,
-) -> Dict[str, object]:
-    if sys.platform.startswith("win") and hasattr(asyncio, "WindowsProactorEventLoopPolicy"):
-        policy = asyncio.WindowsProactorEventLoopPolicy()
-    else:
-        policy = asyncio.DefaultEventLoopPolicy()
-
-    loop = policy.new_event_loop()
-    try:
-        asyncio.set_event_loop(loop)
-        return loop.run_until_complete(
-            _emitir_cnd_centi_impl(
-                cnpj_digits=cnpj_digits,
-                base_url=base_url,
-                municipio=municipio,
-                slug=slug,
-                destino=destino,
-                public_url=public_url,
-                headless=headless,
-                chrome_path=chrome_path,
-                timeout_ms=timeout_ms,
-            )
-        )
-    finally:
-        try:
-            loop.run_until_complete(loop.shutdown_asyncgens())
-        except Exception:
-            pass
-        asyncio.set_event_loop(None)
-        loop.close()
-
-
-async def emitir_cnd_centi(
+def emitir_cnd_centi(
     cnpj: str,
     base_url: str,
     municipio: str,
@@ -562,92 +592,22 @@ async def emitir_cnd_centi(
     chrome_path: Optional[str] = None,
     timeout_ms: int = 30000,
 ) -> Dict[str, object]:
-    cnpj_digits = _only_digits(cnpj)
-    if len(cnpj_digits) != 14:
-        return {
-            "ok": False,
-            "portal": "Centi",
-            "municipio": municipio,
-            "cnpj": cnpj_digits,
-            "file_path": None,
-            "public_url": None,
-            "message": "CNPJ inválido (14 dígitos).",
-            "details": {"slug": None, "base_url": base_url},
-        }
+    coro = _emitir_cnd_centi_impl(
+        cnpj=cnpj,
+        base_url=base_url,
+        municipio=municipio,
+        download_dir=download_dir,
+        headless=headless,
+        chrome_path=chrome_path,
+        timeout_ms=timeout_ms,
+    )
 
-    if not base_url:
-        return {
-            "ok": False,
-            "portal": "Centi",
-            "municipio": municipio,
-            "cnpj": cnpj_digits,
-            "file_path": None,
-            "public_url": None,
-            "message": "URL do portal Centi não configurada.",
-            "details": {"slug": None, "base_url": base_url},
-        }
-
-    download_path = Path(download_dir)
-    slug = _slug_from_base_url(base_url, municipio)
-    filename = _build_filename(slug)
-    destino_dir = download_path / cnpj_digits
-    destino_dir.mkdir(parents=True, exist_ok=True)
-    destino = destino_dir / filename
-    public_url = _static_url(cnpj_digits, filename)
-
-    print(f"[CENTI] 🚀 Iniciando emissão para {municipio} ({slug})")
-    print(f"[CENTI] 🔗 URL base: {base_url}")
-    print(f"[CENTI] 📋 CNPJ: {cnpj_digits}")
-
-    async def _run_direct():
-        return await _emitir_cnd_centi_impl(
-            cnpj_digits=cnpj_digits,
-            base_url=base_url,
-            municipio=municipio,
-            slug=slug,
-            destino=destino,
-            public_url=public_url,
-            headless=headless,
-            chrome_path=chrome_path,
-            timeout_ms=timeout_ms,
-        )
-
-    should_use_thread = False
-    if sys.platform.startswith("win"):
-        try:
-            running_loop = asyncio.get_running_loop()
-            should_use_thread = running_loop.__class__.__name__.lower().startswith("selector")
-        except RuntimeError:
-            should_use_thread = True
-
-    if should_use_thread:
-        return await _to_thread(
-            _run_in_dedicated_event_loop,
-            cnpj_digits=cnpj_digits,
-            base_url=base_url,
-            municipio=municipio,
-            slug=slug,
-            destino=destino,
-            public_url=public_url,
-            headless=headless,
-            chrome_path=chrome_path,
-            timeout_ms=timeout_ms,
-        )
+    if _should_run_in_dedicated_loop():
+        return _run_in_dedicated_event_loop(coro)
 
     try:
-        return await _run_direct()
-    except NotImplementedError:
-        if sys.platform.startswith("win"):
-            return await _to_thread(
-                _run_in_dedicated_event_loop,
-                cnpj_digits=cnpj_digits,
-                base_url=base_url,
-                municipio=municipio,
-                slug=slug,
-                destino=destino,
-                public_url=public_url,
-                headless=headless,
-                chrome_path=chrome_path,
-                timeout_ms=timeout_ms,
-            )
-        raise
+        loop = asyncio.get_running_loop()
+    except RuntimeError:
+        return asyncio.run(coro)
+
+    return loop.run_until_complete(coro)

@@ -1,3 +1,4 @@
+import asyncio
 import json
 import os
 import re
@@ -194,15 +195,22 @@ async def cnds_emitir(ped: EmitirPedido):
                 break
 
     if centi_info:
-        result = await emitir_cnd_centi(
-            cnpj=cnpj,
-            base_url=centi_info["base_url"],
-            municipio=centi_info["municipio"],
-            download_dir=CND_DIR_BASE,
-            headless=CND_HEADLESS,
-            chrome_path=CND_CHROME_PATH,
-            timeout_ms=30000,
-        )
+        kwargs = {
+            "cnpj": cnpj,
+            "base_url": centi_info["base_url"],
+            "municipio": centi_info["municipio"],
+            "download_dir": str(CND_DIR_BASE),
+            "headless": CND_HEADLESS,
+            "chrome_path": CND_CHROME_PATH,
+            "timeout_ms": 30000,
+        }
+        if hasattr(asyncio, "to_thread"):
+            result = await asyncio.to_thread(emitir_cnd_centi, **kwargs)
+        else:
+            loop = asyncio.get_running_loop()
+            result = await loop.run_in_executor(
+                None, lambda: emitir_cnd_centi(**kwargs)
+            )
         message = result.get("message") or (
             "Certidão emitida com sucesso." if result.get("ok") else "Não foi possível emitir a CND."
         )
@@ -274,4 +282,3 @@ async def cnds_list(cnpj: str):
         )
 
     return itens
-
