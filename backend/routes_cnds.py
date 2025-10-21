@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from cnds_worker_anapolis import emitir_cnd_anapolis
+from cnds_worker_centi import emitir_cnd_centi
 from cnds_worker_megasoft import emitir_cnd_megasoft
 from cnds_worker_sig import emitir_cnd_sig
 
@@ -59,6 +60,7 @@ def _ensure_https(url: str) -> str:
 
 MEGASOFT_MAP_PATH = Path(__file__).parent / "megasoft_map.json"
 SIG_MAP_PATH = Path(__file__).parent / "sig_map.json"
+CENTI_MAP_PATH = Path(__file__).parent / "centi_map.json"
 CND_DIR_BASE = Path(os.getenv("CND_DIR_BASE", "certidoes"))
 CND_HEADLESS = (os.getenv("CND_HEADLESS", "true").strip().lower() in {"1", "true", "yes", "on"})
 CND_CHROME_PATH = os.getenv("CND_CHROME_PATH") or None
@@ -119,6 +121,33 @@ def _load_sig_map() -> Dict[str, Dict[str, str]]:
     return mapping
 
 
+@lru_cache()
+def _load_centi_map() -> Dict[str, Dict[str, str]]:
+    if not CENTI_MAP_PATH.exists():
+        return {}
+    try:
+        entries = json.loads(CENTI_MAP_PATH.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+
+    mapping: Dict[str, Dict[str, str]] = {}
+    for item in entries:
+        municipio = item.get("municipio", "")
+        base_url = _ensure_https(item.get("base_url", ""))
+        slug = (item.get("slug") or "").strip()
+        if not municipio or not base_url:
+            continue
+        normalized = _normalize_text(municipio)
+        if not normalized:
+            continue
+        mapping[normalized] = {
+            "municipio": municipio,
+            "base_url": base_url,
+            "slug": slug,
+        }
+    return mapping
+
+
 @router.post("/cnds/emitir")
 async def cnds_emitir(ped: EmitirPedido):
     municipio_raw = ped.municipio or ""
@@ -154,6 +183,34 @@ async def cnds_emitir(ped: EmitirPedido):
             "info": result.get("info"),
             "path": result.get("path"),
             "url": result.get("url"),
+        }
+
+    centi_map = _load_centi_map()
+    centi_info: Optional[Dict[str, str]] = centi_map.get(municipio_norm)
+    if not centi_info:
+        for key, data in centi_map.items():
+            if key in municipio_norm or municipio_norm in key:
+                centi_info = data
+                break
+
+    if centi_info:
+        result = await emitir_cnd_centi(
+            cnpj=cnpj,
+            base_url=centi_info["base_url"],
+            municipio=centi_info["municipio"],
+            download_dir=CND_DIR_BASE,
+            headless=CND_HEADLESS,
+            chrome_path=CND_CHROME_PATH,
+            timeout_ms=30000,
+        )
+        message = result.get("message") or (
+            "Certidão emitida com sucesso." if result.get("ok") else "Não foi possível emitir a CND."
+        )
+        return {
+            "ok": result.get("ok", False),
+            "info": message,
+            "path": result.get("file_path"),
+            "url": result.get("public_url"),
         }
 
     sig_map = _load_sig_map()

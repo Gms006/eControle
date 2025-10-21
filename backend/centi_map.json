@@ -1,0 +1,17 @@
+[
+  {
+    "municipio": "Mozarlândia",
+    "slug": "mozarlandia",
+    "base_url": "https://mozarlandia.centi.com.br/servicos/certidaonegativa"
+  },
+  {
+    "municipio": "Rialma",
+    "slug": "rialma",
+    "base_url": "https://rialma.centi.com.br/servicos/certidaonegativa"
+  },
+  {
+    "municipio": "Trindade",
+    "slug": "trindade",
+    "base_url": "https://trindade.centi.com.br/servicos/certidaonegativa"
+  }
+]
