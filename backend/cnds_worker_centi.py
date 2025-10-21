@@ -345,10 +345,46 @@ async def _emitir_cnd_centi_impl(
                         },
                     }
 
-                cnpj_masked = _mask_cnpj(cnpj_digits)
-                print(f"[CENTI] ⌨️ Preenchendo CNPJ mascarado: {cnpj_masked}")
-                await input_cnpj.fill("")
-                await input_cnpj.fill(cnpj_masked)
+                print("[CENTI] ⌨️ Preenchendo CNPJ (digitando com máscara do portal)…")
+
+                await input_cnpj.click()
+                await input_cnpj.press("Control+A")
+                await input_cnpj.press("Delete")
+                await page.wait_for_timeout(100)
+
+                await input_cnpj.type(cnpj_digits, delay=60)
+
+                try:
+                    await page.dispatch_event("#cpfcnpjcontribuinte", "input")
+                    await page.dispatch_event("#cpfcnpjcontribuinte", "change")
+                except Exception:
+                    pass
+                await input_cnpj.blur()
+                await page.wait_for_timeout(120)
+
+                try:
+                    typed_val = (await input_cnpj.input_value()).strip()
+                    if len(typed_val) < 18:
+                        print(
+                            f"[CENTI] ⚠️ Máscara incompleta ('{typed_val}'), tentando novamente…"
+                        )
+                        await input_cnpj.click()
+                        await input_cnpj.press("Control+A")
+                        await input_cnpj.press("Delete")
+                        await page.wait_for_timeout(100)
+                        await input_cnpj.type(cnpj_digits, delay=80)
+                        await page.dispatch_event("#cpfcnpjcontribuinte", "input")
+                        await page.dispatch_event("#cpfcnpjcontribuinte", "change")
+                        await input_cnpj.blur()
+                        await page.wait_for_timeout(120)
+                except Exception:
+                    pass
+
+                try:
+                    select_tipo = page.locator("select").first
+                    await select_tipo.select_option(value="contribuinte")
+                except Exception:
+                    pass
 
                 button = page.locator(
                     "input[type='submit'][value='Emitir'].btn.btn-primary"
@@ -377,6 +413,11 @@ async def _emitir_cnd_centi_impl(
                 popup_task = asyncio.create_task(
                     context.wait_for_event("page", timeout=timeout_ms)
                 )
+
+                try:
+                    await page.wait_for_timeout(200)
+                except Exception:
+                    pass
 
                 print("[CENTI] 🖱️ Acionando emissão...")
                 await button.click()
