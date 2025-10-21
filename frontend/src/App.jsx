@@ -520,7 +520,11 @@ function AppContent() {
             <SelectTrigger>
               <SelectValue placeholder="Todos" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent
+              position="popper"
+              className="max-h-80 overflow-y-auto overscroll-contain"
+              onWheel={(e) => e.stopPropagation()}
+            >
               <SelectItem value={MUNICIPIO_ALL}>Todos</SelectItem>
               {sanitizedMunicipios.map((item) => (
                 <SelectItem key={item} value={item}>

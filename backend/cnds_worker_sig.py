@@ -426,4 +426,3 @@ async def _emitir_cnd_sig_impl(
         info = f"Erro inesperado no fluxo SIG: {exc}"
         print(f"[SIG] ❌ {info}")
         return {"ok": False, "info": info, "path": None, "url": None}
-
