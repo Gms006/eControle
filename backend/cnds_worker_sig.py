@@ -231,11 +231,16 @@ async def _emitir_cnd_sig_impl(
                     except PlaywrightTimeoutError:
                         pass
 
-                    input_cnpj = page.locator('input[id$="inputText"][type="text"]').first
+                    label_cnpj = page.locator('label:has-text("CNPJ")').first
+                    container_cnpj = label_cnpj.locator(
+                        'xpath=ancestor::*[self::md-input-container or self::div][1]'
+                    )
+                    input_cnpj = container_cnpj.locator('input[type="text"]').first
                     if await input_cnpj.count() == 0:
                         input_cnpj = page.locator(
-                            'xpath=//label[contains(normalize-space(.),"CPF/CNPJ")]/following::input[1]'
-                        )
+                            'md-input-container:has(label:has-text("CPF")) input[type="text"], '
+                            'div:has(> label:has-text("CPF")) input[type="text"]'
+                        ).first
 
                     botao_pesquisar = page.locator('button[ng-click="vm.pesquisar()"]').first
                     botao_imprimir = page.locator('button[ng-click^="vm.imprimir"]').first
@@ -421,4 +426,3 @@ async def _emitir_cnd_sig_impl(
         info = f"Erro inesperado no fluxo SIG: {exc}"
         print(f"[SIG] ❌ {info}")
         return {"ok": False, "info": info, "path": None, "url": None}
-
