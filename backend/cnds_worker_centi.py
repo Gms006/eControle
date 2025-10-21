@@ -194,6 +194,54 @@ async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
         pass
     return None
 
+async def _extract_pdf_bytes_from_blob_page(p: "Page", *, timeout_ms: int = 4000) -> bytes | None:
+    """
+    Se a aba/popup renderiza um PDF via blob: (Chrome PDF Viewer),
+    captura os bytes do PDF a partir do src do <embed>/<iframe>/<object>.
+    Retorna bytes ou None.
+    """
+    try:
+        await p.wait_for_selector(
+            "embed[type='application/pdf'], iframe, object[type='application/pdf']",
+            timeout=timeout_ms,
+        )
+    except Exception:
+        return None
+
+    js = r"""
+    (async () => {
+      const el = document.querySelector("embed[type='application/pdf'], object[type='application/pdf']") 
+               || document.querySelector("iframe");
+      if (!el) return null;
+
+      const src = el.src || el.getAttribute('src') || el.getAttribute('data');
+      if (!src) return null;
+
+      if (!src.startsWith('blob:')) {
+        // não é blob; o caller tenta via request HTTP
+        return { kind: "nonblob", src };
+      }
+
+      const res = await fetch(src);
+      if (!res.ok) return null;
+      const buf = await res.arrayBuffer();
+      const arr = Array.from(new Uint8Array(buf));
+      return { kind: "blob", bytes: arr };
+    })();
+    """
+
+    try:
+        result = await p.evaluate(js)
+    except Exception:
+        return None
+
+    if not result:
+        return None
+    if result.get("kind") == "blob":
+        arr = result.get("bytes") or []
+        return bytes(arr)
+    return None
+
 async def _emitir_cnd_centi_impl(
     cnpj: str,
     base_url: str,
@@ -293,7 +341,8 @@ async def _emitir_cnd_centi_impl(
             page.on("dialog", lambda dialog: asyncio.create_task(handle_dialog(dialog)))
 
             download_task: Optional[asyncio.Task] = None
-            popup_task: Optional[asyncio.Task] = None
+            popup_task_ctx: Optional[asyncio.Task] = None
+            popup_task_page: Optional[asyncio.Task] = None
 
             try:
                 try:
@@ -336,15 +385,10 @@ async def _emitir_cnd_centi_impl(
                     }
 
                 print("[CENTI] ⌨️ Preenchendo CNPJ (somente dígitos; máscara automática do portal)…")
-                # Foco e limpeza
                 await input_cnpj.click()
                 await input_cnpj.press("Control+A")
                 await input_cnpj.press("Delete")
-
-                # Digita APENAS dígitos; o portal aplica a máscara sozinho
                 await input_cnpj.type(cnpj_digits, delay=50)
-
-                # Dispara validações reativas e segue em frente (não precisamos aguardar botão)
                 try:
                     await page.dispatch_event("#cpfcnpjcontribuinte", "input")
                     await page.dispatch_event("#cpfcnpjcontribuinte", "change")
@@ -373,20 +417,83 @@ async def _emitir_cnd_centi_impl(
                         },
                     }
 
-                print("[CENTI] 🖱️ Acionando emissão...")
-                
-                # Criar os listeners IMEDIATAMENTE ANTES do clique
+                # Snapshot das páginas existentes (vamos comparar depois do clique)
+                existing_pages = set(context.pages)
+
                 download_task = asyncio.create_task(
                     page.wait_for_event("download", timeout=timeout_ms)
                 )
+                # Escutar abertura por duas vias: popup (page-level) e nova page (context-level)
                 popup_task_ctx = asyncio.create_task(
                     context.wait_for_event("page", timeout=timeout_ms)
                 )
                 popup_task_page = asyncio.create_task(
                     page.wait_for_event("popup", timeout=timeout_ms)
                 )
-                
+
+                print("[CENTI] 🖱️ Acionando emissão...")
                 await button.click()
+
+                self_page_bytes = await _extract_pdf_from_popup(page, timeout_ms=1500)
+                if not self_page_bytes:
+                    self_page_bytes = await _extract_pdf_bytes_from_blob_page(
+                        page, timeout_ms=2000
+                    )
+
+                if self_page_bytes:
+                    try:
+                        destino.write_bytes(self_page_bytes)
+                        print(f"[CENTI] ✅ Certidão salva via bytes (aba atual): {destino}")
+                        return {
+                            "ok": True,
+                            "portal": "Centi",
+                            "municipio": municipio,
+                            "cnpj": cnpj_digits,
+                            "file_path": str(destino),
+                            "public_url": public_url,
+                            "message": "Certidão emitida com sucesso.",
+                            "details": {
+                                "slug": slug,
+                                "base_url": base_url,
+                                "dialog_messages": dialog_messages,
+                            },
+                        }
+                    except Exception as exc:
+                        print(f"[CENTI] ❌ Falha ao salvar bytes (aba atual): {exc}")
+
+                new_pages = [p for p in context.pages if p not in existing_pages]
+                for np in new_pages:
+                    try:
+                        popup_bytes_now = await _extract_pdf_from_popup(
+                            np, timeout_ms=2000
+                        )
+                        if not popup_bytes_now:
+                            popup_bytes_now = await _extract_pdf_bytes_from_blob_page(
+                                np, timeout_ms=3000
+                            )
+                        if popup_bytes_now:
+                            destino.write_bytes(popup_bytes_now)
+                            print(
+                                f"[CENTI] ✅ Certidão salva via bytes (aba nova encontrada): {destino}"
+                            )
+                            return {
+                                "ok": True,
+                                "portal": "Centi",
+                                "municipio": municipio,
+                                "cnpj": cnpj_digits,
+                                "file_path": str(destino),
+                                "public_url": public_url,
+                                "message": "Certidão emitida com sucesso.",
+                                "details": {
+                                    "slug": slug,
+                                    "base_url": base_url,
+                                    "dialog_messages": dialog_messages,
+                                },
+                            }
+                    except Exception as exc:
+                        print(
+                            f"[CENTI] ⚠️ Falha ao extrair PDF da aba nova imediatamente: {exc}"
+                        )
 
                 pdf_bytes: Optional[bytes] = None
                 download_obj = None
@@ -429,13 +536,25 @@ async def _emitir_cnd_centi_impl(
                         if pdf_future in done:
                             try:
                                 response = pdf_future.result()
-                                pdf_bytes = await response.body()
-                                print(f"[CENTI] 📥 PDF capturado via response: {response.url}")
-                                # Cancela quaisquer outras esperas pendentes para evitar CancelledError na faxina
-                                for t in (download_task, popup_task_ctx, popup_task_page):
-                                    if t and not t.done():
-                                        t.cancel()
-                                break
+                                url_resp = response.url
+                                ct = (response.headers.get("content-type") or "").lower()
+
+                                if url_resp.startswith("blob:"):
+                                    print(f"[CENTI] ⚠️ Ignorando response blob: {url_resp}")
+                                else:
+                                    if "application/pdf" in ct:
+                                        pdf_bytes = await response.body()
+                                        print(
+                                            f"[CENTI] 📥 PDF capturado via response HTTP: {url_resp}"
+                                        )
+                                        for t in (download_task, popup_task_ctx, popup_task_page):
+                                            if t and not t.done():
+                                                t.cancel()
+                                        break
+                                    else:
+                                        print(
+                                            f"[CENTI] ⚠️ Response sem content-type PDF: {url_resp} ({ct})"
+                                        )
                             except Exception as exc:
                                 print(f"[CENTI] ⚠️ Falha ao obter PDF da response: {exc}")
                                 continue
@@ -453,18 +572,25 @@ async def _emitir_cnd_centi_impl(
                         if popup_task_ctx in done:
                             popup_page_ctx = popup_task_ctx.result()
                             popup_handled = True
-                            print(f"[CENTI] 🪟 Nova aba detectada (context.page): {popup_page_ctx.url}")
+                            print(
+                                f"[CENTI] 🪟 Nova aba detectada (context.page): {popup_page_ctx.url}"
+                            )
                             try:
-                                # Usar timeout maior e fixo para extração do PDF
                                 popup_bytes = await _extract_pdf_from_popup(
-                                    popup_page_ctx, timeout_ms=10000
+                                    popup_page_ctx, timeout_ms=int(remaining * 1000)
                                 )
+                                if not popup_bytes:
+                                    popup_bytes = await _extract_pdf_bytes_from_blob_page(
+                                        popup_page_ctx, timeout_ms=3000
+                                    )
+
                                 if popup_bytes:
                                     pdf_bytes = popup_bytes
                                     print("[CENTI] 📥 PDF extraído da nova aba (context.page)")
+                                    for t in (download_task, popup_task_ctx, popup_task_page):
+                                        if t and not t.done():
+                                            t.cancel()
                                     break
-                                else:
-                                    print("[CENTI] ⚠️ Nenhum PDF encontrado na nova aba (context.page)")
                             except Exception as exc:
                                 popup_error = str(exc)
                                 print(f"[CENTI] ⚠️ Falha ao extrair PDF (context.page): {exc}")
@@ -476,18 +602,25 @@ async def _emitir_cnd_centi_impl(
                         if popup_task_page in done:
                             popup_page_pop = popup_task_page.result()
                             popup_handled = True
-                            print(f"[CENTI] 🪟 Nova aba detectada (page.popup): {popup_page_pop.url}")
+                            print(
+                                f"[CENTI] 🪟 Nova aba detectada (page.popup): {popup_page_pop.url}"
+                            )
                             try:
-                                # Usar timeout maior e fixo para extração do PDF
                                 popup_bytes = await _extract_pdf_from_popup(
-                                    popup_page_pop, timeout_ms=10000
+                                    popup_page_pop, timeout_ms=int(remaining * 1000)
                                 )
+                                if not popup_bytes:
+                                    popup_bytes = await _extract_pdf_bytes_from_blob_page(
+                                        popup_page_pop, timeout_ms=3000
+                                    )
+
                                 if popup_bytes:
                                     pdf_bytes = popup_bytes
                                     print("[CENTI] 📥 PDF extraído da popup (page.popup)")
+                                    for t in (download_task, popup_task_ctx, popup_task_page):
+                                        if t and not t.done():
+                                            t.cancel()
                                     break
-                                else:
-                                    print("[CENTI] ⚠️ Nenhum PDF encontrado na popup (page.popup)")
                             except Exception as exc:
                                 popup_error = str(exc)
                                 print(f"[CENTI] ⚠️ Falha ao extrair PDF (page.popup): {exc}")
@@ -501,7 +634,6 @@ async def _emitir_cnd_centi_impl(
                     for task in (download_task, popup_task_ctx, popup_task_page):
                         if task and not task.done():
                             task.cancel()
-                            # CancelledError pode borbulhar — suprimir aqui evita derrubar a requisição ASGI
                             with contextlib.suppress(asyncio.CancelledError, Exception):
                                 await task
                     if not pdf_future.done():
