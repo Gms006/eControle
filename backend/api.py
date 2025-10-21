@@ -47,7 +47,7 @@ from services import (
     contar_processos_empresa, calcular_kpis_globais,
 )
 from routes_certificados import router as certificados_router
-from routes_cnds import router as cnds_router
+from cnds.routes import router as cnds_router
 
 # ----------------------------------------------------------------------------
 # Config
