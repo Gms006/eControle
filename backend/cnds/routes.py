@@ -10,10 +10,10 @@ from typing import Dict, Optional
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from cnds_worker_anapolis import emitir_cnd_anapolis
-from cnds_worker_centi import emitir_cnd_centi
-from cnds_worker_megasoft import emitir_cnd_megasoft
-from cnds_worker_sig import emitir_cnd_sig
+from .cnds_worker_anapolis import emitir_cnd_anapolis
+from .cnds_worker_centi import emitir_cnd_centi
+from .cnds_worker_megasoft import emitir_cnd_megasoft
+from .cnds_worker_sig import emitir_cnd_sig
 
 router = APIRouter(tags=["cnds"])
 
