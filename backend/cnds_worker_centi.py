@@ -1,6 +1,7 @@
 import asyncio
 import re
 import sys
+import contextlib
 from datetime import datetime
 from pathlib import Path
 from threading import Thread
@@ -12,7 +13,6 @@ from playwright.async_api import (
     async_playwright,
 )
 
-
 def _should_run_in_dedicated_loop() -> bool:
     """Determina se devemos usar um loop Proactor dedicado (Windows/Selector)."""
     if not sys.platform.startswith("win"):
@@ -22,7 +22,6 @@ def _should_run_in_dedicated_loop() -> bool:
         return loop.__class__.__name__.lower().startswith("selector")
     except RuntimeError:
         return True
-
 
 def _run_in_dedicated_event_loop(coro):
     """Executa a coroutine em uma thread com policy Proactor no Windows."""
@@ -55,7 +54,6 @@ def _run_in_dedicated_event_loop(coro):
         raise result_container["exc"]
     return result_container["result"]
 
-
 def _only_digits(value: str) -> str:
     return re.sub(r"\D+", "", value or "")
 
@@ -67,7 +65,6 @@ def _mask_cnpj(value: str) -> str:
     return (
         f"{digits[0:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:14]}"
     )
-
 
 def _slug_from_base_url(base_url: str, fallback: str) -> str:
     hostname = ""
@@ -88,15 +85,12 @@ def _slug_from_base_url(base_url: str, fallback: str) -> str:
     slug = normalized.replace(" ", "")
     return slug or "municipio"
 
-
 def _build_filename(slug: str) -> str:
     timestamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
     return f"{timestamp}_CND_Municipal_{slug}.pdf"
 
-
 def _static_url(cnpj: str, filename: str) -> str:
     return f"/cnds/{cnpj}/{filename}"
-
 
 async def _collect_messages(page) -> List[str]:
     selectors = [
@@ -123,7 +117,6 @@ async def _collect_messages(page) -> List[str]:
             continue
     return messages
 
-
 async def _fetch_blob(page, blob_url: str) -> Optional[bytes]:
     try:
         data = await page.evaluate(
@@ -142,14 +135,12 @@ async def _fetch_blob(page, blob_url: str) -> Optional[bytes]:
         return None
     return None
 
-
 def _ensure_absolute(url: str, base: str) -> str:
     if not url:
         return url
     if url.startswith(("http://", "https://", "blob:", "data:")):
         return url
     return urljoin(base, url)
-
 
 async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
     try:
@@ -202,7 +193,6 @@ async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
     except Exception:
         pass
     return None
-
 
 async def _emitir_cnd_centi_impl(
     cnpj: str,
@@ -345,46 +335,22 @@ async def _emitir_cnd_centi_impl(
                         },
                     }
 
-                print("[CENTI] ⌨️ Preenchendo CNPJ (digitando com máscara do portal)…")
-
+                print("[CENTI] ⌨️ Preenchendo CNPJ (somente dígitos; máscara automática do portal)…")
+                # Foco e limpeza
                 await input_cnpj.click()
                 await input_cnpj.press("Control+A")
                 await input_cnpj.press("Delete")
-                await page.wait_for_timeout(100)
 
-                await input_cnpj.type(cnpj_digits, delay=60)
+                # Digita APENAS dígitos; o portal aplica a máscara sozinho
+                await input_cnpj.type(cnpj_digits, delay=50)
 
+                # Dispara validações reativas e segue em frente (não precisamos aguardar botão)
                 try:
                     await page.dispatch_event("#cpfcnpjcontribuinte", "input")
                     await page.dispatch_event("#cpfcnpjcontribuinte", "change")
                 except Exception:
                     pass
                 await input_cnpj.blur()
-                await page.wait_for_timeout(120)
-
-                try:
-                    typed_val = (await input_cnpj.input_value()).strip()
-                    if len(typed_val) < 18:
-                        print(
-                            f"[CENTI] ⚠️ Máscara incompleta ('{typed_val}'), tentando novamente…"
-                        )
-                        await input_cnpj.click()
-                        await input_cnpj.press("Control+A")
-                        await input_cnpj.press("Delete")
-                        await page.wait_for_timeout(100)
-                        await input_cnpj.type(cnpj_digits, delay=80)
-                        await page.dispatch_event("#cpfcnpjcontribuinte", "input")
-                        await page.dispatch_event("#cpfcnpjcontribuinte", "change")
-                        await input_cnpj.blur()
-                        await page.wait_for_timeout(120)
-                except Exception:
-                    pass
-
-                try:
-                    select_tipo = page.locator("select").first
-                    await select_tipo.select_option(value="contribuinte")
-                except Exception:
-                    pass
 
                 button = page.locator(
                     "input[type='submit'][value='Emitir'].btn.btn-primary"
@@ -407,32 +373,20 @@ async def _emitir_cnd_centi_impl(
                         },
                     }
 
+                print("[CENTI] 🖱️ Acionando emissão...")
+                
+                # Criar os listeners IMEDIATAMENTE ANTES do clique
                 download_task = asyncio.create_task(
                     page.wait_for_event("download", timeout=timeout_ms)
                 )
-                popup_task = asyncio.create_task(
+                popup_task_ctx = asyncio.create_task(
                     context.wait_for_event("page", timeout=timeout_ms)
                 )
-
-                try:
-                    await page.wait_for_timeout(200)
-                except Exception:
-                    pass
-
-                print("[CENTI] 🖱️ Acionando emissão...")
+                popup_task_page = asyncio.create_task(
+                    page.wait_for_event("popup", timeout=timeout_ms)
+                )
+                
                 await button.click()
-
-                spinner = page.locator("div.spinner")
-                try:
-                    await spinner.wait_for(state="visible", timeout=5000)
-                    await spinner.wait_for(state="hidden", timeout=timeout_ms)
-                except PlaywrightTimeoutError:
-                    pass
-
-                try:
-                    await page.wait_for_load_state("networkidle", timeout=timeout_ms)
-                except PlaywrightTimeoutError:
-                    pass
 
                 pdf_bytes: Optional[bytes] = None
                 download_obj = None
@@ -445,6 +399,7 @@ async def _emitir_cnd_centi_impl(
                         elapsed = loop.time() - start_time
                         remaining = timeout_seconds - elapsed
                         if remaining <= 0:
+                            print("[CENTI] ⏰ Timeout atingido no loop de captura")
                             break
 
                         wait_set = []
@@ -452,10 +407,13 @@ async def _emitir_cnd_centi_impl(
                             wait_set.append(pdf_future)
                         if download_task and not download_task.done():
                             wait_set.append(download_task)
-                        if popup_task and not popup_task.done():
-                            wait_set.append(popup_task)
+                        if popup_task_ctx and not popup_task_ctx.done():
+                            wait_set.append(popup_task_ctx)
+                        if popup_task_page and not popup_task_page.done():
+                            wait_set.append(popup_task_page)
 
                         if not wait_set:
+                            print("[CENTI] 🔍 Nenhuma task pendente, encerrando loop")
                             break
 
                         done, _ = await asyncio.wait(
@@ -465,15 +423,18 @@ async def _emitir_cnd_centi_impl(
                         )
 
                         if not done:
+                            print("[CENTI] ⏰ Timeout no asyncio.wait")
                             break
 
                         if pdf_future in done:
                             try:
                                 response = pdf_future.result()
                                 pdf_bytes = await response.body()
-                                print(
-                                    f"[CENTI] 📥 PDF capturado via response: {response.url}"
-                                )
+                                print(f"[CENTI] 📥 PDF capturado via response: {response.url}")
+                                # Cancela quaisquer outras esperas pendentes para evitar CancelledError na faxina
+                                for t in (download_task, popup_task_ctx, popup_task_page):
+                                    if t and not t.done():
+                                        t.cancel()
                                 break
                             except Exception as exc:
                                 print(f"[CENTI] ⚠️ Falha ao obter PDF da response: {exc}")
@@ -489,33 +450,60 @@ async def _emitir_cnd_centi_impl(
                                 download_task = None
                                 continue
 
-                        if popup_task in done:
-                            popup_page = popup_task.result()
+                        if popup_task_ctx in done:
+                            popup_page_ctx = popup_task_ctx.result()
                             popup_handled = True
+                            print(f"[CENTI] 🪟 Nova aba detectada (context.page): {popup_page_ctx.url}")
                             try:
+                                # Usar timeout maior e fixo para extração do PDF
                                 popup_bytes = await _extract_pdf_from_popup(
-                                    popup_page, timeout_ms=int(remaining * 1000)
+                                    popup_page_ctx, timeout_ms=10000
                                 )
                                 if popup_bytes:
                                     pdf_bytes = popup_bytes
-                                    print("[CENTI] 📥 PDF extraído da popup")
+                                    print("[CENTI] 📥 PDF extraído da nova aba (context.page)")
                                     break
+                                else:
+                                    print("[CENTI] ⚠️ Nenhum PDF encontrado na nova aba (context.page)")
                             except Exception as exc:
                                 popup_error = str(exc)
-                                print(f"[CENTI] ⚠️ Falha ao extrair PDF da popup: {exc}")
+                                print(f"[CENTI] ⚠️ Falha ao extrair PDF (context.page): {exc}")
                             finally:
-                                popup_task = asyncio.create_task(
+                                popup_task_ctx = asyncio.create_task(
                                     context.wait_for_event("page", timeout=timeout_ms)
                                 )
+
+                        if popup_task_page in done:
+                            popup_page_pop = popup_task_page.result()
+                            popup_handled = True
+                            print(f"[CENTI] 🪟 Nova aba detectada (page.popup): {popup_page_pop.url}")
+                            try:
+                                # Usar timeout maior e fixo para extração do PDF
+                                popup_bytes = await _extract_pdf_from_popup(
+                                    popup_page_pop, timeout_ms=10000
+                                )
+                                if popup_bytes:
+                                    pdf_bytes = popup_bytes
+                                    print("[CENTI] 📥 PDF extraído da popup (page.popup)")
+                                    break
+                                else:
+                                    print("[CENTI] ⚠️ Nenhum PDF encontrado na popup (page.popup)")
+                            except Exception as exc:
+                                popup_error = str(exc)
+                                print(f"[CENTI] ⚠️ Falha ao extrair PDF (page.popup): {exc}")
+                            finally:
+                                popup_task_page = asyncio.create_task(
+                                    page.wait_for_event("popup", timeout=timeout_ms)
+                                )
+
                             continue
                 finally:
-                    for task in (download_task, popup_task):
+                    for task in (download_task, popup_task_ctx, popup_task_page):
                         if task and not task.done():
                             task.cancel()
-                            try:
+                            # CancelledError pode borbulhar — suprimir aqui evita derrubar a requisição ASGI
+                            with contextlib.suppress(asyncio.CancelledError, Exception):
                                 await task
-                            except Exception:
-                                pass
                     if not pdf_future.done():
                         pdf_future.cancel()
 
@@ -621,7 +609,6 @@ async def _emitir_cnd_centi_impl(
             "message": f"Erro inesperado no portal Centi: {exc}",
             "details": {"slug": slug, "base_url": base_url},
         }
-
 
 def emitir_cnd_centi(
     cnpj: str,
