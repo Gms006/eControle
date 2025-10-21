@@ -4,7 +4,7 @@ import sys
 from datetime import datetime
 from pathlib import Path
 from threading import Thread
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 from urllib.parse import urljoin, urlparse
 
 from playwright.async_api import (
@@ -124,9 +124,9 @@ async def _collect_messages(page) -> List[str]:
     return messages
 
 
-async def _fetch_blob(page_or_frame: Any, blob_url: str) -> Optional[bytes]:
+async def _fetch_blob(page, blob_url: str) -> Optional[bytes]:
     try:
-        data = await page_or_frame.evaluate(
+        data = await page.evaluate(
             """
             async blobUrl => {
                 const response = await fetch(blobUrl);
@@ -161,16 +161,6 @@ async def _extract_pdf_from_popup(page, *, timeout_ms: int) -> Optional[bytes]:
         await page.wait_for_load_state("networkidle", timeout=timeout_ms)
     except PlaywrightTimeoutError:
         pass
-
-    try:
-        current_url = page.url
-    except Exception:
-        current_url = ""
-
-    if current_url.startswith("blob:"):
-        blob_bytes = await _fetch_blob(page, current_url)
-        if blob_bytes:
-            return blob_bytes
 
     selectors = [
         "embed[src]",
@@ -288,9 +278,6 @@ async def _emitir_cnd_centi_impl(
 
             pdf_future: asyncio.Future = loop.create_future()
             dialog_messages: List[str] = []
-            blob_future_holder: Dict[str, asyncio.Future] = {
-                "future": loop.create_future()
-            }
 
             def handle_response(response):
                 try:
@@ -314,18 +301,6 @@ async def _emitir_cnd_centi_impl(
                     pass
 
             page.on("dialog", lambda dialog: asyncio.create_task(handle_dialog(dialog)))
-
-            def handle_frame_navigated(frame):
-                try:
-                    url = frame.url or ""
-                except Exception:
-                    url = ""
-                if url.startswith("blob:"):
-                    future = blob_future_holder["future"]
-                    if not future.done():
-                        future.set_result((frame, url))
-
-            page.on("framenavigated", handle_frame_navigated)
 
             download_task: Optional[asyncio.Task] = None
             popup_task: Optional[asyncio.Task] = None
@@ -370,16 +345,14 @@ async def _emitir_cnd_centi_impl(
                         },
                     }
 
-                print(
-                    "[CENTI] ⌨️ Preenchendo CNPJ (digitando dígitos para a máscara automática)…"
-                )
+                print("[CENTI] ⌨️ Preenchendo CNPJ (digitando com máscara do portal)…")
 
                 await input_cnpj.click()
                 await input_cnpj.press("Control+A")
                 await input_cnpj.press("Delete")
-                await page.wait_for_timeout(80)
+                await page.wait_for_timeout(100)
 
-                await input_cnpj.type(cnpj_digits, delay=40)
+                await input_cnpj.type(cnpj_digits, delay=60)
 
                 try:
                     await page.dispatch_event("#cpfcnpjcontribuinte", "input")
@@ -387,26 +360,23 @@ async def _emitir_cnd_centi_impl(
                 except Exception:
                     pass
                 await input_cnpj.blur()
-                await page.wait_for_timeout(100)
+                await page.wait_for_timeout(120)
 
                 try:
-                    typed_digits = _only_digits(await input_cnpj.input_value())
-                    if typed_digits != cnpj_digits:
+                    typed_val = (await input_cnpj.input_value()).strip()
+                    if len(typed_val) < 18:
                         print(
-                            "[CENTI] ⚠️ Valor digitado não corresponde ao CNPJ, reforçando digitação…"
+                            f"[CENTI] ⚠️ Máscara incompleta ('{typed_val}'), tentando novamente…"
                         )
                         await input_cnpj.click()
                         await input_cnpj.press("Control+A")
                         await input_cnpj.press("Delete")
-                        await page.wait_for_timeout(80)
-                        await input_cnpj.type(cnpj_digits, delay=35)
-                        try:
-                            await page.dispatch_event("#cpfcnpjcontribuinte", "input")
-                            await page.dispatch_event("#cpfcnpjcontribuinte", "change")
-                        except Exception:
-                            pass
-                        await input_cnpj.blur()
                         await page.wait_for_timeout(100)
+                        await input_cnpj.type(cnpj_digits, delay=80)
+                        await page.dispatch_event("#cpfcnpjcontribuinte", "input")
+                        await page.dispatch_event("#cpfcnpjcontribuinte", "change")
+                        await input_cnpj.blur()
+                        await page.wait_for_timeout(120)
                 except Exception:
                     pass
 
@@ -444,25 +414,23 @@ async def _emitir_cnd_centi_impl(
                     context.wait_for_event("page", timeout=timeout_ms)
                 )
 
+                try:
+                    await page.wait_for_timeout(200)
+                except Exception:
+                    pass
+
                 print("[CENTI] 🖱️ Acionando emissão...")
                 await button.click()
 
                 spinner = page.locator("div.spinner")
-                spinner_visible = False
                 try:
-                    await spinner.wait_for(state="visible", timeout=1500)
-                    spinner_visible = True
+                    await spinner.wait_for(state="visible", timeout=5000)
+                    await spinner.wait_for(state="hidden", timeout=timeout_ms)
                 except PlaywrightTimeoutError:
-                    spinner_visible = False
-
-                if spinner_visible:
-                    try:
-                        await spinner.wait_for(state="hidden", timeout=timeout_ms)
-                    except PlaywrightTimeoutError:
-                        pass
+                    pass
 
                 try:
-                    await page.wait_for_load_state("networkidle", timeout=5000)
+                    await page.wait_for_load_state("networkidle", timeout=timeout_ms)
                 except PlaywrightTimeoutError:
                     pass
 
@@ -482,9 +450,6 @@ async def _emitir_cnd_centi_impl(
                         wait_set = []
                         if not pdf_future.done():
                             wait_set.append(pdf_future)
-                        blob_future = blob_future_holder["future"]
-                        if blob_future and not blob_future.done():
-                            wait_set.append(blob_future)
                         if download_task and not download_task.done():
                             wait_set.append(download_task)
                         if popup_task and not popup_task.done():
@@ -513,38 +478,6 @@ async def _emitir_cnd_centi_impl(
                             except Exception as exc:
                                 print(f"[CENTI] ⚠️ Falha ao obter PDF da response: {exc}")
                                 continue
-
-                        if blob_future and blob_future in done:
-                            try:
-                                frame, blob_url = blob_future.result()
-                            except Exception as exc:
-                                print(f"[CENTI] ⚠️ Erro ao obter resultado do blob: {exc}")
-                                blob_future_holder["future"] = loop.create_future()
-                                blob_future = blob_future_holder["future"]
-                                continue
-
-                            try:
-                                blob_bytes = await _fetch_blob(frame, blob_url)
-                                if blob_bytes:
-                                    pdf_bytes = blob_bytes
-                                    print(
-                                        f"[CENTI] 📥 PDF capturado de navegação blob: {blob_url}"
-                                    )
-                                    break
-                                else:
-                                    print(
-                                        f"[CENTI] ⚠️ Blob não retornou bytes: {blob_url}"
-                                    )
-                            except Exception as exc:
-                                print(
-                                    f"[CENTI] ⚠️ Erro ao capturar PDF do blob ({blob_url}): {exc}"
-                                )
-                            finally:
-                                if not pdf_bytes:
-                                    blob_future_holder["future"] = loop.create_future()
-                                    blob_future = blob_future_holder["future"]
-                                else:
-                                    blob_future = None
 
                         if download_task in done:
                             try:
@@ -585,9 +518,6 @@ async def _emitir_cnd_centi_impl(
                                 pass
                     if not pdf_future.done():
                         pdf_future.cancel()
-                    blob_future = blob_future_holder["future"]
-                    if blob_future and not blob_future.done():
-                        blob_future.cancel()
 
                 if download_obj:
                     try:
@@ -665,10 +595,6 @@ async def _emitir_cnd_centi_impl(
             finally:
                 try:
                     context.off("response", handle_response)
-                except Exception:
-                    pass
-                try:
-                    page.off("framenavigated", handle_frame_navigated)
                 except Exception:
                     pass
                 await context.close()
