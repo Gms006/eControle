@@ -196,6 +196,18 @@ async def cnds_emitir(ped: EmitirPedido):
             "url": result.get("url"),
         }
 
+    # Cuiabá (MT)
+    if "cuiaba" in municipio_norm:
+        from backend.cnds.cnds_worker_cuiaba import emitir_cnd_cuiaba
+
+        return await emitir_cnd_cuiaba(
+            cnpj=cnpj,
+            download_dir=CND_DIR_BASE,
+            headless=CND_HEADLESS,
+            chrome_path=CND_CHROME_PATH,
+            timeout_ms=60000,
+        )
+
     if municipio_norm in {"belo horizonte", "bh"} or "belo horizonte" in municipio_norm:
         try:
             from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
