@@ -28,6 +28,22 @@ def only_digits(s: str) -> str:
     return re.sub(r"\D+", "", s or "")
 
 
+def _strip_accents(s: str) -> str:
+    return "".join(
+        ch for ch in unicodedata.normalize("NFD", s) if unicodedata.category(ch) != "Mn"
+    )
+
+
+def normalizar_municipio(nome: str) -> str:
+    if not nome:
+        return ""
+    s = _strip_accents(nome).lower().strip()
+    s = re.sub(r"\s*[-,/]\s*[a-z]{2}\s*$", "", s)
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s)
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
 def _normalize_text(value: str) -> str:
     if not value:
         return ""
@@ -153,7 +169,7 @@ def _load_centi_map() -> Dict[str, Dict[str, str]]:
 @router.post("/cnds/emitir")
 async def cnds_emitir(ped: EmitirPedido):
     municipio_raw = ped.municipio or ""
-    municipio_norm = _normalize_text(municipio_raw)
+    municipio_norm = normalizar_municipio(municipio_raw)
     if not municipio_norm:
         raise HTTPException(400, "Município é obrigatório.")
 
@@ -180,7 +196,7 @@ async def cnds_emitir(ped: EmitirPedido):
             "url": result.get("url"),
         }
 
-    if municipio_norm in {"belo horizonte", "bh"}:
+    if municipio_norm in {"belo horizonte", "bh"} or "belo horizonte" in municipio_norm:
         from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
 
         return await emitir_cnd_belo_horizonte(
