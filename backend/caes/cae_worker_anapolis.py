@@ -223,7 +223,6 @@ async def _fechar_popup_captcha_invalido(page: Page) -> bool:
 
     return False
 
-
 async def _abrir_menu_certidoes(
     page: Page, submenu_selector: str, tentativas: int = 3
 ) -> bool:
