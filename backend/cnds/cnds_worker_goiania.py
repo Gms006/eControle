@@ -6,6 +6,7 @@ import asyncio
 import base64
 import os
 import re
+import sys
 import time
 from datetime import datetime
 from pathlib import Path
@@ -173,36 +174,25 @@ async def _handle_captcha_if_needed(page, *, mode: str, api_key: str) -> None:
             pass
 
 
-async def emitir_cnd_goiania(
-    cnpj: str,
+async def _emitir_cnd_goiania_impl(
     *,
-    download_dir: Path,
-    headless: bool = True,
-    chrome_path: Optional[str] = None,
-    timeout_ms: int = 60000,
+    cnpj_digits: str,
+    filename: str,
+    out_path: Path,
+    headless: bool,
+    chrome_path: Optional[str],
+    timeout_ms: int,
+    require_captcha: bool,
+    captcha_mode: str,
+    captcha_api_key: str,
 ) -> dict:
-    """Emite a CND municipal de Goiânia."""
-
-    cnpj_digits = _only_digits(cnpj)
-    if len(cnpj_digits) != 14:
-        raise ValueError("CNPJ inválido (14 dígitos).")
-
-    base_dir = Path(download_dir)
-    target_dir = base_dir / cnpj_digits
-    _ensure_dir(target_dir)
-
-    filename = _build_filename()
-    out_path = target_dir / filename
-
-    require_captcha = _env_flag("CND_GOIANIA_REQUIRE_CAPTCHA", False)
-    captcha_mode = (os.getenv("CND_CAPTCHA_MODE") or "manual").strip().lower()
-    captcha_api_key = os.getenv("CND_2CAPTCHA_KEY", "").strip()
-
     try:
         async with async_playwright() as playwright:
             effective_headless = headless
             if not effective_headless:
-                print("[GOIÂNIA] Forçando execução em modo headless para permitir exportação em PDF.")
+                print(
+                    "[GOIÂNIA] Forçando execução em modo headless para permitir exportação em PDF."
+                )
                 effective_headless = True
 
             launch_args = {
@@ -218,14 +208,16 @@ async def emitir_cnd_goiania(
             if chrome_path:
                 launch_args["executable_path"] = chrome_path
 
-            browser = await playwright.chromium.launch(**launch_args)
-            context = await browser.new_context(
-                locale="pt-BR",
-                viewport={"width": 1280, "height": 900},
-            )
-            page = await context.new_page()
-
+            browser = None
+            context = None
             try:
+                browser = await playwright.chromium.launch(**launch_args)
+                context = await browser.new_context(
+                    locale="pt-BR",
+                    viewport={"width": 1280, "height": 900},
+                )
+                page = await context.new_page()
+
                 await page.goto(URL_BASE, wait_until="domcontentloaded", timeout=timeout_ms)
 
                 await page.wait_for_selector('select[name="sel_cpfcnpj"]', timeout=timeout_ms)
@@ -308,8 +300,10 @@ async def emitir_cnd_goiania(
                 }
 
             finally:
-                await context.close()
-                await browser.close()
+                if context is not None:
+                    await context.close()
+                if browser is not None:
+                    await browser.close()
 
     except PlaywrightTimeoutError:
         return {
@@ -318,8 +312,6 @@ async def emitir_cnd_goiania(
             "path": None,
             "url": None,
         }
-    except ValueError:
-        raise
     except Exception as exc:
         return {
             "ok": False,
@@ -327,3 +319,78 @@ async def emitir_cnd_goiania(
             "path": None,
             "url": None,
         }
+
+
+async def _run_in_proactor_thread(**kwargs) -> dict:
+    def runner() -> dict:
+        loop = None
+        try:
+            if sys.platform.startswith("win"):
+                policy_cls = getattr(asyncio, "WindowsProactorEventLoopPolicy", None)
+                if policy_cls is not None:
+                    asyncio.set_event_loop_policy(policy_cls())
+                try:
+                    from asyncio import windows_events  # type: ignore
+
+                    loop = windows_events.ProactorEventLoop()
+                except Exception:
+                    loop = asyncio.new_event_loop()
+            else:
+                loop = asyncio.new_event_loop()
+
+            asyncio.set_event_loop(loop)
+            return loop.run_until_complete(_emitir_cnd_goiania_impl(**kwargs))
+        finally:
+            try:
+                if loop is not None and not loop.is_closed():
+                    try:
+                        loop.run_until_complete(loop.shutdown_asyncgens())
+                    except Exception:
+                        pass
+                    loop.close()
+            finally:
+                asyncio.set_event_loop(None)
+
+    if hasattr(asyncio, "to_thread"):
+        return await asyncio.to_thread(runner)
+
+    running_loop = asyncio.get_running_loop()
+    return await running_loop.run_in_executor(None, runner)
+
+
+async def emitir_cnd_goiania(
+    cnpj: str,
+    *,
+    download_dir: Path,
+    headless: bool = True,
+    chrome_path: Optional[str] = None,
+    timeout_ms: int = 60000,
+) -> dict:
+    """Emite a CND municipal de Goiânia."""
+
+    cnpj_digits = _only_digits(cnpj)
+    if len(cnpj_digits) != 14:
+        raise ValueError("CNPJ inválido (14 dígitos).")
+
+    base_dir = Path(download_dir)
+    target_dir = base_dir / cnpj_digits
+    _ensure_dir(target_dir)
+
+    filename = _build_filename()
+    out_path = target_dir / filename
+
+    require_captcha = _env_flag("CND_GOIANIA_REQUIRE_CAPTCHA", False)
+    captcha_mode = (os.getenv("CND_CAPTCHA_MODE") or "manual").strip().lower()
+    captcha_api_key = os.getenv("CND_2CAPTCHA_KEY", "").strip()
+
+    return await _run_in_proactor_thread(
+        cnpj_digits=cnpj_digits,
+        filename=filename,
+        out_path=out_path,
+        headless=headless,
+        chrome_path=chrome_path,
+        timeout_ms=timeout_ms,
+        require_captcha=require_captcha,
+        captcha_mode=captcha_mode,
+        captcha_api_key=captcha_api_key,
+    )
