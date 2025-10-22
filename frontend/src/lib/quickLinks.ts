@@ -52,7 +52,7 @@ export async function openCNDAnapolis(
   }
   onToast?.("CNPJ copiado — abrindo Portal do Cidadão (Anápolis).");
   window.open(
-    "https://portaldocidadao.anapolis.go.gov.br/processos/",
+    "https://portaldocidadao.anapolis.go.gov.br/",
     "_blank",
     "noopener,noreferrer",
   );
@@ -74,7 +74,7 @@ export async function openCAEAnapolis(
   }
   onToast?.("IM copiada — abrindo Portal do Cidadão (Anápolis).");
   window.open(
-    "https://portaldocidadao.anapolis.go.gov.br/processos/",
+    "https://portaldocidadao.anapolis.go.gov.br/",
     "_blank",
     "noopener,noreferrer",
   );

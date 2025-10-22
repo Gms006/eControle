@@ -62,7 +62,7 @@ async def _abrir_portal(page) -> None:
         await page.wait_for_load_state("networkidle")
     except Exception:
         # fallback, se o menu mudar temporariamente
-        await page.goto("https://portaldocidadao.anapolis.go.gov.br/processos/", wait_until="domcontentloaded")
+        await page.goto("https://portaldocidadao.anapolis.go.gov.br/", wait_until="domcontentloaded")
         await page.wait_for_load_state("networkidle")
 
 

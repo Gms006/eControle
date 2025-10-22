@@ -51,6 +51,9 @@ SAIDA_BASE = Path(os.getenv("CND_DIR_BASE", "certidoes"))
 CAPTCHA_MODE = (os.getenv("CAPTCHA_MODE") or "manual").strip().lower()
 API_KEY_2CAPTCHA = (os.getenv("API_KEY_2CAPTCHA") or "").strip()
 
+PORTAL_CIDADAO_URL = "https://portaldocidadao.anapolis.go.gov.br/"
+CAPTCHA_MAX_TENTATIVAS = 3
+
 
 def only_digits(s: str) -> str:
     """Retorna apenas os dígitos de uma string."""
@@ -122,7 +125,7 @@ async def _resolver_captcha(page: Page) -> bool:
         return True
 
     try:
-        await page.locator("#106270").wait_for(state="visible", timeout=10000)
+        await page.locator("[id='106270']").wait_for(state="visible", timeout=10000)
     except PlaywrightTimeoutError:
         pass
 
@@ -130,40 +133,196 @@ async def _resolver_captcha(page: Page) -> bool:
         png_bytes = await img.screenshot(type="png")
         b64 = base64.b64encode(png_bytes).decode()
         resposta = _solve_image_captcha_2captcha(b64)
-        input_captcha = page.locator("#106270")
+        input_captcha = page.locator("[id='106270']")
         await input_captcha.fill(resposta)
         return True
 
     return False
 
 
+async def _preparar_para_nova_tentativa_captcha(page: Page) -> None:
+    """Limpa o campo do captcha e aguarda a exibição da nova imagem."""
+
+    try:
+        captcha_input = page.locator("[id='106270']")
+        if await captcha_input.count():
+            try:
+                await captcha_input.wait_for(state="visible", timeout=5000)
+            except Exception:
+                pass
+            await captcha_input.fill("")
+    except Exception:
+        pass
+
+    try:
+        img = page.locator("img.step-img[src*='captcha.action']").first
+        if await img.count():
+            await img.wait_for(state="visible", timeout=5000)
+    except Exception:
+        pass
+
+    await page.wait_for_timeout(1000)
+
+
+async def _garantir_captcha_preenchido(page: Page, headless: bool) -> Optional[str]:
+    """Garante que o captcha esteja preenchido, retornando mensagem de erro se falhar."""
+
+    preenchido_automaticamente = await _resolver_captcha(page)
+    if preenchido_automaticamente:
+        return None
+
+    if headless:
+        return (
+            "Captcha não resolvido automaticamente. Configure o 2Captcha para execução headless."
+        )
+
+    try:
+        captcha_input = page.locator("[id='106270']")
+        await captcha_input.wait_for(state="visible", timeout=10000)
+        await captcha_input.fill("")
+    except Exception:
+        pass
+
+    try:
+        await page.bring_to_front()
+    except Exception:
+        pass
+
+    try:
+        await page.wait_for_function(
+            "document.querySelector('[id=\"106270\"]') && document.querySelector('[id=\"106270\"]').value.trim().length > 0",
+            timeout=120000,
+        )
+    except PlaywrightTimeoutError:
+        return "Captcha não foi preenchido manualmente a tempo."
+
+    return None
+
+
+async def _fechar_popup_captcha_invalido(page: Page) -> bool:
+    """Detecta o alerta de captcha inválido, fecha-o e indica se deve tentar novamente."""
+
+    try:
+        popup = page.locator(
+            "div.swal2-popup:has-text('O código de verificação não confere')"
+        )
+        if not await popup.count():
+            popup = page.locator("div.swal2-popup:has-text('não confere')")
+        if await popup.count():
+            try:
+                await page.locator(".swal2-confirm").click()
+            except Exception:
+                pass
+            try:
+                await popup.wait_for(state="hidden", timeout=5000)
+            except Exception:
+                pass
+            return True
+    except Exception:
+        pass
+
+    return False
+
+
+async def _abrir_menu_certidoes(
+    page: Page, submenu_selector: str, tentativas: int = 3
+) -> bool:
+    """Tenta abrir o submenu "Certidões" e clicar na opção desejada."""
+
+    try:
+        menu_certidoes = page.locator("a.pure-menu-link", has_text="Certidões").first
+        await menu_certidoes.wait_for(state="visible", timeout=5000)
+    except Exception:
+        return False
+
+    submenu_opcao = page.locator(submenu_selector).first
+    if not await submenu_opcao.count():
+        return False
+
+    for tentativa in range(max(tentativas, 1)):
+        try:
+            await menu_certidoes.scroll_into_view_if_needed()
+        except Exception:
+            pass
+
+        try:
+            await menu_certidoes.click()
+        except Exception:
+            try:
+                await menu_certidoes.hover()
+                await menu_certidoes.click()
+            except Exception:
+                pass
+
+        try:
+            await submenu_opcao.wait_for(state="visible", timeout=4000)
+        except PlaywrightTimeoutError:
+            try:
+                await menu_certidoes.hover()
+                await submenu_opcao.wait_for(state="visible", timeout=4000)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        try:
+            if await submenu_opcao.is_visible():
+                await submenu_opcao.scroll_into_view_if_needed()
+                await submenu_opcao.click()
+                return True
+        except Exception:
+            pass
+
+        if tentativa < tentativas - 1:
+            await page.wait_for_timeout(500)
+
+    return False
+
+
 async def _navegar_para_formulario(page: Page) -> None:
-    await page.goto("https://portaldocidadao.anapolis.go.gov.br/processos/", wait_until="domcontentloaded")
+    await page.goto(PORTAL_CIDADAO_URL, wait_until="domcontentloaded")
     try:
         await page.wait_for_load_state("networkidle", timeout=15000)
     except PlaywrightTimeoutError:
         pass
 
+    acesso_realizado = False
     try:
-        menu_certidoes = page.locator("a.pure-menu-link", has_text="Certidões").first
-        if await menu_certidoes.count():
+        acesso_realizado = await _abrir_menu_certidoes(
+            page, "a.pure-menu-link[data-navigation='7023']"
+        )
+        if acesso_realizado:
             try:
-                await menu_certidoes.hover()
-            except Exception:
+                await page.wait_for_load_state("networkidle", timeout=15000)
+            except PlaywrightTimeoutError:
                 pass
-        opcao_cae = page.locator("a.pure-menu-link[data-navigation='7023']").first
-        await opcao_cae.wait_for(state="visible", timeout=10000)
-        await opcao_cae.click()
-        await page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
-        # Como fallback, permanecer na página atual
-        pass
+        acesso_realizado = False
 
-    await page.wait_for_selector("#106266", state="visible", timeout=15000)
+    if not acesso_realizado:
+        # Como fallback, tenta recarregar a página inicial do portal e repetir o fluxo
+        try:
+            await page.goto(PORTAL_CIDADAO_URL, wait_until="domcontentloaded")
+            try:
+                await page.wait_for_load_state("networkidle", timeout=15000)
+            except PlaywrightTimeoutError:
+                pass
+            acesso_realizado = await _abrir_menu_certidoes(
+                page, "a.pure-menu-link[data-navigation='7023']"
+            )
+            if acesso_realizado:
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=15000)
+                except PlaywrightTimeoutError:
+                    pass
+        except Exception:
+            pass
+
+    await page.wait_for_selector("[id='106266']", state="visible", timeout=15000)
 
 
 async def _preencher_im(page: Page, im: str) -> None:
-    campo_im = page.locator("#106266")
+    campo_im = page.locator("[id='106266']")
     await campo_im.fill("")
     await campo_im.type(im)
 
@@ -251,50 +410,44 @@ async def _emitir_cae_anapolis_impl(cnpj: str, im: str) -> Dict:
                 await _navegar_para_formulario(page)
                 await _preencher_im(page, im_digits)
 
-                captcha_preenchido = await _resolver_captcha(page)
-                if not captcha_preenchido:
-                    if headless:
+                tentativa = 0
+                while tentativa < CAPTCHA_MAX_TENTATIVAS:
+                    erro_captcha = await _garantir_captcha_preenchido(page, headless)
+                    if erro_captcha:
                         return {
                             "ok": False,
-                            "info": "Captcha não resolvido automaticamente. Configure o 2Captcha para execução headless.",
+                            "info": erro_captcha,
                             "path": None,
                             "url": None,
                         }
+
+                    await _clicar_emitir(page)
+
                     try:
-                        await page.wait_for_function(
-                            "document.querySelector('#106270') && document.querySelector('#106270').value.trim().length > 0",
-                            timeout=120000,
-                        )
+                        await page.wait_for_load_state("networkidle", timeout=30000)
                     except PlaywrightTimeoutError:
-                        return {
-                            "ok": False,
-                            "info": "Captcha não foi preenchido manualmente a tempo.",
-                            "path": None,
-                            "url": None,
-                        }
+                        pass
 
-                await _clicar_emitir(page)
+                    if await _fechar_popup_captcha_invalido(page):
+                        tentativa += 1
+                        if tentativa >= CAPTCHA_MAX_TENTATIVAS:
+                            return {
+                                "ok": False,
+                                "info": "Captcha inválido informado no portal após múltiplas tentativas.",
+                                "path": None,
+                                "url": None,
+                            }
+                        await _preparar_para_nova_tentativa_captcha(page)
+                        continue
 
-                try:
-                    await page.wait_for_load_state("networkidle", timeout=30000)
-                except PlaywrightTimeoutError:
-                    pass
-
-                try:
-                    popup = page.locator("div.swal2-popup:has-text('não confere')")
-                    if await popup.count():
-                        try:
-                            await page.locator(".swal2-confirm").click()
-                        except Exception:
-                            pass
-                        return {
-                            "ok": False,
-                            "info": "Captcha inválido informado no portal.",
-                            "path": None,
-                            "url": None,
-                        }
-                except Exception:
-                    pass
+                    break
+                else:
+                    return {
+                        "ok": False,
+                        "info": "Não foi possível validar o captcha após múltiplas tentativas.",
+                        "path": None,
+                        "url": None,
+                    }
 
                 try:
                     await _aguardar_download(page, destino)
