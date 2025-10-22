@@ -124,7 +124,7 @@ async def _resolver_captcha(page: Page) -> bool:
         return True
 
     try:
-        await page.locator("#106270").wait_for(state="visible", timeout=10000)
+        await page.locator("[id='106270']").wait_for(state="visible", timeout=10000)
     except PlaywrightTimeoutError:
         pass
 
@@ -132,7 +132,7 @@ async def _resolver_captcha(page: Page) -> bool:
         png_bytes = await img.screenshot(type="png")
         b64 = base64.b64encode(png_bytes).decode()
         resposta = _solve_image_captcha_2captcha(b64)
-        input_captcha = page.locator("#106270")
+        input_captcha = page.locator("[id='106270']")
         await input_captcha.fill(resposta)
         return True
 
@@ -233,11 +233,11 @@ async def _navegar_para_formulario(page: Page) -> None:
         except Exception:
             pass
 
-    await page.wait_for_selector("#106266", state="visible", timeout=15000)
+    await page.wait_for_selector("[id='106266']", state="visible", timeout=15000)
 
 
 async def _preencher_im(page: Page, im: str) -> None:
-    campo_im = page.locator("#106266")
+    campo_im = page.locator("[id='106266']")
     await campo_im.fill("")
     await campo_im.type(im)
 
@@ -336,7 +336,7 @@ async def _emitir_cae_anapolis_impl(cnpj: str, im: str) -> Dict:
                         }
                     try:
                         await page.wait_for_function(
-                            "document.querySelector('#106270') && document.querySelector('#106270').value.trim().length > 0",
+                            "document.querySelector('[id=\"106270\"]') && document.querySelector('[id=\"106270\"]').value.trim().length > 0",
                             timeout=120000,
                         )
                     except PlaywrightTimeoutError:
