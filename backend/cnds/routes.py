@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 
 from .cnds_worker_anapolis import emitir_cnd_anapolis
 from .cnds_worker_centi import emitir_cnd_centi
+from .cnds_worker_goiania import emitir_cnd_goiania
 from .cnds_worker_megasoft import emitir_cnd_megasoft
 from .cnds_worker_sig import emitir_cnd_sig
 
@@ -163,6 +164,21 @@ async def cnds_emitir(ped: EmitirPedido):
     if _is_anapolis(municipio_raw):
         ok, info, path, url = await emitir_cnd_anapolis(cnpj)
         return {"ok": ok, "info": info, "path": path, "url": url}
+
+    if municipio_norm in {"goiania", "goiânia"} or "goiania" in municipio_norm.split():
+        result = await emitir_cnd_goiania(
+            cnpj=cnpj,
+            download_dir=CND_DIR_BASE,
+            headless=CND_HEADLESS,
+            chrome_path=CND_CHROME_PATH,
+            timeout_ms=60000,
+        )
+        return {
+            "ok": result.get("ok", False),
+            "info": result.get("info"),
+            "path": result.get("path"),
+            "url": result.get("url"),
+        }
 
     megasoft_map = _load_megasoft_map()
     info: Optional[Dict[str, str]] = megasoft_map.get(municipio_norm)
