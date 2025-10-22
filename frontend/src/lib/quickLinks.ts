@@ -3,6 +3,11 @@ export function onlyDigits(v: string = ""): string {
   return v.replace(/\D+/g, "");
 }
 
+export function normalizeIM(raw: string = ""): string {
+  const base = (raw || "").split(" - ")[0];
+  return onlyDigits(base);
+}
+
 /**
  * Abre a página do Cartão CNPJ já com ?cnpj=<digits> e copia o número.
  * Não bloqueia a UI; abre em nova aba.
@@ -46,6 +51,28 @@ export async function openCNDAnapolis(
     /* ignore */
   }
   onToast?.("CNPJ copiado — abrindo Portal do Cidadão (Anápolis).");
+  window.open(
+    "https://portaldocidadao.anapolis.go.gov.br/processos/",
+    "_blank",
+    "noopener,noreferrer",
+  );
+}
+
+export async function openCAEAnapolis(
+  imRaw: string,
+  onToast?: (msg: string) => void,
+) {
+  const im = normalizeIM(imRaw);
+  if (!im) {
+    onToast?.("Inscrição Municipal inválida.");
+    return;
+  }
+  try {
+    await navigator.clipboard?.writeText(im);
+  } catch {
+    /* silencioso */
+  }
+  onToast?.("IM copiada — abrindo Portal do Cidadão (Anápolis).");
   window.open(
     "https://portaldocidadao.anapolis.go.gov.br/processos/",
     "_blank",

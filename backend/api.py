@@ -48,6 +48,7 @@ from services import (
 )
 from routes_certificados import router as certificados_router
 from cnds.routes import router as cnds_router
+from caes.routes import router as cae_router
 
 # ----------------------------------------------------------------------------
 # Config
@@ -78,6 +79,7 @@ app.add_middleware(
 
 app.include_router(certificados_router, prefix="/api")
 app.include_router(cnds_router, prefix="/api")
+app.include_router(cae_router, prefix="/api")
 
 # Expor diretório de CNDs como estático para consumo pelo frontend
 CND_DIR_BASE = os.getenv("CND_DIR_BASE", "certidoes")
