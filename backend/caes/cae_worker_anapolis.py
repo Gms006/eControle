@@ -138,7 +138,7 @@ async def _resolver_captcha(page: Page) -> bool:
 
 
 async def _navegar_para_formulario(page: Page) -> None:
-    await page.goto("https://portaldocidadao.anapolis.go.gov.br/processos/", wait_until="domcontentloaded")
+    await page.goto("https://portaldocidadao.anapolis.go.gov.br/", wait_until="domcontentloaded")
     try:
         await page.wait_for_load_state("networkidle", timeout=15000)
     except PlaywrightTimeoutError:
@@ -156,8 +156,15 @@ async def _navegar_para_formulario(page: Page) -> None:
         await opcao_cae.click()
         await page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
-        # Como fallback, permanecer na página atual
-        pass
+        # Como fallback, tenta recarregar a página inicial do portal
+        try:
+            await page.goto(
+                "https://portaldocidadao.anapolis.go.gov.br/",
+                wait_until="domcontentloaded",
+            )
+            await page.wait_for_load_state("networkidle", timeout=15000)
+        except Exception:
+            pass
 
     await page.wait_for_selector("#106266", state="visible", timeout=15000)
 
