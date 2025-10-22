@@ -51,6 +51,8 @@ SAIDA_BASE = Path(os.getenv("CND_DIR_BASE", "certidoes"))
 CAPTCHA_MODE = (os.getenv("CAPTCHA_MODE") or "manual").strip().lower()
 API_KEY_2CAPTCHA = (os.getenv("API_KEY_2CAPTCHA") or "").strip()
 
+PORTAL_CIDADAO_URL = "https://portaldocidadao.anapolis.go.gov.br/"
+
 
 def only_digits(s: str) -> str:
     """Retorna apenas os dígitos de uma string."""
@@ -137,32 +139,97 @@ async def _resolver_captcha(page: Page) -> bool:
     return False
 
 
+async def _abrir_menu_certidoes(
+    page: Page, submenu_selector: str, tentativas: int = 3
+) -> bool:
+    """Tenta abrir o submenu "Certidões" e clicar na opção desejada."""
+
+    try:
+        menu_certidoes = page.locator("a.pure-menu-link", has_text="Certidões").first
+        await menu_certidoes.wait_for(state="visible", timeout=5000)
+    except Exception:
+        return False
+
+    submenu_opcao = page.locator(submenu_selector).first
+    if not await submenu_opcao.count():
+        return False
+
+    for tentativa in range(max(tentativas, 1)):
+        try:
+            await menu_certidoes.scroll_into_view_if_needed()
+        except Exception:
+            pass
+
+        try:
+            await menu_certidoes.click()
+        except Exception:
+            try:
+                await menu_certidoes.hover()
+                await menu_certidoes.click()
+            except Exception:
+                pass
+
+        try:
+            await submenu_opcao.wait_for(state="visible", timeout=4000)
+        except PlaywrightTimeoutError:
+            try:
+                await menu_certidoes.hover()
+                await submenu_opcao.wait_for(state="visible", timeout=4000)
+            except Exception:
+                pass
+        except Exception:
+            pass
+
+        try:
+            if await submenu_opcao.is_visible():
+                await submenu_opcao.scroll_into_view_if_needed()
+                await submenu_opcao.click()
+                return True
+        except Exception:
+            pass
+
+        if tentativa < tentativas - 1:
+            await page.wait_for_timeout(500)
+
+    return False
+
+
 async def _navegar_para_formulario(page: Page) -> None:
-    await page.goto("https://portaldocidadao.anapolis.go.gov.br/", wait_until="domcontentloaded")
+    await page.goto(PORTAL_CIDADAO_URL, wait_until="domcontentloaded")
     try:
         await page.wait_for_load_state("networkidle", timeout=15000)
     except PlaywrightTimeoutError:
         pass
 
+    acesso_realizado = False
     try:
-        menu_certidoes = page.locator("a.pure-menu-link", has_text="Certidões").first
-        if await menu_certidoes.count():
+        acesso_realizado = await _abrir_menu_certidoes(
+            page, "a.pure-menu-link[data-navigation='7023']"
+        )
+        if acesso_realizado:
             try:
-                await menu_certidoes.hover()
-            except Exception:
+                await page.wait_for_load_state("networkidle", timeout=15000)
+            except PlaywrightTimeoutError:
                 pass
-        opcao_cae = page.locator("a.pure-menu-link[data-navigation='7023']").first
-        await opcao_cae.wait_for(state="visible", timeout=10000)
-        await opcao_cae.click()
-        await page.wait_for_load_state("networkidle", timeout=15000)
     except Exception:
-        # Como fallback, tenta recarregar a página inicial do portal
+        acesso_realizado = False
+
+    if not acesso_realizado:
+        # Como fallback, tenta recarregar a página inicial do portal e repetir o fluxo
         try:
-            await page.goto(
-                "https://portaldocidadao.anapolis.go.gov.br/",
-                wait_until="domcontentloaded",
+            await page.goto(PORTAL_CIDADAO_URL, wait_until="domcontentloaded")
+            try:
+                await page.wait_for_load_state("networkidle", timeout=15000)
+            except PlaywrightTimeoutError:
+                pass
+            acesso_realizado = await _abrir_menu_certidoes(
+                page, "a.pure-menu-link[data-navigation='7023']"
             )
-            await page.wait_for_load_state("networkidle", timeout=15000)
+            if acesso_realizado:
+                try:
+                    await page.wait_for_load_state("networkidle", timeout=15000)
+                except PlaywrightTimeoutError:
+                    pass
         except Exception:
             pass
 
