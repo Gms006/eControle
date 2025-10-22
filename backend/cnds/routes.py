@@ -209,7 +209,16 @@ async def cnds_emitir(ped: EmitirPedido):
         )
 
     if municipio_norm in {"belo horizonte", "bh"} or "belo horizonte" in municipio_norm:
-        from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
+        try:
+            from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
+        except ModuleNotFoundError as exc:
+            if exc.name not in {
+                "backend",
+                "backend.cnds",
+                "backend.cnds.cnds_worker_belo_horizonte",
+            }:
+                raise
+            from .cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
 
         return await emitir_cnd_belo_horizonte(
             cnpj=cnpj,
