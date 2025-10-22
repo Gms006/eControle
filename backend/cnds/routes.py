@@ -218,7 +218,7 @@ async def cnds_emitir(ped: EmitirPedido):
 
     # Cuiabá (MT)
     if "cuiaba" in municipio_norm:
-        from backend.cnds.cnds_worker_cuiaba import emitir_cnd_cuiaba
+        from .cnds_worker_cuiaba import emitir_cnd_cuiaba
 
         return await emitir_cnd_cuiaba(
             cnpj=cnpj,
