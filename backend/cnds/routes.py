@@ -28,6 +28,22 @@ def only_digits(s: str) -> str:
     return re.sub(r"\D+", "", s or "")
 
 
+def _strip_accents(s: str) -> str:
+    return "".join(
+        ch for ch in unicodedata.normalize("NFD", s) if unicodedata.category(ch) != "Mn"
+    )
+
+
+def normalizar_municipio(nome: str) -> str:
+    if not nome:
+        return ""
+    s = _strip_accents(nome).lower().strip()
+    s = re.sub(r"\s*[-,/]\s*[a-z]{2}\s*$", "", s)
+    s = re.sub(r"\s*\([^)]*\)\s*$", "", s)
+    s = re.sub(r"\s+", " ", s)
+    return s
+
+
 def _normalize_text(value: str) -> str:
     if not value:
         return ""
@@ -153,7 +169,7 @@ def _load_centi_map() -> Dict[str, Dict[str, str]]:
 @router.post("/cnds/emitir")
 async def cnds_emitir(ped: EmitirPedido):
     municipio_raw = ped.municipio or ""
-    municipio_norm = _normalize_text(municipio_raw)
+    municipio_norm = normalizar_municipio(municipio_raw)
     if not municipio_norm:
         raise HTTPException(400, "Município é obrigatório.")
 
@@ -179,6 +195,26 @@ async def cnds_emitir(ped: EmitirPedido):
             "path": result.get("path"),
             "url": result.get("url"),
         }
+
+    if municipio_norm in {"belo horizonte", "bh"} or "belo horizonte" in municipio_norm:
+        try:
+            from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
+        except ModuleNotFoundError as exc:
+            if exc.name not in {
+                "backend",
+                "backend.cnds",
+                "backend.cnds.cnds_worker_belo_horizonte",
+            }:
+                raise
+            from .cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
+
+        return await emitir_cnd_belo_horizonte(
+            cnpj=cnpj,
+            download_dir=CND_DIR_BASE,
+            headless=CND_HEADLESS,
+            chrome_path=CND_CHROME_PATH,
+            timeout_ms=60000,
+        )
 
     megasoft_map = _load_megasoft_map()
     info: Optional[Dict[str, str]] = megasoft_map.get(municipio_norm)
