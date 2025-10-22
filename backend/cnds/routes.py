@@ -180,6 +180,17 @@ async def cnds_emitir(ped: EmitirPedido):
             "url": result.get("url"),
         }
 
+    if municipio_norm in {"belo horizonte", "bh"}:
+        from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
+
+        return await emitir_cnd_belo_horizonte(
+            cnpj=cnpj,
+            download_dir=CND_DIR_BASE,
+            headless=CND_HEADLESS,
+            chrome_path=CND_CHROME_PATH,
+            timeout_ms=60000,
+        )
+
     megasoft_map = _load_megasoft_map()
     info: Optional[Dict[str, str]] = megasoft_map.get(municipio_norm)
     if not info:
