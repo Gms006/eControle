@@ -24,7 +24,13 @@ import {
   isAlertStatus,
   isProcessStatusInactive,
 } from "@/lib/status";
-import { openCartaoCNPJ, openCNDAnapolis, onlyDigits } from "@/lib/quickLinks";
+import {
+  openCartaoCNPJ,
+  openCNDAnapolis,
+  openCAEAnapolis,
+  onlyDigits,
+  normalizeIM,
+} from "@/lib/quickLinks";
 
 const resolveApiBaseUrl = () => {
   const fromEnv = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -185,6 +191,60 @@ export default function EmpresasScreen({
     [ensureCNDs, isMunicipioAnapolis, toast]
   );
 
+  const handleEmitirCAE = React.useCallback(
+    async (event, empresaInfo) => {
+      const originalEvent = event?.detail?.originalEvent;
+      const isCtrl = Boolean(originalEvent?.ctrlKey || originalEvent?.metaKey);
+      const imRaw =
+        empresaInfo?.inscricaoMunicipal || empresaInfo?.im || "";
+      const im = normalizeIM(imRaw);
+
+      if (!isMunicipioAnapolis(empresaInfo?.municipio)) {
+        toast?.("Disponível apenas para Anápolis.");
+        return;
+      }
+
+      if (!im) {
+        toast?.("Inscrição Municipal não informada.");
+        return;
+      }
+
+      if (isCtrl) {
+        await openCAEAnapolis(imRaw, toast);
+        return;
+      }
+
+      try {
+        toast?.("Iniciando emissão da CAE (Anápolis).");
+        const resp = await fetch(`${API_BASE_URL}/api/cae/emitir`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            municipio: "Anápolis",
+            cnpj: empresaInfo?.cnpj,
+            im,
+          }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          const detail =
+            (data?.detail && (data?.detail?.info || data?.detail)) ||
+            data?.info;
+          throw new Error(detail || "Falha ao emitir a CAE.");
+        }
+        if (data?.ok) {
+          toast?.("CAE emitida com sucesso.");
+          await ensureCNDs(empresaInfo?.cnpj, { force: true });
+        } else {
+          toast?.(data?.info || "Não foi possível emitir a CAE.");
+        }
+      } catch (error) {
+        toast?.(error?.message || "Erro inesperado ao emitir a CAE.");
+      }
+    },
+    [ensureCNDs, isMunicipioAnapolis, toast]
+  );
+
   return (
     <>
       <div className="flex items-center justify-between text-sm text-slate-600">
@@ -226,7 +286,12 @@ export default function EmpresasScreen({
           const cnpjDigits = onlyDigits(empresa.cnpj || "");
           const cndEntry = cndCache[cnpjDigits] || {};
           const cndLoading = Boolean(cndEntry.loading);
-          const hasCND = Array.isArray(cndEntry.items) && cndEntry.items.length > 0;
+          const cndItems = Array.isArray(cndEntry.items) ? cndEntry.items : [];
+          const hasCND = cndItems.length > 0;
+          const caeFiles = cndItems.filter((item) =>
+            item?.name?.startsWith("CAE - ")
+          );
+          const lastCAE = caeFiles[0];
           const municipioInformado = Boolean((empresa.municipio || "").trim());
 
           return (
@@ -368,6 +433,19 @@ export default function EmpresasScreen({
                         }}
                       />
 
+                      <DropdownMenuItemFancy
+                        icon={ExternalLink}
+                        title={
+                          <span className="inline-flex items-center">
+                            CAE/FIC <MiniBadge>IM</MiniBadge>
+                          </span>
+                        }
+                        description="Emitir a CAE/FIC de Anápolis."
+                        hint={<Kbd>Ctrl</Kbd>}
+                        disabled={!isMunicipioAnapolis(empresa.municipio)}
+                        onClick={(event) => handleEmitirCAE(event, empresa)}
+                      />
+
                       {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
                     </DropdownMenuContent>
                   </DropdownMenu>
@@ -415,6 +493,44 @@ export default function EmpresasScreen({
                             window.open(ensureAbsoluteUrl(url), "_blank", "noopener,noreferrer");
                           } else {
                             toast?.("Não foi possível localizar o arquivo da CND.");
+                          }
+                        }}
+                      />
+
+                      <DropdownMenuItemFancy
+                        icon={File}
+                        title="CAE (Anápolis)"
+                        description="Abrir a última CAE emitida."
+                        disabled={cndLoading || !lastCAE}
+                        hint={
+                          cndLoading ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                          ) : undefined
+                        }
+                        onClick={async () => {
+                          let lista = cndEntry.items;
+                          if (!Array.isArray(lista) || lista.length === 0) {
+                            lista = await ensureCNDs(empresa.cnpj, { force: true });
+                          }
+
+                          const arquivosCAE = Array.isArray(lista)
+                            ? lista.filter((item) => item?.name?.startsWith("CAE - "))
+                            : [];
+
+                          if (!arquivosCAE.length) {
+                            toast?.("Nenhuma CAE encontrada para esta empresa.");
+                            return;
+                          }
+
+                          const arquivo = arquivosCAE[0];
+                          if (arquivo?.url) {
+                            window.open(
+                              ensureAbsoluteUrl(arquivo.url),
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                          } else {
+                            toast?.("Não foi possível localizar o arquivo da CAE.");
                           }
                         }}
                       />
