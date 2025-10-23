@@ -198,12 +198,16 @@ async def cnds_emitir(ped: EmitirPedido):
 
     if "neropolis" in municipio_norm:
         try:
-            from backend.cnds.cnds_worker_neropolis import emitir_cnd_neropolis
+            from backend.cnds.municipal.cnds_worker_neropolis import (
+                emitir_cnd_neropolis,
+            )
         except ModuleNotFoundError as exc:  # pragma: no cover - environment specific
             if exc.name not in {
                 "backend",
                 "backend.cnds",
                 "backend.cnds.cnds_worker_neropolis",
+                "backend.cnds.municipal",
+                "backend.cnds.municipal.cnds_worker_neropolis",
             }:
                 raise
             from .cnds_worker_neropolis import emitir_cnd_neropolis
@@ -230,12 +234,16 @@ async def cnds_emitir(ped: EmitirPedido):
 
     if municipio_norm in {"belo horizonte", "bh"} or "belo horizonte" in municipio_norm:
         try:
-            from backend.cnds.cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
+            from backend.cnds.municipal.cnds_worker_belo_horizonte import (
+                emitir_cnd_belo_horizonte,
+            )
         except ModuleNotFoundError as exc:
             if exc.name not in {
                 "backend",
                 "backend.cnds",
                 "backend.cnds.cnds_worker_belo_horizonte",
+                "backend.cnds.municipal",
+                "backend.cnds.municipal.cnds_worker_belo_horizonte",
             }:
                 raise
             from .cnds_worker_belo_horizonte import emitir_cnd_belo_horizonte
