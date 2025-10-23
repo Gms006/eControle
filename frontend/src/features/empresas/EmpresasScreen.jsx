@@ -284,6 +284,11 @@ export default function EmpresasScreen({
               : "?";
 
           const cnpjDigits = onlyDigits(empresa.cnpj || "");
+          const hasValidCnpj = cnpjDigits.length === 14;
+          const municipioInformado = Boolean((empresa.municipio || "").trim());
+          const municipioAnapolis = isMunicipioAnapolis(empresa.municipio);
+          const inscricaoMunicipalRaw = empresa.inscricaoMunicipal || empresa.im || "";
+          const hasValidIM = Boolean(normalizeIM(inscricaoMunicipalRaw));
           const cndEntry = cndCache[cnpjDigits] || {};
           const cndLoading = Boolean(cndEntry.loading);
           const cndItems = Array.isArray(cndEntry.items) ? cndEntry.items : [];
@@ -292,7 +297,6 @@ export default function EmpresasScreen({
             item?.name?.startsWith("CAE - ")
           );
           const lastCAE = caeFiles[0];
-          const municipioInformado = Boolean((empresa.municipio || "").trim());
 
           return (
             <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
@@ -411,6 +415,7 @@ export default function EmpresasScreen({
                         }
                         description="Ir para site da RFB."
                         hint={<Kbd>Ctrl</Kbd>}
+                        disabled={!hasValidCnpj}
                         onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
                       />
 
@@ -423,7 +428,7 @@ export default function EmpresasScreen({
                         }
                         description="Emitir a partir do portal da Prefeitura."
                         hint={<Kbd>Ctrl</Kbd>}
-                        disabled={!municipioInformado}
+                        disabled={!municipioInformado || !hasValidCnpj}
                         onClick={(event) => {
                           const originalEvent = event?.detail?.originalEvent;
                           const abrirPortal = Boolean(
@@ -442,7 +447,9 @@ export default function EmpresasScreen({
                         }
                         description="Emitir a CAE/FIC de Anápolis."
                         hint={<Kbd>Ctrl</Kbd>}
-                        disabled={!isMunicipioAnapolis(empresa.municipio)}
+                        disabled={
+                          !municipioAnapolis || !hasValidIM || !hasValidCnpj
+                        }
                         onClick={(event) => handleEmitirCAE(event, empresa)}
                       />
 
