@@ -180,7 +180,7 @@ export default function HeaderMenuPro({
               </div>
 
               {/* Somente alertas */}
-              <div className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 bg-white/60">
+              <div className="flex items-center gap-1.5 rounded-lg border px-1.5 py-1 bg-white/60">
                 <Switch
                   checked={!!somenteAlertas}
                   onCheckedChange={onSomenteAlertasChange}
@@ -199,7 +199,7 @@ export default function HeaderMenuPro({
               </div>
 
               {/* Modo foco */}
-              <div className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 bg-white/60">
+              <div className="flex items-center gap-1.5 rounded-lg border px-1.5 py-1 bg-white/60">
                 <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="scale-90" />
                 <span className="text-xs font-medium text-slate-600 leading-none">Modo foco</span>
                 {modoFoco ? (
