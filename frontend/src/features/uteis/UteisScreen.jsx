@@ -10,23 +10,40 @@ import { normalizeText, normalizeTextLower } from "@/lib/text";
 export default function UteisScreen(props) {
   const { contatos, modelos, matchesMunicipioFilter, handleCopy } = props;
 
-  const [uteisQuery, setUteisQuery] = useState("");
+  const [contatosQuery, setContatosQuery] = useState("");
+  const [modelosQuery, setModelosQuery] = useState("");
 
-  const normalizedUteisQuery = useMemo(
-    () => normalizeTextLower(uteisQuery).trim(),
-    [uteisQuery],
+  const normalizedContatosQuery = useMemo(
+    () => normalizeTextLower(contatosQuery).trim(),
+    [contatosQuery],
+  );
+  const normalizedModelosQuery = useMemo(
+    () => normalizeTextLower(modelosQuery).trim(),
+    [modelosQuery],
   );
 
-  const matchesUteisQuery = useCallback(
+  const matchesContatosQuery = useCallback(
     (fields) => {
-      if (normalizedUteisQuery === "") {
+      if (normalizedContatosQuery === "") {
         return true;
       }
       return fields
         .filter((field) => field !== null && field !== undefined)
-        .some((field) => normalizeTextLower(field).includes(normalizedUteisQuery));
+        .some((field) => normalizeTextLower(field).includes(normalizedContatosQuery));
     },
-    [normalizedUteisQuery],
+    [normalizedContatosQuery],
+  );
+
+  const matchesModelosQuery = useCallback(
+    (fields) => {
+      if (normalizedModelosQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedModelosQuery));
+    },
+    [normalizedModelosQuery],
   );
 
   const filteredContatos = useMemo(() => {
@@ -34,7 +51,7 @@ export default function UteisScreen(props) {
     return lista.filter(
       (contato) =>
         matchesMunicipioFilter(contato) &&
-        matchesUteisQuery([
+        matchesContatosQuery([
           contato?.contato,
           contato?.categoria,
           contato?.municipio,
@@ -43,15 +60,15 @@ export default function UteisScreen(props) {
           contato?.whatsapp,
         ]),
     );
-  }, [contatos, matchesMunicipioFilter, matchesUteisQuery]);
+  }, [contatos, matchesMunicipioFilter, matchesContatosQuery]);
 
   const filteredModelos = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
     return lista.filter((modelo) =>
       matchesMunicipioFilter(modelo) &&
-      matchesUteisQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
+      matchesModelosQuery([modelo?.descricao, modelo?.utilizacao]),
     );
-  }, [matchesMunicipioFilter, matchesUteisQuery, modelos]);
+  }, [matchesMunicipioFilter, matchesModelosQuery, modelos]);
 
   const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
@@ -88,14 +105,14 @@ export default function UteisScreen(props) {
   return (
     <div className="mt-4 space-y-4">
       <div className="max-w-xl">
-        <Label className="text-xs uppercase">Pesquisa em úteis</Label>
+        <Label className="text-xs uppercase">Pesquisar contatos úteis</Label>
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Buscar contato, categoria ou mensagem…"
+            placeholder="Buscar contato, categoria ou município…"
             className="pl-8"
-            value={uteisQuery}
-            onChange={(event) => setUteisQuery(event.target.value)}
+            value={contatosQuery}
+            onChange={(event) => setContatosQuery(event.target.value)}
           />
         </div>
       </div>
@@ -173,6 +190,18 @@ export default function UteisScreen(props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase">Filtrar modelos</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar por descrição ou uso…"
+                  className="pl-8"
+                  value={modelosQuery}
+                  onChange={(event) => setModelosQuery(event.target.value)}
+                />
+              </div>
+            </div>
             {modelosOrdenadosLista.length === 0 && (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                 Nenhum modelo cadastrado no Excel.
