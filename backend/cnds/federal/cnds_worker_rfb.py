@@ -60,54 +60,68 @@ def _parse_date(value: Optional[str]) -> Optional[date]:
 
 
 async def _fill_cnpj_input(page: Page, cnpj_digits: str) -> None:
+    # monta máscara 00.000.000/0001-00
+    cnpj_masked = f"{cnpj_digits[:2]}.{cnpj_digits[2:5]}.{cnpj_digits[5:8]}/{cnpj_digits[8:12]}-{cnpj_digits[12:]}"
     selectors = (
         'input[name="niContribuinte"]',
-        'input[id*="niContribuinte" i]',
         'input[formcontrolname="niContribuinte"]',
-        'input[type="text"]',
+        'input[id*="niContribuinte" i]',
     )
     target = None
-    for selector in selectors:
-        locator = page.locator(selector).first
-        try:
-            await locator.wait_for(state="visible", timeout=SELECTOR_TIMEOUT_MS)
-        except PlaywrightTimeoutError:
-            continue
-        count = await locator.count()
-        if count:
-            target = locator
-            break
-    if target is None:
+    for s in selectors:
+        loc = page.locator(s).first
+        if await loc.count():
+            try:
+                await loc.wait_for(state="visible", timeout=SELECTOR_TIMEOUT_MS)
+                target = loc
+                break
+            except Exception:
+                continue
+    if not target:
         raise RuntimeError("Campo de CNPJ não encontrado no portal da RFB.")
 
     await target.click()
+    # Usa type com delay para acionar máscara e validadores
     try:
         await target.fill("")
     except Exception:
         pass
-    await target.fill(cnpj_digits)
-    with contextlib.suppress(Exception):
-        await target.dispatch_event("input")
-        await target.dispatch_event("change")
+    await target.type(cnpj_masked, delay=60)  # simula digitação humana
+    # força blur para o Angular validar
+    await page.keyboard.press("Tab")
+    # espera o formulário ficar válido
+    await page.wait_for_function(
+        """() => {
+            const el = document.querySelector('input[name="niContribuinte"]') 
+                      || document.querySelector('input[formcontrolname="niContribuinte"]');
+            if (!el) return false;
+            const form = el.closest('form');
+            return form && form.classList.contains('ng-valid');
+        }""",
+        timeout=SELECTOR_TIMEOUT_MS,
+    )
     await page.wait_for_timeout(300)
 
 
 async def _click_consultar(page: Page) -> None:
+    # primeiro botão (secondary)
     primeiro = page.locator(
-        'button.br-button.secondary.btn-acao.btn-acao-3:has-text("Consultar Certidão")'
+        'button.br-button.secondary.btn-acao.btn-acao-3:has-text("Consultar Certidão"):not([disabled])'
     ).first
     if await primeiro.count():
-        try:
-            await primeiro.click(timeout=SELECTOR_TIMEOUT_MS)
-        except PlaywrightTimeoutError:
-            logger.warning("[CND Federal] Botão secundário de consulta não respondeu.")
+        await primeiro.wait_for(state="visible", timeout=SELECTOR_TIMEOUT_MS)
+        await primeiro.click(timeout=SELECTOR_TIMEOUT_MS)
+        await page.wait_for_timeout(300)
 
+    # segundo (submit)
     segundo = page.locator(
-        'button.br-button.primary.btn-acao[type="submit"]:has-text("Consultar Certidão")'
+        'button.br-button.primary.btn-acao[type="submit"]:has-text("Consultar Certidão"):not([disabled])'
     ).first
     await segundo.wait_for(state="visible", timeout=SELECTOR_TIMEOUT_MS)
     await segundo.click(timeout=SELECTOR_TIMEOUT_MS)
-    with contextlib.suppress(PlaywrightTimeoutError):
+
+    # espera angular/requests estabilizarem
+    with contextlib.suppress(Exception):
         await page.wait_for_load_state("networkidle", timeout=NAVIGATION_TIMEOUT_MS)
     await page.wait_for_timeout(800)
 
@@ -396,10 +410,28 @@ async def _emitir_nova_certidao(page: Page, cnpj_digits: str, out_path: Path) ->
     await _fill_cnpj_input(page, cnpj_digits)
     await page.wait_for_timeout(400)
 
+    # 1ª tentativa
     if await _acionar_nova_certidao(page, out_path):
         return True, "CND Federal emitida com sucesso."
 
     mensagem = await _check_known_errors(page)
+    if mensagem and (
+        "106 -" in mensagem
+        or "Não foi possível concluir" in mensagem
+        or " 023 " in mensagem
+    ):
+        logger.warning("[CND Federal] Portal retornou mensagem crítica: %s", mensagem)
+        # Soft refresh + retry único
+        await page.goto(URL_RFB, wait_until="load", timeout=NAVIGATION_TIMEOUT_MS)
+        await _fill_cnpj_input(page, cnpj_digits)
+        await page.wait_for_timeout(400)
+        if await _acionar_nova_certidao(page, out_path):
+            return True, "CND Federal emitida com sucesso (2ª tentativa)."
+        mensagem2 = await _check_known_errors(page)
+        if mensagem2:
+            logger.warning("[CND Federal] Portal retornou mensagem após retry: %s", mensagem2)
+        return False, (mensagem2 or mensagem)
+
     if mensagem:
         logger.warning("[CND Federal] Portal retornou mensagem: %s", mensagem)
         return False, mensagem
@@ -416,21 +448,45 @@ async def _emitir_cnd_federal_impl(cnpj_digits: str) -> dict:
     url = f"/cnds/{cnpj_digits}/{filename}"
 
     try:
-        async with async_playwright() as playwright:
-            launch_args = {"headless": CND_HEADLESS}
+        async with async_playwright() as pw:
+            launch_args = {
+                "headless": CND_HEADLESS,
+                "args": [
+                    "--disable-blink-features=AutomationControlled",
+                    "--lang=pt-BR,pt",
+                ],
+            }
             if CND_CHROME_PATH:
                 launch_args["executable_path"] = CND_CHROME_PATH
-            browser = await playwright.chromium.launch(**launch_args)
-            context = await browser.new_context(
+
+            user_data_dir = Path(".playwright-user-data") / "rfb"
+            user_data_dir.parent.mkdir(parents=True, exist_ok=True)
+            browser = await pw.chromium.launch_persistent_context(
+                user_data_dir=str(user_data_dir.absolute()),
+                **launch_args,
                 accept_downloads=True,
                 locale="pt-BR",
+                timezone_id="America/Sao_Paulo",
                 viewport={"width": 1366, "height": 900},
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                    "(KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36"
+                ),
             )
-            page = await context.new_page()
-            page.set_default_timeout(SELECTOR_TIMEOUT_MS)
-            page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
 
             try:
+                for existing_page in browser.pages:
+                    await existing_page.add_init_script(
+                        "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+                    )
+
+                page = await browser.new_page()
+                await page.add_init_script(
+                    "Object.defineProperty(navigator, 'webdriver', {get: () => undefined});"
+                )
+                page.set_default_timeout(SELECTOR_TIMEOUT_MS)
+                page.set_default_navigation_timeout(NAVIGATION_TIMEOUT_MS)
+
                 await _prepare_initial_consulta(page, cnpj_digits)
                 with contextlib.suppress(Exception):
                     await page.wait_for_timeout(1000)
@@ -474,8 +530,6 @@ async def _emitir_cnd_federal_impl(cnpj_digits: str) -> dict:
                     }
                 return {"ok": False, "info": mensagem, "path": None, "url": None}
             finally:
-                with contextlib.suppress(Exception):
-                    await context.close()
                 with contextlib.suppress(Exception):
                     await browser.close()
     except PlaywrightTimeoutError:
