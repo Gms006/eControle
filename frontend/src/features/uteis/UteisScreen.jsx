@@ -23,20 +23,36 @@ const getModeloDescricaoTitulo = (modelo) => {
 
   const descricao = modelo?.descricao;
   if (descricao && descricao.toString().trim() !== "") {
-    return descricao.toString();
+    return descricao.toString().trim();
   }
 
   const titulo = modelo?.titulo;
   if (titulo && titulo.toString().trim() !== "") {
-    return titulo.toString();
+    return titulo.toString().trim();
   }
 
   const utilizacao = modelo?.utilizacao;
   if (utilizacao && utilizacao.toString().trim() !== "") {
-    return utilizacao.toString();
+    return utilizacao.toString().trim();
   }
 
   return "Modelo";
+};
+
+const buildModeloDedupKey = (modelo) => {
+  const texto = normalizeText(modelo?.modelo || "").trim();
+  const descricao = normalizeText(modelo?.descricao || "").trim();
+  const utilizacao = normalizeText(modelo?.utilizacao || "").trim();
+
+  if (texto !== "") {
+    return `${descricao}__${utilizacao}__${texto}`;
+  }
+
+  if (utilizacao !== "") {
+    return `${descricao}__${utilizacao}`;
+  }
+
+  return descricao;
 };
 
 export default function UteisScreen(props) {
@@ -62,27 +78,52 @@ export default function UteisScreen(props) {
     [normalizedContatosQuery],
   );
 
-  const modelosFiltroOpcoes = useMemo(() => {
+  const modelosAgrupados = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
-    const unicos = new Map();
+    const grupos = new Map();
 
     lista.forEach((modelo) => {
-      const descricaoTitulo = getModeloDescricaoTitulo(modelo);
-      const normalizado = normalizeTextLower(descricaoTitulo).trim();
-
-      if (normalizado === "") {
+      if (!matchesMunicipioFilter(modelo)) {
         return;
       }
 
-      if (!unicos.has(normalizado)) {
-        unicos.set(normalizado, descricaoTitulo);
+      const descricaoTitulo = getModeloDescricaoTitulo(modelo);
+      const label = normalizeText(descricaoTitulo).trim() || "Modelo";
+      const value = normalizeTextLower(label).trim();
+
+      if (value === "") {
+        return;
       }
+
+      let grupo = grupos.get(value);
+      if (!grupo) {
+        grupo = { value, label, items: [], dedup: new Set() };
+        grupos.set(value, grupo);
+      }
+
+      const dedupKey = buildModeloDedupKey(modelo);
+      if (grupo.dedup.has(dedupKey)) {
+        return;
+      }
+
+      grupo.dedup.add(dedupKey);
+      grupo.items.push(modelo);
     });
 
-    return Array.from(unicos.entries())
-      .map(([value, label]) => ({ value, label }))
-      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
-  }, [modelos]);
+    return Array.from(grupos.values()).map(({ value, label, items }) => ({
+      value,
+      label,
+      items,
+    }));
+  }, [matchesMunicipioFilter, modelos]);
+
+  const modelosFiltroOpcoes = useMemo(
+    () =>
+      modelosAgrupados
+        .map(({ value, label }) => ({ value, label }))
+        .sort((a, b) => a.label.localeCompare(b.label, "pt-BR")),
+    [modelosAgrupados],
+  );
 
   useEffect(() => {
     if (
@@ -110,27 +151,20 @@ export default function UteisScreen(props) {
   }, [contatos, matchesMunicipioFilter, matchesContatosQuery]);
 
   const filteredModelos = useMemo(() => {
-    const lista = Array.isArray(modelos) ? modelos : [];
-    return lista.filter((modelo) => {
-      if (!matchesMunicipioFilter(modelo)) {
-        return false;
-      }
+    if (modeloDescricaoFiltro === TODOS_MODELOS_OPTION) {
+      return modelosAgrupados.flatMap((grupo) => grupo.items);
+    }
 
-      if (modeloDescricaoFiltro === TODOS_MODELOS_OPTION) {
-        return true;
-      }
+    const grupoSelecionado = modelosAgrupados.find(
+      (grupo) => grupo.value === modeloDescricaoFiltro,
+    );
 
-      const descricaoTituloNormalizado = normalizeTextLower(
-        getModeloDescricaoTitulo(modelo),
-      ).trim();
+    if (!grupoSelecionado) {
+      return [];
+    }
 
-      if (descricaoTituloNormalizado === "") {
-        return false;
-      }
-
-      return descricaoTituloNormalizado === modeloDescricaoFiltro;
-    });
-  }, [matchesMunicipioFilter, modeloDescricaoFiltro, modelos]);
+    return grupoSelecionado.items;
+  }, [modeloDescricaoFiltro, modelosAgrupados]);
 
   const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
