@@ -36,28 +36,6 @@ export async function openCartaoCNPJ(
   window.open(url.toString(), "_blank", "noopener,noreferrer");
 }
 
-export async function openCNDFederal(
-  cnpjRaw: string,
-  onToast?: (msg: string) => void,
-) {
-  const cnpj = onlyDigits(cnpjRaw || "");
-  if (!cnpj || cnpj.length !== 14) {
-    onToast?.("CNPJ inválido para abrir a CND Federal.");
-    return;
-  }
-  try {
-    await navigator.clipboard?.writeText(cnpj);
-  } catch {
-    /* silencioso */
-  }
-  onToast?.("CNPJ copiado — abrindo CND Federal (RFB).");
-  window.open(
-    "https://servicos.receitafederal.gov.br/servico/certidoes/#/home/cnpj",
-    "_blank",
-    "noopener,noreferrer",
-  );
-}
-
 export async function openCNDAnapolis(
   cnpjRaw: string,
   onToast?: (msg: string) => void,
