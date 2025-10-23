@@ -1,40 +1,104 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import InlineBadge from "@/components/InlineBadge";
 import { Clipboard, Mail, MessageSquare, Phone, Search, Users } from "lucide-react";
 import { normalizeText, normalizeTextLower } from "@/lib/text";
 
+const TODOS_MODELOS_OPTION = "__all__";
+
+const getModeloDescricaoTitulo = (modelo) => {
+  if (!modelo) {
+    return "Modelo";
+  }
+
+  const descricao = modelo?.descricao;
+  if (descricao && descricao.toString().trim() !== "") {
+    return descricao.toString();
+  }
+
+  const titulo = modelo?.titulo;
+  if (titulo && titulo.toString().trim() !== "") {
+    return titulo.toString();
+  }
+
+  const utilizacao = modelo?.utilizacao;
+  if (utilizacao && utilizacao.toString().trim() !== "") {
+    return utilizacao.toString();
+  }
+
+  return "Modelo";
+};
+
 export default function UteisScreen(props) {
   const { contatos, modelos, matchesMunicipioFilter, handleCopy } = props;
 
-  const [uteisQuery, setUteisQuery] = useState("");
+  const [contatosQuery, setContatosQuery] = useState("");
+  const [modeloDescricaoFiltro, setModeloDescricaoFiltro] = useState(TODOS_MODELOS_OPTION);
 
-  const normalizedUteisQuery = useMemo(
-    () => normalizeTextLower(uteisQuery).trim(),
-    [uteisQuery],
+  const normalizedContatosQuery = useMemo(
+    () => normalizeTextLower(contatosQuery).trim(),
+    [contatosQuery],
   );
 
-  const matchesUteisQuery = useCallback(
+  const matchesContatosQuery = useCallback(
     (fields) => {
-      if (normalizedUteisQuery === "") {
+      if (normalizedContatosQuery === "") {
         return true;
       }
       return fields
         .filter((field) => field !== null && field !== undefined)
-        .some((field) => normalizeTextLower(field).includes(normalizedUteisQuery));
+        .some((field) => normalizeTextLower(field).includes(normalizedContatosQuery));
     },
-    [normalizedUteisQuery],
+    [normalizedContatosQuery],
   );
+
+  const modelosFiltroOpcoes = useMemo(() => {
+    const lista = Array.isArray(modelos) ? modelos : [];
+    const unicos = new Map();
+
+    lista.forEach((modelo) => {
+      const descricaoTitulo = getModeloDescricaoTitulo(modelo);
+      const normalizado = normalizeTextLower(descricaoTitulo).trim();
+
+      if (normalizado === "") {
+        return;
+      }
+
+      if (!unicos.has(normalizado)) {
+        unicos.set(normalizado, descricaoTitulo);
+      }
+    });
+
+    return Array.from(unicos.entries())
+      .map(([value, label]) => ({ value, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, "pt-BR"));
+  }, [modelos]);
+
+  useEffect(() => {
+    if (
+      modeloDescricaoFiltro !== TODOS_MODELOS_OPTION &&
+      !modelosFiltroOpcoes.some((opcao) => opcao.value === modeloDescricaoFiltro)
+    ) {
+      setModeloDescricaoFiltro(TODOS_MODELOS_OPTION);
+    }
+  }, [modeloDescricaoFiltro, modelosFiltroOpcoes]);
 
   const filteredContatos = useMemo(() => {
     const lista = Array.isArray(contatos) ? contatos : [];
     return lista.filter(
       (contato) =>
         matchesMunicipioFilter(contato) &&
-        matchesUteisQuery([
+        matchesContatosQuery([
           contato?.contato,
           contato?.categoria,
           contato?.municipio,
@@ -43,15 +107,30 @@ export default function UteisScreen(props) {
           contato?.whatsapp,
         ]),
     );
-  }, [contatos, matchesMunicipioFilter, matchesUteisQuery]);
+  }, [contatos, matchesMunicipioFilter, matchesContatosQuery]);
 
   const filteredModelos = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
-    return lista.filter((modelo) =>
-      matchesMunicipioFilter(modelo) &&
-      matchesUteisQuery([modelo?.descricao, modelo?.utilizacao, modelo?.modelo]),
-    );
-  }, [matchesMunicipioFilter, matchesUteisQuery, modelos]);
+    return lista.filter((modelo) => {
+      if (!matchesMunicipioFilter(modelo)) {
+        return false;
+      }
+
+      if (modeloDescricaoFiltro === TODOS_MODELOS_OPTION) {
+        return true;
+      }
+
+      const descricaoTituloNormalizado = normalizeTextLower(
+        getModeloDescricaoTitulo(modelo),
+      ).trim();
+
+      if (descricaoTituloNormalizado === "") {
+        return false;
+      }
+
+      return descricaoTituloNormalizado === modeloDescricaoFiltro;
+    });
+  }, [matchesMunicipioFilter, modeloDescricaoFiltro, modelos]);
 
   const contatosOrdenadosLista = useMemo(() => {
     const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
@@ -88,14 +167,14 @@ export default function UteisScreen(props) {
   return (
     <div className="mt-4 space-y-4">
       <div className="max-w-xl">
-        <Label className="text-xs uppercase">Pesquisa em úteis</Label>
+        <Label className="text-xs uppercase">Pesquisar contatos úteis</Label>
         <div className="relative">
           <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
           <Input
-            placeholder="Buscar contato, categoria ou mensagem…"
+            placeholder="Buscar contato, categoria ou município…"
             className="pl-8"
-            value={uteisQuery}
-            onChange={(event) => setUteisQuery(event.target.value)}
+            value={contatosQuery}
+            onChange={(event) => setContatosQuery(event.target.value)}
           />
         </div>
       </div>
@@ -173,6 +252,22 @@ export default function UteisScreen(props) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase">Filtrar por descrição</Label>
+              <Select value={modeloDescricaoFiltro} onValueChange={setModeloDescricaoFiltro}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Todos os modelos" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TODOS_MODELOS_OPTION}>Todos os modelos</SelectItem>
+                  {modelosFiltroOpcoes.map((opcao) => (
+                    <SelectItem key={opcao.value} value={opcao.value}>
+                      {opcao.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             {modelosOrdenadosLista.length === 0 && (
               <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
                 Nenhum modelo cadastrado no Excel.
