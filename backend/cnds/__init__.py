@@ -1,4 +1,4 @@
 """Convenience exports for the CNDs package."""
-from .routes import router
+from .municipal import router
 
 __all__ = ["router"]

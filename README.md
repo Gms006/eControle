@@ -149,7 +149,7 @@ uvicorn api:app --reload --host $API_HOST --port $API_PORT
 
 ### Automação de CND (Anápolis)
 
-A rota `/api/cnds/emitir` utiliza o script `backend/cnds/cnds_worker_anapolis.py` para abrir o portal municipal via Playwright e baixar a certidão. Configure as variáveis abaixo no `.env` do backend para ajustar o comportamento:
+A rota `/api/cnds/emitir` utiliza o script `backend/cnds/municipal/cnds_worker_anapolis.py` para abrir o portal municipal via Playwright e baixar a certidão. Configure as variáveis abaixo no `.env` do backend para ajustar o comportamento:
 
 | Variável             | Descrição |
 | -------------------- | --------- |
@@ -163,7 +163,7 @@ A rota `/api/cnds/emitir` utiliza o script `backend/cnds/cnds_worker_anapolis.py
 
 ### Automação de CND (Megasoft)
 
-Municípios que utilizam portais Megasoft também são atendidos pela mesma rota `/api/cnds/emitir`, que delega o fluxo ao worker `backend/cnds/cnds_worker_megasoft.py`. O arquivo `backend/cnds/megasoft_map.json` contém a lista de municípios suportados, com `municipio`, `base_url` do portal e, opcionalmente, um `slug` usado para nomear o PDF. Ajuste ou adicione entradas conforme necessário; o carregamento é feito uma única vez por processo via `_load_megasoft_map()` em `backend/cnds/routes.py`. Independentemente do worker, os PDFs ficam dentro de `CND_DIR_BASE` (padrão `certidoes/`) e podem ser servidos diretamente em `/cnds/<CNPJ>/<arquivo.pdf>`.
+Municípios que utilizam portais Megasoft também são atendidos pela mesma rota `/api/cnds/emitir`, que delega o fluxo ao worker `backend/cnds/municipal/cnds_worker_megasoft.py`. O arquivo `backend/cnds/municipal/megasoft_map.json` contém a lista de municípios suportados, com `municipio`, `base_url` do portal e, opcionalmente, um `slug` usado para nomear o PDF. Ajuste ou adicione entradas conforme necessário; o carregamento é feito uma única vez por processo via `_load_megasoft_map()` em `backend/cnds/municipal/routes.py`. Independentemente do worker, os PDFs ficam dentro de `CND_DIR_BASE` (padrão `certidoes/`) e podem ser servidos diretamente em `/cnds/<CNPJ>/<arquivo.pdf>`.
 
 ### Diagnóstico rápido
 
