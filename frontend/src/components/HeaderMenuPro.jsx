@@ -153,8 +153,14 @@ export default function HeaderMenuPro({
             <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:w-auto">
               <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full lg:w-auto">
                 {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
-                  <TabsTrigger key={key} value={key} className="gap-2" data-tab-target={key} title={`Alt+${index + 1}`}>
-                    <Icon className="h-4 w-4" /> {label}
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    className="gap-2"
+                    data-tab-target={key}
+                    title={`Alt+${index + 1}`}
+                  >
+                    <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden /> {label}
                   </TabsTrigger>
                 ))}
               </TabsList>
@@ -174,28 +180,32 @@ export default function HeaderMenuPro({
               </div>
 
               {/* Somente alertas */}
-              <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 bg-white/60">
-                <Switch checked={!!somenteAlertas} onCheckedChange={onSomenteAlertasChange} />
-                <span className="text-sm">Somente alertas</span>
+              <div className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 bg-white/60">
+                <Switch
+                  checked={!!somenteAlertas}
+                  onCheckedChange={onSomenteAlertasChange}
+                  className="scale-90"
+                />
+                <span className="text-xs font-medium text-slate-600 leading-none">Somente alertas</span>
                 {somenteAlertas ? (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-red-100 px-1.5 py-0 text-[11px] text-red-700">
-                    <ShieldAlert className="h-3.5 w-3.5 mr-1" /> ON
+                  <span className="ml-1 inline-flex items-center rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">
+                    <ShieldAlert className="mr-1 h-3 w-3" /> ON
                   </span>
                 ) : (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0 text-[11px] text-slate-700">
+                  <span className="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
                     OFF
                   </span>
                 )}
               </div>
 
               {/* Modo foco */}
-              <div className="flex items-center gap-2 rounded-xl border px-3 py-1.5 bg-white/60">
-                <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} />
-                <span className="text-sm">Modo foco</span>
+              <div className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 bg-white/60">
+                <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="scale-90" />
+                <span className="text-xs font-medium text-slate-600 leading-none">Modo foco</span>
                 {modoFoco ? (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0 text-[11px] text-emerald-700">ON</span>
+                  <span className="ml-1 inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">ON</span>
                 ) : (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0 text-[11px] text-slate-700">OFF</span>
+                  <span className="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">OFF</span>
                 )}
               </div>
             </div>
