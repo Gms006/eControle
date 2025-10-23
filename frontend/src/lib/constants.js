@@ -4,21 +4,21 @@ export const PROCESS_ALL = "__PROCESS_ALL__";
 export const TAB_BACKGROUNDS = {
   painel: "bg-sky-50",
   empresas: "bg-indigo-50",
+  certificados: "bg-teal-50",
   licencas: "bg-emerald-50",
   taxas: "bg-amber-50",
   processos: "bg-violet-50",
   uteis: "bg-slate-50",
-  certificados: "bg-lime-50",
 };
 
 export const TAB_SHORTCUTS = {
   1: "painel",
   2: "empresas",
-  3: "licencas",
-  4: "taxas",
-  5: "processos",
-  6: "uteis",
-  7: "certificados",
+  3: "certificados",
+  4: "licencas",
+  5: "taxas",
+  6: "processos",
+  7: "uteis",
 };
 
 export const DEFAULT_LICENCA_TIPOS = [
