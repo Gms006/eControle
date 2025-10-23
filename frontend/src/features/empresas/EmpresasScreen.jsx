@@ -26,6 +26,7 @@ import {
 } from "@/lib/status";
 import {
   openCartaoCNPJ,
+  openCNDFederal,
   openCNDAnapolis,
   openCAEAnapolis,
   onlyDigits,
@@ -191,6 +192,55 @@ export default function EmpresasScreen({
     [ensureCNDs, isMunicipioAnapolis, toast]
   );
 
+  const handleEmitirCNDFederal = React.useCallback(
+    async (event, empresaInfo) => {
+      const originalEvent = event?.detail?.originalEvent;
+      const abrirPortal = Boolean(originalEvent?.ctrlKey || originalEvent?.metaKey);
+      const cnpjRaw = empresaInfo?.cnpj || "";
+      const digits = onlyDigits(cnpjRaw);
+
+      if (abrirPortal) {
+        await openCNDFederal(cnpjRaw, toast);
+        return;
+      }
+
+      if (!digits || digits.length !== 14) {
+        toast?.("CNPJ inválido para emissão da CND Federal.");
+        return;
+      }
+
+      try {
+        toast?.("Iniciando emissão da CND Federal (RFB).");
+        const resp = await fetch(`${API_BASE_URL}/api/cnds/federal/emitir`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ cnpj: cnpjRaw }),
+        });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) {
+          throw new Error(data?.detail || data?.info || "Falha ao emitir a CND Federal.");
+        }
+        if (data?.ok) {
+          toast?.("CND Federal emitida com sucesso.");
+          if (data?.url) {
+            console.info(
+              "CND Federal disponível em:",
+              ensureAbsoluteUrl(data.url)
+            );
+          } else if (data?.path) {
+            console.info("CND Federal salva em:", data.path);
+          }
+          await ensureCNDs(cnpjRaw, { force: true });
+        } else {
+          toast?.(data?.info || "Não foi possível emitir a CND Federal.");
+        }
+      } catch (error) {
+        toast?.(error?.message || "Erro inesperado ao emitir a CND Federal.");
+      }
+    },
+    [ensureCNDs, toast]
+  );
+
   const handleEmitirCAE = React.useCallback(
     async (event, empresaInfo) => {
       const originalEvent = event?.detail?.originalEvent;
@@ -293,6 +343,10 @@ export default function EmpresasScreen({
           const cndLoading = Boolean(cndEntry.loading);
           const cndItems = Array.isArray(cndEntry.items) ? cndEntry.items : [];
           const hasCND = cndItems.length > 0;
+          const federalFiles = cndItems.filter((item) =>
+            item?.name?.startsWith("CND Federal - ")
+          );
+          const lastCNDFederal = federalFiles[0];
           const caeFiles = cndItems.filter((item) =>
             item?.name?.startsWith("CAE - ")
           );
@@ -442,6 +496,19 @@ export default function EmpresasScreen({
                         icon={ExternalLink}
                         title={
                           <span className="inline-flex items-center">
+                            CND Federal <MiniBadge>RFB</MiniBadge>
+                          </span>
+                        }
+                        description="Emitir pelo portal da Receita Federal."
+                        hint={<Kbd>Ctrl</Kbd>}
+                        disabled={!hasValidCnpj}
+                        onClick={(event) => handleEmitirCNDFederal(event, empresa)}
+                      />
+
+                      <DropdownMenuItemFancy
+                        icon={ExternalLink}
+                        title={
+                          <span className="inline-flex items-center">
                             CAE/FIC <MiniBadge>IM</MiniBadge>
                           </span>
                         }
@@ -500,6 +567,44 @@ export default function EmpresasScreen({
                             window.open(ensureAbsoluteUrl(url), "_blank", "noopener,noreferrer");
                           } else {
                             toast?.("Não foi possível localizar o arquivo da CND.");
+                          }
+                        }}
+                      />
+
+                      <DropdownMenuItemFancy
+                        icon={File}
+                        title="CND Federal (RFB)"
+                        description="Abrir a última CND Federal baixada."
+                        disabled={cndLoading || !lastCNDFederal}
+                        hint={
+                          cndLoading ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                          ) : undefined
+                        }
+                        onClick={async () => {
+                          let lista = cndEntry.items;
+                          if (!Array.isArray(lista) || lista.length === 0) {
+                            lista = await ensureCNDs(empresa.cnpj, { force: true });
+                          }
+
+                          const arquivosFederal = Array.isArray(lista)
+                            ? lista.filter((item) => item?.name?.startsWith("CND Federal - "))
+                            : [];
+
+                          if (!arquivosFederal.length) {
+                            toast?.("Nenhuma CND Federal encontrada para esta empresa.");
+                            return;
+                          }
+
+                          const arquivo = arquivosFederal[0];
+                          if (arquivo?.url) {
+                            window.open(
+                              ensureAbsoluteUrl(arquivo.url),
+                              "_blank",
+                              "noopener,noreferrer"
+                            );
+                          } else {
+                            toast?.("Não foi possível localizar o arquivo da CND Federal.");
                           }
                         }}
                       />
