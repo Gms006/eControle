@@ -196,6 +196,9 @@ export const DropdownMenuItemFancy = React.forwardRef(
         "group relative flex cursor-pointer select-none items-center gap-3 rounded-lg px-2 py-2 outline-none",
         "transition-colors duration-150",
         "focus:ring-2 focus:ring-sky-200 focus:bg-sky-50/60 hover:bg-slate-50",
+        "data-[disabled]:pointer-events-none data-[disabled]:opacity-40",
+        "data-[disabled]:hover:bg-transparent data-[disabled]:focus:bg-transparent",
+        "data-[disabled]:text-slate-400 data-[disabled]:ring-0",
         className
       )}
       {...props}
