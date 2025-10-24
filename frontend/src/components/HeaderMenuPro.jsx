@@ -151,12 +151,12 @@ export default function HeaderMenuPro({
 <div className="pb-3 -mt-1">
   <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-3 lg:gap-y-2 gap-x-2">
     <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:w-auto">
-      <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full lg:w-auto">
+      <TabsList className="flex w-full lg:w-auto flex-nowrap items-stretch gap-1 overflow-x-auto">
         {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
           <TabsTrigger
             key={key}
             value={key}
-            className="gap-2"
+            className="gap-2 whitespace-nowrap"
             data-tab-target={key}
             title={`Alt+${index + 1}`}
           >
