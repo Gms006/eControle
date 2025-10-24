@@ -10,21 +10,27 @@ from alembic import context
 from dotenv import load_dotenv
 from sqlalchemy import engine_from_config, pool
 
-BASE_DIR = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = BASE_DIR.parent
+MIGRATIONS_DIR = Path(__file__).resolve().parent
+BACKEND_DIR = MIGRATIONS_DIR.parent
+PROJECT_ROOT = BACKEND_DIR.parent
+
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-load_dotenv(PROJECT_ROOT / "backend" / ".env")
+# Carrega o .env que está em backend/.env
+DOTENV_PATH = BACKEND_DIR / ".env"
+load_dotenv(DOTENV_PATH)
 
 config = context.config
-fileConfig(config.config_file_name)
 
-if config.get_main_option("sqlalchemy.url") == "%(DATABASE_URL)s":
-    database_url = os.getenv("DATABASE_URL")
-    if not database_url:
-        raise RuntimeError("DATABASE_URL environment variable is not set")
-    config.set_main_option("sqlalchemy.url", database_url)
+# Lê a env var e injeta no alembic.ini em runtime
+db_url = os.getenv("DATABASE_URL")
+if not db_url:
+    raise RuntimeError("DATABASE_URL não encontrada no backend/.env")
+config.set_main_option("sqlalchemy.url", db_url)
+
+if config.config_file_name is not None:
+    fileConfig(config.config_file_name)
 
 from backend.db.models_sql import Base  # noqa: E402
 
