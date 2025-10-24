@@ -205,8 +205,24 @@ def _build_natural_key(
         cols = (table.c.cnpj,)
         where_clause = table.c.cnpj == payload["cnpj"]
         return sa.select(table).where(where_clause), ("cnpj",)
-    if table_name in {"licencas", "taxas"}:
-        cols = (table.c.empresa_id, table.c.tipo)
+    if table_name == "taxas":
+        if "data_referencia" in table.c and payload.get("data_referencia"):
+            where_clause = sa.and_(
+                table.c.empresa_id == payload["empresa_id"],
+                table.c.tipo == payload["tipo"],
+                table.c.data_referencia == payload["data_referencia"],
+            )
+            return sa.select(table).where(where_clause), (
+                "empresa_id",
+                "tipo",
+                "data_referencia",
+            )
+        where_clause = sa.and_(
+            table.c.empresa_id == payload["empresa_id"],
+            table.c.tipo == payload["tipo"],
+        )
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+    if table_name == "licencas":
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
