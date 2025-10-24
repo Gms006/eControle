@@ -154,6 +154,76 @@ Sistema interno para gestão de empresas, licenças, taxas, processos administra
 
 ---
 
+## S2 – ETL idempotente (Excel → Postgres)
+
+> **Objetivo:** importar planilhas Excel/CSV para o banco mantendo idempotência e auditabilidade.
+
+### Arquitetura
+
+1. **Extract** (`backend/etl/extract_xlsm.py`)
+   - Lê `.xlsm`/`.xlsx` com `openpyxl` (aceita `.csv` para amostras).
+   - Respeita `sheet_names` e `table_names` definidos no `config.yaml`.
+   - Retém o número da linha original para rastreabilidade.
+2. **Transform** (`backend/etl/transform_normalize.py`)
+   - Concilia cabeçalhos via `column_aliases` e aplica normalizadores (CNPJ, datas, enums).
+   - Gera payload canônico por entidade e valida domínios contra `config.yaml`.
+3. **Load** (`backend/etl/load_upsert.py`)
+   - Persiste nas tabelas de staging (`stg_*`) com `run_id`, `row_hash` e payload em JSON.
+   - Resolve `empresa_id` pelo CNPJ e executa UPSERT idempotente nas tabelas finais.
+   - Calcula diffs campo a campo para decidir entre `insert`, `update` ou `skip`.
+
+### Dependências
+
+Instale as dependências do backend (inclui Typer para a CLI):
+
+```bash
+pip install -r backend/requirements.txt
+```
+
+### Migrations
+
+Aplicar o schema base (S1) + staging tables (S2):
+
+```bash
+alembic -c backend/alembic.ini upgrade head
+```
+
+### Execução do ETL
+
+```bash
+# Dry-run (sem commitar alterações)
+python -m etl import --source "caminho/planilha.xlsm" --dry-run
+
+# Aplicar alterações
+python -m etl import --source "caminho/planilha.xlsm" --apply
+```
+
+A CLI lê `DATABASE_URL` e `CONFIG_PATH` do ambiente. A saída é JSONL com `run_id`, `sheet`, `row_number`, `table`, `action` e `changed_fields`.
+
+### Logs e idempotência
+
+- As tabelas de staging armazenam `payload` e `row_hash` de cada execução.
+- Execuções repetidas com os mesmos dados retornam `skip` (sem alterações nas tabelas finais).
+- Alterações parciais produzem `update` com a lista de campos modificados.
+
+### Testes
+
+Execute a suíte focada no ETL:
+
+```bash
+pytest tests/test_etl_basic.py
+```
+
+Os cenários cobrem duplicidade, enums inválidos, datas inválidas e atualizações parciais.
+
+### Troubleshooting
+
+- **Enums inválidos**: ajuste o texto da planilha para coincidir com os valores do `config.yaml`.
+- **Datas**: suportados `dd/mm/aaaa`, `dd-mm-aaaa`, `aaaa-mm-dd` e serial numérico do Excel.
+- **CNPJ**: sempre tratado apenas com dígitos; entradas vazias são ignoradas.
+
+---
+
 ## Backend FastAPI
 
 ### Responsabilidades principais
