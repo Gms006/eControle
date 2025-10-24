@@ -1,47 +1,43 @@
 # eControle
 
-Sistema interno para gestão integrada de empresas, licenças, taxas, processos administrativos, certificados digitais e materiais de apoio. O fluxo atual é:
+Sistema interno para gestão de empresas, licenças, taxas, processos administrativos, certificados digitais e materiais de apoio. O fluxo completo envolve uma planilha Excel macro-enabled (.xlsm), um backend FastAPI que normaliza os dados em memória e um frontend React que apresenta painéis, filtros e automações.
 
-1. **Planilhas Excel macro-enabled (.xlsm)** com abas e ListObjects padronizados abastecem as entidades de negócio.
-2. **Backend FastAPI** importa os dados via `ExcelRepo`, normaliza-os e mantém um cache em memória.
-3. **Frontend React + Vite** consome os endpoints REST para montar dashboards, listagens com filtros e cards interativos.
-
-> **Importante:** os arquivos Excel reais **não devem ser versionados**. Crie a pasta `data/` localmente e mantenha os `.xlsm` apenas em ambientes controlados.
+> Os arquivos reais das planilhas **não são versionados**. Crie a pasta `data/` localmente e armazene os `.xlsm` apenas em ambientes controlados.
 
 ---
 
-## Arquitetura em alto nível
+## Visão geral dos componentes
 
 ```
-┌─────────────────────────┐        ┌─────────────────────────────┐
-│ Excel (.xlsm) +         │        │ backend/config.yaml         │
-│ ListObjects + abas      │        │ aliases / nomes de abas     │
-└───────────────┬─────────┘        └──────────────┬──────────────┘
-                │                                 │
-        portalocker + openpyxl                    │
-                ▼                                 │
-┌─────────────────────────────────────────────────▼──────────────┐
-│ backend/repo_excel.py (ExcelRepo)                              │
-│ • Lock de arquivo (.env → EXCEL_PATH)                          │
-│ • Mapeamento dinâmico de colunas/abas/tabelas                  │
-│ • Leitura por aba e por tabela (ListObject)                    │
-└───────────────┬────────────────────────────────────────────────┘
-                │                                               cache em memória
-                ▼
-┌──────────────────────────────────────────────────────────────┐
-│ backend/api.py (FastAPI) + routes_certificados.py             │
-│ • Endpoints REST (/api/*, /api/certificados, /health, etc.)   │
-│ • Normalização via backend/services/__init__.py               │
-│ • KPIs globais e filtros reutilizáveis                        │
-└───────────────┬──────────────────────────────────────────────┘
-                │ HTTP (CORS configurável)
-                ▼
-┌──────────────────────────────────────────────────────────────┐
-│ frontend (React 18 + Vite)                                   │
-│ • App.jsx com tabs (Painel, Empresas, Licenças, Taxas, ...)   │
-│ • Hooks para busca, filtros, modo foco, certificados          │
-│ • Componentes shadcn/ui + gráficos com Recharts               │
-└──────────────────────────────────────────────────────────────┘
+┌─────────────────────────────┐        ┌──────────────────────────────┐
+│ Planilhas Excel (.xlsm)     │        │ backend/config.yaml          │
+│ • Abas com ListObjects      │        │ sheet/table aliases          │
+└──────────────┬──────────────┘        └──────────────┬───────────────┘
+               │                                     │
+       portalocker + openpyxl                        │
+               ▼                                     │
+┌────────────────────────────────────────────────────▼──────────────┐
+│ backend/repo_excel.py (ExcelRepo)                                 │
+│ • Lock do arquivo (.env → EXCEL_PATH)                             │
+│ • Mapas dinâmicos de colunas/abas/tabelas                         │
+│ • Leitura por aba ou ListObject                                   │
+└──────────────┬────────────────────────────────────────────────────┘
+               │                                 cache em memória
+               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ backend/api.py (FastAPI)                                         │
+│ • Endpoints REST (/api/*, /api/cnds, /api/cae, /api/certificados) │
+│ • Normalização em services/ + métricas globais                    │
+│ • Exposição de PDFs gerados em `/cnds`                            │
+└──────────────┬───────────────────────────────────────────────────┘
+               │ HTTP (CORS configurável)
+               ▼
+┌──────────────────────────────────────────────────────────────────┐
+│ frontend (React 18 + Vite + Tailwind)                            │
+│ • Abas: Painel, Empresas, Licenças, Taxas, Processos, Úteis,      │
+│   Certificados                                                    │
+│ • Hooks para filtros, alertas e automações (CND/CAE)              │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -51,184 +47,157 @@ Sistema interno para gestão integrada de empresas, licenças, taxas, processos 
 ```
 .
 ├── backend/
-│   ├── api.py                  # API FastAPI + cache em memória
-│   ├── repo_excel.py           # Acesso seguro ao Excel (portalocker/openpyxl)
-│   ├── models.py               # Dataclasses de domínio
+│   ├── api.py                   # API FastAPI + cache em memória
+│   ├── repo_excel.py            # Acesso seguro às planilhas
+│   ├── models.py                # Dataclasses de domínio
 │   ├── services/
-│   │   ├── __init__.py         # Normalização, filtros, métricas e validações
-│   │   └── data_certificados.py # Leitura de certificados/agenda em planilha dedicada
-│   ├── routes_certificados.py  # Rotas adicionais (/api/certificados, /api/agendamentos)
-│   ├── config.yaml             # Nomes de abas/tabelas + aliases de colunas
-│   └── requirements.txt        # Dependências do backend
+│   │   ├── __init__.py          # Normalização, filtros, métricas
+│   │   └── data_certificados.py # Leitura da planilha de certificados
+│   ├── routes_certificados.py   # Rotas /api/certificados e /api/agendamentos
+│   ├── cnds/                    # Automação de CNDs (Playwright)
+│   ├── caes/                    # Automação de CAE (Playwright)
+│   ├── config.yaml              # Mapeamento de abas/tabelas/aliases
+│   └── requirements.txt         # Dependências do backend
 ├── frontend/
 │   ├── src/
 │   │   ├── App.jsx, main.jsx, index.css
-│   │   ├── components/         # shadcn/ui wrappers + badges/KPIs
-│   │   ├── features/           # Telas: painel, empresas, licenças, taxas, processos, úteis, certificados
-│   │   ├── lib/                # Helpers (API, texto, status, certificados, constantes)
-│   │   └── providers/          # ToastProvider e contexto de notificações
+│   │   ├── components/          # shadcn/ui wrappers, badges, KPIs
+│   │   ├── features/            # Telas (painel, empresas, licenças, ...)
+│   │   ├── lib/                 # Helpers (API, texto, status, certificados)
+│   │   └── providers/           # ToastProvider e contexto de notificações
 │   ├── package.json, vite.config.js, tailwind.config.js
 │   └── postcss.config.js, index.html
-├── ESTRUTURA_PROJETO.md        # Blueprint histórico do projeto
-├── GUIA_SETUP.md               # Passo a passo detalhado (legado)
+├── ESTRUTURA_PROJETO.md        # Blueprint resumido do repositório
+├── GUIA_SETUP.md               # Passo a passo detalhado de setup
 └── README.md                   # Este documento
 ```
 
 ---
 
-## Planilhas e configuração
+## Setup rápido
 
-O backend utiliza duas planilhas principais:
+1. **Backend**
+   ```bash
+   cd backend
+   python -m venv .venv
+   source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+   pip install -r requirements.txt
+   python -m playwright install chromium  # necessário para automações
+   ```
 
-1. **Planilha operacional** – definida pela variável `EXCEL_PATH` (ex.: `../data/arquivo.xlsm`). Alimenta empresas, licenças, taxas, processos e contatos.
-2. **Planilha de certificados** – caminho configurado em `backend/services/data_certificados.py` (constante `PLANILHA_CERT_PATH`). Deve apontar para o arquivo `.xlsm` que contém certificados digitais e agenda de emissão.
+2. **Configuração**
+   - Crie `backend/.env` com, no mínimo:
+     ```ini
+     EXCEL_PATH=../data/arquivo.xlsm
+     CONFIG_PATH=./config.yaml
+     CORS_ORIGINS=http://localhost:5173
+     API_HOST=0.0.0.0
+     API_PORT=8000
+     LOG_LEVEL=INFO
+     CND_DIR_BASE=certidoes
+     CND_HEADLESS=true
+     CAPTCHA_MODE=manual          # ou image_2captcha
+     API_KEY_2CAPTCHA=            # obrigatório se CAPTCHA_MODE=image_2captcha
+     ```
+   - Ajuste `PLANILHA_CERT_PATH` em `backend/services/data_certificados.py` para apontar para a planilha de certificados/agendamentos.
 
-O arquivo `backend/config.yaml` controla nomes de abas (`sheet_names`), tabelas/ListObjects (`table_names`), aliases de colunas (`column_aliases`) e enumerações auxiliares (`enums`). Ajuste-o sempre que a estrutura da planilha mudar.
+3. **Executar o backend**
+   ```bash
+   uvicorn api:app --reload --host $API_HOST --port $API_PORT
+   ```
 
----
-
-## Backend (FastAPI)
-
-### Principais responsabilidades
-
-- Carregar a planilha principal via `ExcelRepo` com lock de arquivo (`portalocker`).
-- Transformar estruturas “largas” de licenças e taxas em listas normalizadas (`Licenca`, `Taxa`).
-- Consolidar processos a partir de múltiplas tabelas (diversos, funcionamento, bombeiros, uso do solo, sanitário, ambiental).
-- Manter um **cache global** com empresas, licenças, taxas, processos, contatos e modelos.
-- Expor endpoints REST (incluindo certificados/agendamentos) e rota de diagnóstico de colunas.
-- Calcular métricas agregadas para o painel (`/api/kpis`).
-
-### Variáveis de ambiente
-
-Crie um arquivo `.env` dentro de `backend/` com as chaves mínimas:
-
-```ini
-EXCEL_PATH=../data/arquivo.xlsm   # Caminho absoluto ou relativo da planilha principal
-CONFIG_PATH=./config.yaml         # Opcional: customizar mapeamento
-CORS_ORIGINS=http://localhost:5173,http://localhost:3000
-API_HOST=0.0.0.0
-API_PORT=8000
-LOG_LEVEL=INFO
-```
-
-> Ajuste `PLANILHA_CERT_PATH` em `services/data_certificados.py` conforme o local da planilha de certificados.
-
-### Instalação e execução
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-pip install -r requirements.txt
-python -m playwright install chromium  # necessário para a automação de CNDs
-uvicorn api:app --reload --host $API_HOST --port $API_PORT
-```
-
-> O passo `python -m playwright install chromium` baixa o navegador controlado pela automação da rota `/api/cnds`. Execute-o em qualquer ambiente novo ou após upgrades do Playwright. O `requirements.txt` traz `aiofiles` (obrigatório para servir `/cnds` com `StaticFiles`), `python-dotenv` (carregamento antecipado do `.env`) e `playwright`/`requests` para os robôs de emissão de CND.
-
-### Endpoints principais
-
-| Método | Caminho                 | Descrição                                                                      |
-| ------ | ----------------------- | ------------------------------------------------------------------------------ |
-| GET    | `/`                     | Metadados da API + timestamp da última carga                                   |
-| GET    | `/health`               | Healthcheck simples + quantidade de empresas em cache                          |
-| GET    | `/api/empresas`         | Lista empresas (filtros `query`, `municipio`, `so_alertas`)                     |
-| GET    | `/api/empresas/{id}`    | Detalhe da empresa + contagem de licenças/processos/taxas                       |
-| GET    | `/api/licencas`         | Licenças normalizadas (filtros `empresa_id`, `empresa`)                         |
-| GET    | `/api/taxas`            | Taxas normalizadas por empresa                                                  |
-| GET    | `/api/processos`        | Processos (diversos, funcionamento, bombeiros, uso do solo, sanitário, etc.)    |
-| GET    | `/api/municipios`       | Lista de municípios deduplicados                                                |
-| GET    | `/api/kpis`             | KPIs globais (empresas, licenças vencidas, TPI pendente, etc.)                 |
-| GET    | `/api/uteis`            | Contatos e modelos de mensagem                                                  |
-| GET    | `/api/certificados`     | Certificados digitais extraídos da planilha dedicada                             |
-| GET    | `/api/agendamentos`     | Agenda de emissões de certificados                                              |
-| POST   | `/api/refresh`          | Agenda recarga assíncrona do Excel                                              |
-| GET    | `/api/diagnostico`      | Mapas de colunas detectados + avisos de colunas ausentes                        |
-| POST   | `/api/cnds/emitir`      | Dispara emissão automatizada de CND em Anápolis (Playwright)                   |
-| GET    | `/api/cnds/{cnpj}/list` | Lista PDFs de CND já emitidos para o CNPJ informado                             |
-
-### Automação de CND (Anápolis)
-
-A rota `/api/cnds/emitir` utiliza o script `backend/cnds/municipal/cnds_worker_anapolis.py` para abrir o portal municipal via Playwright e baixar a certidão. Configure as variáveis abaixo no `.env` do backend para ajustar o comportamento:
-
-| Variável             | Descrição |
-| -------------------- | --------- |
-| `CND_DIR_BASE`       | Pasta onde os PDFs serão salvos. Padrão: `certidoes/` (o app expõe `/cnds` como estático). |
-| `CND_HEADLESS`       | `true` para rodar sem interface gráfica. Mantém `false` em ambientes que precisam resolver CAPTCHA manualmente. |
-| `CND_CHROME_PATH`    | Caminho absoluto para um executável Chromium/Chrome customizado (opcional). |
-| `CAPTCHA_MODE`       | `manual` (padrão) ou `image_2captcha` para resolução automática via 2Captcha. |
-| `API_KEY_2CAPTCHA`   | Chave de API utilizada quando `CAPTCHA_MODE=image_2captcha`. |
-
-> Em ambientes Windows, o módulo ajusta a `event_loop_policy` automaticamente para compatibilidade com Playwright. Garanta também que as dependências de sistema do Chromium estejam instaladas (veja a [documentação oficial](https://playwright.dev/python/docs/intro)).
-
-### Automação de CND (Megasoft)
-
-Municípios que utilizam portais Megasoft também são atendidos pela mesma rota `/api/cnds/emitir`, que delega o fluxo ao worker `backend/cnds/municipal/cnds_worker_megasoft.py`. O arquivo `backend/cnds/municipal/megasoft_map.json` contém a lista de municípios suportados, com `municipio`, `base_url` do portal e, opcionalmente, um `slug` usado para nomear o PDF. Ajuste ou adicione entradas conforme necessário; o carregamento é feito uma única vez por processo via `_load_megasoft_map()` em `backend/cnds/municipal/routes.py`. Independentemente do worker, os PDFs ficam dentro de `CND_DIR_BASE` (padrão `certidoes/`) e podem ser servidos diretamente em `/cnds/<CNPJ>/<arquivo.pdf>`.
-
-### Diagnóstico rápido
-
-```bash
-cd backend
-python repo_excel.py          # Imprime mapas de colunas e tabelas configuradas
-curl http://localhost:8000/health
-curl http://localhost:8000/api/diagnostico | jq
-```
-
-As funções `ExcelRepo.build_column_map*` ajudam a verificar se novas colunas foram reconhecidas.
+4. **Frontend**
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   - O Vite roda em `http://localhost:5173` e proxia chamadas `/api` para `http://localhost:8000`.
+   - Defina `VITE_API_URL` em um `.env.local` se precisar apontar para outra origem.
 
 ---
 
-## Frontend (React + Vite)
+## Backend FastAPI
 
-### Destaques da interface
+### Responsabilidades principais
 
-- **Tabs com atalhos (Alt+1…7)** para navegar entre Painel, Empresas, Licenças, Taxas, Processos, Certificados e Úteis.
-- **Filtros combinados** (busca textual, município, modo “somente alertas”) que impactam múltiplas telas simultaneamente.
-- **Modo foco** reduzindo densidade visual em listagens extensas.
-- **Painel analítico** com cartões (`KPI`), gráficos (`Recharts`) e destaques de risco/alertas.
-- **Integração com certificados** para cruzar situação do certificado digital com os dados das empresas.
-- **Toasts leves** (`ToastProvider`) para feedback de ações de cópia e interações rápidas.
-- Componentes baseados em shadcn/ui (button, card, table, tabs, switch, select, etc.) estilizados via Tailwind CSS.
+- Carregar a planilha definida em `EXCEL_PATH` via `ExcelRepo` com bloqueio de arquivo (`portalocker`).
+- Normalizar as estruturas "largas" de licenças e taxas em listas (`Licenca`, `Taxa`).
+- Consolidar processos a partir das tabelas definidas em `config.yaml`.
+- Popular um cache global com empresas, licenças, taxas, processos, contatos e modelos de mensagem.
+- Expor endpoints REST (incluindo certificados, agendamentos, automação de CNDs e CAE).
+- Calcular KPIs agregados para o painel (`/api/kpis`).
+- Servir PDFs de CND gerados em `/cnds/*` via `StaticFiles`.
 
-### Configuração
+### Endpoints relevantes
 
-```bash
-cd frontend
-npm install
-npm run dev
-```
+| Método | Caminho                    | Descrição                                                                 |
+| ------ | -------------------------- | ------------------------------------------------------------------------- |
+| GET    | `/`                        | Metadados da API + timestamp da última carga                              |
+| GET    | `/health`                  | Healthcheck simples                                                       |
+| GET    | `/api/empresas`            | Lista empresas com filtros (`query`, `municipio`, `so_alertas`)           |
+| GET    | `/api/empresas/{id}`       | Detalhe da empresa + contagens de licenças/processos/taxas                |
+| GET    | `/api/licencas`            | Licenças normalizadas (`empresa_id` ou `empresa`)                         |
+| GET    | `/api/taxas`               | Situação das taxas por empresa                                            |
+| GET    | `/api/processos`           | Processos agrupados por tipo (`tipo`, `apenas_ativos`)                    |
+| GET    | `/api/uteis`               | Contatos e modelos de mensagem                                            |
+| GET    | `/api/municipios`          | Municípios deduplicados                                                   |
+| GET    | `/api/kpis`                | KPIs globais do painel                                                    |
+| POST   | `/api/refresh`             | Agenda recarga assíncrona do Excel                                        |
+| GET    | `/api/diagnostico`         | Mapas de colunas detectados + avisos                                      |
+| GET    | `/api/certificados`        | Certificados digitais da planilha dedicada                                |
+| GET    | `/api/agendamentos`        | Agenda de emissões                                                        |
+| POST   | `/api/cnds/emitir`         | Emissão automática de CND (múltiplos municípios suportados)               |
+| GET    | `/api/cnds/{cnpj}/list`    | Lista PDFs de CND já emitidos                                             |
+| POST   | `/api/cae/emitir`          | Emissão automática de CAE (Anápolis)                                      |
 
-Crie um arquivo `frontend/.env` (ou configure via shell) para apontar o backend:
+### Planilhas e `config.yaml`
 
-```bash
-VITE_API_URL=http://localhost:8000/api
-```
+- `config.yaml` define `sheet_names`, `table_names`, `column_aliases` e enums auxiliares.
+- Ajuste os aliases sempre que um cabeçalho da planilha mudar; o diagnóstico (`/api/diagnostico`) ajuda a validar o mapeamento.
+- A planilha principal deve conter, pelo menos, abas para empresas, licenças, taxas, processos e contatos/modelos.
 
-O script `npm run dev` inicia o Vite com `--open`. Ajuste `VITE_API_URL` conforme a URL de produção ou túnel.
-Sem essa variável, o helper `normalizeApiBase` cai para `/api`, funcionando em conjunto com o proxy definido em `frontend/vite.config.js`.
+### Automação de CND/CAE
 
-Para gerar build de produção:
-
-```bash
-npm run build    # gera frontend/dist
-npm run preview  # testa build localmente
-```
+- **CNDs**: use as rotas em `backend/cnds/municipal`. Variáveis de ambiente úteis:
+  - `CND_DIR_BASE`: diretório onde os PDFs ficam salvos (padrão: `certidoes/`).
+  - `CND_HEADLESS`: controla se o Playwright roda em headless.
+  - `CND_CHROME_PATH`: caminho para um executável Chromium customizado (opcional).
+  - `CAPTCHA_MODE` + `API_KEY_2CAPTCHA`: habilitam resolução automática de captcha.
+- **CAE**: disponível para Anápolis em `/api/cae/emitir` via `backend/caes/cae_worker_anapolis.py`.
+- Execute `python -m playwright install chromium` após instalar as dependências ou sempre que atualizar o Playwright.
 
 ---
 
-## Boas práticas
+## Frontend React
 
-- Feche o Excel antes de iniciar o backend (o `ExcelRepo` usa lock compartilhado via `portalocker`).
-- Utilize o endpoint `/api/diagnostico` sempre que alterar cabeçalhos ou nomes de tabelas para confirmar o mapeamento.
-- Centralize novas regras de negócio em `backend/services/__init__.py` para manter o front simples e reutilizar lógica.
-- No frontend, reutilize os utilitários existentes em `src/lib/*` (texto, status, certificados, processos) antes de criar novos helpers.
-- Consulte `GUIA_SETUP.md` para um passo a passo histórico (comandos de Tailwind/shadcn) e `ESTRUTURA_PROJETO.md` para uma visão arquitetural complementar.
+- Construído com **React 18**, **Vite**, **Tailwind** e componentes estilo shadcn/ui (arquivos `.jsx`).
+- O estado global vive no `App.jsx`, que carrega dados via hooks (`fetchJson`) e distribui para as abas.
+- Principais diretórios:
+  - `features/painel`: KPIs, métricas e gráficos (Recharts) com tendência de alertas.
+  - `features/empresas`: filtros rápidos, modo foco e destaques de alertas.
+  - `features/licencas`, `features/taxas`, `features/processos`: listagens com filtros reutilizáveis.
+  - `features/certificados`: leitura da planilha dedicada (certificados e agendamentos).
+  - `features/uteis`: contatos e modelos de mensagem.
+- Configure `VITE_API_URL` para apontar para o backend desejado em produção (ex.: `https://minha.api/econtrole`).
+
+### Desenvolvimento
+
+- Hot reload automático do Vite (`npm run dev`).
+- O proxy configurado em `vite.config.js` permite rodar backend e frontend localmente sem ajustes adicionais.
+- Use o ToastProvider (`providers/ToastProvider.jsx`) para notificações consistentes.
 
 ---
 
-## Próximos passos sugeridos
+## Dicas de manutenção
 
-- Externalizar `PLANILHA_CERT_PATH` via variável de ambiente para evitar ajustes manuais em código.
-- Adicionar testes automatizados para as funções críticas de normalização e filtros (`backend/services`, `frontend/src/lib`).
-- Documentar um fluxo de implantação (Docker Compose, CI/CD) que mantenha os arquivos Excel fora do repositório.
+- Utilize `/api/refresh` para recarregar o cache após atualizar a planilha.
+- O endpoint `/api/diagnostico` ajuda a detectar colunas renomeadas ou ausentes.
+- Monitorar `backend/logs` (stdout) com `LOG_LEVEL=DEBUG` facilita depuração de automações Playwright.
+- Os PDFs gerados ficam em `CND_DIR_BASE` e são servidos diretamente pelo backend (`/cnds/arquivo.pdf`).
 
+---
+
+## Licença
+
+Projeto interno. Consulte o time responsável antes de distribuir.
