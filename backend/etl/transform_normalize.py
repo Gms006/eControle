@@ -90,6 +90,12 @@ def transform(raw_data: Dict[str, Any], contract: ConfigContract) -> Dict[str, L
     return batches
 
 
+def apply(raw_data: Dict[str, Any], contract: ConfigContract) -> Dict[str, List[NormalizedRow]]:
+    """Compatibility wrapper exposing :func:`transform` as ``apply``."""
+
+    return transform(raw_data, contract)
+
+
 def _transform_empresas(rows: Iterable[Dict[str, Any]], contract: ConfigContract) -> List[NormalizedRow]:
     alias_map = contract.alias_map("empresas")
     normalized_rows: List[NormalizedRow] = []

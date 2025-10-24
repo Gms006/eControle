@@ -3,9 +3,7 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from dataclasses import dataclass
-from typing import Any, Dict, Iterable, List, Optional, Sequence
-from uuid import uuid4
+from typing import Any, Dict, List, Optional, Sequence
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
@@ -17,23 +15,13 @@ from .transform_normalize import NormalizedRow
 FINAL_TABLES = {"empresas", "licencas", "taxas", "processos"}
 
 
-@dataclass(slots=True)
-class LoadResult:
-    run_id: str
-    sheet: str
-    row_number: int
-    table: str
-    action: str
-    changed_fields: List[str]
-
-
 def run(
     engine: Engine,
     normalized: Dict[str, List[NormalizedRow]],
+    run_id: str,
     file_source: str,
     dry_run: bool = True,
 ) -> List[Dict[str, Any]]:
-    run_id = str(uuid4())
     with _transaction(engine, dry_run) as connection:
         metadata = sa.MetaData()
         metadata.reflect(connection, only={
@@ -69,8 +57,17 @@ def run(
             for item in rows:
                 staging_table = staging_tables[f"stg_{table}"]
                 payload = dict(item.payload)
-                row_hash = make_row_hash(item.table, item.row_number, json.dumps(payload, sort_keys=True, default=str))
-                _insert_staging(connection, staging_table, run_id, file_source, item.row_number, row_hash, payload)
+                payload_json = json.dumps(payload, sort_keys=True, default=str)
+                row_hash = make_row_hash(item.table, item.row_number, payload_json)
+                _insert_staging(
+                    connection,
+                    staging_table,
+                    run_id,
+                    file_source,
+                    item.row_number,
+                    row_hash,
+                    payload,
+                )
                 if table not in FINAL_TABLES:
                     results.append(
                         {

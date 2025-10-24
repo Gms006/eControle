@@ -6,7 +6,7 @@ import math
 import re
 import unicodedata
 from datetime import date, datetime, timedelta
-from typing import Any, Iterable
+from typing import Any
 
 EXCEL_EPOCH = date(1899, 12, 30)
 _DIGITS_RE = re.compile(r"\D+")
@@ -65,14 +65,10 @@ def parse_date_br(value: Any | None) -> date | None:
     raise ValueError(f"Data inválida: {value}")
 
 
-def make_row_hash(*parts: Iterable[Any]) -> str:
-    """Create a deterministic SHA-256 hash from *parts*."""
+def make_row_hash(table: str, row_number: int, payload_json: str) -> str:
+    """Create a deterministic SHA-256 hash for staging rows."""
+
     digest = hashlib.sha256()
-    for part in parts:
-        if isinstance(part, bytes):
-            data = part
-        else:
-            data = str(part).encode("utf-8")
-        digest.update(data)
-        digest.update(b"|")
+    digest.update(f"{table}::{row_number}||".encode("utf-8"))
+    digest.update(payload_json.encode("utf-8"))
     return digest.hexdigest()

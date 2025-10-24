@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "20251024_01"
+revision = "20251024_01_create_staging"
 down_revision = "20250101_01"
 branch_labels = None
 depends_on = None

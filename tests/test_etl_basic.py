@@ -188,16 +188,34 @@ def test_upsert_idempotent(engine, contract):
     raw = sample_raw_data()
     normalized = transform(raw, contract)
 
-    first = run_loader(engine, normalized, file_source="teste.xlsx", dry_run=False)
+    first = run_loader(
+        engine,
+        normalized,
+        run_id="run-1",
+        file_source="teste.xlsx",
+        dry_run=False,
+    )
     assert any(item["action"] == "insert" and item["table"] == "empresas" for item in first)
 
-    second = run_loader(engine, normalized, file_source="teste.xlsx", dry_run=False)
+    second = run_loader(
+        engine,
+        normalized,
+        run_id="run-2",
+        file_source="teste.xlsx",
+        dry_run=False,
+    )
     assert any(item["action"] == "skip" and item["table"] == "empresas" for item in second)
 
     # Update taxa status to trigger update
     raw["taxas"][0]["TAXA FUNCIONAMENTO"] = "Pago"
     normalized_update = transform(raw, contract)
-    third = run_loader(engine, normalized_update, file_source="teste.xlsx", dry_run=False)
+    third = run_loader(
+        engine,
+        normalized_update,
+        run_id="run-3",
+        file_source="teste.xlsx",
+        dry_run=False,
+    )
     assert any(item["action"] == "update" and item["table"] == "taxas" for item in third)
 
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from alembic import op
 
 revision = "20251024_02_add_uniques_for_upsert"
-down_revision = "20251024_01"
+down_revision = "20251024_01_create_staging"
 branch_labels = None
 depends_on = None
 
