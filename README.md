@@ -117,6 +117,43 @@ Sistema interno para gestão de empresas, licenças, taxas, processos administra
 
 ---
 
+## S1 – Schema v1 (PostgreSQL)
+
+> **Objetivo:** disponibilizar o schema versionado no PostgreSQL com tabelas, enums, views e seeds mínimos para testes da UI.
+
+1. **Variáveis de ambiente**
+   - Acrescente ao `backend/.env`:
+     ```ini
+     DATABASE_URL=postgresql+psycopg://usuario:senha@localhost:5432/econtrole
+     CONFIG_PATH=./config.yaml
+     ```
+   - Garanta que o banco informado em `DATABASE_URL` exista (ex.: `createdb econtrole`).
+
+2. **Instalação das dependências de banco**
+   ```bash
+   cd backend
+   pip install -r requirements.txt
+   ```
+
+3. **Criar/atualizar o schema**
+   ```bash
+   alembic upgrade head
+   ```
+
+4. **Smoke tests rápidos**
+   ```bash
+   psql "$DATABASE_URL" -c "SELECT * FROM v_empresas LIMIT 5;"
+   psql "$DATABASE_URL" -c "SELECT * FROM v_alertas_vencendo_30d LIMIT 5;"
+   ```
+
+5. **Critérios de pronto**
+   - O comando `alembic upgrade head` roda sem erros e cria tabelas, enums e views.
+   - Os selects acima retornam pelo menos uma linha (seeds inseridos automaticamente).
+   - Índices críticos (`idx_empresas_municipio`, `idx_licencas_validade`, `idx_processos_prazo`, etc.) aparecem em `\d`.
+   - Valores dos enums batem com o que está definido em `backend/config.yaml`.
+
+---
+
 ## Backend FastAPI
 
 ### Responsabilidades principais
