@@ -122,7 +122,7 @@ def upgrade() -> None:
         sa.Column("obs", sa.Text),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.text("now()")),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.text("now()"), onupdate=sa.text("now()")),
-        sa.CheckConstraint("validade IS NULL OR validade >= CURRENT_DATE", name="ck_licencas_validade"),
+        sa.CheckConstraint("(validade IS NULL) OR (validade >= DATE '1900-01-01')", name="ck_licencas_validade"),
     )
     op.create_index("idx_licencas_empresa_tipo", "licencas", ["empresa_id", "tipo"])
     op.create_index("idx_licencas_validade", "licencas", ["validade"])
