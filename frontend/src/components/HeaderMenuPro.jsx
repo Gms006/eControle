@@ -106,7 +106,7 @@ export default function HeaderMenuPro({
           {/* Busca global */}
           <div className="flex-1">
             <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-350" />
               <Input
                 id="global-search-input"
                 placeholder="Buscar: Empresa, CNPJ, palavra-chave…  (Ctrl/Cmd + K)"
@@ -147,72 +147,72 @@ export default function HeaderMenuPro({
           </div>
         </div>
 
-        {/* Linha 2: navegação + filtros */}
-        <div className="pb-3 -mt-1">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-            <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:w-auto">
-              <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full lg:w-auto">
-                {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
-                  <TabsTrigger
-                    key={key}
-                    value={key}
-                    className="gap-2"
-                    data-tab-target={key}
-                    title={`Alt+${index + 1}`}
-                  >
-                    <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden /> {label}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-              {NAV_ITEMS.map(({ key }) => <TabsContent key={key} value={key} />)}
-            </Tabs>
+{/* Linha 2: navegação + filtros */}
+<div className="pb-3 -mt-1">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-3 lg:gap-y-2 gap-x-2">
+    <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:w-auto">
+      <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full lg:w-auto">
+        {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
+          <TabsTrigger
+            key={key}
+            value={key}
+            className="gap-2"
+            data-tab-target={key}
+            title={`Alt+${index + 1}`}
+          >
+            <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden /> {label}
+          </TabsTrigger>
+        ))}
+      </TabsList>
+      {NAV_ITEMS.map(({ key }) => <TabsContent key={key} value={key} />)}
+    </Tabs>
 
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-              {/* Município */}
-              <div className="sm:w-56">
-                <Label className="text-[11px] text-slate-500">Município</Label>
-                <Select value={municipio} onValueChange={onMunicipioChange}>
-                  <SelectTrigger className="h-9"><SelectValue placeholder="Todos" /></SelectTrigger>
-                  <SelectContent>
-                    {municipios?.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-                  </SelectContent>
-                </Select>
-              </div>
+    {/* Municípios */} 
+    <div className="w-36 md:w-44 xl:w-45 shrink-0">
+      <Label className="text-[11px] text-slate-500 lg:inline xl:inline">Município</Label>
+      <Select value={municipio} onValueChange={onMunicipioChange}>
+        <SelectTrigger className="h-8 px-2 text-[13px]">
+          <SelectValue placeholder="Todos" />
+        </SelectTrigger>
+        <SelectContent>
+          {municipios?.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+        </SelectContent>
+      </Select>
+    </div>
 
-              {/* Somente alertas */}
-              <div className="flex items-center gap-1.5 rounded-lg border px-1.5 py-1 bg-white/60">
-                <Switch
-                  checked={!!somenteAlertas}
-                  onCheckedChange={onSomenteAlertasChange}
-                  className="scale-90"
-                />
-                <span className="text-xs font-medium text-slate-600 leading-none">Somente alertas</span>
-                {somenteAlertas ? (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] text-red-700">
-                    <ShieldAlert className="mr-1 h-3 w-3" /> ON
-                  </span>
-                ) : (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">
-                    OFF
-                  </span>
-                )}
-              </div>
+    {/* Somente alertas */}
+    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 bg-white/60 shrink-0">
+      <Switch
+        checked={!!somenteAlertas}
+        onCheckedChange={onSomenteAlertasChange}
+        className="75"
+      />
+      <span className="text-xs font-medium text-slate-600 leading-tight">Somente alertas</span>
+      {somenteAlertas ? (
+        <span className="inline-flex items-center rounded-md bg-red-100 px-1 py-0.5 text-[10px] text-red-700 whitespace-nowrap">
+          <ShieldAlert className="mr-0.5 h-3 w-3" /> ON
+        </span>
+      ) : (
+        <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">
+          OFF
+        </span>
+      )}
+    </div>
 
-              {/* Modo foco */}
-              <div className="flex items-center gap-1.5 rounded-lg border px-1.5 py-1 bg-white/60">
-                <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="scale-90" />
-                <span className="text-xs font-medium text-slate-600 leading-none">Modo foco</span>
-                {modoFoco ? (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-emerald-100 px-1.5 py-0.5 text-[10px] text-emerald-700">ON</span>
-                ) : (
-                  <span className="ml-1 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] text-slate-700">OFF</span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+    {/* Modo foco */}
+    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 bg-white/60 shrink-0">
+      <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="75" />
+      <span className="text-xs font-medium text-slate-600 leading-tight">Modo foco</span>
+      {modoFoco ? (
+        <span className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-[10px] text-emerald-700 whitespace-nowrap">ON</span>
+      ) : (
+        <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">OFF</span>
+      )}
+    </div>
+  </div>
+</div>
 
-        <Separator />
+<Separator />
       </div>
     </header>
   );
