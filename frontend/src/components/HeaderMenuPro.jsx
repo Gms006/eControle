@@ -149,14 +149,14 @@ export default function HeaderMenuPro({
 
 {/* Linha 2: navegação + filtros */}
 <div className="pb-3 -mt-1">
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-3 lg:gap-y-2 gap-x-2">
+  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-2.5 lg:gap-y-1.5 gap-x-1.5">
     <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:w-auto">
-      <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full lg:w-auto">
+      <TabsList className="flex w-full lg:w-auto flex-nowrap items-stretch gap-1 overflow-x-auto">
         {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
           <TabsTrigger
             key={key}
             value={key}
-            className="gap-2"
+            className="gap-2 whitespace-nowrap"
             data-tab-target={key}
             title={`Alt+${index + 1}`}
           >
@@ -181,7 +181,7 @@ export default function HeaderMenuPro({
     </div>
 
     {/* Somente alertas */}
-    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 bg-white/60 shrink-0">
+    <div className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 bg-white/60 shrink-0">
       <Switch
         checked={!!somenteAlertas}
         onCheckedChange={onSomenteAlertasChange}
@@ -200,7 +200,7 @@ export default function HeaderMenuPro({
     </div>
 
     {/* Modo foco */}
-    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 bg-white/60 shrink-0">
+    <div className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 bg-white/60 shrink-0">
       <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="75" />
       <span className="text-xs font-medium text-slate-600 leading-tight">Modo foco</span>
       {modoFoco ? (
