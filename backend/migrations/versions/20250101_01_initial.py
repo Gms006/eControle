@@ -16,16 +16,19 @@ down_revision = None
 branch_labels = None
 depends_on = None
 
-CONFIG_DEFAULT_PATH = Path(__file__).resolve().parents[2] / "backend" / "config.yaml"
+BASE_DIR = Path(__file__).resolve().parents[2]
+CONFIG_DEFAULT_PATH = BASE_DIR / "config.yaml"
 _config_env = os.getenv("CONFIG_PATH")
 if _config_env:
     _config_path = Path(_config_env)
     if not _config_path.is_absolute():
-        _config_path = (Path(__file__).resolve().parents[2] / "backend" / _config_env).resolve()
+        _config_path = (BASE_DIR / _config_env).resolve()
 else:
     _config_path = CONFIG_DEFAULT_PATH
 
 CONFIG_PATH = _config_path
+if not CONFIG_PATH.exists():
+    raise FileNotFoundError(f"Arquivo de configuração não encontrado em {CONFIG_PATH}")
 
 with CONFIG_PATH.open("r", encoding="utf-8") as config_file:
     CONFIG_DATA: Dict[str, list[str]] = yaml.safe_load(config_file).get("enums", {})
