@@ -192,10 +192,10 @@ alembic -c backend/alembic.ini upgrade head
 
 ```bash
 # Dry-run (sem commitar alterações)
-python -m backend.etl.cli import --source "caminho/planilha.xlsm" --dry-run
+python -m etl import --source "caminho/planilha.xlsm" --dry-run
 
 # Aplicar alterações
-python -m backend.etl.cli import --source "caminho/planilha.xlsm" --apply
+python -m etl import --source "caminho/planilha.xlsm" --apply
 ```
 
 A CLI lê `DATABASE_URL` e `CONFIG_PATH` do ambiente. A saída é JSONL com `run_id`, `sheet`, `row_number`, `table`, `action` e `changed_fields`.
