@@ -147,72 +147,74 @@ export default function HeaderMenuPro({
           </div>
         </div>
 
-{/* Linha 2: navegação + filtros */}
-<div className="pb-3 -mt-1">
-  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-3 lg:gap-y-2 gap-x-2">
-    <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:w-auto">
-      <TabsList className="grid grid-cols-3 sm:grid-cols-7 w-full lg:w-auto">
-        {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
-          <TabsTrigger
-            key={key}
-            value={key}
-            className="gap-2"
-            data-tab-target={key}
-            title={`Alt+${index + 1}`}
-          >
-            <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden /> {label}
-          </TabsTrigger>
-        ))}
-      </TabsList>
-      {NAV_ITEMS.map(({ key }) => <TabsContent key={key} value={key} />)}
-    </Tabs>
+        {/* Linha 2: navegação + filtros */}
+        <div className="pb-3 -mt-1">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-2 lg:gap-y-1.5 gap-x-1">
+            <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:flex-1 min-w-0">
+              <TabsList className="flex w-full flex-nowrap items-stretch gap-1 overflow-x-auto lg:overflow-visible">
+                {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
+                  <TabsTrigger
+                    key={key}
+                    value={key}
+                    className="gap-2 whitespace-nowrap lg:flex-1 lg:basis-0 lg:justify-center"
+                    data-tab-target={key}
+                    title={`Alt+${index + 1}`}
+                  >
+                    <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden /> {label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+              {NAV_ITEMS.map(({ key }) => <TabsContent key={key} value={key} />)}
+            </Tabs>
 
-    {/* Municípios */} 
-    <div className="w-36 md:w-44 xl:w-45 shrink-0">
-      <Label className="text-[11px] text-slate-500 lg:inline xl:inline">Município</Label>
-      <Select value={municipio} onValueChange={onMunicipioChange}>
-        <SelectTrigger className="h-8 px-2 text-[13px]">
-          <SelectValue placeholder="Todos" />
-        </SelectTrigger>
-        <SelectContent>
-          {municipios?.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
-        </SelectContent>
-      </Select>
-    </div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-y-2 sm:gap-y-0 sm:gap-x-1">
+              {/* Municípios */}
+              <div className="w-36 md:w-44 xl:w-45 shrink-0">
+                <Label className="text-[11px] text-slate-500 lg:inline xl:inline">Município</Label>
+                <Select value={municipio} onValueChange={onMunicipioChange}>
+                  <SelectTrigger className="h-8 px-2 text-[13px]">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {municipios?.map((m) => (<SelectItem key={m} value={m}>{m}</SelectItem>))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-    {/* Somente alertas */}
-    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 bg-white/60 shrink-0">
-      <Switch
-        checked={!!somenteAlertas}
-        onCheckedChange={onSomenteAlertasChange}
-        className="75"
-      />
-      <span className="text-xs font-medium text-slate-600 leading-tight">Somente alertas</span>
-      {somenteAlertas ? (
-        <span className="inline-flex items-center rounded-md bg-red-100 px-1 py-0.5 text-[10px] text-red-700 whitespace-nowrap">
-          <ShieldAlert className="mr-0.5 h-3 w-3" /> ON
-        </span>
-      ) : (
-        <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">
-          OFF
-        </span>
-      )}
-    </div>
+              {/* Somente alertas */}
+              <div className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 bg-white/60 shrink-0">
+                <Switch
+                  checked={!!somenteAlertas}
+                  onCheckedChange={onSomenteAlertasChange}
+                  className="75"
+                />
+                <span className="text-xs font-medium text-slate-600 leading-tight">Somente alertas</span>
+                {somenteAlertas ? (
+                  <span className="inline-flex items-center rounded-md bg-red-100 px-1 py-0.5 text-[10px] text-red-700 whitespace-nowrap">
+                    <ShieldAlert className="mr-0.5 h-3 w-3" /> ON
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">
+                    OFF
+                  </span>
+                )}
+              </div>
 
-    {/* Modo foco */}
-    <div className="inline-flex items-center gap-1 rounded-md border px-2 py-1 bg-white/60 shrink-0">
-      <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="75" />
-      <span className="text-xs font-medium text-slate-600 leading-tight">Modo foco</span>
-      {modoFoco ? (
-        <span className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-[10px] text-emerald-700 whitespace-nowrap">ON</span>
-      ) : (
-        <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">OFF</span>
-      )}
-    </div>
-  </div>
-</div>
-
-<Separator />
+              {/* Modo foco */}
+              <div className="inline-flex items-center gap-0.5 rounded-md border px-1.5 py-0.5 bg-white/60 shrink-0">
+                <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="75" />
+                <span className="text-xs font-medium text-slate-600 leading-tight">Modo foco</span>
+                {modoFoco ? (
+                  <span className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-[10px] text-emerald-700 whitespace-nowrap">ON</span>
+                ) : (
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">OFF</span>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <Separator />
       </div>
     </header>
   );
