@@ -21,7 +21,7 @@ SelectTrigger.displayName = "SelectTrigger";
 
 export const SelectContent = React.forwardRef(({ className, children, position = "popper", ...props }, ref) => (
   <RadixSelect.Content ref={ref} position={position} className={cn("z-50 rounded-xl border bg-popover p-1 shadow-md", className)} {...props}>
-    <RadixSelect.Viewport className="p-1">
+    <RadixSelect.Viewport className="max-h-72 overflow-y-auto overscroll-contain p-1">
       {children}
     </RadixSelect.Viewport>
   </RadixSelect.Content>
