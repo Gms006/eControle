@@ -1,130 +1,141 @@
-# Guia Completo de Setup - eControle
+# Guia de Setup - eControle
 
-Este guia leva do zero ao projeto rodando, com **backend FastAPI** lendo/escrevendo um **Excel .xlsm** (preservando macros) e **frontend React (TypeScript)** usando a interface do protótipo.
-
----
-
-## Pré‑requisitos
-
-* **Python 3.10** (seu ambiente atual — compatível)
-* **Node 20+** e **npm**
-* **Git**
-* Arquivo **Excel .xlsm** em `data/arquivo.xlsm` *(não versionar)*
+Este passo a passo leva do zero até o projeto rodando com backend FastAPI, integração com Excel macro-enabled (.xlsm), automação de CND/CAE via Playwright e frontend React.
 
 ---
 
-## 1) Backend (Python/FastAPI)
+## Pré-requisitos
 
-### Estrutura esperada
+- **Python 3.10+** (recomendado 3.11)
+- **Node.js 18+** (o projeto usa Vite)
+- **npm** ou **pnpm** (os comandos abaixo usam npm)
+- **Git**
+- Arquivos Excel `.xlsm`:
+  - Planilha operacional (empresas/licenças/taxas/processos/contatos)
+  - Planilha de certificados/agendamentos
 
-```
-backend/
-├─ api.py
-├─ repo_excel.py
-├─ models.py
-├─ services.py
-├─ config.yaml
-├─ requirements.txt
-└─ .env
-```
+> Mantenha as planilhas fora do versionamento. Crie `data/` localmente e copie os arquivos para lá.
 
-### Ambiente e dependências
+---
 
-> Você já tem uma **.venv** e usa **VS Code**. Então **não crie outra venv** — apenas selecione sua venv no VS Code.
+## 1. Backend (FastAPI)
 
-**Usando sua .venv existente (VS Code):**
-
-1. Abra o projeto no VS Code.
-2. `Ctrl+Shift+P` → **Python: Select Interpreter** → escolha a sua **.venv**.
-3. No terminal integrado, confirme `python --version` (esperado: `3.10.x`).
-4. Instale as dependências:
+### 1.1 Criar ambiente virtual e instalar dependências
 
 ```bash
 cd backend
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install --upgrade pip
 pip install -r requirements.txt
+python -m playwright install chromium  # necessário para automações de CND/CAE
 ```
 
-**(Opcional) Criar venv nova**
+O arquivo [`backend/requirements.txt`](backend/requirements.txt) já lista:
+- FastAPI, Uvicorn e Pydantic
+- openpyxl + portalocker para acessar `.xlsm`
+- PyYAML para ler `config.yaml`
+- python-dotenv para carregar `.env`
+- requests/aiofiles/playwright para automações e rota estática de CND
 
-```bash
-cd backend
-python -m venv venv
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-# source venv/bin/activate
-pip install -r requirements.txt
-```
+### 1.2 Configurar variáveis de ambiente
 
-**requirements.txt (sugestão mínima):**
+Crie `backend/.env` com as chaves mínimas (ajuste conforme seu ambiente):
 
-```txt
-fastapi==0.115.0
-uvicorn[standard]==0.30.6
-pydantic==2.8.2
-pydantic-settings==2.4.0
-openpyxl==3.1.5
-pandas==2.2.3
-portalocker==2.10.1
-python-multipart==0.0.9
-PyYAML==6.0.2
-```
-
-### Configuração do ambiente
-
-Crie o arquivo **.env** (ou copie de `.env.example`):
-
-```dotenv
-EXCEL_PATH=../data/arquivo.xlsm
-CORS_ORIGINS=http://localhost:5173
+```ini
+EXCEL_PATH=../data/arquivo.xlsm         # planilha operacional
+CONFIG_PATH=./config.yaml               # opcional se usar outro mapeamento
+CORS_ORIGINS=http://localhost:5173      # origins permitidos
+API_HOST=0.0.0.0
+API_PORT=8000
 LOG_LEVEL=INFO
+CND_DIR_BASE=certidoes                  # onde os PDFs serão salvos
+CND_HEADLESS=true                       # false para acompanhar a automação
+CAPTCHA_MODE=manual                     # image_2captcha para resolver automaticamente
+API_KEY_2CAPTCHA=                       # obrigatório se usar 2Captcha
 ```
 
-Crie o **config.yaml** com nomes de abas e aliases tolerantes a variações nos cabeçalhos:
+Em produção, considere chaves adicionais:
+- `CND_CHROME_PATH` para apontar para um executável Chromium customizado.
+- `PLANILHA_CERT_PATH` (ver abaixo) para centralizar o caminho da planilha de certificados.
 
-```yaml
-sheets:
-  empresas: "EMPRESAS"
-  licencas: "LICENCAS"
-  taxas: "TAXAS"
-  processos: "PROCESSOS"   # ou "Diversos", conforme sua planilha
+### 1.3 Configurar `config.yaml` e planilhas
 
-aliases:
-  empresas:
-    id: ["ID", "EMPRESA_ID", "COD"]
-    empresa: ["EMPRESA", "RAZAO SOCIAL", "RAZAO_SOCIAL"]
-    cnpj: ["CNPJ", "CNPJ/CPF"]
-    municipio: ["MUNICIPIO", "CIDADE"]
-  licencas:
-    validade: ["VALIDADE", "VÁLIDO ATÉ", "VAL" ]
-    status: ["SITUACAO", "SITUAÇÃO", "STATUS"]
-  # etc.
-```
+- Atualize `backend/config.yaml` com os nomes de abas (`sheet_names`), tabelas (`table_names`) e aliases (`column_aliases`).
+- Use o endpoint `/api/diagnostico` para validar se todas as colunas obrigatórias foram reconhecidas.
+- Se a planilha mudar de layout, ajuste o YAML e recarregue o backend (`/api/refresh`).
 
-### Observações importantes (repo_excel)
+### 1.4 Planilha de certificados
 
-* Use `openpyxl.load_workbook(EXCEL_PATH, keep_vba=True, read_only=False, data_only=False)` para **preservar macros**.
-* Para escrita segura, aplique **file locking** (ex.: `portalocker.Lock(EXCEL_PATH, mode='r+', timeout=10)`).
-* Normalize colunas pelo **aliases** do `config.yaml` (casefold/trim) para tolerar cabeçalhos variados.
+O arquivo [`backend/services/data_certificados.py`](backend/services/data_certificados.py) contém a constante `PLANILHA_CERT_PATH`. Altere-a para o caminho correto da planilha `.xlsm` que armazena certificados/agendamentos. Utilize caminhos absolutos em produção.
 
-### Subir o backend
+### 1.5 Executar o backend
 
 ```bash
-uvicorn api:app --reload --host 0.0.0.0 --port 8000
+uvicorn api:app --reload --host $API_HOST --port $API_PORT
 ```
 
-### Testes rápidos
+Testes rápidos:
 
 ```bash
 curl http://localhost:8000/health
 curl "http://localhost:8000/api/empresas?query=&municipio=&so_alertas=false"
 ```
 
-## VS Code (recomendado)
+Para recarregar a planilha sem reiniciar o servidor use `POST /api/refresh`.
 
-Crie a pasta **.vscode/** com os arquivos abaixo para rodar com um clique.
+---
 
-**.vscode/launch.json** (debug FastAPI e Vite)
+## 2. Frontend (React + Vite)
+
+### 2.1 Instalar dependências
+
+```bash
+cd frontend
+npm install
+```
+
+Principais dependências:
+- React 18 + React DOM
+- Tailwind CSS + postcss/autoprefixer
+- shadcn/ui (componentes Radix `.jsx` adaptados)
+- Recharts, lucide-react, clsx, tailwind-merge
+
+### 2.2 Variáveis de ambiente
+
+Durante o desenvolvimento o proxy do Vite (configurado em `vite.config.js`) redireciona `/api` para `http://localhost:8000`. Para apontar para outra origem (ex.: homologação), crie `frontend/.env.local` com:
+
+```
+VITE_API_URL=https://sua.api/econtrole
+```
+
+### 2.3 Rodar o frontend
+
+```bash
+npm run dev
+```
+
+A aplicação abrirá em `http://localhost:5173`. A aba **Painel** usa os KPIs do backend; as demais abas (Empresas, Licenças, Taxas, Processos, Úteis, Certificados) consomem os demais endpoints.
+
+---
+
+## 3. Automação de CND/CAE (Playwright)
+
+- Execute `python -m playwright install chromium` sempre que atualizar o Playwright.
+- Ajuste `CND_HEADLESS=false` para depurar captchas manualmente.
+- Para habilitar resolução automática de captcha configure:
+  ```ini
+  CAPTCHA_MODE=image_2captcha
+  API_KEY_2CAPTCHA=sua-chave
+  ```
+- Os PDFs ficam em `CND_DIR_BASE` e são servidos em `/cnds/<arquivo>.pdf`.
+- A emissão de CAE (`POST /api/cae/emitir`) espera município `Anápolis`, CNPJ com 14 dígitos e inscrição municipal normalizada.
+
+---
+
+## 4. Integração com VS Code (opcional)
+
+`.vscode/launch.json` sugerido para debug:
 
 ```json
 {
@@ -136,10 +147,8 @@ Crie a pasta **.vscode/** com os arquivos abaixo para rodar com um clique.
       "request": "launch",
       "module": "uvicorn",
       "args": ["api:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
-      "console": "integratedTerminal",
       "envFile": "${workspaceFolder}/backend/.env",
-      "cwd": "${workspaceFolder}/backend",
-      "justMyCode": true
+      "cwd": "${workspaceFolder}/backend"
     },
     {
       "name": "Frontend: Vite",
@@ -147,209 +156,29 @@ Crie a pasta **.vscode/** com os arquivos abaixo para rodar com um clique.
       "request": "launch",
       "cwd": "${workspaceFolder}/frontend",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
-      "console": "integratedTerminal"
+      "runtimeArgs": ["run", "dev"]
     }
   ]
 }
 ```
 
-**.vscode/settings.json** (selecione sua venv)
+`.vscode/settings.json` mínimo:
 
 ```json
 {
-  "python.defaultInterpreterPath": "/caminho/para/sua/.venv/bin/python",
+  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
   "python.terminal.activateEnvironment": true,
   "editor.formatOnSave": true
 }
 ```
 
-**.vscode/tasks.json** (tarefas auxiliares)
-
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    { "label": "Backend: Install", "type": "shell", "command": "pip install -r requirements.txt", "options": {"cwd": "backend"} },
-    { "label": "Frontend: Install", "type": "shell", "command": "npm install", "options": {"cwd": "frontend"} }
-  ]
-}
-```
-
 ---
 
-## 2) Frontend (React + Vite + TypeScript)
+## 5. Dúvidas frequentes
 
-### Estrutura esperada
+- **Planilha não carrega?** Confira `EXCEL_PATH`, permissões de leitura e se outra pessoa não está com a planilha aberta (o lock usa `portalocker`).
+- **Coluna não aparece?** Rode `/api/diagnostico` e veja se o alias está no `config.yaml`.
+- **Playwright reclama de dependências?** Execute novamente `python -m playwright install chromium`. Em ambientes Linux, confirme se bibliotecas do Chromium estão instaladas.
+- **Frontend não acha a API?** Verifique `VITE_API_URL` ou o proxy no `vite.config.js`.
 
-```
-frontend/
-├─ src/
-│  ├─ App.tsx
-│  ├─ main.tsx
-│  ├─ index.css
-│  ├─ lib/utils.ts
-│  └─ components/ui/
-│     ├─ badge.tsx
-│     ├─ button.tsx
-│     ├─ card.tsx
-│     ├─ input.tsx
-│     ├─ label.tsx
-│     ├─ scroll-area.tsx
-│     ├─ select.tsx
-│     ├─ separator.tsx
-│     ├─ switch.tsx
-│     ├─ table.tsx
-│     └─ tabs.tsx
-├─ index.html
-├─ package.json
-├─ tsconfig.json
-├─ vite.config.ts
-├─ tailwind.config.ts
-└─ postcss.config.js
-```
-
-### Instalação
-
-```bash
-cd frontend
-npm install
-
-# TypeScript
-npm i -D typescript @types/react @types/react-dom
-
-# shadcn/ui (primeira vez)
-npx shadcn-ui@latest init
-npx shadcn-ui@latest add card button input select tabs table switch scroll-area separator badge label
-
-# Libs adicionais
-npm install lucide-react recharts clsx tailwind-merge
-
-# Tailwind
-npx tailwindcss init -p
-```
-
-### `vite.config.ts`
-
-```ts
-import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import path from 'path'
-
-export default defineConfig({
-  plugins: [react()],
-  resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
-  },
-  server: {
-    port: 5173,
-    proxy: { '/api': { target: 'http://localhost:8000', changeOrigin: true } },
-  },
-})
-```
-
-### `tailwind.config.ts`
-
-```ts
-import type { Config } from 'tailwindcss'
-
-export default {
-  content: ['./index.html', './src/**/*.{ts,tsx}'],
-  theme: { extend: {} },
-  plugins: [],
-} satisfies Config
-```
-
-### `src/index.css`
-
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-@layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
-}
-```
-
-### `src/main.tsx`
-
-```tsx
-import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App'
-import './index.css'
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>
-)
-```
-
-### `src/lib/utils.ts` (helper `cn`)
-
-```ts
-import { clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-export function cn(...inputs: unknown[]) {
-  return twMerge(clsx(inputs))
-}
-```
-
-### Rodando o frontend
-
-```bash
-npm run dev
-# http://localhost:5173
-```
-
----
-
-## 3) Subir tudo
-
-* **Terminal 1**: `cd backend && uvicorn api:app --reload --port 8000`
-* **Terminal 2**: `cd frontend && npm run dev`
-* A rota `/api` é **proxy** para o backend (definida no `vite.config.ts`).
-
----
-
-## 4) Troubleshooting
-
-**Excel bloqueado**: feche o arquivo .xlsm e verifique permissões; use `portalocker` no backend.
-
-**CORS/Fetch falhando**: confira `CORS_ORIGINS` no `.env` do backend e o `proxy` no `vite.config.ts`.
-
-**Componentes shadcn/ui não encontrados**: rode novamente os `add` (incluindo `badge` e `label`).
-
-**Erros TS/JSX**: confirme que os arquivos do frontend estão com extensão **.tsx** e `tsconfig.json` existe.
-
-**Status/cores divergentes**: mapeie no backend `status_raw` → `status_ui` (chips) e envie ambos para o frontend.
-
----
-
-## 5) Próximos Passos
-
-* [ ] Implementar `/api/diagnostico` (mapeamento de colunas/abas + avisos)
-* [ ] `portalocker` no `repo_excel.py` com timeout e retries
-* [ ] Testes unitários (`tests/`) para repo, services e API
-* [ ] Autenticação (JWT) e CORS configuráveis por `.env`
-* [ ] Docker Compose (dev/prod)
-* [ ] WebSockets para atualizações
-
----
-
-## 6) Comandos úteis
-
-```bash
-# Backend (usando sua .venv já selecionada no VS Code)
-cd backend
-pip install -r requirements.txt
-uvicorn api:app --reload --port 8000
-
-# Frontend
-cd frontend
-npm install
-npm run dev
-```
+Pronto! O eControle deve estar acessível em `http://localhost:5173` utilizando o backend em `http://localhost:8000`.

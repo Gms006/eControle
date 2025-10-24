@@ -1,11 +1,18 @@
+# Núcleo FastAPI
 fastapi==0.104.1
 uvicorn[standard]==0.24.0
 pydantic==2.5.0
+
+# Acesso a Excel + configuração
 openpyxl==3.1.2
-pyyaml==6.0.1
-python-multipart==0.0.6
 portalocker==2.8.2
+pyyaml==6.0.1
 python-dotenv==1.0.0
-requests==2.31.0
+
+# Uploads/arquivos e utilidades
+python-multipart==0.0.6
 aiofiles==23.2.1
+requests==2.31.0
+
+# Automação (CND/CAE)
 playwright==1.40.0
