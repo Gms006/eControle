@@ -5,6 +5,7 @@ import json
 import os
 import uuid
 from pathlib import Path
+from typing import Optional
 
 import sqlalchemy as sa
 import typer
@@ -14,14 +15,16 @@ from .extract_xlsm import load as load_source
 from .load_upsert import run as run_loader
 from .transform_normalize import transform
 
-app = typer.Typer(add_completion=False)
+from dotenv import load_dotenv
+load_dotenv("backend/.env")  # (se ainda não colocou)
 
+app = typer.Typer(add_completion=False)
 
 @app.command("import")
 def import_command(
-    source: Path = typer.Argument(..., exists=True, readable=True, help="Arquivo XLSM/XLSX/CSV"),
+    source: Path = typer.Option(..., "--source", "-s", exists=True, readable=True, help="Arquivo XLSM/XLSX/CSV"),
     dry_run: bool = typer.Option(True, help="Executa sem commitar alterações"),
-    file_source: str | None = typer.Option(None, help="Rótulo amigável para o arquivo"),
+    file_source: Optional[str] = typer.Option(None, help="Rótulo amigável para o arquivo"),
 ) -> None:
     run_id = str(uuid.uuid4())
     file_label = file_source or source.name
@@ -50,7 +53,6 @@ def import_command(
             default=str,
         )
     )
-
 
 if __name__ == "__main__":
     app()
