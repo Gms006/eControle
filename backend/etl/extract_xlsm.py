@@ -1,3 +1,4 @@
+
 """Data extraction helpers for Excel/CSV sources."""
 from __future__ import annotations
 
@@ -35,7 +36,7 @@ def _load_csv(path: Path) -> List[Dict[str, Any]]:
 
 
 def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
-    workbook = load_workbook(path, read_only=True, data_only=True)
+    workbook = load_workbook(filename=path, read_only=False, data_only=True, keep_vba=True)
     data: Dict[str, Any] = {}
     for logical_sheet, sheet_name in contract.sheet_names.items():
         if sheet_name not in workbook.sheetnames:
