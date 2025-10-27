@@ -3,11 +3,12 @@ from __future__ import annotations
 
 import json
 from contextlib import contextmanager
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.engine import Connection, Engine
+from sqlalchemy.sql.elements import ClauseElement
 
 from .normalizers import make_row_hash, only_digits
 from .transform_normalize import NormalizedRow
@@ -157,11 +158,19 @@ def _upsert_final(
     else:
         empresa_id = None
 
-    select_stmt, natural_key_cols = _build_natural_key(table_name, table, final_payload, empresa_id)
+    select_stmt, natural_key_cols, conflict_where = _build_natural_key(
+        table_name, table, final_payload, empresa_id
+    )
     existing = connection.execute(select_stmt).mappings().first()
 
     if existing is None:
-        _execute_insert(connection, table, final_payload, natural_key_cols)
+        _execute_insert(
+            connection,
+            table,
+            final_payload,
+            natural_key_cols,
+            conflict_where,
+        )
         return "insert", []
 
     changed_fields = _diff(existing, final_payload, natural_key_cols)
@@ -197,11 +206,11 @@ def _build_natural_key(
     table: sa.Table,
     payload: Dict[str, Any],
     empresa_id: Optional[int],
-) -> tuple[sa.Select, Sequence[str]]:
+) -> Tuple[sa.Select, Sequence[str], ClauseElement | None]:
     if table_name == "empresas":
         cols = (table.c.cnpj,)
         where_clause = table.c.cnpj == payload["cnpj"]
-        return sa.select(table).where(where_clause), ("cnpj",)
+        return sa.select(table).where(where_clause), ("cnpj",), None
     if table_name == "taxas":
         if "data_referencia" in table.c and payload.get("data_referencia"):
             where_clause = sa.and_(
@@ -213,18 +222,18 @@ def _build_natural_key(
                 "empresa_id",
                 "tipo",
                 "data_referencia",
-            )
+            ), None
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
     if table_name == "licencas":
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
     if table_name == "processos":
         protocolo = payload.get("protocolo")
         if protocolo:
@@ -232,7 +241,7 @@ def _build_natural_key(
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
-            return sa.select(table).where(where_clause), ("protocolo", "tipo")
+            return sa.select(table).where(where_clause), ("protocolo", "tipo"), None
         data_solicitacao = payload.get("data_solicitacao")
         if data_solicitacao is not None:
             where_clause = sa.and_(
@@ -244,14 +253,18 @@ def _build_natural_key(
                 "empresa_id",
                 "tipo",
                 "data_solicitacao",
-            )
+            ), table.c.protocolo.is_(None)
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
             table.c.protocolo.is_(None),
             table.c.data_solicitacao.is_(None),
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+        return (
+            sa.select(table).where(where_clause),
+            ("empresa_id", "tipo"),
+            sa.and_(table.c.protocolo.is_(None), table.c.data_solicitacao.is_(None)),
+        )
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
@@ -260,6 +273,7 @@ def _execute_insert(
     table: sa.Table,
     payload: Dict[str, Any],
     natural_key_cols: Sequence[str],
+    conflict_where: ClauseElement | None,
 ) -> None:
     if connection.dialect.name == "postgresql":
         stmt = postgresql.insert(table).values(**payload)
@@ -273,6 +287,7 @@ def _execute_insert(
         stmt = stmt.on_conflict_do_update(
             index_elements=[table.c[col] for col in natural_key_cols],
             set_=update_columns,
+            index_where=conflict_where,
             where=where_clause,
         )
         connection.execute(stmt)
