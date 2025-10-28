@@ -9,6 +9,7 @@ from typing import Optional
 
 import sqlalchemy as sa
 import typer
+from typer.main import TyperArgument
 
 from .contracts import load_contract
 from .extract_xlsm import load as load_source
@@ -17,6 +18,20 @@ from .transform_normalize import transform
 
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
+
+
+# Typer <0.9.0 defines TyperArgument.make_metavar(self) while
+# Click>=8.1 invokes make_metavar(self, param). When those versions are
+# combined Typer raises ``TypeError: TyperArgument.make_metavar() takes 1
+# positional argument but 2 were given`` when the CLI is created.
+# Patch TyperArgument at import time to tolerate the extra argument.
+if TyperArgument.make_metavar.__code__.co_argcount == 1:  # pragma: no cover - defensive
+    _original_make_metavar = TyperArgument.make_metavar
+
+    def _compatible_make_metavar(self, param=None):
+        return _original_make_metavar(self)
+
+    TyperArgument.make_metavar = _compatible_make_metavar  # type: ignore[assignment]
 
 app = typer.Typer(add_completion=False, help="Comandos do ETL idempotente do eControle.")
 
