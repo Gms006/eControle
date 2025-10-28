@@ -31,9 +31,25 @@ def main(ctx: typer.Context) -> None:
 
 @app.command("import")
 def import_command(
-    source: Path = typer.Option(..., "--source", "-s", exists=True, readable=True, help="Arquivo XLSM/XLSX/CSV"),
-    dry_run: bool = typer.Option(True, help="Executa sem commitar alterações"),
-    file_source: Optional[str] = typer.Option(None, help="Rótulo amigável para o arquivo"),
+    source: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        dir_okay=False,
+        resolve_path=True,
+        help="Arquivo XLSM/XLSX/CSV",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--apply",
+        help="Executa sem commitar alterações (use --apply para gravar)",
+    ),
+    file_source: Optional[str] = typer.Option(
+        None,
+        "--label",
+        "-l",
+        help="Rótulo amigável para o arquivo",
+    ),
 ) -> None:
     run_id = str(uuid.uuid4())
     file_label = file_source or source.name
