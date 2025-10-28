@@ -107,8 +107,12 @@ def _transform_empresas(rows: Iterable[Dict[str, Any]], contract: ConfigContract
             continue
         empresa = normalize_text(mapped.get("EMPRESA"))
         municipio = normalize_text(mapped.get("MUNICIPIO"))
-        if not empresa or not municipio:
-            raise TransformError("Empresa ou município ausente para CNPJ %s" % cnpj)
+        porte = normalize_text(mapped.get("PORTE"))
+        if not empresa:
+            raise TransformError("Empresa ausente para documento %s" % cnpj)
+        # Para PF/CAEPF, aceite município vazio (sua regra operacional)
+        if not municipio and porte not in {"PF", "CAEPF"}:
+            raise TransformError("Município ausente para documento %s" % cnpj)
         payload: Dict[str, Any] = {
             "empresa": empresa,
             "cnpj": cnpj,
