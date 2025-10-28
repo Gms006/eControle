@@ -221,10 +221,11 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
             cnpj = only_digits(mapped.get("CNPJ"))
             if not cnpj:
                 continue
-            situacao = _normalize_enum(mapped.get("SITUACAO"), enum_situacao, "situacao", tipo)
+                        # 1) usa SITUACAO; 2) senão STATUS_PADRAO; 3) default "PENDENTE"
+            situacao_raw = (mapped.get("SITUACAO") or mapped.get("STATUS_PADRAO") or "PENDENTE")
+            situacao = _normalize_enum(situacao_raw, enum_situacao, "situacao", tipo)
+            # data_solicitacao pode ficar vazia (linhas placeholder são válidas)
             data_solicitacao = _safe_parse_date(mapped.get("DATA_SOLICITACAO"), "data_solicitacao", tipo)
-            if not data_solicitacao:
-                raise TransformError(f"Data de solicitação obrigatória em processos {tipo}")
             protocolo = normalize_text(mapped.get("PROTOCOLO"))
             status_padrao = normalize_text(mapped.get("STATUS_PADRAO"))
             payload: Dict[str, Any] = {
@@ -299,7 +300,9 @@ def _normalize_enum(value: Any | None, allowed: Iterable[str], field: str, tipo:
 
 
 def _normalize_enum_optional(value: Any | None, allowed: Iterable[str], field: str, tipo: str) -> Optional[str]:
-    if value in (None, ""):
+    # Placeholders aceitos como "vazio"
+    PLACEHOLDERS = {"-", "–", "—", "*"}
+    if value in (None, "") or (isinstance(value, str) and value.strip() in PLACEHOLDERS):
         return None
     target = normalize_text(value)
     if not target:
@@ -313,7 +316,8 @@ def _normalize_enum_optional(value: Any | None, allowed: Iterable[str], field: s
 
 
 def _safe_parse_date(value: Any | None, field: str, tipo: str) -> date | None:
-    if value in (None, ""):
+    PLACEHOLDERS = {"-", "–", "—", "*"}
+    if value in (None, "") or (isinstance(value, str) and value.strip() in PLACEHOLDERS):
         return None
     try:
         return parse_date_br(value)
