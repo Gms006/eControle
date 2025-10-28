@@ -14,6 +14,10 @@ from .transform_normalize import NormalizedRow
 
 FINAL_TABLES = {"empresas", "licencas", "taxas", "processos"}
 
+def _coerce_jsonable(obj: Any) -> Any:
+    """Converte objetos (date, Decimal, etc.) para tipos serializáveis em JSON.
+    Estratégia: json.dumps(default=str) e volta com json.loads para obter um dict/list primitivo."""
+    return json.loads(json.dumps(obj, ensure_ascii=False, default=str))
 
 def run(
     engine: Engine,
@@ -57,7 +61,9 @@ def run(
             for item in rows:
                 staging_table = staging_tables[f"stg_{table}"]
                 payload = dict(item.payload)
-                payload_json = json.dumps(payload, sort_keys=True, default=str)
+                # coerção para JSON determinístico (datas → "YYYY-MM-DD", etc.)
+                payload_coerced = _coerce_jsonable(payload)
+                payload_json = json.dumps(payload_coerced, sort_keys=True, ensure_ascii=False)
                 row_hash = make_row_hash(item.table, item.row_number, payload_json)
                 _insert_staging(
                     connection,
@@ -66,7 +72,7 @@ def run(
                     file_source,
                     item.row_number,
                     row_hash,
-                    payload,
+                    payload_coerced,
                 )
                 if table not in FINAL_TABLES:
                     results.append(
@@ -124,11 +130,8 @@ def _insert_staging(
     row_hash: str,
     payload: Dict[str, Any],
 ) -> None:
-    value = (
-        payload
-        if connection.dialect.name == "postgresql"
-        else json.dumps(payload, ensure_ascii=False, default=str)
-    )
+    # payload já está coerced em tipos primitivos (dict/list/str/num/bool/None)
+    value = payload
     stmt = table.insert().values(
         run_id=run_id,
         file_source=file_source,
@@ -233,12 +236,25 @@ def _build_natural_key(
                 table.c.tipo == payload["tipo"],
             )
             return sa.select(table).where(where_clause), ("protocolo", "tipo")
+        data_ref = payload.get("data_solicitacao")
+        if data_ref:
+            # sem protocolo, com data → (empresa_id, tipo, data_solicitacao)
+            where_clause = sa.and_(
+                table.c.empresa_id == payload["empresa_id"],
+                table.c.tipo == payload["tipo"],
+                table.c.data_solicitacao == data_ref,
+            )
+            return sa.select(table).where(where_clause), ("empresa_id", "tipo", "data_solicitacao")
+        # sem protocolo E sem data → (empresa_id, tipo) + guardas de NULL na busca
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
-            table.c.data_solicitacao == payload["data_solicitacao"],
+            table.c.protocolo.is_(None),
+            table.c.data_solicitacao.is_(None),
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo", "data_solicitacao")
+        # Natural key usada no ON CONFLICT: (empresa_id, tipo)
+        # Isso exige a unique parcial criada na migration 04.
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
