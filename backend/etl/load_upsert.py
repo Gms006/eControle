@@ -12,7 +12,7 @@ from sqlalchemy.engine import Connection, Engine
 from .normalizers import make_row_hash, only_digits
 from .transform_normalize import NormalizedRow
 
-FINAL_TABLES = {"empresas", "licencas", "taxas", "processos"}
+FINAL_TABLES = {"empresas", "licencas", "taxas", "processos", "processos_avulsos"}
 
 def _coerce_jsonable(obj: Any) -> Any:
     """Converte objetos (date, Decimal, etc.) para tipos serializáveis em JSON.
@@ -28,11 +28,19 @@ def run(
 ) -> List[Dict[str, Any]]:
     with _transaction(engine, dry_run) as connection:
         metadata = sa.MetaData()
-        metadata.reflect(connection, only={
-            "empresas",
-            "licencas",
-            "taxas",
-            "processos",
+        inspector = sa.inspect(connection)
+        available_tables = set(inspector.get_table_names())
+
+        required_tables = {"empresas", "licencas", "taxas", "processos"}
+        missing_required = required_tables - available_tables
+        if missing_required:
+            raise ValueError(f"Tabelas obrigatórias ausentes: {', '.join(sorted(missing_required))}")
+
+        optional_tables = {
+            "processos_avulsos",
+            "stg_processos_avulsos",
+        }
+        tables_to_reflect = list(required_tables | optional_tables | {
             "stg_empresas",
             "stg_licencas",
             "stg_taxas",
@@ -40,6 +48,10 @@ def run(
             "stg_certificados",
             "stg_certificados_agendamentos",
         })
+        metadata.reflect(
+            connection,
+            only=[name for name in tables_to_reflect if name in available_tables],
+        )
         empresas_table = metadata.tables["empresas"]
         staging_tables = {
             name: metadata.tables[name]
@@ -48,9 +60,11 @@ def run(
                 "stg_licencas",
                 "stg_taxas",
                 "stg_processos",
+                "stg_processos_avulsos",
                 "stg_certificados",
                 "stg_certificados_agendamentos",
             )
+            if name in metadata.tables
         }
         results: List[Dict[str, Any]] = []
         empresa_cache: Dict[str, int] = {}
@@ -59,7 +73,10 @@ def run(
         for table in ordered_tables:
             rows = normalized.get(table, [])
             for item in rows:
-                staging_table = staging_tables[f"stg_{table}"]
+                stg_name = f"stg_{'processos_avulsos' if (table == 'processos' and _is_avulso(item.payload)) else table}"
+                if stg_name not in staging_tables:
+                    raise ValueError(f"Tabela de staging '{stg_name}' não encontrada")
+                staging_table = staging_tables[stg_name]
                 payload = dict(item.payload)
                 # coerção para JSON determinístico (datas → "YYYY-MM-DD", etc.)
                 payload_coerced = _coerce_jsonable(payload)
@@ -93,6 +110,7 @@ def run(
                     empresa_cache,
                     empresas_table,
                     metadata.tables[table],
+                    metadata.tables.get("processos_avulsos"),
                 )
                 results.append(
                     {
@@ -149,14 +167,23 @@ def _upsert_final(
     empresa_cache: Dict[str, int],
     empresas_table: sa.Table,
     table: sa.Table,
+    processos_avulsos_table: Optional[sa.Table] = None,
 ) -> tuple[str, List[str]]:
     final_payload = dict(payload)
     if table_name != "empresas":
-        empresa_id = _resolve_empresa_id(connection, empresas_table, empresa_cache, final_payload.get("empresa_cnpj"))
+        cnpj_norm = only_digits(final_payload.get("empresa_cnpj"))
+        if table_name == "processos" and (not cnpj_norm or len(cnpj_norm) not in (11, 14)):
+            return _upsert_processos_avulsos(connection, processos_avulsos_table, final_payload)
+        empresa_id = _resolve_empresa_id(connection, empresas_table, empresa_cache, cnpj_norm)
         if not empresa_id:
-            raise ValueError(f"Empresa não encontrada para CNPJ {final_payload.get('empresa_cnpj')}")
+            if table_name == "processos" and processos_avulsos_table is not None:
+                return _upsert_processos_avulsos(connection, processos_avulsos_table, final_payload)
+            raise ValueError(
+                f"Empresa não encontrada para documento {final_payload.get('empresa_cnpj')}"
+            )
         final_payload["empresa_id"] = empresa_id
         final_payload.pop("empresa_cnpj", None)
+        final_payload.pop("empresa_nome", None)
     else:
         empresa_id = None
 
@@ -190,9 +217,65 @@ def _resolve_empresa_id(
         sa.select(empresas_table.c.id).where(empresas_table.c.cnpj == normalized)
     ).scalar()
     if result is None:
-        raise ValueError(f"Empresa com CNPJ {normalized} não encontrada")
+        return None
     cache[normalized] = result
     return result
+
+
+def _upsert_processos_avulsos(
+    connection: Connection,
+    table: Optional[sa.Table],
+    payload: Dict[str, Any],
+) -> tuple[str, List[str]]:
+    if table is None:
+        raise ValueError("Tabela processos_avulsos não configurada na base")
+
+    final_payload = dict(payload)
+    documento = only_digits(final_payload.get("empresa_cnpj"))
+    final_payload["documento"] = documento or final_payload.get("empresa_cnpj")
+    final_payload.pop("empresa_cnpj", None)
+
+    select_stmt, natural_key_cols = _build_processos_avulsos_key(table, final_payload)
+    existing = connection.execute(select_stmt).mappings().first()
+
+    if existing is None:
+        _execute_insert(connection, table, final_payload, natural_key_cols)
+        return "insert", []
+
+    changed_fields = _diff(existing, final_payload, natural_key_cols)
+    if not changed_fields:
+        return "skip", []
+
+    _execute_update(connection, table, final_payload, natural_key_cols, existing)
+    return "update", changed_fields
+
+
+def _build_processos_avulsos_key(
+    table: sa.Table,
+    payload: Dict[str, Any],
+) -> tuple[sa.Select, Sequence[str]]:
+    protocolo = payload.get("protocolo")
+    if protocolo:
+        where_clause = sa.and_(table.c.protocolo == protocolo, table.c.tipo == payload["tipo"])
+        return sa.select(table).where(where_clause), ("protocolo", "tipo")
+
+    documento = payload.get("documento")
+    data_ref = payload.get("data_solicitacao")
+    if data_ref is not None:
+        where_clause = sa.and_(
+            table.c.documento == documento,
+            table.c.tipo == payload["tipo"],
+            table.c.data_solicitacao == data_ref,
+        )
+        return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
+
+    where_clause = sa.and_(
+        table.c.documento == documento,
+        table.c.tipo == payload["tipo"],
+        table.c.protocolo.is_(None),
+        table.c.data_solicitacao.is_(None),
+    )
+    return sa.select(table).where(where_clause), ("documento", "tipo")
 
 
 def _build_natural_key(
@@ -304,3 +387,8 @@ def _diff(existing: sa.RowMapping, payload: Dict[str, Any], natural_key_cols: Se
         if existing.get(key) != value:
             changed.append(key)
     return changed
+
+
+def _is_avulso(payload: Dict[str, Any]) -> bool:
+    c = only_digits(payload.get("empresa_cnpj"))
+    return (not c) or (len(c) not in (11, 14))
