@@ -4,15 +4,14 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Tuple, Optional
 
 from openpyxl import load_workbook
 
 from .contracts import ConfigContract
-from .normalizers import normalize_text
+from .normalizers import normalize_text, strip_accents
 
 ROW_NUMBER_KEY = "__row_number__"
-
 
 def load(source: str | Path, contract: ConfigContract) -> Dict[str, Any]:
     path = Path(source)
@@ -39,9 +38,15 @@ def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
     workbook = load_workbook(filename=path, read_only=False, data_only=True, keep_vba=True)
     data: Dict[str, Any] = {}
     for logical_sheet, sheet_name in contract.sheet_names.items():
-        if sheet_name not in workbook.sheetnames:
+        # tenta usar exatamente o nome configurado
+        chosen_sheet = sheet_name if sheet_name in workbook.sheetnames else None
+        # fallback: localizar por cabeçalho quando a aba não existe com o nome exato
+        if chosen_sheet is None and logical_sheet == "empresas":
+            chosen_sheet = _find_empresas_sheet_by_headers(workbook, contract)
+        if chosen_sheet is None:
+            # sem aba correspondente — pula silenciosamente (mantém compat)
             continue
-        worksheet = workbook[sheet_name]
+        worksheet = workbook[chosen_sheet]
         if logical_sheet in {"processos", "uteis", "certificados", "certificados_agendamentos"}:
             tables_map = contract.table_names.get(logical_sheet, {})
             data[logical_sheet] = _load_tables(worksheet, tables_map)
@@ -53,9 +58,16 @@ def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
 def _load_tables(worksheet, tables_map: Dict[str, str]) -> Dict[str, List[Dict[str, Any]]]:
     tables: Dict[str, List[Dict[str, Any]]] = {}
     for logical_table, table_name in tables_map.items():
-        if table_name not in worksheet.tables:
+        # compat com diferentes versões do openpyxl
+        tables_obj = getattr(worksheet, "tables", None)
+        if tables_obj is None or not isinstance(tables_obj, (dict,)):
+            raw_list = getattr(worksheet, "_tables", []) or []
+            tables_dict = {t.name: t for t in raw_list}
+        else:
+            tables_dict = tables_obj
+        if table_name not in tables_dict:
             continue
-        table = worksheet.tables[table_name]
+        table = tables_dict[table_name]
         cells = worksheet[table.ref]
         rows = _rows_from_cells(cells)
         tables[logical_table] = rows
@@ -87,6 +99,38 @@ def _rows_from_cells(cells: Iterable[Iterable[Any]]) -> List[Dict[str, Any]]:
         rows.append(record)
     return rows
 
+def _find_empresas_sheet_by_headers(workbook, contract: ConfigContract) -> Optional[str]:
+    """
+    Quando sheet_names['empresas'] não existir, tenta localizar a aba correta
+    observando a 1ª linha (cabeçalho) e checando a presença dos campos-chave:
+    CNPJ, EMPRESA e MUNICIPIO conforme os aliases do config.yaml.
+    """
+    aliases = contract.column_aliases.get("empresas", {})
+    # todos os rótulos possíveis para cada campo chave
+    def _keys(key: str) -> set[str]:
+        vals = aliases.get(key, [])
+        return { _norm(h) for h in vals }
+    need_cnpj = _keys("CNPJ")
+    need_emp = _keys("EMPRESA")
+    need_mun = _keys("MUNICIPIO")
+    if not (need_cnpj and need_emp):
+        return None
+    for sheet_name in workbook.sheetnames:
+        ws = workbook[sheet_name]
+        try:
+            first = next(ws.iter_rows(max_row=1))
+        except StopIteration:
+            continue
+        hdrs = { _norm(cell.value) for cell in first if cell.value is not None }
+        # precisa bater CNPJ e EMPRESA; MUNICIPIO é desejável
+        if need_cnpj & hdrs and need_emp & hdrs:
+            return sheet_name
+    return None
+
+def _norm(label: Any) -> str:
+    s = normalize_text(label) or ""
+    # normalização forte para comparação de cabeçalho
+    return strip_accents(s).casefold().replace(" ", "").replace("_", "")
 
 def _is_empty_row(values: Iterable[Any]) -> bool:
     for value in values:
