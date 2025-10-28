@@ -9,6 +9,7 @@ from typing import Optional
 
 import sqlalchemy as sa
 import typer
+from typer.main import TyperArgument
 
 from .contracts import load_contract
 from .extract_xlsm import load as load_source
@@ -17,6 +18,20 @@ from .transform_normalize import transform
 
 from dotenv import load_dotenv
 load_dotenv("backend/.env")
+
+
+# Typer <0.9.0 defines TyperArgument.make_metavar(self) while
+# Click>=8.1 invokes make_metavar(self, param). When those versions are
+# combined Typer raises ``TypeError: TyperArgument.make_metavar() takes 1
+# positional argument but 2 were given`` when the CLI is created.
+# Patch TyperArgument at import time to tolerate the extra argument.
+if TyperArgument.make_metavar.__code__.co_argcount == 1:  # pragma: no cover - defensive
+    _original_make_metavar = TyperArgument.make_metavar
+
+    def _compatible_make_metavar(self, param=None):
+        return _original_make_metavar(self)
+
+    TyperArgument.make_metavar = _compatible_make_metavar  # type: ignore[assignment]
 
 app = typer.Typer(add_completion=False, help="Comandos do ETL idempotente do eControle.")
 
@@ -31,9 +46,25 @@ def main(ctx: typer.Context) -> None:
 
 @app.command("import")
 def import_command(
-    source: Path = typer.Option(..., "--source", "-s", exists=True, readable=True, help="Arquivo XLSM/XLSX/CSV"),
-    dry_run: bool = typer.Option(True, help="Executa sem commitar alterações"),
-    file_source: Optional[str] = typer.Option(None, help="Rótulo amigável para o arquivo"),
+    source: Path = typer.Argument(
+        ...,
+        exists=True,
+        readable=True,
+        dir_okay=False,
+        resolve_path=True,
+        help="Arquivo XLSM/XLSX/CSV",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--apply",
+        help="Executa sem commitar alterações (use --apply para gravar)",
+    ),
+    file_source: Optional[str] = typer.Option(
+        None,
+        "--label",
+        "-l",
+        help="Rótulo amigável para o arquivo",
+    ),
 ) -> None:
     run_id = str(uuid.uuid4())
     file_label = file_source or source.name
