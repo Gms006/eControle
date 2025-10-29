@@ -6,12 +6,27 @@ import sqlalchemy as sa
 
 
 revision = "20251029_04_add_bombeiros_area_projeto"
-down_revision = "20251029_02_proc_avulsos_protocolo_partial"
+down_revision = "20251029_01_uq_proc_avulsos_doc_tipo_data"
 branch_labels = None
 depends_on = None
 
 
 def upgrade() -> None:
+    # Atualiza o índice/constraint de protocolo para ser parcial (somente protocolos válidos)
+    op.drop_constraint(
+        "uq_proc_avulso_protocolo_tipo",
+        "processos_avulsos",
+        type_="unique",
+    )
+    op.execute("DROP INDEX IF EXISTS uq_proc_avulso_protocolo_tipo")
+    op.execute(
+        """
+        CREATE UNIQUE INDEX IF NOT EXISTS uq_proc_avulso_protocolo_tipo
+        ON processos_avulsos (protocolo, tipo)
+        WHERE protocolo IS NOT NULL
+        """
+    )
+
     op.add_column("processos", sa.Column("area_m2", sa.Numeric(12, 2), nullable=True))
     op.add_column("processos", sa.Column("projeto", sa.String(length=120), nullable=True))
 
@@ -24,3 +39,11 @@ def downgrade() -> None:
     op.drop_column("processos_avulsos", "area_m2")
     op.drop_column("processos", "projeto")
     op.drop_column("processos", "area_m2")
+
+    # Recria a constraint original (sem filtro)
+    op.execute("DROP INDEX IF EXISTS uq_proc_avulso_protocolo_tipo")
+    op.create_unique_constraint(
+        "uq_proc_avulso_protocolo_tipo",
+        "processos_avulsos",
+        ["protocolo", "tipo"],
+    )
