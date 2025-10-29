@@ -10,7 +10,6 @@ from .normalizers import (
     normalize_text,
     only_digits,
     parse_date_br,
-    parse_decimal_br,
     strip_accents,
 )
 from .extract_xlsm import ROW_NUMBER_KEY
@@ -270,10 +269,21 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
                 payload["alvara"] = _normalize_enum_optional(mapped.get("ALVARA"), enum_alvara, "alvara", tipo)
                 payload["municipio"] = _as_none_if_placeholder(mapped.get("MUNICIPIO"))
             if logical_table == "bombeiros":
-                payload["tpi"] = _as_none_if_placeholder(mapped.get("TPI"))
-                area_raw = mapped.get("AREA_M2") or mapped.get("AREA")
-                payload["area_m2"] = parse_decimal_br(area_raw)
-                payload["projeto"] = _normalize_projeto(mapped.get("PROJETO"))
+                payload["tpi"] = normalize_text(mapped.get("TPI"))
+                # Área (m²): aceita diversos formatos brasileiros
+                from .normalizers import parse_decimal_br  # local import to avoid cycles
+
+                payload["area_m2"] = parse_decimal_br(
+                    mapped.get("AREA_M2")
+                    or mapped.get("ÁREA_(M²)")
+                    or mapped.get("AREA_(M2)")
+                )
+
+                projeto_raw = mapped.get("PROJETO")
+                projeto_norm = normalize_text(projeto_raw)
+                if projeto_norm in {"-", "*"}:
+                    projeto_norm = None
+                payload["projeto"] = projeto_norm
             if logical_table == "uso_solo":
                 payload["inscricao_imobiliaria"] = _as_none_if_placeholder(mapped.get("INSCRICAO_IMOBILIARIA"))
             if logical_table == "sanitario":
@@ -349,8 +359,10 @@ def _normalize_enum_optional(value: Any | None, allowed: Iterable[str], field: s
 
 
 def _safe_parse_date(value: Any | None, field: str, tipo: str) -> date | None:
-    PLACEHOLDERS = {"-", "–", "—", "*"}
-    if value in (None, "") or (isinstance(value, str) and value.strip() in PLACEHOLDERS):
+    placeholders = {"-", "–", "—", "*"}
+    if value in (None, ""):
+        return None
+    if isinstance(value, str) and value.strip() in placeholders:
         return None
     try:
         return parse_date_br(value)
