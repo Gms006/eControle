@@ -324,9 +324,7 @@ def _build_natural_key(
         # Isso exige a unique parcial criada na migration 04.
         return sa.select(table).where(where_clause), ("empresa_id", "tipo")
     if table_name == "processos_avulsos":
-        # Chaves naturais:
-        # - Com data: (documento, tipo, data_solicitacao)  → exige UNIQUE completo
-        # - Sem data: (documento, tipo) WHERE data_solicitacao IS NULL → exige UNIQUE parcial
+        # Chave natural escolhida para avulsos: (documento, tipo, data_solicitacao)
         data_ref = payload.get("data_solicitacao")
         if data_ref is None:
             where_clause = sa.and_(
@@ -334,15 +332,13 @@ def _build_natural_key(
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao.is_(None),
             )
-            # IMPORTANTE: aqui a natural_key_cols NÃO inclui data_solicitacao
             return sa.select(table).where(where_clause), ("documento", "tipo")
-        else:
-            where_clause = sa.and_(
-                table.c.documento == payload["documento"],
-                table.c.tipo == payload["tipo"],
-                table.c.data_solicitacao == data_ref,
-            )
-            return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
+        where_clause = sa.and_(
+            table.c.documento == payload["documento"],
+            table.c.tipo == payload["tipo"],
+            table.c.data_solicitacao == data_ref,
+        )
+        return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
@@ -354,13 +350,29 @@ def _execute_insert(
 ) -> None:
     if connection.dialect.name == "postgresql":
         stmt = postgresql.insert(table).values(**payload)
-        update_columns = {col: getattr(stmt.excluded, col) for col in payload.keys() if col not in natural_key_cols}
-        if update_columns:
-            where_clause = sa.or_(
-                table.c[col].is_distinct_from(getattr(stmt.excluded, col)) for col in update_columns
+        update_columns = {
+            col: getattr(stmt.excluded, col)
+            for col in payload.keys()
+            if col not in natural_key_cols
+        }
+        where_clause = (
+            sa.or_(
+                *(table.c[col].is_distinct_from(getattr(stmt.excluded, col)) for col in update_columns)
             )
-        else:
-            where_clause = None
+            if update_columns
+            else None
+        )
+
+        if table.name == "processos_avulsos" and set(natural_key_cols) == {"documento", "tipo"}:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[table.c.documento, table.c.tipo],
+                index_where=table.c.data_solicitacao.is_(None),
+                set_=update_columns,
+                where=where_clause,
+            )
+            connection.execute(stmt)
+            return
+
         stmt = stmt.on_conflict_do_update(
             index_elements=[table.c[col] for col in natural_key_cols],
             set_=update_columns,
