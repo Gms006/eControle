@@ -370,6 +370,20 @@ def _safe_parse_date(value: Any | None, field: str, tipo: str) -> date | None:
         raise TransformError(f"Data inválida em {field} ({tipo}): {value}") from exc
 
 
+def _normalize_projeto(value: Any | None) -> Optional[str]:
+    """Normalize the optional projeto descriptor for bombeiros processos."""
+
+    if value in (None, ""):
+        return None
+    normalized = normalize_text(value)
+    if not normalized or normalized == "-":
+        return None
+    key = strip_accents(normalized).casefold()
+    if key == "nao possui":
+        return "NÃO POSSUI"
+    return normalized
+
+
 def _remap_row(row: Dict[str, Any], alias_map: Dict[str, str]) -> Dict[str, Any]:
     mapped: Dict[str, Any] = {}
     for key, value in row.items():
