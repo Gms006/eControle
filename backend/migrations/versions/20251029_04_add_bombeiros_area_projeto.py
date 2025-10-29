@@ -12,7 +12,12 @@ depends_on = None
 
 
 def upgrade() -> None:
-    # Atualiza o índice de protocolo para ser parcial (somente protocolos válidos)
+    # Atualiza o índice/constraint de protocolo para ser parcial (somente protocolos válidos)
+    op.drop_constraint(
+        "uq_proc_avulso_protocolo_tipo",
+        "processos_avulsos",
+        type_="unique",
+    )
     op.execute("DROP INDEX IF EXISTS uq_proc_avulso_protocolo_tipo")
     op.execute(
         """
@@ -35,11 +40,10 @@ def downgrade() -> None:
     op.drop_column("processos", "projeto")
     op.drop_column("processos", "area_m2")
 
-    # Recria o índice completo original (sem filtro)
+    # Recria a constraint original (sem filtro)
     op.execute("DROP INDEX IF EXISTS uq_proc_avulso_protocolo_tipo")
-    op.execute(
-        """
-        CREATE UNIQUE INDEX IF NOT EXISTS uq_proc_avulso_protocolo_tipo
-        ON processos_avulsos (protocolo, tipo)
-        """
+    op.create_unique_constraint(
+        "uq_proc_avulso_protocolo_tipo",
+        "processos_avulsos",
+        ["protocolo", "tipo"],
     )
