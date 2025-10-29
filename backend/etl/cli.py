@@ -28,8 +28,29 @@ load_dotenv("backend/.env")
 if TyperArgument.make_metavar.__code__.co_argcount == 1:  # pragma: no cover - defensive
     _original_make_metavar = TyperArgument.make_metavar
 
-    def _compatible_make_metavar(self, param=None):
-        return _original_make_metavar(self)
+    def _compatible_make_metavar(self, ctx=None):
+        """Bridge Typer's old signature with Click>=8.1 expectations."""
+
+        if ctx is None:
+            return _original_make_metavar(self)
+
+        if self.metavar is not None:
+            return self.metavar
+
+        var = (self.name or "").upper()
+        if not self.required:
+            var = "[{}]".format(var)
+
+        try:
+            type_var = self.type.get_metavar(self, ctx)  # type: ignore[arg-type]
+        except TypeError:  # fallback for exotic ParamTypes
+            type_var = self.type.get_metavar(self)
+
+        if type_var:
+            var += f":{type_var}"
+        if self.nargs != 1:
+            var += "..."
+        return var
 
     TyperArgument.make_metavar = _compatible_make_metavar  # type: ignore[assignment]
 
