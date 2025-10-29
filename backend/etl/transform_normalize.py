@@ -6,8 +6,26 @@ from datetime import date
 from typing import Any, Dict, Iterable, List, Optional
 
 from .contracts import ConfigContract
-from .normalizers import normalize_text, only_digits, parse_date_br, strip_accents
+from .normalizers import (
+    normalize_text,
+    only_digits,
+    parse_date_br,
+    parse_decimal_br,
+    strip_accents,
+)
 from .extract_xlsm import ROW_NUMBER_KEY
+
+
+PLACEHOLDER_VALUES = {"-", "*"}
+
+
+def _as_none_if_placeholder(value: Any | None) -> Optional[str]:
+    if value is None:
+        return None
+    normalized = normalize_text(value)
+    if not normalized or normalized in PLACEHOLDER_VALUES:
+        return None
+    return normalized
 
 
 @dataclass(slots=True)
@@ -107,8 +125,12 @@ def _transform_empresas(rows: Iterable[Dict[str, Any]], contract: ConfigContract
             continue
         empresa = normalize_text(mapped.get("EMPRESA"))
         municipio = normalize_text(mapped.get("MUNICIPIO"))
-        if not empresa or not municipio:
-            raise TransformError("Empresa ou município ausente para CNPJ %s" % cnpj)
+        porte = normalize_text(mapped.get("PORTE"))
+        if not empresa:
+            raise TransformError("Empresa ausente para documento %s" % cnpj)
+        # Para PF/CAEPF, aceite município vazio (sua regra operacional)
+        if not municipio and porte not in {"PF", "CAEPF"}:
+            raise TransformError("Município ausente para documento %s" % cnpj)
         payload: Dict[str, Any] = {
             "empresa": empresa,
             "cnpj": cnpj,
@@ -225,9 +247,13 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
             situacao_raw = (mapped.get("SITUACAO") or mapped.get("STATUS_PADRAO") or "PENDENTE")
             situacao = _normalize_enum(situacao_raw, enum_situacao, "situacao", tipo)
             # data_solicitacao pode ficar vazia (linhas placeholder são válidas)
-            data_solicitacao = _safe_parse_date(mapped.get("DATA_SOLICITACAO"), "data_solicitacao", tipo)
-            protocolo = normalize_text(mapped.get("PROTOCOLO"))
-            status_padrao = normalize_text(mapped.get("STATUS_PADRAO"))
+            data_solicitacao = _safe_parse_date(
+                _as_none_if_placeholder(mapped.get("DATA_SOLICITACAO")),
+                "data_solicitacao",
+                tipo,
+            )
+            protocolo = _as_none_if_placeholder(mapped.get("PROTOCOLO"))
+            status_padrao = _as_none_if_placeholder(mapped.get("STATUS_PADRAO"))
             payload: Dict[str, Any] = {
                 "empresa_cnpj": cnpj,
                 "tipo": tipo,
@@ -235,23 +261,30 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
                 "data_solicitacao": data_solicitacao,
                 "situacao": situacao,
                 "status_padrao": status_padrao,
-                "obs": normalize_text(mapped.get("OBS")),
+                "obs": _as_none_if_placeholder(mapped.get("OBS")),
             }
             if logical_table == "diversos":
                 payload["operacao"] = _normalize_enum_optional(mapped.get("OPERACAO"), enum_operacao, "operacao", tipo)
                 payload["orgao"] = _normalize_enum_optional(mapped.get("ORGAO"), enum_orgao, "orgao", tipo)
             if logical_table == "funcionamento":
                 payload["alvara"] = _normalize_enum_optional(mapped.get("ALVARA"), enum_alvara, "alvara", tipo)
-                payload["municipio"] = normalize_text(mapped.get("MUNICIPIO"))
+                payload["municipio"] = _as_none_if_placeholder(mapped.get("MUNICIPIO"))
             if logical_table == "bombeiros":
-                payload["tpi"] = normalize_text(mapped.get("TPI"))
+                payload["tpi"] = _as_none_if_placeholder(mapped.get("TPI"))
+                area_raw = mapped.get("AREA_M2") or mapped.get("AREA")
+                payload["area_m2"] = parse_decimal_br(area_raw)
+                payload["projeto"] = _normalize_projeto(mapped.get("PROJETO"))
             if logical_table == "uso_solo":
-                payload["inscricao_imobiliaria"] = normalize_text(mapped.get("INSCRICAO_IMOBILIARIA"))
+                payload["inscricao_imobiliaria"] = _as_none_if_placeholder(mapped.get("INSCRICAO_IMOBILIARIA"))
             if logical_table == "sanitario":
                 payload["servico"] = _normalize_enum_optional(mapped.get("SERVICO"), enum_servico, "servico", tipo)
-                payload["taxa"] = normalize_text(mapped.get("TAXA"))
+                payload["taxa"] = _as_none_if_placeholder(mapped.get("TAXA"))
                 payload["notificacao"] = _normalize_enum_optional(mapped.get("NOTIFICACAO"), enum_notificacao, "notificacao", tipo)
-                payload["data_val"] = _safe_parse_date(mapped.get("DATA_VAL"), "data_val", tipo)
+                payload["data_val"] = _safe_parse_date(
+                    _as_none_if_placeholder(mapped.get("DATA_VAL")),
+                    "data_val",
+                    tipo,
+                )
             row_number = _row_number(row, index)
             normalized.append(
                 NormalizedRow(
@@ -323,6 +356,20 @@ def _safe_parse_date(value: Any | None, field: str, tipo: str) -> date | None:
         return parse_date_br(value)
     except ValueError as exc:
         raise TransformError(f"Data inválida em {field} ({tipo}): {value}") from exc
+
+
+def _normalize_projeto(value: Any | None) -> Optional[str]:
+    """Normalize the optional projeto descriptor for bombeiros processos."""
+
+    if value in (None, ""):
+        return None
+    normalized = normalize_text(value)
+    if not normalized or normalized == "-":
+        return None
+    key = strip_accents(normalized).casefold()
+    if key == "nao possui":
+        return "NÃO POSSUI"
+    return normalized
 
 
 def _remap_row(row: Dict[str, Any], alias_map: Dict[str, str]) -> Dict[str, Any]:
