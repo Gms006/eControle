@@ -69,7 +69,15 @@ def run(
         results: List[Dict[str, Any]] = []
         empresa_cache: Dict[str, int] = {}
 
-        ordered_tables = ["empresas", "licencas", "taxas", "processos", "certificados", "certificados_agendamentos"]
+        ordered_tables = [
+            "empresas",
+            "licencas",
+            "taxas",
+            "processos",
+            "processos_avulsos",
+            "certificados",
+            "certificados_agendamentos",
+        ]
         for table in ordered_tables:
             rows = normalized.get(table, [])
             for item in rows:
@@ -235,7 +243,12 @@ def _upsert_processos_avulsos(
     final_payload["documento"] = documento or final_payload.get("empresa_cnpj")
     final_payload.pop("empresa_cnpj", None)
 
-    select_stmt, natural_key_cols = _build_processos_avulsos_key(table, final_payload)
+    select_stmt, natural_key_cols = _build_natural_key(
+        "processos_avulsos",
+        table,
+        final_payload,
+        None,
+    )
     existing = connection.execute(select_stmt).mappings().first()
 
     if existing is None:
@@ -248,34 +261,6 @@ def _upsert_processos_avulsos(
 
     _execute_update(connection, table, final_payload, natural_key_cols, existing)
     return "update", changed_fields
-
-
-def _build_processos_avulsos_key(
-    table: sa.Table,
-    payload: Dict[str, Any],
-) -> tuple[sa.Select, Sequence[str]]:
-    protocolo = payload.get("protocolo")
-    if protocolo:
-        where_clause = sa.and_(table.c.protocolo == protocolo, table.c.tipo == payload["tipo"])
-        return sa.select(table).where(where_clause), ("protocolo", "tipo")
-
-    documento = payload.get("documento")
-    data_ref = payload.get("data_solicitacao")
-    if data_ref is not None:
-        where_clause = sa.and_(
-            table.c.documento == documento,
-            table.c.tipo == payload["tipo"],
-            table.c.data_solicitacao == data_ref,
-        )
-        return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
-
-    where_clause = sa.and_(
-        table.c.documento == documento,
-        table.c.tipo == payload["tipo"],
-        table.c.protocolo.is_(None),
-        table.c.data_solicitacao.is_(None),
-    )
-    return sa.select(table).where(where_clause), ("documento", "tipo")
 
 
 def _build_natural_key(
@@ -338,6 +323,22 @@ def _build_natural_key(
         # Natural key usada no ON CONFLICT: (empresa_id, tipo)
         # Isso exige a unique parcial criada na migration 04.
         return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+    if table_name == "processos_avulsos":
+        # Chave natural escolhida para avulsos: (documento, tipo, data_solicitacao)
+        data_ref = payload.get("data_solicitacao")
+        if data_ref is None:
+            where_clause = sa.and_(
+                table.c.documento == payload["documento"],
+                table.c.tipo == payload["tipo"],
+                table.c.data_solicitacao.is_(None),
+            )
+        else:
+            where_clause = sa.and_(
+                table.c.documento == payload["documento"],
+                table.c.tipo == payload["tipo"],
+                table.c.data_solicitacao == data_ref,
+            )
+        return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
