@@ -10,6 +10,7 @@ from typing import Any
 
 EXCEL_EPOCH = date(1899, 12, 30)
 _DIGITS_RE = re.compile(r"\D+")
+_RE_NOT_DIGIT_COMMA_DOT = re.compile(r"[^0-9,.\-]+")
 
 
 def only_digits(value: Any | None) -> str | None:
@@ -72,3 +73,30 @@ def make_row_hash(table: str, row_number: int, payload_json: str) -> str:
     digest.update(f"{table}::{row_number}||".encode("utf-8"))
     digest.update(payload_json.encode("utf-8"))
     return digest.hexdigest()
+
+
+def parse_decimal_br(value: Any | None) -> float | None:
+    """Parse decimal values that may use Brazilian formatting.
+
+    Strings such as ``"1.234,56"``, ``"1800,00"``, ``"9,00"`` or ``"1234.56"``
+    are converted into Python ``float`` numbers. Placeholders like ``"-"`` and
+    ``"*"`` as well as units such as ``"m2"``/``"m²"`` are ignored and return
+    ``None``. Invalid values also result in ``None`` instead of raising.
+    """
+
+    if value is None:
+        return None
+    text = normalize_text(value)
+    if not text or text in {"-", "*"}:
+        return None
+    cleaned = _RE_NOT_DIGIT_COMMA_DOT.sub("", text)
+    if not cleaned:
+        return None
+    if "," in cleaned and "." in cleaned:
+        cleaned = cleaned.replace(".", "").replace(",", ".")
+    elif "," in cleaned:
+        cleaned = cleaned.replace(",", ".")
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
