@@ -324,7 +324,9 @@ def _build_natural_key(
         # Isso exige a unique parcial criada na migration 04.
         return sa.select(table).where(where_clause), ("empresa_id", "tipo")
     if table_name == "processos_avulsos":
-        # Chave natural escolhida para avulsos: (documento, tipo, data_solicitacao)
+        # Chaves naturais:
+        # - Com data: (documento, tipo, data_solicitacao)  → exige UNIQUE completo
+        # - Sem data: (documento, tipo) WHERE data_solicitacao IS NULL → exige UNIQUE parcial
         data_ref = payload.get("data_solicitacao")
         if data_ref is None:
             where_clause = sa.and_(
@@ -332,13 +334,15 @@ def _build_natural_key(
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao.is_(None),
             )
+            # IMPORTANTE: aqui a natural_key_cols NÃO inclui data_solicitacao
+            return sa.select(table).where(where_clause), ("documento", "tipo")
         else:
             where_clause = sa.and_(
                 table.c.documento == payload["documento"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == data_ref,
             )
-        return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
+            return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
