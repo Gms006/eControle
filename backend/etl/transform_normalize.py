@@ -6,7 +6,13 @@ from datetime import date
 from typing import Any, Dict, Iterable, List, Optional
 
 from .contracts import ConfigContract
-from .normalizers import normalize_text, only_digits, parse_date_br, strip_accents
+from .normalizers import (
+    normalize_text,
+    only_digits,
+    parse_date_br,
+    parse_decimal_br,
+    strip_accents,
+)
 from .extract_xlsm import ROW_NUMBER_KEY
 
 
@@ -265,6 +271,9 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
                 payload["municipio"] = _as_none_if_placeholder(mapped.get("MUNICIPIO"))
             if logical_table == "bombeiros":
                 payload["tpi"] = _as_none_if_placeholder(mapped.get("TPI"))
+                area_raw = mapped.get("AREA_M2") or mapped.get("AREA")
+                payload["area_m2"] = parse_decimal_br(area_raw)
+                payload["projeto"] = _normalize_projeto(mapped.get("PROJETO"))
             if logical_table == "uso_solo":
                 payload["inscricao_imobiliaria"] = _as_none_if_placeholder(mapped.get("INSCRICAO_IMOBILIARIA"))
             if logical_table == "sanitario":
@@ -347,6 +356,20 @@ def _safe_parse_date(value: Any | None, field: str, tipo: str) -> date | None:
         return parse_date_br(value)
     except ValueError as exc:
         raise TransformError(f"Data inválida em {field} ({tipo}): {value}") from exc
+
+
+def _normalize_projeto(value: Any | None) -> Optional[str]:
+    """Normalize the optional projeto descriptor for bombeiros processos."""
+
+    if value in (None, ""):
+        return None
+    normalized = normalize_text(value)
+    if not normalized or normalized == "-":
+        return None
+    key = strip_accents(normalized).casefold()
+    if key == "nao possui":
+        return "NÃO POSSUI"
+    return normalized
 
 
 def _remap_row(row: Dict[str, Any], alias_map: Dict[str, str]) -> Dict[str, Any]:
