@@ -388,6 +388,31 @@ def _execute_insert(
                 set_=update_columns,
                 where=where_clause,
             )
+        elif table.name == "processos" and tuple(natural_key_cols) == (
+            "empresa_id",
+            "tipo",
+            "data_solicitacao",
+        ):
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[
+                    table.c.empresa_id,
+                    table.c.tipo,
+                    table.c.data_solicitacao,
+                ],
+                index_where=table.c.protocolo.is_(None),
+                set_=update_columns,
+                where=where_clause,
+            )
+        elif table.name == "processos" and tuple(natural_key_cols) == ("empresa_id", "tipo"):
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[table.c.empresa_id, table.c.tipo],
+                index_where=sa.and_(
+                    table.c.protocolo.is_(None),
+                    table.c.data_solicitacao.is_(None),
+                ),
+                set_=update_columns,
+                where=where_clause,
+            )
         else:
             stmt = stmt.on_conflict_do_update(
                 index_elements=[table.c[col] for col in natural_key_cols],
