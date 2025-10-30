@@ -5,13 +5,25 @@ import hashlib
 import math
 import re
 import unicodedata
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-EXCEL_EPOCH = date(1899, 12, 30)
 _DIGITS_RE = re.compile(r"\D+")
 _RE_NOT_DIGIT_COMMA_DOT = re.compile(r"[^0-9,.\-]+")
+
+PLACEHOLDERS = {
+    "-",
+    "–",
+    "—",
+    "*",
+    "n/a",
+    "na",
+    "não possui",
+    "nao possui",
+    "NA",
+    "N/A",
+}
 
 
 def only_digits(value: Any | None) -> str | None:
@@ -42,46 +54,45 @@ def normalize_text(value: Any | None) -> str | None:
     return text or None
 
 
-def parse_date_br(value: Any) -> date:
-    """Parse dates in dd/mm/yyyy, yyyy-mm-dd or Excel serial formats."""
+def is_placeholder(value: object) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, (date, datetime)):
+        return False
+    s = str(value).strip().lower()
+    return s in PLACEHOLDERS or s == ""
+
+
+def coerce_placeholder_to_none(value: object):
+    return None if is_placeholder(value) else value
+
+
+def parse_date_br(value: object) -> date:
+    """Aceita dd/mm/aaaa, aaaa-mm-dd, datetime string (corta hora) e objetos date/datetime."""
+    if value is None:
+        raise ValueError("Data inválida: None")
     if isinstance(value, datetime):
         return value.date()
     if isinstance(value, date):
         return value
-
-    if value is None:
-        raise ValueError("Data inválida: None")
-
-    if isinstance(value, (int, float)):
-        if isinstance(value, float) and math.isnan(value):
-            raise ValueError("Data inválida: NaN")
-        return EXCEL_EPOCH + timedelta(days=int(value))
-
     s = str(value).strip()
-    if s in ("", "-", "*"):
+    if is_placeholder(s):
         raise ValueError(f"Data inválida: {value}")
-
     if " " in s:
         s = s.split(" ", 1)[0]
-
-    for fmt in ("%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"):
-        try:
-            return datetime.strptime(s, fmt).date()
-        except ValueError:
-            continue
-
-    if s.isdigit():
-        return EXCEL_EPOCH + timedelta(days=int(s))
-
-    try:
-        serial = float(s)
-    except ValueError as exc:
-        raise ValueError(f"Data inválida: {value}") from exc
-
-    if math.isnan(serial):
-        raise ValueError(f"Data inválida: {value}")
-
-    return EXCEL_EPOCH + timedelta(days=int(serial))
+    if "/" in s:
+        d, m, y = s.split("/")
+        return date(int(y), int(m), int(d))
+    if "-" in s:
+        parts = s.split("-")
+        if len(parts) != 3:
+            raise ValueError(f"Data inválida: {value}")
+        if len(parts[0]) == 4:
+            y, m, d = parts
+        else:
+            d, m, y = parts
+        return date(int(y), int(m), int(d))
+    raise ValueError(f"Data inválida: {value}")
 
 
 def make_row_hash(table: str, row_number: int, payload_json: str) -> str:
