@@ -119,7 +119,7 @@ def _transform_empresas(rows: Iterable[Dict[str, Any]], contract: ConfigContract
     sheet_name = contract.sheet_names.get("empresas", "EMPRESAS")
     for index, row in enumerate(rows, start=1):
         mapped = _remap_row(row, alias_map)
-        cnpj = only_digits(mapped.get("CNPJ"))
+        cnpj = _normalize_cnpj(mapped.get("CNPJ"))
         if not cnpj:
             continue
         empresa = normalize_text(mapped.get("EMPRESA"))
@@ -166,7 +166,7 @@ def _transform_licencas(rows: Iterable[Dict[str, Any]], contract: ConfigContract
     sheet_name = contract.sheet_names.get("licencas", "LICENÇAS")
     for index, row in enumerate(rows, start=1):
         mapped = _remap_row(row, alias_map)
-        cnpj = only_digits(mapped.get("CNPJ"))
+        cnpj = _normalize_cnpj(mapped.get("CNPJ"))
         if not cnpj:
             continue
         row_number = _row_number(row, index)
@@ -197,7 +197,7 @@ def _transform_taxas(rows: Iterable[Dict[str, Any]], contract: ConfigContract) -
     sheet_name = contract.sheet_names.get("taxas", "TAXAS")
     for index, row in enumerate(rows, start=1):
         mapped = _remap_row(row, alias_map)
-        cnpj = only_digits(mapped.get("CNPJ"))
+        cnpj = _normalize_cnpj(mapped.get("CNPJ"))
         if not cnpj:
             continue
         row_number = _row_number(row, index)
@@ -239,7 +239,7 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
         enum_notificacao = contract.require_enum("notificacoes_sanitarias")
         for index, row in enumerate(rows, start=1):
             mapped = _remap_row(row, alias_map)
-            cnpj = only_digits(mapped.get("CNPJ"))
+            cnpj = _normalize_cnpj(mapped.get("CNPJ"))
             if not cnpj:
                 continue
                         # 1) usa SITUACAO; 2) senão STATUS_PADRAO; 3) default "PENDENTE"
@@ -412,3 +412,12 @@ def _row_number(row: Dict[str, Any], default_index: int) -> int:
         return int(value)
     except (TypeError, ValueError):
         return default_index + 1
+
+
+def _normalize_cnpj(value: Any | None) -> Optional[str]:
+    digits = only_digits(value)
+    if not digits:
+        return None
+    if len(digits) != 14:
+        return None
+    return digits
