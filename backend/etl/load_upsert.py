@@ -300,40 +300,41 @@ def _build_natural_key(
         return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
     if table_name == "processos":
         protocolo = payload.get("protocolo")
-        if protocolo:
+        if protocolo:  # usa índice parcial: protocolo IS NOT NULL
             where_clause = sa.and_(
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
-            return sa.select(table).where(where_clause), ("protocolo", "tipo"), None
-        data_ref = payload.get("data_solicitacao")
-        if data_ref:
-            # sem protocolo, com data → (empresa_id, tipo, data_solicitacao)
+            index_where = table.c.protocolo.isnot(None)
+            return sa.select(table).where(where_clause), ("protocolo", "tipo"), index_where
+
+        # sem protocolo: duas chaves naturais
+        if payload.get("data_solicitacao"):
             where_clause = sa.and_(
                 table.c.empresa_id == payload["empresa_id"],
                 table.c.tipo == payload["tipo"],
-                table.c.data_solicitacao == data_ref,
+                table.c.data_solicitacao == payload["data_solicitacao"],
+            )
+            index_where = sa.and_(
                 table.c.protocolo.is_(None),
+                table.c.data_solicitacao.isnot(None),
             )
             return (
                 sa.select(table).where(where_clause),
                 ("empresa_id", "tipo", "data_solicitacao"),
-                table.c.protocolo.is_(None),
+                index_where,
             )
-        # sem protocolo E sem data → (empresa_id, tipo) + guardas de NULL na busca
+
+        # sem protocolo e sem data
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
+        )
+        index_where = sa.and_(
             table.c.protocolo.is_(None),
             table.c.data_solicitacao.is_(None),
         )
-        # Natural key usada no ON CONFLICT: (empresa_id, tipo)
-        # Isso exige a unique parcial criada na migration 04.
-        return (
-            sa.select(table).where(where_clause),
-            ("empresa_id", "tipo"),
-            sa.and_(table.c.protocolo.is_(None), table.c.data_solicitacao.is_(None)),
-        )
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), index_where
     if table_name == "processos_avulsos":
         protocolo = payload.get("protocolo")
         if protocolo:
@@ -376,7 +377,7 @@ def _execute_insert(
     table: sa.Table,
     payload: Dict[str, Any],
     natural_key_cols: Sequence[str],
-    index_where: Optional[sa.sql.ClauseElement],
+    index_where: Optional[sa.sql.ClauseElement] = None,
 ) -> None:
     if connection.dialect.name == "postgresql":
         stmt = postgresql.insert(table).values(**payload)
@@ -393,23 +394,12 @@ def _execute_insert(
             else None
         )
 
-        if table.name == "processos_avulsos" and tuple(natural_key_cols) == ("protocolo", "tipo"):
-            stmt = stmt.on_conflict_do_update(
-                constraint="uq_proc_avulso_protocolo_tipo",
-                set_=update_columns,
-                where=where_clause,
-            )
-        else:
-            conflict_kwargs: Dict[str, Any] = {
-                "index_elements": [table.c[col] for col in natural_key_cols]
-            }
-            if index_where is not None:
-                conflict_kwargs["index_where"] = index_where
-            stmt = stmt.on_conflict_do_update(
-                **conflict_kwargs,
-                set_=update_columns,
-                where=where_clause,
-            )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=[table.c[col] for col in natural_key_cols],
+            index_where=index_where,
+            set_=update_columns,
+            where=where_clause,
+        )
         connection.execute(stmt)
     else:
         connection.execute(table.insert().values(**payload))
