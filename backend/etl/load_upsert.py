@@ -195,11 +195,13 @@ def _upsert_final(
     else:
         empresa_id = None
 
-    select_stmt, natural_key_cols = _build_natural_key(table_name, table, final_payload, empresa_id)
+    select_stmt, natural_key_cols, index_where = _build_natural_key(
+        table_name, table, final_payload, empresa_id
+    )
     existing = connection.execute(select_stmt).mappings().first()
 
     if existing is None:
-        _execute_insert(connection, table, final_payload, natural_key_cols)
+        _execute_insert(connection, table, final_payload, natural_key_cols, index_where)
         return "insert", []
 
     changed_fields = _diff(existing, final_payload, natural_key_cols)
@@ -243,7 +245,7 @@ def _upsert_processos_avulsos(
     final_payload["documento"] = documento or final_payload.get("empresa_cnpj")
     final_payload.pop("empresa_cnpj", None)
 
-    select_stmt, natural_key_cols = _build_natural_key(
+    select_stmt, natural_key_cols, index_where = _build_natural_key(
         "processos_avulsos",
         table,
         final_payload,
@@ -252,7 +254,7 @@ def _upsert_processos_avulsos(
     existing = connection.execute(select_stmt).mappings().first()
 
     if existing is None:
-        _execute_insert(connection, table, final_payload, natural_key_cols)
+        _execute_insert(connection, table, final_payload, natural_key_cols, index_where)
         return "insert", []
 
     changed_fields = _diff(existing, final_payload, natural_key_cols)
@@ -268,11 +270,11 @@ def _build_natural_key(
     table: sa.Table,
     payload: Dict[str, Any],
     empresa_id: Optional[int],
-) -> tuple[sa.Select, Sequence[str]]:
+) -> tuple[sa.Select, Sequence[str], Optional[sa.sql.ClauseElement]]:
     if table_name == "empresas":
         cols = (table.c.cnpj,)
         where_clause = table.c.cnpj == payload["cnpj"]
-        return sa.select(table).where(where_clause), ("cnpj",)
+        return sa.select(table).where(where_clause), ("cnpj",), None
     if table_name == "taxas":
         if "data_referencia" in table.c and payload.get("data_referencia"):
             where_clause = sa.and_(
@@ -280,22 +282,22 @@ def _build_natural_key(
                 table.c.tipo == payload["tipo"],
                 table.c.data_referencia == payload["data_referencia"],
             )
-            return sa.select(table).where(where_clause), (
-                "empresa_id",
-                "tipo",
-                "data_referencia",
+            return (
+                sa.select(table).where(where_clause),
+                ("empresa_id", "tipo", "data_referencia"),
+                None,
             )
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
     if table_name == "licencas":
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
     if table_name == "processos":
         protocolo = payload.get("protocolo")
         if protocolo:
@@ -303,7 +305,7 @@ def _build_natural_key(
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
-            return sa.select(table).where(where_clause), ("protocolo", "tipo")
+            return sa.select(table).where(where_clause), ("protocolo", "tipo"), None
         data_ref = payload.get("data_solicitacao")
         if data_ref:
             # sem protocolo, com data → (empresa_id, tipo, data_solicitacao)
@@ -311,8 +313,13 @@ def _build_natural_key(
                 table.c.empresa_id == payload["empresa_id"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == data_ref,
+                table.c.protocolo.is_(None),
             )
-            return sa.select(table).where(where_clause), ("empresa_id", "tipo", "data_solicitacao")
+            return (
+                sa.select(table).where(where_clause),
+                ("empresa_id", "tipo", "data_solicitacao"),
+                table.c.protocolo.is_(None),
+            )
         # sem protocolo E sem data → (empresa_id, tipo) + guardas de NULL na busca
         where_clause = sa.and_(
             table.c.empresa_id == payload["empresa_id"],
@@ -322,7 +329,11 @@ def _build_natural_key(
         )
         # Natural key usada no ON CONFLICT: (empresa_id, tipo)
         # Isso exige a unique parcial criada na migration 04.
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo")
+        return (
+            sa.select(table).where(where_clause),
+            ("empresa_id", "tipo"),
+            sa.and_(table.c.protocolo.is_(None), table.c.data_solicitacao.is_(None)),
+        )
     if table_name == "processos_avulsos":
         protocolo = payload.get("protocolo")
         if protocolo:
@@ -330,7 +341,7 @@ def _build_natural_key(
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
-            return sa.select(table).where(where_clause), ("protocolo", "tipo")
+            return sa.select(table).where(where_clause), ("protocolo", "tipo"), None
 
         data_ref = payload.get("data_solicitacao")
         if data_ref is not None:
@@ -338,19 +349,25 @@ def _build_natural_key(
                 table.c.documento == payload["documento"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == data_ref,
+                table.c.protocolo.is_(None),
             )
-            return sa.select(table).where(where_clause), (
-                "documento",
-                "tipo",
-                "data_solicitacao",
+            return (
+                sa.select(table).where(where_clause),
+                ("documento", "tipo", "data_solicitacao"),
+                table.c.protocolo.is_(None),
             )
 
         where_clause = sa.and_(
             table.c.documento == payload["documento"],
             table.c.tipo == payload["tipo"],
             table.c.data_solicitacao.is_(None),
+            table.c.protocolo.is_(None),
         )
-        return sa.select(table).where(where_clause), ("documento", "tipo")
+        return (
+            sa.select(table).where(where_clause),
+            ("documento", "tipo"),
+            sa.and_(table.c.protocolo.is_(None), table.c.data_solicitacao.is_(None)),
+        )
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
@@ -359,6 +376,7 @@ def _execute_insert(
     table: sa.Table,
     payload: Dict[str, Any],
     natural_key_cols: Sequence[str],
+    index_where: Optional[sa.sql.ClauseElement],
 ) -> None:
     if connection.dialect.name == "postgresql":
         stmt = postgresql.insert(table).values(**payload)
@@ -381,41 +399,14 @@ def _execute_insert(
                 set_=update_columns,
                 where=where_clause,
             )
-        elif table.name == "processos_avulsos" and tuple(natural_key_cols) == ("documento", "tipo"):
-            stmt = stmt.on_conflict_do_update(
-                index_elements=[table.c.documento, table.c.tipo],
-                index_where=table.c.data_solicitacao.is_(None),
-                set_=update_columns,
-                where=where_clause,
-            )
-        elif table.name == "processos" and tuple(natural_key_cols) == (
-            "empresa_id",
-            "tipo",
-            "data_solicitacao",
-        ):
-            stmt = stmt.on_conflict_do_update(
-                index_elements=[
-                    table.c.empresa_id,
-                    table.c.tipo,
-                    table.c.data_solicitacao,
-                ],
-                index_where=table.c.protocolo.is_(None),
-                set_=update_columns,
-                where=where_clause,
-            )
-        elif table.name == "processos" and tuple(natural_key_cols) == ("empresa_id", "tipo"):
-            stmt = stmt.on_conflict_do_update(
-                index_elements=[table.c.empresa_id, table.c.tipo],
-                index_where=sa.and_(
-                    table.c.protocolo.is_(None),
-                    table.c.data_solicitacao.is_(None),
-                ),
-                set_=update_columns,
-                where=where_clause,
-            )
         else:
+            conflict_kwargs: Dict[str, Any] = {
+                "index_elements": [table.c[col] for col in natural_key_cols]
+            }
+            if index_where is not None:
+                conflict_kwargs["index_where"] = index_where
             stmt = stmt.on_conflict_do_update(
-                index_elements=[table.c[col] for col in natural_key_cols],
+                **conflict_kwargs,
                 set_=update_columns,
                 where=where_clause,
             )

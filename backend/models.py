@@ -88,8 +88,8 @@ class Processo:
     empresa: str
     cnpj: str
     tipo: str  # Diversos, Funcionamento, Bombeiros, etc.
-    protocolo: str
-    data_solicitacao: str
+    protocolo: Optional[str] = None
+    data_solicitacao: Optional[str] = None
     situacao: str
     status_padrao: Optional[str] = None
     obs: str = ""
