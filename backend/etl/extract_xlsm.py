@@ -51,7 +51,10 @@ def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
         if tables_map:
             table_data = _load_tables(worksheet, tables_map)
             if table_data:
-                data[logical_sheet] = table_data
+                if logical_sheet in contract.column_aliases:
+                    data[logical_sheet] = _flatten_table_rows(table_data)
+                else:
+                    data[logical_sheet] = table_data
                 continue
         data[logical_sheet] = _load_worksheet(worksheet)
     return data
@@ -74,6 +77,13 @@ def _load_tables(worksheet, tables_map: Dict[str, str]) -> Dict[str, List[Dict[s
         rows = _rows_from_cells(cells)
         tables[logical_table] = rows
     return tables
+
+
+def _flatten_table_rows(tables: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
+    flattened: List[Dict[str, Any]] = []
+    for rows in tables.values():
+        flattened.extend(rows)
+    return flattened
 
 
 def _load_worksheet(worksheet) -> List[Dict[str, Any]]:
