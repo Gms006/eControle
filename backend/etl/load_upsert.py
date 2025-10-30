@@ -324,21 +324,33 @@ def _build_natural_key(
         # Isso exige a unique parcial criada na migration 04.
         return sa.select(table).where(where_clause), ("empresa_id", "tipo")
     if table_name == "processos_avulsos":
-        # Chave natural escolhida para avulsos: (documento, tipo, data_solicitacao)
+        protocolo = payload.get("protocolo")
+        if protocolo:
+            where_clause = sa.and_(
+                table.c.protocolo == protocolo,
+                table.c.tipo == payload["tipo"],
+            )
+            return sa.select(table).where(where_clause), ("protocolo", "tipo")
+
         data_ref = payload.get("data_solicitacao")
-        if data_ref is None:
+        if data_ref is not None:
             where_clause = sa.and_(
                 table.c.documento == payload["documento"],
                 table.c.tipo == payload["tipo"],
-                table.c.data_solicitacao.is_(None),
+                table.c.data_solicitacao == data_ref,
             )
-            return sa.select(table).where(where_clause), ("documento", "tipo")
+            return sa.select(table).where(where_clause), (
+                "documento",
+                "tipo",
+                "data_solicitacao",
+            )
+
         where_clause = sa.and_(
             table.c.documento == payload["documento"],
             table.c.tipo == payload["tipo"],
-            table.c.data_solicitacao == data_ref,
+            table.c.data_solicitacao.is_(None),
         )
-        return sa.select(table).where(where_clause), ("documento", "tipo", "data_solicitacao")
+        return sa.select(table).where(where_clause), ("documento", "tipo")
     raise ValueError(f"Tabela não suportada: {table_name}")
 
 
@@ -363,21 +375,25 @@ def _execute_insert(
             else None
         )
 
-        if table.name == "processos_avulsos" and set(natural_key_cols) == {"documento", "tipo"}:
+        if table.name == "processos_avulsos" and tuple(natural_key_cols) == ("protocolo", "tipo"):
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_proc_avulso_protocolo_tipo",
+                set_=update_columns,
+                where=where_clause,
+            )
+        elif table.name == "processos_avulsos" and tuple(natural_key_cols) == ("documento", "tipo"):
             stmt = stmt.on_conflict_do_update(
                 index_elements=[table.c.documento, table.c.tipo],
                 index_where=table.c.data_solicitacao.is_(None),
                 set_=update_columns,
                 where=where_clause,
             )
-            connection.execute(stmt)
-            return
-
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[table.c[col] for col in natural_key_cols],
-            set_=update_columns,
-            where=where_clause,
-        )
+        else:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[table.c[col] for col in natural_key_cols],
+                set_=update_columns,
+                where=where_clause,
+            )
         connection.execute(stmt)
     else:
         connection.execute(table.insert().values(**payload))

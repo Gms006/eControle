@@ -251,7 +251,12 @@ def _transform_processos(section: Dict[str, Iterable[Dict[str, Any]]], contract:
                 "data_solicitacao",
                 tipo,
             )
-            protocolo = _as_none_if_placeholder(mapped.get("PROTOCOLO"))
+            # protocolo: tratar "-" e "*" como ausente (None) para não violar unicidade
+            _proto_raw = normalize_text(mapped.get("PROTOCOLO"))
+            if not _proto_raw or _proto_raw in {"-", "*"}:
+                protocolo = None
+            else:
+                protocolo = _proto_raw
             status_padrao = _as_none_if_placeholder(mapped.get("STATUS_PADRAO"))
             payload: Dict[str, Any] = {
                 "empresa_cnpj": cnpj,
