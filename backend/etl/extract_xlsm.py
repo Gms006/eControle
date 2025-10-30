@@ -47,11 +47,13 @@ def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
             # sem aba correspondente — pula silenciosamente (mantém compat)
             continue
         worksheet = workbook[chosen_sheet]
-        if logical_sheet in {"processos", "uteis", "certificados", "certificados_agendamentos"}:
-            tables_map = contract.table_names.get(logical_sheet, {})
-            data[logical_sheet] = _load_tables(worksheet, tables_map)
-        else:
-            data[logical_sheet] = _load_worksheet(worksheet)
+        tables_map = contract.table_names.get(logical_sheet, {})
+        if tables_map:
+            table_data = _load_tables(worksheet, tables_map)
+            if table_data:
+                data[logical_sheet] = table_data
+                continue
+        data[logical_sheet] = _load_worksheet(worksheet)
     return data
 
 
