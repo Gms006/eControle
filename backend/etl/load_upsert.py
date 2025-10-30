@@ -375,21 +375,25 @@ def _execute_insert(
             else None
         )
 
-        if table.name == "processos_avulsos" and set(natural_key_cols) == {"documento", "tipo"}:
+        if table.name == "processos_avulsos" and tuple(natural_key_cols) == ("protocolo", "tipo"):
+            stmt = stmt.on_conflict_do_update(
+                constraint="uq_proc_avulso_protocolo_tipo",
+                set_=update_columns,
+                where=where_clause,
+            )
+        elif table.name == "processos_avulsos" and tuple(natural_key_cols) == ("documento", "tipo"):
             stmt = stmt.on_conflict_do_update(
                 index_elements=[table.c.documento, table.c.tipo],
                 index_where=table.c.data_solicitacao.is_(None),
                 set_=update_columns,
                 where=where_clause,
             )
-            connection.execute(stmt)
-            return
-
-        stmt = stmt.on_conflict_do_update(
-            index_elements=[table.c[col] for col in natural_key_cols],
-            set_=update_columns,
-            where=where_clause,
-        )
+        else:
+            stmt = stmt.on_conflict_do_update(
+                index_elements=[table.c[col] for col in natural_key_cols],
+                set_=update_columns,
+                where=where_clause,
+            )
         connection.execute(stmt)
     else:
         connection.execute(table.insert().values(**payload))
