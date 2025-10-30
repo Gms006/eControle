@@ -11,6 +11,9 @@ sheet_names:
 # Nomes das Tabelas (ListObjects) dentro da aba PROCESSOS
 # — estas strings devem bater exatamente com os nomes dos ListObjects no Excel
 table_names:
+  empresas:
+    principal: "Principal"
+
   processos:
     diversos: "Diversos"
     funcionamento: "Funcionamento"
