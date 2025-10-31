@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple, Optional
+from typing import Any, Dict, Iterable, List, Tuple, Optional, Sequence, Mapping
 
 from openpyxl import load_workbook
 
@@ -60,23 +60,49 @@ def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
     return data
 
 
-def _load_tables(worksheet, tables_map: Dict[str, str]) -> Dict[str, List[Dict[str, Any]]]:
+def _load_tables(
+    worksheet,
+    tables_map: Mapping[str, str | Sequence[str]],
+) -> Dict[str, List[Dict[str, Any]]]:
     tables: Dict[str, List[Dict[str, Any]]] = {}
-    for logical_table, table_name in tables_map.items():
-        # compat com diferentes versões do openpyxl
-        tables_obj = getattr(worksheet, "tables", None)
-        if tables_obj is None or not isinstance(tables_obj, (dict,)):
-            raw_list = getattr(worksheet, "_tables", []) or []
-            tables_dict = {t.name: t for t in raw_list}
-        else:
-            tables_dict = tables_obj
-        if table_name not in tables_dict:
-            continue
-        table = tables_dict[table_name]
-        cells = worksheet[table.ref]
-        rows = _rows_from_cells(cells)
-        tables[logical_table] = rows
+    tables_dict = _worksheet_tables_dict(worksheet)
+    for logical_table, configured_names in tables_map.items():
+        for candidate in _table_name_candidates(configured_names):
+            table = tables_dict.get(candidate)
+            if table is None:
+                continue
+            cells = worksheet[table.ref]
+            rows = _rows_from_cells(cells)
+            tables[logical_table] = rows
+            break
     return tables
+
+
+def _worksheet_tables_dict(worksheet) -> Dict[str, Any]:
+    tables_obj = getattr(worksheet, "tables", None)
+    if isinstance(tables_obj, dict):
+        return tables_obj
+    raw_tables = getattr(worksheet, "_tables", []) or []
+    if isinstance(raw_tables, dict):
+        return raw_tables
+    tables_dict: Dict[str, Any] = {}
+    for table in raw_tables:
+        name = getattr(table, "name", None)
+        if not name:
+            continue
+        tables_dict[name] = table
+    return tables_dict
+
+
+def _table_name_candidates(configured: str | Sequence[str]) -> Iterable[str]:
+    if isinstance(configured, str):
+        if configured:
+            yield configured
+        return
+    for name in configured:
+        if not name:
+            continue
+        yield str(name)
 
 
 def _flatten_table_rows(tables: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
