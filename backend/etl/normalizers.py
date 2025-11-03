@@ -87,6 +87,47 @@ def next_occurrence_from_day_month(ddmm: str, today: Optional[date] = None) -> d
     return date(today.year + 1, month, day)
 
 
+def parse_ddmm_to_next_date(value: Any, today: Optional[date] = None) -> date:
+    """Parse partial ``ddmm`` or ``dd/mm`` values to the next calendar occurrence."""
+
+    if today is None:
+        today = date.today()
+
+    if isinstance(value, datetime):
+        day = value.day
+        month = value.month
+    elif isinstance(value, date):
+        day = value.day
+        month = value.month
+    else:
+        if value is None:
+            raise ValueError("Dia/mês inválidos: None")
+        text = str(value).strip()
+        if is_placeholder(text):
+            raise ValueError(f"Dia/mês inválidos: {value}")
+        normalized = text.replace("-", "/").replace(".", "/")
+        if "/" in normalized:
+            parts = [part for part in normalized.split("/") if part]
+            if len(parts) < 2:
+                raise ValueError(f"Dia/mês inválidos: {value}")
+            day = int(parts[0])
+            month = int(parts[1])
+        else:
+            digits = "".join(ch for ch in normalized if ch.isdigit())
+            if len(digits) != 4:
+                raise ValueError(f"Dia/mês inválidos: {value}")
+            day = int(digits[:2])
+            month = int(digits[2:])
+
+    try:
+        candidate = date(today.year, month, day)
+    except ValueError as exc:
+        raise ValueError(f"Dia/mês inválidos: {value}") from exc
+    if candidate >= today:
+        return candidate
+    return date(today.year + 1, month, day)
+
+
 def parse_date_br(value: object) -> date:
     """Aceita dd/mm/aaaa, aaaa-mm-dd, datetime string (corta hora) e objetos date/datetime."""
     if value is None:

@@ -8,10 +8,10 @@ from typing import Any, Dict, Iterable, List, Optional
 from .contracts import ConfigContract
 from .normalizers import (
     coerce_placeholder_to_none,
-    next_occurrence_from_day_month,
     normalize_text,
     only_digits,
     parse_date_br,
+    parse_ddmm_to_next_date,
     parse_decimal_br,
     strip_accents,
 )
@@ -222,12 +222,21 @@ def _transform_taxas(rows: Iterable[Dict[str, Any]], contract: ConfigContract) -
                 or normalize_text(mapped.get("OBS")),
             }
             if tipo == "TPI":
-                raw_venc = coerce_placeholder_to_none(mapped.get("VENCIMENTO_TPI"))
-                if status != "ISENTO" and raw_venc:
+                ddmm_raw = (
+                    mapped.get("vencimento_tpi")
+                    or mapped.get("VENCIMENTO TPI")
+                    or mapped.get("VENCIMENTO_TPI")
+                    or mapped.get("VENCIMENTO TPI ")
+                    or None
+                )
+                status_norm = (payload["status"] or "").strip().upper()
+                if ddmm_raw and status_norm not in {"ISENTO", "INATIVO", "SUSPENSÃO JUDICIAL"}:
                     try:
-                        payload["vencimento_tpi"] = next_occurrence_from_day_month(str(raw_venc))
+                        payload["vencimento_tpi"] = parse_ddmm_to_next_date(ddmm_raw)
                     except Exception:
                         payload["vencimento_tpi"] = None
+                else:
+                    payload["vencimento_tpi"] = None
             normalized.append(
                 NormalizedRow(
                     table="taxas",
