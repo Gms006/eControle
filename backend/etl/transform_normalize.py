@@ -8,6 +8,7 @@ from typing import Any, Dict, Iterable, List, Optional
 from .contracts import ConfigContract
 from .normalizers import (
     coerce_placeholder_to_none,
+    next_occurrence_from_day_month,
     normalize_text,
     only_digits,
     parse_date_br,
@@ -221,9 +222,12 @@ def _transform_taxas(rows: Iterable[Dict[str, Any]], contract: ConfigContract) -
                 or normalize_text(mapped.get("OBS")),
             }
             if tipo == "TPI":
-                vencimento_tpi = normalize_text(mapped.get("VENCIMENTO_TPI"))
-                if status != "ISENTO" and vencimento_tpi and vencimento_tpi != "-":
-                    payload["vencimento_tpi"] = vencimento_tpi
+                raw_venc = coerce_placeholder_to_none(mapped.get("VENCIMENTO_TPI"))
+                if status != "ISENTO" and raw_venc:
+                    try:
+                        payload["vencimento_tpi"] = next_occurrence_from_day_month(str(raw_venc))
+                    except Exception:
+                        payload["vencimento_tpi"] = None
             normalized.append(
                 NormalizedRow(
                     table="taxas",

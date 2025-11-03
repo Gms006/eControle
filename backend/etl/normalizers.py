@@ -7,7 +7,7 @@ import re
 import unicodedata
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, Optional
 
 _DIGITS_RE = re.compile(r"\D+")
 _RE_NOT_DIGIT_COMMA_DOT = re.compile(r"[^0-9,.\-]+")
@@ -65,6 +65,26 @@ def is_placeholder(value: object) -> bool:
 
 def coerce_placeholder_to_none(value: object):
     return None if is_placeholder(value) else value
+
+
+def next_occurrence_from_day_month(ddmm: str, today: Optional[date] = None) -> date:
+    """Converte um valor ``dd/mm`` para a próxima ocorrência no calendário."""
+
+    if today is None:
+        today = date.today()
+    parts = ddmm.split("/")
+    if len(parts) != 2:
+        raise ValueError(f"Formato inválido (esperado dd/mm): {ddmm}")
+    day_str, month_str = parts
+    day = int(day_str)
+    month = int(month_str)
+    try:
+        candidate = date(today.year, month, day)
+    except ValueError as exc:
+        raise ValueError(f"Dia/mês inválidos em '{ddmm}'") from exc
+    if candidate >= today:
+        return candidate
+    return date(today.year + 1, month, day)
 
 
 def parse_date_br(value: object) -> date:
