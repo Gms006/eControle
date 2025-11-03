@@ -380,11 +380,12 @@ def _execute_insert(
     index_where: Optional[sa.sql.ClauseElement] = None,
 ) -> None:
     if connection.dialect.name == "postgresql":
+        payload = {key: value for key, value in payload.items() if key in table.c}
         stmt = postgresql.insert(table).values(**payload)
         update_columns = {
             col: getattr(stmt.excluded, col)
             for col in payload.keys()
-            if col not in natural_key_cols
+            if col not in natural_key_cols and col in table.c
         }
         where_clause = (
             sa.or_(
@@ -402,7 +403,8 @@ def _execute_insert(
         )
         connection.execute(stmt)
     else:
-        connection.execute(table.insert().values(**payload))
+        filtered_payload = {key: value for key, value in payload.items() if key in table.c}
+        connection.execute(table.insert().values(**filtered_payload))
 
 
 def _execute_update(
