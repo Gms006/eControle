@@ -33,7 +33,7 @@ def upgrade():
     op.create_index("uq_orgs_name", "orgs", ["name"], unique=True)
 
     # users
-    role_enum = postgresql.ENUM("OWNER", "ADMIN", "STAFF", "VIEWER", name="user_role_enum", create_type=True)
+    role_enum = postgresql.ENUM("OWNER", "ADMIN", "STAFF", "VIEWER", name="user_role_enum", create_type=False)
     role_enum.create(op.get_bind(), checkfirst=True)
 
     op.create_table(
