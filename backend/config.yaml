@@ -14,6 +14,12 @@ table_names:
   empresas:
     principal: "Principal"
 
+  licencas: 
+    licencas: "Licenças"
+
+  taxas:
+    taxas: "Taxas"
+
   processos:
     diversos: "Diversos"
     funcionamento: "Funcionamento"
@@ -126,6 +132,7 @@ column_aliases:
     MUNICIPIO: ["MUNICÍPIO", "MUNICIPIO", "CIDADE"]
 
     TPI: ["TPI", "SICABOM (TPI)", "TAXA POTENCIAL INCÊNDIO", "TAXA POTENCIAL INCENDIO", "TAXA DOS BOMBEIROS", "BOMBEIROS (TPI)"]
+    VENCIMENTO_TPI: ["VENCIMENTO TPI", "VENCIMENTO TAXA BOMBEIROS", "VENCIMENTO BOMBEIROS"]
     FUNCIONAMENTO: ["TAXA FUNCIONAMENTO", "TAXA DE FUNCIONAMENTO", "FUNCIONAMENTO"]
     PUBLICIDADE: ["TAXA PUBLICIDADE", "TAXA DE PUBLICIDADE", "TAXA PUBLICIDADE"]
     SANITARIA: ["TAXA VIG SANITÁRIA", "SANITARIA", "VIGILÂNCIA SANITÁRIA", "VIGILANCIA SANITARIA", "VISA"]
