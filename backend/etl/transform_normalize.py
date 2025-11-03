@@ -150,6 +150,27 @@ def _transform_empresas(rows: Iterable[Dict[str, Any]], contract: ConfigContract
     return normalized_rows
 
 
+def _status_isencao_dispensa(raw: Any, *, contexto: str) -> Optional[str]:
+    """
+    Normaliza status para licenças/taxas:
+      - "*"  => "ISENTO" (sempre, em ambos: licenças e taxas)
+      - "NÃO"/"NAO" => "DISPENSA" (somente licenças)
+      - "-" ou vazio => "PENDENTE" (padrão)
+      - caso contrário, mantém valor normalizado
+    """
+
+    txt = normalize_text(raw)
+    if not txt:
+        return "PENDENTE"
+    if txt == "*":
+        return "ISENTO"
+    if txt in {"nao", "não"} and contexto == "licenca":
+        return "DISPENSA"
+    if txt == "-":
+        return "PENDENTE"
+    return txt
+
+
 def _transform_licencas(rows: Iterable[Dict[str, Any]], contract: ConfigContract) -> List[NormalizedRow]:
     alias_map = contract.alias_map("licencas")
     normalized: List[NormalizedRow] = []
@@ -161,14 +182,13 @@ def _transform_licencas(rows: Iterable[Dict[str, Any]], contract: ConfigContract
             continue
         row_number = _row_number(row, index)
         for source_col, tipo in LICENSE_COLUMNS.items():
-            status = coerce_placeholder_to_none(normalize_text(mapped.get(source_col)))
-            if not status:
-                continue
+            status = _status_isencao_dispensa(mapped.get(source_col), contexto="licenca")
+            # Mesmo se "PENDENTE"/"ISENTO"/"DISPENSA", sempre geramos linha para refletir o estado atual
             payload = {
                 "empresa_cnpj": cnpj,
                 "tipo": tipo,
                 "status": status,
-                "obs": coerce_placeholder_to_none(normalize_text(mapped.get("OBS"))),
+                "obs": normalize_text(mapped.get("OBS")),
             }
             normalized.append(
                 NormalizedRow(
@@ -192,18 +212,18 @@ def _transform_taxas(rows: Iterable[Dict[str, Any]], contract: ConfigContract) -
             continue
         row_number = _row_number(row, index)
         for source_col, tipo in TAX_COLUMNS.items():
-            status = coerce_placeholder_to_none(normalize_text(mapped.get(source_col)))
-            if not status:
-                continue
+            status = _status_isencao_dispensa(mapped.get(source_col), contexto="taxa")
             payload = {
                 "empresa_cnpj": cnpj,
                 "tipo": tipo,
                 "status": status,
-                "obs": coerce_placeholder_to_none(
-                    normalize_text(mapped.get("STATUS_TAXAS"))
-                    or normalize_text(mapped.get("OBS"))
-                ),
+                "obs": normalize_text(mapped.get("STATUS_TAXAS"))
+                or normalize_text(mapped.get("OBS")),
             }
+            if tipo == "TPI":
+                vencimento_tpi = normalize_text(mapped.get("VENCIMENTO_TPI"))
+                if status != "ISENTO" and vencimento_tpi and vencimento_tpi != "-":
+                    payload["vencimento_tpi"] = vencimento_tpi
             normalized.append(
                 NormalizedRow(
                     table="taxas",
