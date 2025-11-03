@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import csv
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Tuple, Optional, Sequence, Mapping
+from typing import Any, Dict, Iterable, List, Optional, Sequence, Mapping
 
 from openpyxl import load_workbook
 
@@ -48,13 +48,27 @@ def _load_excel(path: Path, contract: ConfigContract) -> Dict[str, Any]:
             continue
         worksheet = workbook[chosen_sheet]
         tables_map = contract.table_names.get(logical_sheet, {})
-        if tables_map:
-            table_data = _load_tables(worksheet, tables_map)
-            if table_data:
-                if logical_sheet in contract.column_aliases:
-                    data[logical_sheet] = _flatten_table_rows(table_data)
-                else:
+        if logical_sheet in {"processos", "uteis", "certificados", "certificados_agendamentos"}:
+            if tables_map:
+                table_data = _load_tables(worksheet, tables_map)
+                if table_data:
                     data[logical_sheet] = table_data
+                    continue
+            data[logical_sheet] = _load_worksheet(worksheet)
+            continue
+        if tables_map:
+            tables_dict = _worksheet_tables_dict(worksheet)
+            chosen_table = None
+            for configured in tables_map.values():
+                for candidate in _table_name_candidates(configured):
+                    chosen_table = tables_dict.get(candidate)
+                    if chosen_table is not None:
+                        break
+                if chosen_table is not None:
+                    break
+            if chosen_table is not None:
+                cells = worksheet[chosen_table.ref]
+                data[logical_sheet] = _rows_from_cells(cells)
                 continue
         data[logical_sheet] = _load_worksheet(worksheet)
     return data
@@ -103,13 +117,6 @@ def _table_name_candidates(configured: str | Sequence[str]) -> Iterable[str]:
         if not name:
             continue
         yield str(name)
-
-
-def _flatten_table_rows(tables: Dict[str, List[Dict[str, Any]]]) -> List[Dict[str, Any]]:
-    flattened: List[Dict[str, Any]] = []
-    for rows in tables.values():
-        flattened.extend(rows)
-    return flattened
 
 
 def _load_worksheet(worksheet) -> List[Dict[str, Any]]:
