@@ -67,35 +67,97 @@ def _delete_duplicates(table, partition_cols, where_clause=None):
 def _dedup_empresas_with_fk_repoint():
     # Reaponta FKs (licencas, taxas, processos) antes de deletar duplicatas de empresas.
     # "Vencedor" = menor id por (org_id, cnpj).
-    op.execute(sa.text("""
-    WITH d AS (
-        SELECT id, org_id, cnpj,
-               ROW_NUMBER() OVER (PARTITION BY org_id, cnpj ORDER BY id) AS rn
-        FROM empresas
-        WHERE cnpj IS NOT NULL
-    ),
-    pairs AS (
-        -- old_id = id duplicado a ser apagado; new_id = id vencedor (rn=1)
-        SELECT loser.id   AS old_id,
-               winner.id  AS new_id
-        FROM d loser
-        JOIN d winner
-          ON loser.org_id = winner.org_id
-         AND loser.cnpj   = winner.cnpj
-         AND winner.rn    = 1
-        WHERE loser.rn > 1
-    )
-    -- 1) Reapontar filhos
-    UPDATE licencas  l SET empresa_id = p.new_id FROM pairs p WHERE l.empresa_id = p.old_id;
-    UPDATE taxas     t SET empresa_id = p.new_id FROM pairs p WHERE t.empresa_id = p.old_id;
-    UPDATE processos pr SET empresa_id = p.new_id FROM pairs p WHERE pr.empresa_id = p.old_id;
 
-    -- 2) Apagar perdedores
-    DELETE FROM empresas e
-    USING pairs p
-    WHERE e.id = p.old_id;
+    # licenças
+    op.execute(sa.text("""
+        WITH d AS (
+            SELECT id, org_id, cnpj,
+                   ROW_NUMBER() OVER (PARTITION BY org_id, cnpj ORDER BY id) AS rn
+            FROM empresas
+            WHERE cnpj IS NOT NULL
+        ),
+        pairs AS (
+            SELECT loser.id AS old_id, winner.id AS new_id
+            FROM d loser
+            JOIN d winner
+              ON loser.org_id = winner.org_id
+             AND loser.cnpj   = winner.cnpj
+             AND winner.rn    = 1
+            WHERE loser.rn > 1
+        )
+        UPDATE licencas AS l
+        SET empresa_id = p.new_id
+        FROM pairs p
+        WHERE l.empresa_id = p.old_id;
     """))
 
+    # taxas
+    op.execute(sa.text("""
+        WITH d AS (
+            SELECT id, org_id, cnpj,
+                   ROW_NUMBER() OVER (PARTITION BY org_id, cnpj ORDER BY id) AS rn
+            FROM empresas
+            WHERE cnpj IS NOT NULL
+        ),
+        pairs AS (
+            SELECT loser.id AS old_id, winner.id AS new_id
+            FROM d loser
+            JOIN d winner
+              ON loser.org_id = winner.org_id
+             AND loser.cnpj   = winner.cnpj
+             AND winner.rn    = 1
+            WHERE loser.rn > 1
+        )
+        UPDATE taxas AS t
+        SET empresa_id = p.new_id
+        FROM pairs p
+        WHERE t.empresa_id = p.old_id;
+    """))
+
+    # processos
+    op.execute(sa.text("""
+        WITH d AS (
+            SELECT id, org_id, cnpj,
+                   ROW_NUMBER() OVER (PARTITION BY org_id, cnpj ORDER BY id) AS rn
+            FROM empresas
+            WHERE cnpj IS NOT NULL
+        ),
+        pairs AS (
+            SELECT loser.id AS old_id, winner.id AS new_id
+            FROM d loser
+            JOIN d winner
+              ON loser.org_id = winner.org_id
+             AND loser.cnpj   = winner.cnpj
+             AND winner.rn    = 1
+            WHERE loser.rn > 1
+        )
+        UPDATE processos AS pr
+        SET empresa_id = p.new_id
+        FROM pairs p
+        WHERE pr.empresa_id = p.old_id;
+    """))
+
+    # deletar perdedores
+    op.execute(sa.text("""
+        WITH d AS (
+            SELECT id, org_id, cnpj,
+                   ROW_NUMBER() OVER (PARTITION BY org_id, cnpj ORDER BY id) AS rn
+            FROM empresas
+            WHERE cnpj IS NOT NULL
+        ),
+        pairs AS (
+            SELECT loser.id AS old_id, winner.id AS new_id
+            FROM d loser
+            JOIN d winner
+              ON loser.org_id = winner.org_id
+             AND loser.cnpj   = winner.cnpj
+             AND winner.rn    = 1
+            WHERE loser.rn > 1
+        )
+        DELETE FROM empresas e
+        USING pairs p
+        WHERE e.id = p.old_id;
+    """))
 
 def _ensure_default_org():
     # Garante a org default mesmo que a tabela 'orgs' não tenha slug
