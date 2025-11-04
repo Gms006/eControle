@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import os
 from contextlib import contextmanager
 from typing import Any, Dict, List, Optional, Sequence
 
@@ -11,6 +12,8 @@ from sqlalchemy.engine import Connection, Engine
 
 from .normalizers import make_row_hash, only_digits
 from .transform_normalize import NormalizedRow
+
+ORG_ID = os.getenv("ORG_ID", "00000000-0000-0000-0000-000000000001")
 
 FINAL_TABLES = {"empresas", "licencas", "taxas", "processos", "processos_avulsos"}
 
@@ -86,6 +89,7 @@ def run(
                     raise ValueError(f"Tabela de staging '{stg_name}' não encontrada")
                 staging_table = staging_tables[stg_name]
                 payload = dict(item.payload)
+                payload.setdefault("org_id", ORG_ID)
                 # coerção para JSON determinístico (datas → "YYYY-MM-DD", etc.)
                 payload_coerced = _coerce_jsonable(payload)
                 payload_json = json.dumps(payload_coerced, sort_keys=True, ensure_ascii=False)
@@ -178,11 +182,18 @@ def _upsert_final(
     processos_avulsos_table: Optional[sa.Table] = None,
 ) -> tuple[str, List[str]]:
     final_payload = dict(payload)
+    final_payload.setdefault("org_id", ORG_ID)
     if table_name != "empresas":
         cnpj_norm = only_digits(final_payload.get("empresa_cnpj"))
         if table_name == "processos" and (not cnpj_norm or len(cnpj_norm) not in (11, 14)):
             return _upsert_processos_avulsos(connection, processos_avulsos_table, final_payload)
-        empresa_id = _resolve_empresa_id(connection, empresas_table, empresa_cache, cnpj_norm)
+        empresa_id = _resolve_empresa_id(
+            connection,
+            empresas_table,
+            empresa_cache,
+            final_payload.get("org_id"),
+            cnpj_norm,
+        )
         if not empresa_id:
             if table_name == "processos" and processos_avulsos_table is not None:
                 return _upsert_processos_avulsos(connection, processos_avulsos_table, final_payload)
@@ -216,19 +227,27 @@ def _resolve_empresa_id(
     connection: Connection,
     empresas_table: sa.Table,
     cache: Dict[str, int],
+    org_id: Optional[str],
     cnpj: Optional[str],
 ) -> Optional[int]:
+    org = org_id or ORG_ID
     normalized = only_digits(cnpj)
     if not normalized:
         return None
-    if normalized in cache:
-        return cache[normalized]
+    cache_key = f"{org}:{normalized}"
+    if cache_key in cache:
+        return cache[cache_key]
     result = connection.execute(
-        sa.select(empresas_table.c.id).where(empresas_table.c.cnpj == normalized)
+        sa.select(empresas_table.c.id).where(
+            sa.and_(
+                empresas_table.c.cnpj == normalized,
+                empresas_table.c.org_id == org,
+            )
+        )
     ).scalar()
     if result is None:
         return None
-    cache[normalized] = result
+    cache[cache_key] = result
     return result
 
 
@@ -241,6 +260,7 @@ def _upsert_processos_avulsos(
         raise ValueError("Tabela processos_avulsos não configurada na base")
 
     final_payload = dict(payload)
+    final_payload.setdefault("org_id", ORG_ID)
     documento = only_digits(final_payload.get("empresa_cnpj"))
     final_payload["documento"] = documento or final_payload.get("empresa_cnpj")
     final_payload.pop("empresa_cnpj", None)
@@ -271,46 +291,56 @@ def _build_natural_key(
     payload: Dict[str, Any],
     empresa_id: Optional[int],
 ) -> tuple[sa.Select, Sequence[str], Optional[sa.sql.ClauseElement]]:
+    org_id = payload.get("org_id", ORG_ID)
+    payload.setdefault("org_id", org_id)
     if table_name == "empresas":
-        cols = (table.c.cnpj,)
-        where_clause = table.c.cnpj == payload["cnpj"]
-        return sa.select(table).where(where_clause), ("cnpj",), None
+        cols = (table.c.org_id, table.c.cnpj)
+        where_clause = sa.and_(
+            table.c.org_id == org_id,
+            table.c.cnpj == payload["cnpj"],
+        )
+        return sa.select(table).where(where_clause), ("org_id", "cnpj"), None
     if table_name == "taxas":
         if "data_referencia" in table.c and payload.get("data_referencia"):
             where_clause = sa.and_(
+                table.c.org_id == org_id,
                 table.c.empresa_id == payload["empresa_id"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_referencia == payload["data_referencia"],
             )
             return (
                 sa.select(table).where(where_clause),
-                ("empresa_id", "tipo", "data_referencia"),
+                ("org_id", "empresa_id", "tipo", "data_referencia"),
                 None,
             )
         where_clause = sa.and_(
+            table.c.org_id == org_id,
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
+        return sa.select(table).where(where_clause), ("org_id", "empresa_id", "tipo"), None
     if table_name == "licencas":
         where_clause = sa.and_(
+            table.c.org_id == org_id,
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), None
+        return sa.select(table).where(where_clause), ("org_id", "empresa_id", "tipo"), None
     if table_name == "processos":
         protocolo = payload.get("protocolo")
         if protocolo:  # usa índice parcial: protocolo IS NOT NULL
             where_clause = sa.and_(
+                table.c.org_id == org_id,
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
             index_where = table.c.protocolo.isnot(None)
-            return sa.select(table).where(where_clause), ("protocolo", "tipo"), index_where
+            return sa.select(table).where(where_clause), ("org_id", "protocolo", "tipo"), index_where
 
         # sem protocolo: duas chaves naturais
         if payload.get("data_solicitacao"):
             where_clause = sa.and_(
+                table.c.org_id == org_id,
                 table.c.empresa_id == payload["empresa_id"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == payload["data_solicitacao"],
@@ -321,12 +351,13 @@ def _build_natural_key(
             )
             return (
                 sa.select(table).where(where_clause),
-                ("empresa_id", "tipo", "data_solicitacao"),
+                ("org_id", "empresa_id", "tipo", "data_solicitacao"),
                 index_where,
             )
 
         # sem protocolo e sem data
         where_clause = sa.and_(
+            table.c.org_id == org_id,
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
@@ -334,19 +365,21 @@ def _build_natural_key(
             table.c.protocolo.is_(None),
             table.c.data_solicitacao.is_(None),
         )
-        return sa.select(table).where(where_clause), ("empresa_id", "tipo"), index_where
+        return sa.select(table).where(where_clause), ("org_id", "empresa_id", "tipo"), index_where
     if table_name == "processos_avulsos":
         protocolo = payload.get("protocolo")
         if protocolo:
             where_clause = sa.and_(
+                table.c.org_id == org_id,
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
-            return sa.select(table).where(where_clause), ("protocolo", "tipo"), None
+            return sa.select(table).where(where_clause), ("org_id", "protocolo", "tipo"), None
 
         data_ref = payload.get("data_solicitacao")
         if data_ref is not None:
             where_clause = sa.and_(
+                table.c.org_id == org_id,
                 table.c.documento == payload["documento"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == data_ref,
@@ -354,11 +387,12 @@ def _build_natural_key(
             )
             return (
                 sa.select(table).where(where_clause),
-                ("documento", "tipo", "data_solicitacao"),
+                ("org_id", "documento", "tipo", "data_solicitacao"),
                 table.c.protocolo.is_(None),
             )
 
         where_clause = sa.and_(
+            table.c.org_id == org_id,
             table.c.documento == payload["documento"],
             table.c.tipo == payload["tipo"],
             table.c.data_solicitacao.is_(None),
@@ -366,7 +400,7 @@ def _build_natural_key(
         )
         return (
             sa.select(table).where(where_clause),
-            ("documento", "tipo"),
+            ("org_id", "documento", "tipo"),
             sa.and_(table.c.protocolo.is_(None), table.c.data_solicitacao.is_(None)),
         )
     raise ValueError(f"Tabela não suportada: {table_name}")
