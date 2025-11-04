@@ -64,7 +64,34 @@ def _delete_duplicates(table, partition_cols, where_clause=None):
     )
 
 
+def _ensure_default_org():
+    # Garante a org default mesmo que a tabela 'orgs' não tenha slug
+    op.execute(sa.text(f"""
+        INSERT INTO orgs (id, name)
+        VALUES ('{DEFAULT_ORG_ID}'::uuid, 'Neto Contabilidade')
+        ON CONFLICT (id) DO NOTHING;
+    """))
+
+    # Se a coluna 'slug' existir, atualiza também (não falha se não houver)
+    op.execute(sa.text(f"""
+    DO $$
+    BEGIN
+        IF EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name='orgs' AND column_name='slug'
+        ) THEN
+            UPDATE orgs
+            SET slug = 'neto-contabilidade'
+            WHERE id = '{DEFAULT_ORG_ID}'::uuid
+              AND (slug IS NULL OR slug <> 'neto-contabilidade');
+        END IF;
+    END$$;
+    """))
+
+
 def upgrade():
+    _ensure_default_org()
+
     # 1) adicionar org_id (finais e staging)
     for t in TABLES_FINAL:
         _add_org_id(t)
