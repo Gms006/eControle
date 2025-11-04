@@ -40,6 +40,30 @@ def _add_org_id(table):
     op.alter_column(table, "org_id", nullable=False)
 
 
+def _delete_duplicates(table, partition_cols, where_clause=None):
+    partition_expr = ", ".join(partition_cols)
+    where_sql = f"WHERE {where_clause}" if where_clause else ""
+    op.execute(
+        f"""
+        DELETE FROM {table}
+        WHERE id IN (
+            SELECT id
+            FROM (
+                SELECT
+                    id,
+                    ROW_NUMBER() OVER (
+                        PARTITION BY {partition_expr}
+                        ORDER BY id
+                    ) AS rn
+                FROM {table}
+                {where_sql}
+            ) dedup
+            WHERE dedup.rn > 1
+        );
+        """
+    )
+
+
 def upgrade():
     # 1) adicionar org_id (finais e staging)
     for t in TABLES_FINAL:
@@ -83,7 +107,66 @@ def upgrade():
         except Exception:
             pass
 
-    # 3) recriar unicidades por organização
+    # 3) remover duplicatas que impediriam unicidades por organização
+    _delete_duplicates(
+        "empresas",
+        ["org_id", "cnpj"],
+        where_clause="cnpj IS NOT NULL",
+    )
+    _delete_duplicates(
+        "licencas",
+        ["org_id", "empresa_id", "tipo"],
+        where_clause="empresa_id IS NOT NULL AND tipo IS NOT NULL",
+    )
+    _delete_duplicates(
+        "taxas",
+        ["org_id", "empresa_id", "tipo"],
+        where_clause="empresa_id IS NOT NULL AND tipo IS NOT NULL",
+    )
+    _delete_duplicates(
+        "processos",
+        ["org_id", "protocolo", "tipo"],
+        where_clause="protocolo IS NOT NULL",
+    )
+    _delete_duplicates(
+        "processos",
+        ["org_id", "empresa_id", "tipo", "data_solicitacao"],
+        where_clause=(
+            "protocolo IS NULL AND data_solicitacao IS NOT NULL AND "
+            "empresa_id IS NOT NULL AND tipo IS NOT NULL"
+        ),
+    )
+    _delete_duplicates(
+        "processos",
+        ["org_id", "empresa_id", "tipo"],
+        where_clause=(
+            "protocolo IS NULL AND data_solicitacao IS NULL AND "
+            "empresa_id IS NOT NULL AND tipo IS NOT NULL"
+        ),
+    )
+    _delete_duplicates(
+        "processos_avulsos",
+        ["org_id", "protocolo", "tipo"],
+        where_clause="protocolo IS NOT NULL",
+    )
+    _delete_duplicates(
+        "processos_avulsos",
+        ["org_id", "documento", "tipo", "data_solicitacao"],
+        where_clause=(
+            "protocolo IS NULL AND data_solicitacao IS NOT NULL AND "
+            "documento IS NOT NULL AND tipo IS NOT NULL"
+        ),
+    )
+    _delete_duplicates(
+        "processos_avulsos",
+        ["org_id", "documento", "tipo"],
+        where_clause=(
+            "protocolo IS NULL AND data_solicitacao IS NULL AND "
+            "documento IS NOT NULL AND tipo IS NOT NULL"
+        ),
+    )
+
+    # 4) recriar unicidades por organização
 
     # EMPRESAS: CNPJ/CPF/CAEPF normalizado já está no pipeline
     op.create_index(
