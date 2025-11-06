@@ -262,6 +262,30 @@ Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations ex
 ### Multi-tenant
 Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
 
+## S3 – API FastAPI (multi-tenant) · Validação
+
+| Endpoint | View utilizada | Filtros suportados | Campos permitidos em `sort` |
+| --- | --- | --- | --- |
+| `GET /api/v1/empresas` | `v_empresas` | `q`, `municipio`, `porte`, `categoria`, `page`, `size` | `empresa`, `cnpj`, `municipio`, `updated_at`, `total_licencas`, `total_taxas`, `processos_ativos` |
+| `GET /api/v1/licencas` | `v_licencas_status` | `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size` | `empresa`, `tipo`, `status`, `validade`, `dias_para_vencer` |
+| `GET /api/v1/taxas` | `v_taxas_status` | `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size` | `empresa`, `tipo`, `status`, `data_envio`, `vencimento_tpi` |
+| `GET /api/v1/processos` | `v_processos_resumo` | `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size` | `empresa`, `tipo`, `situacao`, `status_padrao`, `prazo`, `data_solicitacao` |
+| `GET /api/v1/alertas` | `v_alertas_vencendo_30d` | `tipo_alerta`, `empresa_id`, `page`, `size` | `empresa`, `tipo_alerta`, `validade`, `dias_restantes` |
+| `GET /api/v1/grupos/kpis` | `v_grupos_kpis` | `grupo`, `page`, `size` | `grupo`, `chave`, `valor` |
+
+> Use o prefixo `-` em `sort` para ordenar de forma decrescente (ex.: `sort=-updated_at`). Todos os GETs retornam `{items, total, page, size}`.
+
+### Exemplo de chamada autenticada
+
+```bash
+curl -H "Authorization: Bearer ${JWT_TOKEN}" \
+  "http://localhost:8000/api/v1/empresas?page=1&size=10&sort=-updated_at"
+```
+
+### Nota multi-tenant
+
+Cada requisição autenticada executa `SET app.current_org = :org_id` antes das consultas; as views expostas já respeitam esse contexto e garantem isolamento por organização.
+
 ---
 
 ## Backend FastAPI
