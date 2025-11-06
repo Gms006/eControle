@@ -215,11 +215,12 @@ def _upsert_final(
         _execute_insert(connection, table, final_payload, natural_key_cols, index_where)
         return "insert", []
 
-    changed_fields = _diff(existing, final_payload, natural_key_cols)
+    payload_for_update = {key: value for key, value in final_payload.items() if key in table.c}
+    changed_fields = _diff(existing, payload_for_update, natural_key_cols)
     if not changed_fields:
         return "skip", []
 
-    _execute_update(connection, table, final_payload, natural_key_cols, existing)
+    _execute_update(connection, table, payload_for_update, natural_key_cols, existing)
     return "update", changed_fields
 
 
@@ -230,20 +231,27 @@ def _resolve_empresa_id(
     org_id: Optional[str],
     cnpj: Optional[str],
 ) -> Optional[int]:
-    org = org_id or ORG_ID
     normalized = only_digits(cnpj)
     if not normalized:
         return None
-    cache_key = f"{org}:{normalized}"
+
+    org_column = empresas_table.c.get("org_id")
+    if org_column is not None:
+        org = org_id or ORG_ID
+        cache_key = f"{org}:{normalized}"
+    else:
+        org = None
+        cache_key = normalized
+
     if cache_key in cache:
         return cache[cache_key]
+
+    conditions = [empresas_table.c.cnpj == normalized]
+    if org_column is not None:
+        conditions.append(org_column == org)
+
     result = connection.execute(
-        sa.select(empresas_table.c.id).where(
-            sa.and_(
-                empresas_table.c.cnpj == normalized,
-                empresas_table.c.org_id == org,
-            )
-        )
+        sa.select(empresas_table.c.id).where(sa.and_(*conditions))
     ).scalar()
     if result is None:
         return None
@@ -277,11 +285,12 @@ def _upsert_processos_avulsos(
         _execute_insert(connection, table, final_payload, natural_key_cols, index_where)
         return "insert", []
 
-    changed_fields = _diff(existing, final_payload, natural_key_cols)
+    payload_for_update = {key: value for key, value in final_payload.items() if key in table.c}
+    changed_fields = _diff(existing, payload_for_update, natural_key_cols)
     if not changed_fields:
         return "skip", []
 
-    _execute_update(connection, table, final_payload, natural_key_cols, existing)
+    _execute_update(connection, table, payload_for_update, natural_key_cols, existing)
     return "update", changed_fields
 
 
@@ -292,55 +301,62 @@ def _build_natural_key(
     empresa_id: Optional[int],
 ) -> tuple[sa.Select, Sequence[str], Optional[sa.sql.ClauseElement]]:
     org_id = payload.get("org_id", ORG_ID)
-    payload.setdefault("org_id", org_id)
+    org_column = table.c.get("org_id")
+    if org_column is not None:
+        payload.setdefault("org_id", org_id)
+
+    def build_where(*conditions: sa.sql.ClauseElement) -> sa.sql.ClauseElement:
+        parts = list(conditions)
+        if org_column is not None:
+            parts.insert(0, org_column == org_id)
+        return sa.and_(*parts)
+
+    def key_with_org(*keys: str) -> tuple[str, ...]:
+        if org_column is None:
+            return tuple(keys)
+        return ("org_id",) + tuple(keys)
+
     if table_name == "empresas":
-        cols = (table.c.org_id, table.c.cnpj)
-        where_clause = sa.and_(
-            table.c.org_id == org_id,
-            table.c.cnpj == payload["cnpj"],
-        )
-        return sa.select(table).where(where_clause), ("org_id", "cnpj"), None
+        where_clause = build_where(table.c.cnpj == payload["cnpj"])
+        return sa.select(table).where(where_clause), key_with_org("cnpj"), None
+
     if table_name == "taxas":
         if "data_referencia" in table.c and payload.get("data_referencia"):
-            where_clause = sa.and_(
-                table.c.org_id == org_id,
+            where_clause = build_where(
                 table.c.empresa_id == payload["empresa_id"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_referencia == payload["data_referencia"],
             )
-            return (
-                sa.select(table).where(where_clause),
-                ("org_id", "empresa_id", "tipo", "data_referencia"),
-                None,
-            )
-        where_clause = sa.and_(
-            table.c.org_id == org_id,
+            return sa.select(table).where(where_clause), key_with_org(
+                "empresa_id",
+                "tipo",
+                "data_referencia",
+            ), None
+        where_clause = build_where(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("org_id", "empresa_id", "tipo"), None
+        return sa.select(table).where(where_clause), key_with_org("empresa_id", "tipo"), None
+
     if table_name == "licencas":
-        where_clause = sa.and_(
-            table.c.org_id == org_id,
+        where_clause = build_where(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
         )
-        return sa.select(table).where(where_clause), ("org_id", "empresa_id", "tipo"), None
+        return sa.select(table).where(where_clause), key_with_org("empresa_id", "tipo"), None
+
     if table_name == "processos":
         protocolo = payload.get("protocolo")
-        if protocolo:  # usa índice parcial: protocolo IS NOT NULL
-            where_clause = sa.and_(
-                table.c.org_id == org_id,
+        if protocolo:
+            where_clause = build_where(
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
             index_where = table.c.protocolo.isnot(None)
-            return sa.select(table).where(where_clause), ("org_id", "protocolo", "tipo"), index_where
+            return sa.select(table).where(where_clause), key_with_org("protocolo", "tipo"), index_where
 
-        # sem protocolo: duas chaves naturais
         if payload.get("data_solicitacao"):
-            where_clause = sa.and_(
-                table.c.org_id == org_id,
+            where_clause = build_where(
                 table.c.empresa_id == payload["empresa_id"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == payload["data_solicitacao"],
@@ -351,35 +367,33 @@ def _build_natural_key(
             )
             return (
                 sa.select(table).where(where_clause),
-                ("org_id", "empresa_id", "tipo", "data_solicitacao"),
+                key_with_org("empresa_id", "tipo", "data_solicitacao"),
                 index_where,
             )
 
-        # sem protocolo e sem data
-        where_clause = sa.and_(
-            table.c.org_id == org_id,
+        where_clause = build_where(
             table.c.empresa_id == payload["empresa_id"],
             table.c.tipo == payload["tipo"],
+            table.c.situacao == payload["situacao"],
         )
         index_where = sa.and_(
             table.c.protocolo.is_(None),
             table.c.data_solicitacao.is_(None),
         )
-        return sa.select(table).where(where_clause), ("org_id", "empresa_id", "tipo"), index_where
+        return sa.select(table).where(where_clause), key_with_org("empresa_id", "tipo", "situacao"), index_where
+
     if table_name == "processos_avulsos":
         protocolo = payload.get("protocolo")
         if protocolo:
-            where_clause = sa.and_(
-                table.c.org_id == org_id,
+            where_clause = build_where(
                 table.c.protocolo == protocolo,
                 table.c.tipo == payload["tipo"],
             )
-            return sa.select(table).where(where_clause), ("org_id", "protocolo", "tipo"), None
+            return sa.select(table).where(where_clause), key_with_org("protocolo", "tipo"), None
 
         data_ref = payload.get("data_solicitacao")
         if data_ref is not None:
-            where_clause = sa.and_(
-                table.c.org_id == org_id,
+            where_clause = build_where(
                 table.c.documento == payload["documento"],
                 table.c.tipo == payload["tipo"],
                 table.c.data_solicitacao == data_ref,
@@ -387,12 +401,11 @@ def _build_natural_key(
             )
             return (
                 sa.select(table).where(where_clause),
-                ("org_id", "documento", "tipo", "data_solicitacao"),
+                key_with_org("documento", "tipo", "data_solicitacao"),
                 table.c.protocolo.is_(None),
             )
 
-        where_clause = sa.and_(
-            table.c.org_id == org_id,
+        where_clause = build_where(
             table.c.documento == payload["documento"],
             table.c.tipo == payload["tipo"],
             table.c.data_solicitacao.is_(None),
@@ -400,7 +413,7 @@ def _build_natural_key(
         )
         return (
             sa.select(table).where(where_clause),
-            ("org_id", "documento", "tipo"),
+            key_with_org("documento", "tipo"),
             sa.and_(table.c.protocolo.is_(None), table.c.data_solicitacao.is_(None)),
         )
     raise ValueError(f"Tabela não suportada: {table_name}")
@@ -451,7 +464,8 @@ def _execute_update(
     where_clause = sa.and_(
         *[table.c[col] == existing[col] for col in natural_key_cols]
     )
-    connection.execute(table.update().where(where_clause).values(**payload))
+    filtered_payload = {key: value for key, value in payload.items() if key in table.c}
+    connection.execute(table.update().where(where_clause).values(**filtered_payload))
 
 
 def _diff(existing: sa.RowMapping, payload: Dict[str, Any], natural_key_cols: Sequence[str]) -> List[str]:
