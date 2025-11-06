@@ -22,6 +22,13 @@ ALLOWED_SORTS: Dict[str, str] = {
     "valor": "valor",
 }
 
+KPI_LABELS: Dict[tuple[str, str], str] = {
+    ("empresas", "total_empresas"): "Total de empresas",
+    ("empresas", "sem_certificado"): "Empresas sem certificado",
+    ("licencas", "licencas_vencidas"): "Licenças vencidas",
+    ("taxas", "tpi_pendente"): "TPIs pendentes",
+}
+
 
 @router.get("/kpis", response_model=GrupoKPIListResponse)
 def listar_kpis(
@@ -44,4 +51,20 @@ def listar_kpis(
     base_query = f"SELECT * FROM v_grupos_kpis{where_clause}"
     sort_column, direction = resolve_sort(sort, ALLOWED_SORTS, "grupo")
     data = paginate_query(db, base_query, params, sort_column, direction, page, size)
+    items = []
+    for row in data["items"]:
+        label = KPI_LABELS.get((row.get("grupo", ""), row.get("chave", "")))
+        if not label:
+            chave = str(row.get("chave", ""))
+            label = chave.replace("_", " ").strip().title() or chave
+        items.append(
+            {
+                "org_id": row.get("org_id"),
+                "grupo": row.get("grupo"),
+                "chave": row.get("chave"),
+                "valor_nome": label,
+                "valor": row.get("valor"),
+            }
+        )
+    data["items"] = items
     return GrupoKPIListResponse(**data)

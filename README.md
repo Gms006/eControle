@@ -410,3 +410,31 @@ Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations ex
 
 ### Multi-tenant
 Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
+
+## S3 – Validação Final
+
+| Item | Veredito | Observações |
+| --- | --- | --- |
+| 1) Views-only nos GETs | ✅ | Todas as rotas usam as views `v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d` e `v_grupos_kpis`. |
+| 2) Multi-tenant por request | ✅ | A dependência `db_with_org` executa `SET app.current_org = :org` antes das consultas e é usada em todas as rotas autenticadas. |
+| 3) RBAC | ✅ | `require_role(Role.VIEWER)` protege os GETs e `require_role(Role.ADMIN)` protege as mutations. |
+| 4) Ordenação segura | ✅ | Cada endpoint possui whitelist de campos e rejeita colunas desconhecidas com HTTP 400. |
+| 5) Índices por org | ✅ | Migração `20251106_02_s3_perf_indexes.py` garante índices compostos para empresas, licenças, taxas e processos. |
+| 6) /grupos/kpis (shape) | ✅ | Resposta normalizada para `{grupo, chave, valor_nome, valor}` preservando `org_id` das linhas. |
+
+### Exemplos de chamadas
+```bash
+# Listar empresas ordenando por atualização
+curl -H "Authorization: Bearer ${JWT_TOKEN}" \
+  "http://localhost:8000/api/v1/empresas?page=1&size=10&sort=-updated_at"
+
+# KPIs agrupados
+curl -H "Authorization: Bearer ${JWT_TOKEN}" \
+  "http://localhost:8000/api/v1/grupos/kpis?page=1&size=20"
+```
+
+### Testes de validação
+```bash
+cd backend
+pytest
+```

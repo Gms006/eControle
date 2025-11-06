@@ -9,6 +9,7 @@ class GrupoKPIView(BaseModel):
     org_id: str
     grupo: str
     chave: str
+    valor_nome: str
     valor: int
 
     model_config = ConfigDict(from_attributes=True)
