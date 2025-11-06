@@ -224,6 +224,70 @@ Os cenários cobrem duplicidade, enums inválidos, datas inválidas e atualizaç
 
 ---
 
+## S3 – API FastAPI (multi-tenant)
+
+### Execução local
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+### Variáveis de ambiente (.env)
+```ini
+DATABASE_URL=postgresql+psycopg2://postgres:***@localhost:5432/econtrole
+JWT_SECRET=troque-por-um-segredo
+JWT_ALG=HS256
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+```
+
+### Token JWT de exemplo
+```json
+{"sub":1,"org_id":"00000000-0000-0000-0000-000000000001","email":"admin@ex.com","role":"ADMIN"}
+```
+
+### Endpoints disponíveis
+- `GET /api/v1/empresas` – filtros: `q`, `municipio`, `porte`, `categoria`, `page`, `size`, `sort`
+- `GET /api/v1/licencas` – filtros: `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size`, `sort`
+- `GET /api/v1/taxas` – filtros: `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size`, `sort`
+- `GET /api/v1/processos` – filtros: `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size`, `sort`
+- `GET /api/v1/alertas` – filtros: `tipo_alerta`, `empresa_id`, `page`, `size`, `sort`
+- `GET /api/v1/grupos/kpis` – filtros: `grupo`, `page`, `size`, `sort`
+- `POST /api/v1/empresas`, `PATCH /api/v1/empresas/{id}`
+- `POST /api/v1/licencas`, `PATCH /api/v1/licencas/{id}`
+- `POST /api/v1/taxas`, `PATCH /api/v1/taxas/{id}`
+- `POST /api/v1/processos`, `PATCH /api/v1/processos/{id}`
+
+Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations exigem perfil `ADMIN` (ou superior).
+
+### Multi-tenant
+Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
+
+## S3 – API FastAPI (multi-tenant) · Validação
+
+| Endpoint | View utilizada | Filtros suportados | Campos permitidos em `sort` |
+| --- | --- | --- | --- |
+| `GET /api/v1/empresas` | `v_empresas` | `q`, `municipio`, `porte`, `categoria`, `page`, `size` | `empresa`, `cnpj`, `municipio`, `updated_at`, `total_licencas`, `total_taxas`, `processos_ativos` |
+| `GET /api/v1/licencas` | `v_licencas_status` | `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size` | `empresa`, `tipo`, `status`, `validade`, `dias_para_vencer` |
+| `GET /api/v1/taxas` | `v_taxas_status` | `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size` | `empresa`, `tipo`, `status`, `data_envio`, `vencimento_tpi` |
+| `GET /api/v1/processos` | `v_processos_resumo` | `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size` | `empresa`, `tipo`, `situacao`, `status_padrao`, `prazo`, `data_solicitacao` |
+| `GET /api/v1/alertas` | `v_alertas_vencendo_30d` | `tipo_alerta`, `empresa_id`, `page`, `size` | `empresa`, `tipo_alerta`, `validade`, `dias_restantes` |
+| `GET /api/v1/grupos/kpis` | `v_grupos_kpis` | `grupo`, `page`, `size` | `grupo`, `chave`, `valor` |
+
+> Use o prefixo `-` em `sort` para ordenar de forma decrescente (ex.: `sort=-updated_at`). Todos os GETs retornam `{items, total, page, size}`.
+
+### Exemplo de chamada autenticada
+
+```bash
+curl -H "Authorization: Bearer ${JWT_TOKEN}" \
+  "http://localhost:8000/api/v1/empresas?page=1&size=10&sort=-updated_at"
+```
+
+### Nota multi-tenant
+
+Cada requisição autenticada executa `SET app.current_org = :org_id` antes das consultas; as views expostas já respeitam esse contexto e garantem isolamento por organização.
+
+---
+
 ## Backend FastAPI
 
 ### Responsabilidades principais
@@ -308,3 +372,69 @@ Os cenários cobrem duplicidade, enums inválidos, datas inválidas e atualizaç
 ## Licença
 
 Projeto interno. Consulte o time responsável antes de distribuir.
+
+## S3 – API FastAPI (multi-tenant)
+
+### Execução local
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+### Variáveis de ambiente (.env)
+```ini
+DATABASE_URL=postgresql+psycopg2://postgres:***@localhost:5432/econtrole
+JWT_SECRET=troque-por-um-segredo
+JWT_ALG=HS256
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+```
+
+### Token JWT de exemplo
+```json
+{"sub":1,"org_id":"00000000-0000-0000-0000-000000000001","email":"admin@ex.com","role":"ADMIN"}
+```
+
+### Endpoints disponíveis
+- `GET /api/v1/empresas` – filtros: `q`, `municipio`, `porte`, `categoria`, `page`, `size`, `sort`
+- `GET /api/v1/licencas` – filtros: `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size`, `sort`
+- `GET /api/v1/taxas` – filtros: `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size`, `sort`
+- `GET /api/v1/processos` – filtros: `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size`, `sort`
+- `GET /api/v1/alertas` – filtros: `tipo_alerta`, `empresa_id`, `page`, `size`, `sort`
+- `GET /api/v1/grupos/kpis` – filtros: `grupo`, `page`, `size`, `sort`
+- `POST /api/v1/empresas`, `PATCH /api/v1/empresas/{id}`
+- `POST /api/v1/licencas`, `PATCH /api/v1/licencas/{id}`
+- `POST /api/v1/taxas`, `PATCH /api/v1/taxas/{id}`
+- `POST /api/v1/processos`, `PATCH /api/v1/processos/{id}`
+
+Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations exigem perfil `ADMIN` (ou superior).
+
+### Multi-tenant
+Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
+
+## S3 – Validação Final
+
+| Item | Veredito | Observações |
+| --- | --- | --- |
+| 1) Views-only nos GETs | ✅ | Todas as rotas usam as views `v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d` e `v_grupos_kpis`. |
+| 2) Multi-tenant por request | ✅ | A dependência `db_with_org` executa `SET app.current_org = :org` antes das consultas e é usada em todas as rotas autenticadas. |
+| 3) RBAC | ✅ | `require_role(Role.VIEWER)` protege os GETs e `require_role(Role.ADMIN)` protege as mutations. |
+| 4) Ordenação segura | ✅ | Cada endpoint possui whitelist de campos e rejeita colunas desconhecidas com HTTP 400. |
+| 5) Índices por org | ✅ | Migração `20251106_02_s3_perf_indexes.py` garante índices compostos para empresas, licenças, taxas e processos. |
+| 6) /grupos/kpis (shape) | ✅ | Resposta normalizada para `{grupo, chave, valor_nome, valor}` preservando `org_id` das linhas. |
+
+### Exemplos de chamadas
+```bash
+# Listar empresas ordenando por atualização
+curl -H "Authorization: Bearer ${JWT_TOKEN}" \
+  "http://localhost:8000/api/v1/empresas?page=1&size=10&sort=-updated_at"
+
+# KPIs agrupados
+curl -H "Authorization: Bearer ${JWT_TOKEN}" \
+  "http://localhost:8000/api/v1/grupos/kpis?page=1&size=20"
+```
+
+### Testes de validação
+```bash
+cd backend
+pytest
+```

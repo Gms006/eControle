@@ -17,7 +17,7 @@ from sqlalchemy import (
     Text,
     UniqueConstraint,
 )
-from sqlalchemy.dialects.postgresql import ENUM as PGEnum
+from sqlalchemy.dialects.postgresql import ENUM as PGEnum, UUID
 from sqlalchemy.orm import declarative_base, relationship
 from sqlalchemy.sql import func
 
@@ -61,6 +61,7 @@ class Empresa(Base):
     __tablename__ = "empresas"
 
     id = Column(Integer, primary_key=True)
+    org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     empresa = Column(String(255), nullable=False)
     cnpj = Column(String(14), nullable=False)
     porte = Column(String(50))
@@ -78,8 +79,10 @@ class Empresa(Base):
     telefone = Column(String(60))
     email = Column(String(255))
     responsavel = Column(String(255))
-    updated_at = Column(Date, nullable=False, server_default=func.current_date(), onupdate=func.current_date())
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
 
     licencas = relationship("Licenca", back_populates="empresa", cascade="all, delete-orphan")
     taxas = relationship("Taxa", back_populates="empresa", cascade="all, delete-orphan")
@@ -96,12 +99,15 @@ class Licenca(Base):
 
     id = Column(Integer, primary_key=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False)
+    org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     tipo = Column(String(50), nullable=False)
     status = Column(String(120), nullable=False)
     validade = Column(Date)
     obs = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
 
     empresa = relationship("Empresa", back_populates="licencas")
 
@@ -116,12 +122,16 @@ class Taxa(Base):
 
     id = Column(Integer, primary_key=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False)
+    org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     tipo = Column(String(50), nullable=False)
     status = Column(String(120), nullable=False)
     data_envio = Column(Date)
     obs = Column(Text)
+    vencimento_tpi = Column(Date)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
 
     empresa = relationship("Empresa", back_populates="taxas")
 
@@ -136,6 +146,7 @@ class Processo(Base):
 
     id = Column(Integer, primary_key=True)
     empresa_id = Column(Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False)
+    org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     tipo = Column(String(50), nullable=False)
     protocolo = Column(String(120), nullable=True)
     data_solicitacao = Column(Date, nullable=True)
@@ -155,6 +166,8 @@ class Processo(Base):
     data_val = Column(Date)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
+    updated_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
 
     empresa = relationship("Empresa", back_populates="processos")
 
