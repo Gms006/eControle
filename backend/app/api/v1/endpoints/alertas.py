@@ -1,0 +1,52 @@
+from __future__ import annotations
+
+from typing import Dict
+
+from fastapi import APIRouter, Depends, Query
+from sqlalchemy.orm import Session
+
+from app.api.v1.endpoints.utils import (
+    build_where_clause,
+    ensure_positive_pagination,
+    paginate_query,
+    resolve_sort,
+)
+from app.deps.auth import Role, User, db_with_org, require_role
+from app.schemas.alertas import AlertaListResponse
+
+router = APIRouter(prefix="/alertas", tags=["Alertas"])
+
+ALLOWED_SORTS: Dict[str, str] = {
+    "empresa": "empresa",
+    "tipo_alerta": "tipo_alerta",
+    "validade": "validade",
+    "dias_restantes": "dias_restantes",
+}
+
+
+@router.get("", response_model=AlertaListResponse)
+def listar_alertas(
+    tipo_alerta: str | None = Query(None),
+    empresa_id: int | None = Query(None),
+    page: int = Query(1, ge=1),
+    size: int = Query(20, ge=1, le=100),
+    sort: str | None = Query(None),
+    db: Session = Depends(db_with_org),
+    _: User = Depends(require_role(Role.VIEWER)),
+) -> AlertaListResponse:
+    page, size = ensure_positive_pagination(page, size)
+    params: Dict[str, object] = {}
+    filters: list[str] = []
+
+    if tipo_alerta:
+        params["tipo_alerta"] = tipo_alerta
+        filters.append("tipo_alerta = :tipo_alerta")
+    if empresa_id is not None:
+        params["empresa_id"] = empresa_id
+        filters.append("empresa_id = :empresa_id")
+
+    where_clause = build_where_clause(filters)
+    base_query = f"SELECT * FROM v_alertas_vencendo_30d{where_clause}"
+    sort_column, direction = resolve_sort(sort, ALLOWED_SORTS, "dias_restantes")
+    data = paginate_query(db, base_query, params, sort_column, direction, page, size)
+    return AlertaListResponse(**data)

@@ -22,3 +22,7 @@ typer==0.9.0
 
 # Automação (CND/CAE)
 playwright==1.40.0
+
+# Autenticação
+PyJWT==2.8.0
+httpx==0.27.2
