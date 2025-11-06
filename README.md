@@ -224,6 +224,46 @@ Os cenários cobrem duplicidade, enums inválidos, datas inválidas e atualizaç
 
 ---
 
+## S3 – API FastAPI (multi-tenant)
+
+### Execução local
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+### Variáveis de ambiente (.env)
+```ini
+DATABASE_URL=postgresql+psycopg2://postgres:***@localhost:5432/econtrole
+JWT_SECRET=troque-por-um-segredo
+JWT_ALG=HS256
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+```
+
+### Token JWT de exemplo
+```json
+{"sub":1,"org_id":"00000000-0000-0000-0000-000000000001","email":"admin@ex.com","role":"ADMIN"}
+```
+
+### Endpoints disponíveis
+- `GET /api/v1/empresas` – filtros: `q`, `municipio`, `porte`, `categoria`, `page`, `size`, `sort`
+- `GET /api/v1/licencas` – filtros: `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size`, `sort`
+- `GET /api/v1/taxas` – filtros: `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size`, `sort`
+- `GET /api/v1/processos` – filtros: `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size`, `sort`
+- `GET /api/v1/alertas` – filtros: `tipo_alerta`, `empresa_id`, `page`, `size`, `sort`
+- `GET /api/v1/grupos/kpis` – filtros: `grupo`, `page`, `size`, `sort`
+- `POST /api/v1/empresas`, `PATCH /api/v1/empresas/{id}`
+- `POST /api/v1/licencas`, `PATCH /api/v1/licencas/{id}`
+- `POST /api/v1/taxas`, `PATCH /api/v1/taxas/{id}`
+- `POST /api/v1/processos`, `PATCH /api/v1/processos/{id}`
+
+Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations exigem perfil `ADMIN` (ou superior).
+
+### Multi-tenant
+Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
+
+---
+
 ## Backend FastAPI
 
 ### Responsabilidades principais
@@ -308,3 +348,41 @@ Os cenários cobrem duplicidade, enums inválidos, datas inválidas e atualizaç
 ## Licença
 
 Projeto interno. Consulte o time responsável antes de distribuir.
+
+## S3 – API FastAPI (multi-tenant)
+
+### Execução local
+```bash
+cd backend
+uvicorn main:app --reload
+```
+
+### Variáveis de ambiente (.env)
+```ini
+DATABASE_URL=postgresql+psycopg2://postgres:***@localhost:5432/econtrole
+JWT_SECRET=troque-por-um-segredo
+JWT_ALG=HS256
+CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+```
+
+### Token JWT de exemplo
+```json
+{"sub":1,"org_id":"00000000-0000-0000-0000-000000000001","email":"admin@ex.com","role":"ADMIN"}
+```
+
+### Endpoints disponíveis
+- `GET /api/v1/empresas` – filtros: `q`, `municipio`, `porte`, `categoria`, `page`, `size`, `sort`
+- `GET /api/v1/licencas` – filtros: `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size`, `sort`
+- `GET /api/v1/taxas` – filtros: `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size`, `sort`
+- `GET /api/v1/processos` – filtros: `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size`, `sort`
+- `GET /api/v1/alertas` – filtros: `tipo_alerta`, `empresa_id`, `page`, `size`, `sort`
+- `GET /api/v1/grupos/kpis` – filtros: `grupo`, `page`, `size`, `sort`
+- `POST /api/v1/empresas`, `PATCH /api/v1/empresas/{id}`
+- `POST /api/v1/licencas`, `PATCH /api/v1/licencas/{id}`
+- `POST /api/v1/taxas`, `PATCH /api/v1/taxas/{id}`
+- `POST /api/v1/processos`, `PATCH /api/v1/processos/{id}`
+
+Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations exigem perfil `ADMIN` (ou superior).
+
+### Multi-tenant
+Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
