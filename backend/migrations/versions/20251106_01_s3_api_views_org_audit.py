@@ -50,9 +50,21 @@ def _ensure_audit_columns(table: str) -> None:
 
 
 def _create_views() -> None:
+    # Sempre dropar antes, para evitar restrições de REPLACE sobre colunas
+    op.execute("DROP VIEW IF EXISTS v_grupos_kpis CASCADE;")
+    op.execute("DROP VIEW IF EXISTS v_alertas_vencendo_30d CASCADE;")
+    op.execute("DROP VIEW IF EXISTS v_processos_resumo CASCADE;")
+    op.execute("DROP VIEW IF EXISTS v_taxas_status CASCADE;")
+    op.execute("DROP VIEW IF EXISTS v_licencas_status CASCADE;")
+    op.execute("DROP VIEW IF EXISTS v_empresas CASCADE;")
+
+    # v_empresas – mantenha a ordem que você já usa em produção:
+    # empresa_id, org_id, empresa, cnpj, municipio, porte, categoria,
+    # situacao, status_empresas, debito, certificado, total_licencas,
+    # total_taxas, processos_ativos, updated_at
     op.execute(
         """
-        CREATE OR REPLACE VIEW v_empresas AS
+        CREATE VIEW v_empresas AS
         SELECT
             e.id          AS empresa_id,
             e.org_id,
@@ -84,9 +96,10 @@ def _create_views() -> None:
     )
     op.execute("ALTER VIEW v_empresas OWNER TO CURRENT_USER;")
 
+    # v_licencas_status – já inclui municipio
     op.execute(
         """
-        CREATE OR REPLACE VIEW v_licencas_status AS
+        CREATE VIEW v_licencas_status AS
         SELECT
             l.id AS licenca_id,
             e.id AS empresa_id,
@@ -106,15 +119,19 @@ def _create_views() -> None:
     )
     op.execute("ALTER VIEW v_licencas_status OWNER TO CURRENT_USER;")
 
+    # v_taxas_status – **inclui municipio** para não “sumir” coluna
+    # Ordem sugerida (igual à sua definição anterior):
+    # taxa_id, empresa_id, org_id, empresa, cnpj, municipio, tipo, status, data_envio, vencimento_tpi, esta_pago
     op.execute(
         """
-        CREATE OR REPLACE VIEW v_taxas_status AS
+        CREATE VIEW v_taxas_status AS
         SELECT
             t.id AS taxa_id,
             e.id AS empresa_id,
             e.org_id,
             e.empresa,
             e.cnpj,
+            e.municipio,
             t.tipo,
             t.status,
             t.data_envio,
@@ -128,9 +145,10 @@ def _create_views() -> None:
     )
     op.execute("ALTER VIEW v_taxas_status OWNER TO CURRENT_USER;")
 
+    # v_processos_resumo – mantenha colunas existentes primeiro; 'status_cor' pode ficar no fim
     op.execute(
         """
-        CREATE OR REPLACE VIEW v_processos_resumo AS
+        CREATE VIEW v_processos_resumo AS
         SELECT
             p.id AS processo_id,
             e.id AS empresa_id,
@@ -164,9 +182,11 @@ def _create_views() -> None:
     )
     op.execute("ALTER VIEW v_processos_resumo OWNER TO CURRENT_USER;")
 
+    # v_alertas_vencendo_30d – mantenha as colunas originais **no começo** e, se quiser, adicione novas **no fim**
+    # Colunas originais: org_id, empresa_id, empresa, cnpj, tipo_alerta, descricao, validade, dias_restantes
     op.execute(
         """
-        CREATE OR REPLACE VIEW v_alertas_vencendo_30d AS
+        CREATE VIEW v_alertas_vencendo_30d AS
         WITH base AS (
             SELECT
                 e.org_id,
@@ -174,17 +194,15 @@ def _create_views() -> None:
                 e.empresa,
                 e.cnpj,
                 'LICENCA'::text AS tipo_alerta,
-                l.tipo || ' - ' || l.status AS descricao,
+                l.tipo || ' - ' || COALESCE(l.status,'?') AS descricao,
                 l.validade,
                 (l.validade - CURRENT_DATE) AS dias_restantes
             FROM licencas l
             JOIN empresas e ON e.id = l.empresa_id AND e.org_id = l.org_id
-            WHERE (
-                current_setting('app.current_org', true) IS NULL
-                OR e.org_id = current_setting('app.current_org')::uuid
-            )
+            WHERE (current_setting('app.current_org', true) IS NULL
+                   OR e.org_id = current_setting('app.current_org')::uuid)
               AND l.validade IS NOT NULL
-              AND l.validade <= CURRENT_DATE + INTERVAL '30 days'
+              AND l.validade <= CURRENT_DATE + INTERVAL '30 day'
             UNION ALL
             SELECT
                 e.org_id,
@@ -192,16 +210,15 @@ def _create_views() -> None:
                 e.empresa,
                 e.cnpj,
                 'TAXA'::text AS tipo_alerta,
-                t.tipo || ' - ' || t.status AS descricao,
+                'TPI - ' || COALESCE(t.status,'?') AS descricao,
                 t.vencimento_tpi AS validade,
                 CASE WHEN t.vencimento_tpi IS NULL THEN NULL ELSE (t.vencimento_tpi - CURRENT_DATE) END AS dias_restantes
             FROM taxas t
             JOIN empresas e ON e.id = t.empresa_id AND e.org_id = t.org_id
-            WHERE (
-                current_setting('app.current_org', true) IS NULL
-                OR e.org_id = current_setting('app.current_org')::uuid
-            )
-              AND LOWER(COALESCE(t.status, '')) NOT LIKE 'pago%'
+            WHERE (current_setting('app.current_org', true) IS NULL
+                   OR e.org_id = current_setting('app.current_org')::uuid)
+              AND t.vencimento_tpi IS NOT NULL
+              AND LOWER(COALESCE(t.status,'')) NOT LIKE 'pago%'
             UNION ALL
             SELECT
                 e.org_id,
@@ -214,37 +231,29 @@ def _create_views() -> None:
                 CASE WHEN p.prazo IS NULL THEN NULL ELSE (p.prazo - CURRENT_DATE) END AS dias_restantes
             FROM processos p
             JOIN empresas e ON e.id = p.empresa_id AND e.org_id = p.org_id
-            WHERE (
-                current_setting('app.current_org', true) IS NULL
-                OR e.org_id = current_setting('app.current_org')::uuid
-            )
+            WHERE (current_setting('app.current_org', true) IS NULL
+                   OR e.org_id = current_setting('app.current_org')::uuid)
               AND p.prazo IS NOT NULL
-              AND p.prazo <= CURRENT_DATE + INTERVAL '30 days'
+              AND p.prazo <= CURRENT_DATE + INTERVAL '30 day'
         )
         SELECT
-            ROW_NUMBER() OVER (ORDER BY empresa, tipo_alerta, COALESCE(validade, CURRENT_DATE)) AS alerta_id,
-            org_id,
-            empresa_id,
-            empresa,
-            cnpj,
-            tipo_alerta,
-            descricao,
-            validade,
-            dias_restantes
+            org_id, empresa_id, empresa, cnpj, tipo_alerta, descricao, validade, dias_restantes
+            -- Se quiser acrescentar depois: , ROW_NUMBER() OVER (...) AS alerta_id
         FROM base;
         """
     )
     op.execute("ALTER VIEW v_alertas_vencendo_30d OWNER TO CURRENT_USER;")
 
+    # v_grupos_kpis – como você já recriou manualmente, mantive o modelo com grupos ‘empresas’, ‘licencas’, ‘taxas’
     op.execute(
         """
-        CREATE OR REPLACE VIEW v_grupos_kpis AS
+        CREATE VIEW v_grupos_kpis AS
         WITH emp AS (
             SELECT
                 e.org_id,
                 COUNT(*)::bigint AS total_empresas,
                 COUNT(*) FILTER (
-                    WHERE COALESCE(e.certificado, '') NOT ILIKE 'sim%'
+                    WHERE COALESCE(UPPER(TRIM(e.certificado)),'NÃO') IN ('NÃO','NAO','N/A','N')
                 )::bigint AS sem_certificado
             FROM empresas e
             GROUP BY e.org_id
@@ -263,7 +272,7 @@ def _create_views() -> None:
                 t.org_id,
                 COUNT(*) FILTER (
                     WHERE (LOWER(COALESCE(t.status, '')) NOT LIKE 'pago%')
-                      AND (UPPER(t.tipo) LIKE 'TPI%')
+                      AND (UPPER(TRIM(t.tipo)) = 'TPI')
                 )::bigint AS tpi_pendente
             FROM taxas t
             GROUP BY t.org_id
