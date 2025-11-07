@@ -54,15 +54,15 @@ def _create_views() -> None:
         """
         CREATE OR REPLACE VIEW v_empresas AS
         SELECT
-            e.id AS empresa_id,
+            e.id          AS empresa_id,
             e.org_id,
             e.empresa,
             e.cnpj,
             e.municipio,
             e.porte,
             e.categoria,
-            e.status_empresas,
             e.situacao,
+            e.status_empresas,
             e.debito,
             e.certificado,
             COALESCE(COUNT(DISTINCT l.id) FILTER (WHERE l.id IS NOT NULL), 0) AS total_licencas,
@@ -72,13 +72,14 @@ def _create_views() -> None:
             ), 0) AS processos_ativos,
             e.updated_at
         FROM empresas e
-        LEFT JOIN licencas l ON l.empresa_id = e.id AND l.org_id = e.org_id
-        LEFT JOIN taxas t ON t.empresa_id = e.id AND t.org_id = e.org_id
-        LEFT JOIN processos p ON p.empresa_id = e.id AND p.org_id = e.org_id
+        LEFT JOIN licencas  l ON l.empresa_id = e.id AND l.org_id = e.org_id
+        LEFT JOIN taxas     t ON t.empresa_id   = e.id AND t.org_id = e.org_id
+        LEFT JOIN processos p ON p.empresa_id   = e.id AND p.org_id = e.org_id
         WHERE current_setting('app.current_org', true) IS NULL
-          OR e.org_id = current_setting('app.current_org')::uuid
-        GROUP BY e.id, e.org_id, e.empresa, e.cnpj, e.municipio, e.porte, e.categoria,
-                 e.status_empresas, e.situacao, e.debito, e.certificado, e.updated_at;
+           OR e.org_id = current_setting('app.current_org')::uuid
+        GROUP BY
+            e.id, e.org_id, e.empresa, e.cnpj, e.municipio, e.porte, e.categoria,
+            e.situacao, e.status_empresas, e.debito, e.certificado, e.updated_at;
         """
     )
     op.execute("ALTER VIEW v_empresas OWNER TO CURRENT_USER;")
