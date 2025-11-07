@@ -1,19 +1,20 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import Callable
+from uuid import UUID
 
-import jwt
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from pydantic import BaseModel
+from jose import JWTError, jwt
+from pydantic import BaseModel, EmailStr
 from sqlalchemy import text
-from sqlalchemy.exc import OperationalError, ProgrammingError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import get_db
 
-auth_scheme = HTTPBearer()
+bearer = HTTPBearer(auto_error=True)
 
 
 class Role(str, Enum):
@@ -25,44 +26,57 @@ class Role(str, Enum):
 
 class User(BaseModel):
     id: int
-    org_id: str
-    email: str
+    org_id: UUID
+    email: EmailStr
     role: Role
 
 
-def get_current_user(creds: HTTPAuthorizationCredentials = Depends(auth_scheme)) -> User:
+def get_current_user(creds: HTTPAuthorizationCredentials = Security(bearer)) -> User:
+    token = creds.credentials
     try:
-        payload = jwt.decode(creds.credentials, settings.jwt_secret, algorithms=[settings.jwt_alg])
-    except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token inválido") from exc
-    for key in ("sub", "org_id", "email", "role"):
-        if key not in payload:
-            raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=f"Claim ausente: {key}")
-    return User(
-        id=int(payload["sub"]),
-        org_id=str(payload["org_id"]),
-        email=str(payload["email"]),
-        role=Role(payload["role"]),
-    )
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_alg])
+    except JWTError as exc:
+        raise HTTPException(status_code=401, detail="Token inválido") from exc
+
+    sub = payload.get("sub")
+    org_id = payload.get("org_id")
+    email = payload.get("email")
+    role_value = payload.get("role", Role.VIEWER.value)
+
+    if not sub or not org_id:
+        raise HTTPException(status_code=401, detail="Token sem sub/org_id")
+
+    try:
+        role = Role(role_value)
+    except ValueError:
+        role = Role.VIEWER
+
+    try:
+        user_id = int(sub)
+        org_uuid = UUID(str(org_id))
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=401, detail="Token inválido") from exc
+
+    return User(id=user_id, org_id=org_uuid, email=email, role=role)
 
 
-def require_role(min_role: Role):
-    order = {Role.VIEWER: 1, Role.STAFF: 2, Role.ADMIN: 3, Role.OWNER: 4}
+def require_role(min_role: Role) -> Callable[[User], User]:
+    hierarchy = {Role.OWNER: 3, Role.ADMIN: 2, Role.STAFF: 1, Role.VIEWER: 0}
 
-    def _inner(user: User = Depends(get_current_user)) -> User:
-        if order[user.role] < order[min_role]:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Permissão insuficiente")
+    def _dep(user: User = Depends(get_current_user)) -> User:
+        if hierarchy[user.role] < hierarchy[min_role]:
+            raise HTTPException(status_code=403, detail="Permissão insuficiente")
         return user
 
-    return _inner
+    return _dep
 
 
-def db_with_org(db: Session = Depends(get_db), user: User = Depends(get_current_user)) -> Session:
-    dialect_name = db.bind.dialect.name if db.bind is not None else ""
-    if dialect_name != "postgresql":
-        return db
+def db_with_org(
+    db: Session = Depends(get_db),
+    user: User = Depends(require_role(Role.VIEWER)),
+) -> Session:
     try:
-        db.execute(text("SET app.current_org = :org"), {"org": user.org_id})
-    except (ProgrammingError, OperationalError) as exc:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Contexto de organização indisponível") from exc
+        db.execute(text("SET LOCAL app.current_org = :org_id"), {"org_id": str(user.org_id)})
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail="Contexto de organização indisponível") from exc
     return db
