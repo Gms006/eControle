@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import hashlib
 from functools import lru_cache
 from pathlib import Path
 from typing import Any, Dict, List
@@ -23,6 +24,25 @@ class Settings(BaseModel):
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
     }
+
+    @field_validator("jwt_secret", mode="before")
+    @classmethod
+    def _normalize_secret(cls, value: Any) -> str:
+        if value is None:
+            return value
+        secret = str(value).strip()
+        if (secret.startswith("\"") and secret.endswith("\"")) or (
+            secret.startswith("'") and secret.endswith("'")
+        ):
+            secret = secret[1:-1]
+        return secret.strip()
+
+    @field_validator("jwt_alg", mode="before")
+    @classmethod
+    def _normalize_alg(cls, value: Any) -> str:
+        if value is None:
+            return "HS256"
+        return str(value).strip().upper()
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -82,6 +102,10 @@ class Settings(BaseModel):
     def get_enum_values(self, enum_key: str) -> List[str]:
         enums = self.config.get("enums", {})
         return list(enums.get(enum_key, []))
+
+    @property
+    def jwt_secret_fingerprint(self) -> str:
+        return hashlib.sha256(self.jwt_secret.encode("utf-8")).hexdigest()[:12]
 
 
 @lru_cache(maxsize=1)
