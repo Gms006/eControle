@@ -117,7 +117,7 @@ def client() -> TestClient:
 @pytest.fixture()
 def admin_token() -> str:
     payload = {
-        "sub": 1,
+        "sub": "1",
         "org_id": "00000000-0000-0000-0000-000000000001",
         "email": "admin@example.com",
         "role": "ADMIN",

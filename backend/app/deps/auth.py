@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from enum import Enum
 from typing import Callable
 from uuid import UUID
@@ -14,7 +15,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.db.session import get_db
 
-bearer = HTTPBearer(auto_error=True)
+logger = logging.getLogger(__name__)
+
+bearer = HTTPBearer(auto_error=False)
 
 
 class Role(str, Enum):
@@ -32,10 +35,20 @@ class User(BaseModel):
 
 
 def get_current_user(creds: HTTPAuthorizationCredentials = Security(bearer)) -> User:
+    if creds is None or not creds.credentials:
+        logger.warning("JWT ausente na requisição")
+        raise HTTPException(status_code=401, detail="Token inválido")
+
     token = creds.credentials
     try:
         payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_alg])
     except JWTError as exc:
+        logger.warning(
+            "Falha ao decodificar JWT: %s | alg=%s secret_fp=%s",
+            exc,
+            settings.jwt_alg,
+            settings.jwt_secret_fingerprint,
+        )
         raise HTTPException(status_code=401, detail="Token inválido") from exc
 
     sub = payload.get("sub")
@@ -44,7 +57,10 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Security(bearer)) -> 
     role_value = payload.get("role", Role.VIEWER.value)
 
     if not sub or not org_id:
-        raise HTTPException(status_code=401, detail="Token sem sub/org_id")
+        logger.warning(
+            "JWT payload incompleto: keys=%s", list(payload.keys())
+        )
+        raise HTTPException(status_code=401, detail="Token inválido")
 
     try:
         role = Role(role_value)
@@ -55,6 +71,7 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Security(bearer)) -> 
         user_id = int(sub)
         org_uuid = UUID(str(org_id))
     except (TypeError, ValueError) as exc:
+        logger.warning("JWT payload inválido: sub=%s org_id=%s", sub, org_id)
         raise HTTPException(status_code=401, detail="Token inválido") from exc
 
     return User(id=user_id, org_id=org_uuid, email=email, role=role)
@@ -78,5 +95,6 @@ def db_with_org(
     try:
         db.execute(text("SET LOCAL app.current_org = :org_id"), {"org_id": str(user.org_id)})
     except Exception as exc:  # noqa: BLE001
+        logger.error("Falha ao definir app.current_org: org_id=%s", user.org_id)
         raise HTTPException(status_code=500, detail="Contexto de organização indisponível") from exc
     return db

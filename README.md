@@ -115,6 +115,24 @@ Sistema interno para gestão de empresas, licenças, taxas, processos administra
    - O Vite roda em `http://localhost:5173` e proxia chamadas `/api` para `http://localhost:8000`.
    - Defina `VITE_API_URL` em um `.env.local` se precisar apontar para outra origem.
 
+### JWT – como gerar token de dev
+
+Use o script utilitário incluído no backend para criar um JWT com o mesmo segredo carregado pela API:
+
+```bash
+cd backend
+python scripts/dev/mint_jwt.py --org-id <UUID-da-organizacao> --sub <id-do-usuario>
+```
+
+Saída esperada:
+
+```
+ALG=HS256 SECRET_FP=XXXXXXXXXXXX
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Copie a segunda linha (o token) e utilize em `Authorization: Bearer <token>` ao testar os endpoints protegidos ou no botão **Authorize** do Swagger. O fingerprint (`SECRET_FP`) deve corresponder ao log emitido durante o boot da aplicação (`JWT_SECRET_FP`), garantindo que script e API usam o mesmo segredo.
+
 ---
 
 ## S1 – Schema v1 (PostgreSQL)
