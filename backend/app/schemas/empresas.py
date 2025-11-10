@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,7 +11,7 @@ from app.schemas.common import PaginatedResponse
 
 class EmpresaView(BaseModel):
     empresa_id: int = Field(..., description="Identificador interno da empresa")
-    org_id: str
+    org_id: UUID
     empresa: str
     cnpj: str
     municipio: Optional[str] = None

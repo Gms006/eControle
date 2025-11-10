@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict
 
 from app.schemas.common import PaginatedResponse
 
 
 class GrupoKPIView(BaseModel):
-    org_id: str
+    org_id: UUID
     grupo: str
     chave: str
     valor_nome: str

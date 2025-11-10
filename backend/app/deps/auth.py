@@ -98,8 +98,12 @@ def db_with_org(
     user: User = Depends(require_role(Role.VIEWER)),
 ) -> Generator[Session, None, None]:
     try:
-        # Evita depender de transação aberta: use SET (não LOCAL)
-        db.execute(text("SET app.current_org = :org_id"), {"org_id": str(user.org_id)})
+        # Use set_config() para permitir parâmetros sem erro de sintaxe
+        # is_local = false  -> vale na sessão inteira (sem depender de transação)
+        db.execute(
+            text("SELECT set_config('app.current_org', :org_id, false)"),
+            {"org_id": str(user.org_id)},
+        )
     except Exception as exc:  # noqa: BLE001
         logger.warning(
             "Falha ao definir app.current_org: org_id=%s err=%s",
@@ -112,6 +116,7 @@ def db_with_org(
         yield db
     finally:
         try:
+            # Limpa o GUC no fim da request
             db.execute(text("RESET app.current_org"))
         except Exception as exc:  # noqa: BLE001
             logger.debug("RESET app.current_org falhou (safe to ignore): %s", exc)
