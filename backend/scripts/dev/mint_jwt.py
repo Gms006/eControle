@@ -2,11 +2,24 @@
 from __future__ import annotations
 
 import argparse
+import os
+import sys
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 from jose import jwt
 
+# Adiciona o diretório backend ao path para importar app
+backend_dir = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(backend_dir))
+
+# Carrega o .env ANTES de importar settings
+from dotenv import load_dotenv
+env_path = backend_dir / ".env"
+load_dotenv(dotenv_path=env_path)
+
+# Agora sim, importa settings
 from app.core.config import settings
 from app.deps.auth import Role
 
@@ -23,7 +36,7 @@ def generate_dev_jwt(
 
     now = datetime.now(timezone.utc)
     payload = {
-        "sub": str(sub),
+        "sub": int(sub),  # ← MUDEI AQUI: converter para int
         "org_id": str(org_id),
         "role": role.value,
         "iat": int(now.timestamp()),
