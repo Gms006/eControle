@@ -133,6 +133,37 @@ O script exibe o fingerprint do segredo carregado e o token já assinado, pronto
 
 ---
 
+## Stages da migração
+
+> A migração do legado baseado em planilha para a API multi-tenant está sendo conduzida em etapas. Utilize os checkpoints abaixo para acompanhar o progresso do ambiente.
+
+### S1 – Schema versionado (PostgreSQL)
+
+1. **Configuração** – garanta que `DATABASE_URL` e `CONFIG_PATH` estejam definidos no `backend/.env` (ver seção [Variáveis de ambiente](#variáveis-de-ambiente-backendenv)).
+2. **Criar/atualizar o schema** – rode `alembic upgrade head` dentro de `backend/` para criar tabelas, enums, views e índices necessários.【F:backend/migrations/env.py†L18-L34】
+3. **Smoke tests** – execute `psql "$DATABASE_URL" -c "SELECT * FROM v_empresas LIMIT 5;"` e demais views para validar seeds e permissões.
+
+Critérios de pronto: migrations sem erros, views populadas (via seeds) e enums coerentes com o `config.yaml`.
+
+### S2 – ETL idempotente (Excel → Postgres)
+
+1. **Dependências** – use o mesmo ambiente virtual do backend (`pip install -r requirements.txt`).
+2. **Staging** – mantenha o schema atualizado (S1) para assegurar a existência das tabelas `stg_*` e constraints de suporte.【F:backend/etl/cli.py†L1-L120】
+3. **Execução** – acione `python -m etl import caminho/planilha.xlsm --apply` (ou `--dry-run`) para carregar planilhas conforme o contrato definido em `backend/etl/contracts.py`.
+4. **Validação** – analise a saída JSONL (`action: insert/update/skip`) e verifique a consistência via consultas nas views (`v_licencas_status`, `v_taxas_status`, etc.).
+
+Critérios de pronto: execução idempotente (execuções repetidas retornando `skip`), diffs consistentes e staging preservando `run_id`/`row_hash`.
+
+### S3 – API FastAPI multi-tenant
+
+1. **Aplicação** – suba `uvicorn backend.main:app --reload` com o `.env` configurado (JWT, CORS, etc.).【F:backend/main.py†L20-L42】
+2. **Autenticação** – gere tokens com `scripts/dev/mint_jwt.py` e teste os endpoints `/api/v1/*` autenticados.
+3. **Multi-tenant** – confirme, via `GET /__debug/guc`, que o `org_id` está sendo injetado corretamente e que as views filtram os registros conforme a organização.【F:backend/app/deps/auth.py†L1-L104】
+
+Critérios de pronto: saúde do healthcheck (`/healthz`), endpoints críticos respondendo com paginação esperada e RBAC (`Role.ADMIN`/`Role.VIEWER`) validado nos fluxos principais.
+
+---
+
 ## Backend legado baseado em planilha (`backend/api.py`)
 
 A versão antiga do backend continua disponível para cenários em que a leitura seja feita diretamente da planilha Excel (sem banco). Ela mantém o cache em memória, as rotas `/api/*`, `/api/cnds`, `/api/cae`, `/api/certificados` e o serviço estático `/cnds` para PDFs.
