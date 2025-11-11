@@ -1,55 +1,55 @@
-export const normalizeApiBase = (rawBase) => {
-  const fallback = "/api";
-  const trimmed = rawBase?.trim();
-  const base = trimmed && trimmed !== "" ? trimmed : fallback;
-  const collapseExtraSlashes = (value) => {
-    if (!value) return value;
-    const placeholder = "__TMP_PROTOCOL__";
-    const placeholderRegex = new RegExp(placeholder, "g");
-    const [path, ...rest] = value.split("?");
-    const withPlaceholder = path.replace(/:\/\//g, placeholder);
-    const collapsedPath = withPlaceholder
-      .replace(/\/{2,}/g, "/")
-      .replace(placeholderRegex, "://");
-    return rest.length > 0 ? `${collapsedPath}?${rest.join("?")}` : collapsedPath;
-  };
-  const collapsed = collapseExtraSlashes(base);
-  const withoutTrailing = collapsed.replace(/\/+$/, "");
-  const ensuredSuffix = withoutTrailing.endsWith("/api")
-    ? withoutTrailing
-    : `${withoutTrailing || ""}/api`;
-  const withLeadingSlash =
-    ensuredSuffix.startsWith("http://") || ensuredSuffix.startsWith("https://")
-      ? ensuredSuffix
-      : ensuredSuffix.startsWith("/")
-        ? ensuredSuffix
-        : `/${ensuredSuffix}`;
-  return collapseExtraSlashes(withLeadingSlash);
+import axios from "axios";
+
+const DEFAULT_API_BASE = "http://localhost:8000";
+
+const normalizeBase = (raw) => {
+  if (!raw) return DEFAULT_API_BASE;
+  const trimmed = String(raw).trim();
+  if (!trimmed) return DEFAULT_API_BASE;
+  return trimmed.replace(/\/$/, "");
 };
 
-const API_BASE = normalizeApiBase(import.meta.env.VITE_API_URL);
+const apiRoot = normalizeBase(import.meta.env.VITE_API_BASE_URL);
+export const API_ROOT = apiRoot;
+export const API_BASE_URL = `${apiRoot}/api/v1`;
 
-export const apiUrl = (path = "") => {
-  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
-  return `${API_BASE}${normalizedPath}`;
-};
-
-export const fetchJson = async (path) => {
-  const response = await fetch(apiUrl(path));
-  if (!response.ok) {
-    let detail = "";
-    try {
-      const payload = await response.json();
-      detail = payload?.detail || JSON.stringify(payload);
-    } catch (jsonError) {
-      try {
-        detail = await response.text();
-      } catch (textError) {
-        detail = "";
+const readToken = () => {
+  try {
+    if (typeof window !== "undefined") {
+      const stored = window.localStorage.getItem("jwt");
+      if (stored) {
+        return stored;
       }
     }
-    const message = detail ? `Erro ${response.status}: ${detail}` : `Erro ${response.status}`;
-    throw new Error(message);
+  } catch (error) {
+    console.warn("[api] Falha ao ler token do localStorage", error);
   }
-  return await response.json();
+  return import.meta.env.VITE_DEV_TOKEN || "";
 };
+
+const api = axios.create({
+  baseURL: API_BASE_URL,
+});
+
+api.interceptors.request.use((config) => {
+  const token = readToken();
+  if (token) {
+    config.headers = config.headers || {};
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const buildApiUrl = (path = "") => {
+  const sanitizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${API_BASE_URL}${sanitizedPath}`;
+};
+
+export const buildAbsoluteUrl = (path = "") => {
+  const sanitizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${apiRoot}${sanitizedPath}`;
+};
+
+export const getAuthToken = () => readToken();
+
+export default api;
