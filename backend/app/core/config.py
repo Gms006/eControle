@@ -18,12 +18,38 @@ class Settings(BaseModel):
     jwt_secret: str = Field(alias="JWT_SECRET")
     jwt_alg: str = Field(default="HS256", alias="JWT_ALG")
     cors_origins: List[str] = Field(default_factory=list, alias="CORS_ORIGINS")
+    uteis_req_root: Path = Field(
+        default=Path(r"G:\PMA\Requerimentos Word\Modelos"), alias="UTEIS_REQ_ROOT"
+    )
+    uteis_allowed_exts: List[str] = Field(
+        default_factory=lambda: [
+            ".pdf",
+            ".doc",
+            ".docx",
+            ".xls",
+            ".xlsx",
+            ".png",
+            ".jpg",
+            ".jpeg",
+        ],
+        alias="UTEIS_ALLOWED_EXTS",
+    )
+    uteis_req_max_depth: int = Field(default=4, alias="UTEIS_REQ_MAX_DEPTH")
     config_path: Path = Field(default_factory=lambda: Path(__file__).resolve().parents[2] / "config.yaml", alias="CONFIG_PATH")
 
     model_config = {
         "populate_by_name": True,
         "arbitrary_types_allowed": True,
     }
+
+    @staticmethod
+    def _normalize_ext(value: str) -> str:
+        ext = value.strip().lower()
+        if not ext:
+            return ""
+        if not ext.startswith("."):
+            ext = f".{ext}"
+        return ext
 
     @field_validator("jwt_secret", mode="before")
     @classmethod
@@ -74,6 +100,32 @@ class Settings(BaseModel):
             path = (Path(__file__).resolve().parents[2] / value).resolve()
         return path
 
+    @field_validator("uteis_allowed_exts", mode="before")
+    @classmethod
+    def _parse_allowed_exts(cls, value: Any) -> List[str]:
+        if value is None:
+            return value
+        if isinstance(value, str):
+            items = [cls._normalize_ext(part) for part in value.split(",")]
+            return [item for item in items if item]
+        if isinstance(value, (list, tuple, set)):
+            items = [cls._normalize_ext(str(part)) for part in value]
+            return [item for item in items if item]
+        raise TypeError("UTEIS_ALLOWED_EXTS deve ser string ou coleção de strings")
+
+    @field_validator("uteis_req_max_depth", mode="before")
+    @classmethod
+    def _parse_max_depth(cls, value: Any) -> int:
+        if value in (None, ""):
+            return value
+        try:
+            depth = int(value)
+        except (TypeError, ValueError) as exc:  # noqa: BLE001
+            raise TypeError("UTEIS_REQ_MAX_DEPTH deve ser um número inteiro") from exc
+        if depth < 0:
+            raise ValueError("UTEIS_REQ_MAX_DEPTH deve ser não negativo")
+        return depth
+
     @classmethod
     def from_env(cls) -> "Settings":
         data: Dict[str, Any] = {}
@@ -92,6 +144,10 @@ class Settings(BaseModel):
             "CORS_ORIGINS": os.getenv("CORS_ORIGINS", ""),
             "CONFIG_PATH": os.getenv("CONFIG_PATH"),
         }
+        for key in ("UTEIS_REQ_ROOT", "UTEIS_ALLOWED_EXTS", "UTEIS_REQ_MAX_DEPTH"):
+            env_value = os.getenv(key)
+            if env_value not in (None, ""):
+                optional_fields[key] = env_value
         data.update(optional_fields)
         return cls(**data)
 
