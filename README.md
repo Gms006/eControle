@@ -1,44 +1,30 @@
 # eControle
 
-Sistema interno para gestão de empresas, licenças, taxas, processos administrativos, certificados digitais e materiais de apoio. O fluxo completo envolve uma planilha Excel macro-enabled (.xlsm), um backend FastAPI que normaliza os dados em memória e um frontend React que apresenta painéis, filtros e automações.
+Plataforma interna para acompanhar empresas, licenças, taxas, processos administrativos, certificados digitais e materiais de apoio. Os dados operacionais nascem em planilhas Excel macro-enabled (`.xlsm`), são normalizados por um ETL idempotente e ficam disponíveis em um banco PostgreSQL consumido por uma API FastAPI multi-tenant e pelo frontend React.
 
-> Os arquivos reais das planilhas **não são versionados**. Crie a pasta `data/` localmente e armazene os `.xlsm` apenas em ambientes controlados.
+> ⚠️ As planilhas reais **não são versionadas**. Crie a pasta `data/` localmente e armazene os arquivos apenas em ambientes controlados.
 
 ---
 
-## Visão geral dos componentes
+## Arquitetura em alto nível
 
 ```
-┌─────────────────────────────┐        ┌──────────────────────────────┐
-│ Planilhas Excel (.xlsm)     │        │ backend/config.yaml          │
-│ • Abas com ListObjects      │        │ sheet/table aliases          │
-└──────────────┬──────────────┘        └──────────────┬───────────────┘
-               │                                     │
-       portalocker + openpyxl                        │
-               ▼                                     │
-┌────────────────────────────────────────────────────▼──────────────┐
-│ backend/repo_excel.py (ExcelRepo)                                 │
-│ • Lock do arquivo (.env → EXCEL_PATH)                             │
-│ • Mapas dinâmicos de colunas/abas/tabelas                         │
-│ • Leitura por aba ou ListObject                                   │
-└──────────────┬────────────────────────────────────────────────────┘
-               │                                 cache em memória
-               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ backend/api.py (FastAPI)                                         │
-│ • Endpoints REST (/api/*, /api/cnds, /api/cae, /api/certificados) │
-│ • Normalização em services/ + métricas globais                    │
-│ • Exposição de PDFs gerados em `/cnds`                            │
-└──────────────┬───────────────────────────────────────────────────┘
-               │ HTTP (CORS configurável)
-               ▼
-┌──────────────────────────────────────────────────────────────────┐
-│ frontend (React 18 + Vite + Tailwind)                            │
-│ • Abas: Painel, Empresas, Licenças, Taxas, Processos, Úteis,      │
-│   Certificados                                                    │
-│ • Hooks para filtros, alertas e automações (CND/CAE)              │
-└──────────────────────────────────────────────────────────────────┘
+Excel (.xlsm/.csv) ──▶ backend/etl ──▶ PostgreSQL ──▶ backend/main.py (FastAPI v1)
+          │                                       │
+          └──────────── backend/api.py ───────────┘  (API legada baseada em planilha)
+                                                    ▼
+                                               frontend (React 18 + Vite)
 ```
+
+- **Planilhas** – abas e ListObjects são mapeados via `backend/config.yaml`.
+- **ETL (`backend/etl/`)** – CLI `python -m etl` carrega planilhas para staging (`stg_*`) e aplica UPSERT idempotente.
+- **API multi-tenant (`backend/main.py`)** – lê do PostgreSQL, injeta `app.current_org` por request e expõe endpoints `/api/v1/*`.
+- **API legada (`backend/api.py`)** – ainda serve leitura direta do Excel, automações CND/CAE e planilha de certificados.
+- **Frontend (`frontend/`)** – React + Vite, consome a API configurada em `VITE_API_URL`.
+
+Documentos auxiliares:
+- [`GUIA_SETUP.md`](GUIA_SETUP.md) – passo a passo detalhado de instalação.
+- [`ESTRUTURA_PROJETO.md`](ESTRUTURA_PROJETO.md) – blueprint resumido das pastas.
 
 ---
 
@@ -47,412 +33,215 @@ Sistema interno para gestão de empresas, licenças, taxas, processos administra
 ```
 .
 ├── backend/
-│   ├── api.py                   # API FastAPI + cache em memória
-│   ├── repo_excel.py            # Acesso seguro às planilhas
-│   ├── models.py                # Dataclasses de domínio
-│   ├── services/
-│   │   ├── __init__.py          # Normalização, filtros, métricas
-│   │   └── data_certificados.py # Leitura da planilha de certificados
-│   ├── routes_certificados.py   # Rotas /api/certificados e /api/agendamentos
-│   ├── cnds/                    # Automação de CNDs (Playwright)
-│   ├── caes/                    # Automação de CAE (Playwright)
-│   ├── config.yaml              # Mapeamento de abas/tabelas/aliases
-│   └── requirements.txt         # Dependências do backend
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx, main.jsx, index.css
-│   │   ├── components/          # shadcn/ui wrappers, badges, KPIs
-│   │   ├── features/            # Telas (painel, empresas, licenças, ...)
-│   │   ├── lib/                 # Helpers (API, texto, status, certificados)
-│   │   └── providers/           # ToastProvider e contexto de notificações
-│   ├── package.json, vite.config.js, tailwind.config.js
-│   └── postcss.config.js, index.html
-├── ESTRUTURA_PROJETO.md        # Blueprint resumido do repositório
-├── GUIA_SETUP.md               # Passo a passo detalhado de setup
-└── README.md                   # Este documento
+│   ├── main.py                  # Entrada da API multi-tenant (uvicorn backend.main:app)
+│   ├── api.py                   # API legada baseada em planilha + automações
+│   ├── app/                     # Código da API v1 (rotas, deps, schemas, serviços)
+│   ├── db/                      # Modelos SQLAlchemy e sessão
+│   ├── etl/                     # Extract/Transform/Load e CLI Typer
+│   ├── migrations/              # Alembic (schema + staging)
+│   ├── services/                # Integração com planilha de certificados
+│   ├── cnds/, caes/             # Automação Playwright para CND/CAE
+│   ├── scripts/dev/mint_jwt.py  # Utilitário para gerar JWT de desenvolvimento
+│   ├── config.yaml              # Mapeamentos de abas/tabelas/aliases/enums
+│   └── requirements.txt         # Dependências Python do backend/ETL
+├── etl/__main__.py              # Wrapper para `python -m etl`
+├── frontend/                    # Aplicação React 18 + Vite + Tailwind
+├── tests/                       # Pytest (API v1, ETL e smoke tests)
+├── README.md
+├── GUIA_SETUP.md
+└── ESTRUTURA_PROJETO.md
 ```
 
 ---
 
-## Setup rápido
+## Pré-requisitos
 
-1. **Backend**
-   ```bash
-   cd backend
-   python -m venv .venv
-   source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
-   pip install -r requirements.txt
-   python -m playwright install chromium  # necessário para automações
-   ```
+- **Python 3.10+** (recomendado 3.11) – backend, ETL e automações.
+- **Node.js 18+** – frontend com Vite.
+- **PostgreSQL 14+** – armazenamento do schema `s1`/`s2` (tabelas e views).
+- **Playwright Chromium** – obrigatório para emissões de CND/CAE (`python -m playwright install chromium`).
+- Planilhas `.xlsm` originais (operacional + certificados/agendamentos).
 
-2. **Configuração**
-   - Crie `backend/.env` com, no mínimo:
-     ```ini
-     EXCEL_PATH=../data/arquivo.xlsm
-     CONFIG_PATH=./config.yaml
-     CORS_ORIGINS=http://localhost:5173
-     API_HOST=0.0.0.0
-     API_PORT=8000
-     LOG_LEVEL=INFO
-     CND_DIR_BASE=certidoes
-     CND_HEADLESS=true
-     CAPTCHA_MODE=manual          # ou image_2captcha
-     API_KEY_2CAPTCHA=            # obrigatório se CAPTCHA_MODE=image_2captcha
-     ```
-   - Ajuste `PLANILHA_CERT_PATH` em `backend/services/data_certificados.py` para apontar para a planilha de certificados/agendamentos.
+---
 
-3. **Executar o backend**
-   ```bash
-   uvicorn api:app --reload --host $API_HOST --port $API_PORT
-   ```
+## Backend – API multi-tenant (`backend/main.py`)
 
-4. **Frontend**
-   ```bash
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   - O Vite roda em `http://localhost:5173` e proxia chamadas `/api` para `http://localhost:8000`.
-   - Defina `VITE_API_URL` em um `.env.local` se precisar apontar para outra origem.
-
-### JWT – como gerar token de dev
-
-Use o script utilitário incluído no backend para criar um JWT com o mesmo segredo carregado pela API:
+### Instalação e dependências
 
 ```bash
 cd backend
-python scripts/dev/mint_jwt.py --org-id <UUID-da-organizacao> --sub <id-do-usuario>
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python -m playwright install chromium  # necessário para automações CND/CAE
 ```
 
-Saída esperada:
+`requirements.txt` inclui FastAPI/Uvicorn, SQLAlchemy, Alembic, `email-validator` (requerido por `EmailStr`), openpyxl/portalocker, Playwright e utilitários como Typer e python-dotenv.【F:backend/requirements.txt†L1-L25】
 
-```
-ALG=HS256 SECRET_FP=XXXXXXXXXXXX
-eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-```
+### Variáveis de ambiente (`backend/.env`)
 
-Copie a segunda linha (o token) e utilize em `Authorization: Bearer <token>` ao testar os endpoints protegidos ou no botão **Authorize** do Swagger. O fingerprint (`SECRET_FP`) deve corresponder ao log emitido durante o boot da aplicação (`JWT_SECRET_FP`), garantindo que script e API usam o mesmo segredo.
+A API lê as configurações por meio de `app.core.config.Settings`. Crie um `.env` contendo, no mínimo:
 
----
-
-## S1 – Schema v1 (PostgreSQL)
-
-> **Objetivo:** disponibilizar o schema versionado no PostgreSQL com tabelas, enums, views e seeds mínimos para testes da UI.
-
-1. **Variáveis de ambiente**
-   - Acrescente ao `backend/.env`:
-     ```ini
-     DATABASE_URL=postgresql+psycopg://usuario:senha@localhost:5432/econtrole
-     CONFIG_PATH=./config.yaml
-     ```
-   - Garanta que o banco informado em `DATABASE_URL` exista (ex.: `createdb econtrole`).
-
-2. **Instalação das dependências de banco**
-   ```bash
-   cd backend
-   pip install -r requirements.txt
-   ```
-
-3. **Criar/atualizar o schema**
-   ```bash
-   alembic upgrade head
-   ```
-
-4. **Smoke tests rápidos**
-   ```bash
-   psql "$DATABASE_URL" -c "SELECT * FROM v_empresas LIMIT 5;"
-   psql "$DATABASE_URL" -c "SELECT * FROM v_alertas_vencendo_30d LIMIT 5;"
-   ```
-
-5. **Critérios de pronto**
-   - O comando `alembic upgrade head` roda sem erros e cria tabelas, enums e views.
-   - Os selects acima retornam pelo menos uma linha (seeds inseridos automaticamente).
-   - Índices críticos (`idx_empresas_municipio`, `idx_licencas_validade`, `idx_processos_prazo`, etc.) aparecem em `\d`.
-   - Valores dos enums batem com o que está definido em `backend/config.yaml`.
-
----
-
-## S2 – ETL idempotente (Excel → Postgres)
-
-> **Objetivo:** importar planilhas Excel/CSV para o banco mantendo idempotência e auditabilidade.
-
-### Arquitetura
-
-1. **Extract** (`backend/etl/extract_xlsm.py`)
-   - Lê `.xlsm`/`.xlsx` com `openpyxl` (aceita `.csv` para amostras).
-   - Respeita `sheet_names` e `table_names` definidos no `config.yaml`.
-   - Retém o número da linha original para rastreabilidade.
-2. **Transform** (`backend/etl/transform_normalize.py`)
-   - Concilia cabeçalhos via `column_aliases` e aplica normalizadores (CNPJ, datas, enums).
-   - Gera payload canônico por entidade e valida domínios contra `config.yaml`.
-3. **Load** (`backend/etl/load_upsert.py`)
-   - Persiste nas tabelas de staging (`stg_*`) com `run_id`, `row_hash` e payload em JSON.
-   - Resolve `empresa_id` pelo CNPJ e executa UPSERT idempotente nas tabelas finais.
-   - Calcula diffs campo a campo para decidir entre `insert`, `update` ou `skip`.
-
-### Dependências
-
-Instale as dependências do backend (inclui Typer para a CLI):
-
-```bash
-pip install -r backend/requirements.txt
-```
-
-### Migrations
-
-Aplicar o schema base (S1) + staging tables (S2):
-
-```bash
-alembic -c backend/alembic.ini upgrade head
-```
-
-### Execução do ETL
-
-```bash
-# Dry-run (sem commitar alterações)
-python -m etl import --source "caminho/planilha.xlsm" --dry-run
-
-# Aplicar alterações
-python -m etl import --source "caminho/planilha.xlsm" --apply
-```
-
-A CLI lê `DATABASE_URL` e `CONFIG_PATH` do ambiente. A saída é JSONL com `run_id`, `sheet`, `row_number`, `table`, `action` e `changed_fields`.
-
-### Logs e idempotência
-
-- As tabelas de staging armazenam `payload` e `row_hash` de cada execução.
-- Execuções repetidas com os mesmos dados retornam `skip` (sem alterações nas tabelas finais).
-- Alterações parciais produzem `update` com a lista de campos modificados.
-
-### Testes
-
-Execute a suíte focada no ETL:
-
-```bash
-pytest tests/test_etl_basic.py
-```
-
-Os cenários cobrem duplicidade, enums inválidos, datas inválidas e atualizações parciais.
-
-### Troubleshooting
-
-- **Enums inválidos**: ajuste o texto da planilha para coincidir com os valores do `config.yaml`.
-- **Datas**: suportados `dd/mm/aaaa`, `dd-mm-aaaa`, `aaaa-mm-dd` e serial numérico do Excel.
-- **CNPJ**: sempre tratado apenas com dígitos; entradas vazias são ignoradas.
-
----
-
-## S3 – API FastAPI (multi-tenant)
-
-### Execução local
-```bash
-cd backend
-uvicorn main:app --reload
-```
-
-### Variáveis de ambiente (.env)
 ```ini
-DATABASE_URL=postgresql+psycopg2://postgres:***@localhost:5432/econtrole
+DATABASE_URL=postgresql+psycopg://usuario:senha@localhost:5432/econtrole
 JWT_SECRET=troque-por-um-segredo
 JWT_ALG=HS256
-CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
+CORS_ORIGINS=["http://localhost:5173"]
+CONFIG_PATH=./config.yaml
+UTEIS_REQ_ROOT=G:/PMA/Requerimentos Word/Modelos   # diretório dos materiais de apoio
+UTEIS_ALLOWED_EXTS=.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg
+UTEIS_REQ_MAX_DEPTH=4
 ```
 
-### Token JWT de exemplo
-```json
-{"sub":1,"org_id":"00000000-0000-0000-0000-000000000001","email":"admin@ex.com","role":"ADMIN"}
-```
+- `DATABASE_URL` é obrigatório e também usado pelo Alembic/ETL.【F:backend/app/core/config.py†L14-L107】
+- `CONFIG_PATH` aponta para o YAML de aliases/enums carregado por `Settings` e pelos modelos SQL.【F:backend/app/core/config.py†L18-L106】【F:backend/db/models_sql.py†L23-L44】
+- Os parâmetros `UTEIS_*` alimentam o serviço de navegação de arquivos em `/api/v1/uteis` (listagem e download).【F:backend/app/services/file_browse.py†L1-L120】【F:backend/app/api/v1/endpoints/uteis.py†L1-L174】
 
-### Endpoints disponíveis
-- `GET /api/v1/empresas` – filtros: `q`, `municipio`, `porte`, `categoria`, `page`, `size`, `sort`
-- `GET /api/v1/licencas` – filtros: `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size`, `sort`
-- `GET /api/v1/taxas` – filtros: `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size`, `sort`
-- `GET /api/v1/processos` – filtros: `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size`, `sort`
-- `GET /api/v1/alertas` – filtros: `tipo_alerta`, `empresa_id`, `page`, `size`, `sort`
-- `GET /api/v1/grupos/kpis` – filtros: `grupo`, `page`, `size`, `sort`
-- `POST /api/v1/empresas`, `PATCH /api/v1/empresas/{id}`
-- `POST /api/v1/licencas`, `PATCH /api/v1/licencas/{id}`
-- `POST /api/v1/taxas`, `PATCH /api/v1/taxas/{id}`
-- `POST /api/v1/processos`, `PATCH /api/v1/processos/{id}`
+Outras variáveis suportadas incluem `CND_DIR_BASE`, `CND_HEADLESS`, `CAPTCHA_MODE` e `API_KEY_2CAPTCHA` para automações Playwright (ver seção específica abaixo). O carregamento do `.env` é feito automaticamente por `python-dotenv` nas migrations, na CLI e em scripts auxiliares.【F:backend/migrations/env.py†L18-L34】【F:backend/etl/cli.py†L16-L19】【F:backend/scripts/dev/mint_jwt.py†L1-L37】
 
-Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations exigem perfil `ADMIN` (ou superior).
-
-### Multi-tenant
-Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
-
-## S3 – API FastAPI (multi-tenant) · Validação
-
-| Endpoint | View utilizada | Filtros suportados | Campos permitidos em `sort` |
-| --- | --- | --- | --- |
-| `GET /api/v1/empresas` | `v_empresas` | `q`, `municipio`, `porte`, `categoria`, `page`, `size` | `empresa`, `cnpj`, `municipio`, `updated_at`, `total_licencas`, `total_taxas`, `processos_ativos` |
-| `GET /api/v1/licencas` | `v_licencas_status` | `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size` | `empresa`, `tipo`, `status`, `validade`, `dias_para_vencer` |
-| `GET /api/v1/taxas` | `v_taxas_status` | `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size` | `empresa`, `tipo`, `status`, `data_envio`, `vencimento_tpi` |
-| `GET /api/v1/processos` | `v_processos_resumo` | `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size` | `empresa`, `tipo`, `situacao`, `status_padrao`, `prazo`, `data_solicitacao` |
-| `GET /api/v1/alertas` | `v_alertas_vencendo_30d` | `tipo_alerta`, `empresa_id`, `page`, `size` | `empresa`, `tipo_alerta`, `validade`, `dias_restantes` |
-| `GET /api/v1/grupos/kpis` | `v_grupos_kpis` | `grupo`, `page`, `size` | `grupo`, `chave`, `valor` |
-
-> Use o prefixo `-` em `sort` para ordenar de forma decrescente (ex.: `sort=-updated_at`). Todos os GETs retornam `{items, total, page, size}`.
-
-### Exemplo de chamada autenticada
+### Criar/atualizar o schema
 
 ```bash
-curl -H "Authorization: Bearer ${JWT_TOKEN}" \
-  "http://localhost:8000/api/v1/empresas?page=1&size=10&sort=-updated_at"
+cd backend
+alembic upgrade head
 ```
 
-### Nota multi-tenant
+As migrations criam o schema operacional, views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) e índices multi-tenant utilizados pelas rotas da API.【F:tests/test_api_v1.py†L33-L119】【F:backend/app/api/v1/endpoints/empresas.py†L1-L84】
 
-Cada requisição autenticada executa `SET app.current_org = :org_id` antes das consultas; as views expostas já respeitam esse contexto e garantem isolamento por organização.
+### Executar a API v1
 
----
+```bash
+cd backend
+uvicorn backend.main:app --reload
+```
 
-## Backend FastAPI
+- Healthcheck: `GET /healthz`.
+- Debug do contexto multi-tenant: `GET /__debug/guc` (retorna o valor atual de `app.current_org`).【F:backend/main.py†L20-L42】
+- Endpoints principais (`/api/v1`): empresas, licenças, taxas, processos, alertas, grupos (KPIs) e materiais de apoio/contatos/modelos.【F:backend/app/api/v1/api.py†L1-L21】【F:backend/app/api/v1/endpoints】
 
-### Responsabilidades principais
+Todos os endpoints autenticados utilizam JWT (`Authorization: Bearer <token>`) e aplicam RBAC com `Role.VIEWER` ou `Role.ADMIN`. A dependência `db_with_org` garante isolamento por organização via `SET app.current_org = :org_id`.【F:backend/app/deps/auth.py†L1-L104】
 
-- Carregar a planilha definida em `EXCEL_PATH` via `ExcelRepo` com bloqueio de arquivo (`portalocker`).
-- Normalizar as estruturas "largas" de licenças e taxas em listas (`Licenca`, `Taxa`).
-- Consolidar processos a partir das tabelas definidas em `config.yaml`.
-- Popular um cache global com empresas, licenças, taxas, processos, contatos e modelos de mensagem.
-- Expor endpoints REST (incluindo certificados, agendamentos, automação de CNDs e CAE).
-- Calcular KPIs agregados para o painel (`/api/kpis`).
-- Servir PDFs de CND gerados em `/cnds/*` via `StaticFiles`.
+### Gerar um JWT de desenvolvimento
 
-### Endpoints relevantes
+```bash
+cd backend
+python scripts/dev/mint_jwt.py --org-id 00000000-0000-0000-0000-000000000001 --sub 1 --role ADMIN
+```
 
-| Método | Caminho                    | Descrição                                                                 |
-| ------ | -------------------------- | ------------------------------------------------------------------------- |
-| GET    | `/`                        | Metadados da API + timestamp da última carga                              |
-| GET    | `/health`                  | Healthcheck simples                                                       |
-| GET    | `/api/empresas`            | Lista empresas com filtros (`query`, `municipio`, `so_alertas`)           |
-| GET    | `/api/empresas/{id}`       | Detalhe da empresa + contagens de licenças/processos/taxas                |
-| GET    | `/api/licencas`            | Licenças normalizadas (`empresa_id` ou `empresa`)                         |
-| GET    | `/api/taxas`               | Situação das taxas por empresa                                            |
-| GET    | `/api/processos`           | Processos agrupados por tipo (`tipo`, `apenas_ativos`)                    |
-| GET    | `/api/uteis`               | Contatos e modelos de mensagem                                            |
-| GET    | `/api/municipios`          | Municípios deduplicados                                                   |
-| GET    | `/api/kpis`                | KPIs globais do painel                                                    |
-| POST   | `/api/refresh`             | Agenda recarga assíncrona do Excel                                        |
-| GET    | `/api/diagnostico`         | Mapas de colunas detectados + avisos                                      |
-| GET    | `/api/certificados`        | Certificados digitais da planilha dedicada                                |
-| GET    | `/api/agendamentos`        | Agenda de emissões                                                        |
-| POST   | `/api/cnds/emitir`         | Emissão automática de CND (múltiplos municípios suportados)               |
-| GET    | `/api/cnds/{cnpj}/list`    | Lista PDFs de CND já emitidos                                             |
-| POST   | `/api/cae/emitir`          | Emissão automática de CAE (Anápolis)                                      |
-
-### Planilhas e `config.yaml`
-
-- `config.yaml` define `sheet_names`, `table_names`, `column_aliases` e enums auxiliares.
-- Ajuste os aliases sempre que um cabeçalho da planilha mudar; o diagnóstico (`/api/diagnostico`) ajuda a validar o mapeamento.
-- A planilha principal deve conter, pelo menos, abas para empresas, licenças, taxas, processos e contatos/modelos.
-
-### Automação de CND/CAE
-
-- **CNDs**: use as rotas em `backend/cnds/municipal`. Variáveis de ambiente úteis:
-  - `CND_DIR_BASE`: diretório onde os PDFs ficam salvos (padrão: `certidoes/`).
-  - `CND_HEADLESS`: controla se o Playwright roda em headless.
-  - `CND_CHROME_PATH`: caminho para um executável Chromium customizado (opcional).
-  - `CAPTCHA_MODE` + `API_KEY_2CAPTCHA`: habilitam resolução automática de captcha.
-- **CAE**: disponível para Anápolis em `/api/cae/emitir` via `backend/caes/cae_worker_anapolis.py`.
-- Execute `python -m playwright install chromium` após instalar as dependências ou sempre que atualizar o Playwright.
+O script exibe o fingerprint do segredo carregado e o token já assinado, pronto para testes manuais ou para o botão **Authorize** do Swagger.【F:backend/scripts/dev/mint_jwt.py†L1-L66】
 
 ---
 
-## Frontend React
+## Backend legado baseado em planilha (`backend/api.py`)
 
-- Construído com **React 18**, **Vite**, **Tailwind** e componentes estilo shadcn/ui (arquivos `.jsx`).
-- O estado global vive no `App.jsx`, que carrega dados via hooks (`fetchJson`) e distribui para as abas.
-- Principais diretórios:
-  - `features/painel`: KPIs, métricas e gráficos (Recharts) com tendência de alertas.
-  - `features/empresas`: filtros rápidos, modo foco e destaques de alertas.
-  - `features/licencas`, `features/taxas`, `features/processos`: listagens com filtros reutilizáveis.
-  - `features/certificados`: leitura da planilha dedicada (certificados e agendamentos).
-  - `features/uteis`: contatos e modelos de mensagem.
-- Configure `VITE_API_URL` para apontar para o backend desejado em produção (ex.: `https://minha.api/econtrole`).
+A versão antiga do backend continua disponível para cenários em que a leitura seja feita diretamente da planilha Excel (sem banco). Ela mantém o cache em memória, as rotas `/api/*`, `/api/cnds`, `/api/cae`, `/api/certificados` e o serviço estático `/cnds` para PDFs.
 
-### Desenvolvimento
+Variáveis mínimas no `.env` (além das utilizadas pela API v1):
 
-- Hot reload automático do Vite (`npm run dev`).
-- O proxy configurado em `vite.config.js` permite rodar backend e frontend localmente sem ajustes adicionais.
-- Use o ToastProvider (`providers/ToastProvider.jsx`) para notificações consistentes.
+```ini
+EXCEL_PATH=../data/operacional.xlsm
+API_HOST=0.0.0.0
+API_PORT=8000
+LOG_LEVEL=INFO
+CND_DIR_BASE=certidoes
+CND_HEADLESS=true
+CAPTCHA_MODE=manual
+API_KEY_2CAPTCHA=
+```
+
+Execute com:
+
+```bash
+cd backend
+uvicorn backend.api:app --reload --host $API_HOST --port $API_PORT
+```
+
+O módulo usa `ExcelRepo` para mapear abas/tabelas conforme `config.yaml`, expõe diagnósticos (`/api/diagnostico`), agenda recargas (`/api/refresh`) e integra as automações Playwright herdadas.【F:backend/api.py†L1-L120】【F:backend/repo_excel.py†L1-L160】 O arquivo `backend/services/data_certificados.py` lê a planilha dedicada de certificados/agendamentos; ajuste a constante `PLANILHA_CERT_PATH` ao seu ambiente.【F:backend/services/data_certificados.py†L1-L60】
 
 ---
 
-## Dicas de manutenção
+## ETL (Excel → Postgres)
 
-- Utilize `/api/refresh` para recarregar o cache após atualizar a planilha.
-- O endpoint `/api/diagnostico` ajuda a detectar colunas renomeadas ou ausentes.
-- Monitorar `backend/logs` (stdout) com `LOG_LEVEL=DEBUG` facilita depuração de automações Playwright.
-- Os PDFs gerados ficam em `CND_DIR_BASE` e são servidos diretamente pelo backend (`/cnds/arquivo.pdf`).
+A CLI em `backend/etl/cli.py` implementa o fluxo Extract/Transform/Load usado nas fases S2/S3.
+
+```bash
+# Ajuda
+python -m etl
+
+# Diagnóstico do arquivo x contrato
+python -m etl debug-source caminho/planilha.xlsm
+
+# Importação idempotente
+python -m etl import caminho/planilha.xlsm --dry-run   # simulação
+python -m etl import caminho/planilha.xlsm --apply     # grava no banco
+```
+
+- O contrato (`backend/etl/contracts.py`) mapeia `sheet_names`, `table_names` e aliases com base no `config.yaml`.
+- `extract_xlsm.py` lê abas/ListObjects respeitando o mapeamento; `transform_normalize.py` padroniza cabeçalhos, datas, CNPJ e enums; `load_upsert.py` grava em staging com `run_id`/`row_hash` e aplica UPSERT idempotente usando SQLAlchemy core.【F:backend/etl/cli.py†L1-L120】
+- As mesmas variáveis de ambiente da API (`DATABASE_URL`, `CONFIG_PATH`) são usadas durante a execução (carregadas via `python-dotenv`).【F:backend/etl/cli.py†L16-L72】
+
+Testes direcionados ao ETL estão em `tests/test_etl_basic.py` e cobrem duplicidade, enums inválidos, datas inválidas e updates parciais.
+
+---
+
+## Automação de CND/CAE (Playwright)
+
+Os módulos em `backend/cnds/` e `backend/caes/` utilizam Playwright Chromium para emitir CNDs municipais e CAE de Anápolis.
+
+Configurações úteis no `.env`:
+
+```ini
+CND_DIR_BASE=certidoes
+CND_HEADLESS=true               # defina false para depurar
+CND_CHROME_PATH=                # opcional: caminho para executável Chromium customizado
+CAPTCHA_MODE=manual             # ou image_2captcha
+API_KEY_2CAPTCHA=               # obrigatório se usar 2Captcha
+```
+
+Após instalar as dependências Python, execute `python -m playwright install chromium`. Os PDFs gerados ficam em `CND_DIR_BASE` e são servidos pela API legada em `/cnds/<arquivo>.pdf`. As rotas disponíveis estão em `backend/cnds/municipal/routes.py` e `backend/caes/routes.py`.
+
+---
+
+## Frontend (React + Vite)
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+- O servidor de desenvolvimento sobe em `http://localhost:5173` e proxia `/api` para `http://localhost:8000` durante o desenvolvimento.
+- Defina `VITE_API_URL` em `frontend/.env.local` se precisar apontar para outro backend em produção/homologação.
+- A estrutura de componentes está organizada por feature (`src/features/*`), com provedores em `src/providers/` e utilitários em `src/lib/`.
+
+Dependências principais: React 18, Vite 5, Tailwind 3, Radix UI (shadcn), lucide-react e Recharts.【F:frontend/package.json†L1-L33】
+
+---
+
+## Testes automatizados
+
+A suíte de testes utiliza Pytest:
+
+```bash
+pytest
+```
+
+- `tests/test_api_v1.py` valida autenticação, paginação e filtros da API multi-tenant usando sessões fake in-memory.
+- `tests/test_auth_smoke.py` cobre parsing de JWT e hierarquia de roles.
+- `tests/test_etl_basic.py` garante a idempotência do ETL.
+- `tests/test_smoke.py` mantém verificações básicas da API legada.
+
+---
+
+## Dados e configuração
+
+- Atualize `backend/config.yaml` sempre que as planilhas mudarem de layout (novos cabeçalhos, tabelas ou enums). As rotas `/api/diagnostico` (legado) e `python -m etl debug-source` ajudam a validar o mapeamento.【F:backend/config.yaml†L1-L160】
+- Ajuste `PLANILHA_CERT_PATH` em `backend/services/data_certificados.py` para apontar para a planilha real de certificados/agendamentos.【F:backend/services/data_certificados.py†L1-L60】
+- Os arquivos Excel permanecem fora do repositório; use `data/` apenas localmente.
 
 ---
 
 ## Licença
 
 Projeto interno. Consulte o time responsável antes de distribuir.
-
-## S3 – API FastAPI (multi-tenant)
-
-### Execução local
-```bash
-cd backend
-uvicorn main:app --reload
-```
-
-### Variáveis de ambiente (.env)
-```ini
-DATABASE_URL=postgresql+psycopg2://postgres:***@localhost:5432/econtrole
-JWT_SECRET=troque-por-um-segredo
-JWT_ALG=HS256
-CORS_ORIGINS=["http://localhost:5173","http://localhost:3000"]
-```
-
-### Token JWT de exemplo
-```json
-{"sub":1,"org_id":"00000000-0000-0000-0000-000000000001","email":"admin@ex.com","role":"ADMIN"}
-```
-
-### Endpoints disponíveis
-- `GET /api/v1/empresas` – filtros: `q`, `municipio`, `porte`, `categoria`, `page`, `size`, `sort`
-- `GET /api/v1/licencas` – filtros: `empresa_id`, `tipo`, `status`, `municipio`, `vencer_em_dias`, `page`, `size`, `sort`
-- `GET /api/v1/taxas` – filtros: `empresa_id`, `tipo`, `status`, `esta_pago`, `page`, `size`, `sort`
-- `GET /api/v1/processos` – filtros: `empresa_id`, `tipo`, `situacao`, `status_padrao`, `page`, `size`, `sort`
-- `GET /api/v1/alertas` – filtros: `tipo_alerta`, `empresa_id`, `page`, `size`, `sort`
-- `GET /api/v1/grupos/kpis` – filtros: `grupo`, `page`, `size`, `sort`
-- `POST /api/v1/empresas`, `PATCH /api/v1/empresas/{id}`
-- `POST /api/v1/licencas`, `PATCH /api/v1/licencas/{id}`
-- `POST /api/v1/taxas`, `PATCH /api/v1/taxas/{id}`
-- `POST /api/v1/processos`, `PATCH /api/v1/processos/{id}`
-
-Todas as respostas paginadas retornam `{items, total, page, size}`. Mutations exigem perfil `ADMIN` (ou superior).
-
-### Multi-tenant
-Cada requisição autenticada injeta `SET app.current_org = :org_id` antes das consultas. As views (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`) já filtram os registros usando o `org_id` vigente.
-
-## S3 – Validação Final
-
-| Item | Veredito | Observações |
-| --- | --- | --- |
-| 1) Views-only nos GETs | ✅ | Todas as rotas usam as views `v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d` e `v_grupos_kpis`. |
-| 2) Multi-tenant por request | ✅ | A dependência `db_with_org` executa `SET app.current_org = :org` antes das consultas e é usada em todas as rotas autenticadas. |
-| 3) RBAC | ✅ | `require_role(Role.VIEWER)` protege os GETs e `require_role(Role.ADMIN)` protege as mutations. |
-| 4) Ordenação segura | ✅ | Cada endpoint possui whitelist de campos e rejeita colunas desconhecidas com HTTP 400. |
-| 5) Índices por org | ✅ | Migração `20251106_02_s3_perf_indexes.py` garante índices compostos para empresas, licenças, taxas e processos. |
-| 6) /grupos/kpis (shape) | ✅ | Resposta normalizada para `{grupo, chave, valor_nome, valor}` preservando `org_id` das linhas. |
-
-### Exemplos de chamadas
-```bash
-# Listar empresas ordenando por atualização
-curl -H "Authorization: Bearer ${JWT_TOKEN}" \
-  "http://localhost:8000/api/v1/empresas?page=1&size=10&sort=-updated_at"
-
-# KPIs agrupados
-curl -H "Authorization: Bearer ${JWT_TOKEN}" \
-  "http://localhost:8000/api/v1/grupos/kpis?page=1&size=20"
-```
-
-### Testes de validação
-```bash
-cd backend
-pytest
-```
