@@ -32,12 +32,12 @@ function useAppData() {
       try {
         const [empresasResp, kpisResp, alertasResp, reqResp, contatosResp, modelosResp] =
           await Promise.all([
-            listarEmpresas({ size: 200 }),
-            listarGruposKPIs({ size: 200 }),
-            listarAlertas({ size: 200 }),
-            listarRequerimentos({ size: 200 }),
-            listarContatos({ size: 200 }),
-            listarModelos({ size: 200 }),
+            listarEmpresas(),
+            listarGruposKPIs(),
+            listarAlertas(),
+            listarRequerimentos(),
+            listarContatos(),
+            listarModelos(),
           ]);
 
         if (!active) return;
