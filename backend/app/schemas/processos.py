@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -11,7 +12,7 @@ from app.schemas.common import PaginatedResponse
 class ProcessoView(BaseModel):
     processo_id: int = Field(..., description="Identificador do processo")
     empresa_id: int
-    org_id: str
+    org_id: UUID
     empresa: str
     cnpj: str
     tipo: str

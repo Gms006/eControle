@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 from enum import Enum
-from typing import Callable
+from typing import Callable, Generator
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, Security
@@ -41,7 +41,12 @@ def get_current_user(creds: HTTPAuthorizationCredentials = Security(bearer)) -> 
 
     token = creds.credentials
     try:
-        payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_alg])
+        payload = jwt.decode(
+            token,
+            settings.jwt_secret.encode("utf-8"),
+            algorithms=[settings.jwt_alg],
+            options={"verify_sub": False},  # Ignora a validação de tipo do 'sub'
+        )
     except JWTError as exc:
         logger.warning(
             "Falha ao decodificar JWT: %s | alg=%s secret_fp=%s",
@@ -91,10 +96,28 @@ def require_role(min_role: Role) -> Callable[[User], User]:
 def db_with_org(
     db: Session = Depends(get_db),
     user: User = Depends(require_role(Role.VIEWER)),
-) -> Session:
+) -> Generator[Session, None, None]:
     try:
-        db.execute(text("SET LOCAL app.current_org = :org_id"), {"org_id": str(user.org_id)})
+        # Use set_config() para permitir parâmetros sem erro de sintaxe
+        # is_local = false  -> vale na sessão inteira (sem depender de transação)
+        db.execute(
+            text("SELECT set_config('app.current_org', :org_id, false)"),
+            {"org_id": str(user.org_id)},
+        )
     except Exception as exc:  # noqa: BLE001
-        logger.error("Falha ao definir app.current_org: org_id=%s", user.org_id)
+        logger.warning(
+            "Falha ao definir app.current_org: org_id=%s err=%s",
+            user.org_id,
+            exc,
+        )
         raise HTTPException(status_code=500, detail="Contexto de organização indisponível") from exc
-    return db
+
+    try:
+        yield db
+    finally:
+        try:
+            # Limpa o GUC no fim da request
+            db.execute(text("RESET app.current_org"))
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("RESET app.current_org falhou (safe to ignore): %s", exc)
+        db.close()

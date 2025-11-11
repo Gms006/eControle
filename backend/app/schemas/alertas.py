@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import date
-from typing import Optional
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
 
@@ -9,15 +9,15 @@ from app.schemas.common import PaginatedResponse
 
 
 class AlertaView(BaseModel):
-    alerta_id: int
+    alerta_id: str
+    org_id: UUID
     empresa_id: int
-    org_id: str
     empresa: str
     cnpj: str
     tipo_alerta: str
     descricao: str
-    validade: Optional[date] = None
-    dias_restantes: Optional[int] = None
+    validade: date | None = None
+    dias_restantes: int | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

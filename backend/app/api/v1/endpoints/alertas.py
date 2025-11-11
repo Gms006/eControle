@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import Dict
 
+import hashlib
+
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -49,4 +51,15 @@ def listar_alertas(
     base_query = f"SELECT * FROM v_alertas_vencendo_30d{where_clause}"
     sort_column, direction = resolve_sort(sort, ALLOWED_SORTS, "dias_restantes")
     data = paginate_query(db, base_query, params, sort_column, direction, page, size)
+
+    items = []
+    for row in data["items"]:
+        key = (
+            f"{row.get('org_id')}|{row.get('empresa_id')}|{row.get('tipo_alerta')}|"
+            f"{row.get('validade')}|{row.get('descricao')}"
+        )
+        alerta_id = hashlib.sha256(key.encode("utf-8")).hexdigest()
+        items.append({**row, "alerta_id": alerta_id})
+    data["items"] = items
+
     return AlertaListResponse(**data)
