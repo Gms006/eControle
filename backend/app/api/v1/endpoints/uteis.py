@@ -61,7 +61,6 @@ def listar_uteis(
                 whatsapp,
                 email,
                 categoria::text AS categoria,
-                obs,
                 created_at,
                 updated_at
             FROM v_contatos_uteis
