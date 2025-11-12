@@ -120,6 +120,11 @@ const request = async (path, { method = "GET", params, headers, body } = {}) => 
       if (!init.headers.has("Content-Type")) {
         init.headers.set("Content-Type", "application/json");
       }
+      searchParams.set(key, value);
+    });
+    const queryString = searchParams.toString();
+    if (queryString) {
+      url.search = queryString;
     }
   }
 
