@@ -22,7 +22,9 @@ import {
   TAB_SHORTCUTS,
   TAXA_TYPE_KEYS,
 } from "@/lib/constants";
-import { fetchJson } from "@/lib/api";
+import { listarEmpresas } from "@/services/empresas";
+import { listarGruposKPIs } from "@/services/kpis";
+import { listarContatos, listarModelos } from "@/services/uteis";
 import { isAlertStatus, isProcessStatusInactive } from "@/lib/status";
 import {
   buildCertificadoIndex,
@@ -198,65 +200,86 @@ function AppContent() {
 
   useEffect(() => {
     let mounted = true;
-    setLoading(true);
-    Promise.all([
-      fetchJson("/empresas"),
-      fetchJson("/licencas"),
-      fetchJson("/taxas"),
-      fetchJson("/processos"),
-      fetchJson("/certificados"),
-      fetchJson("/agendamentos"),
-      fetchJson("/kpis"),
-      fetchJson("/municipios"),
-      fetchJson("/uteis"),
-    ])
-      .then(([emp, lic, tax, proc, certs, agds, kpi, mun, uteis]) => {
-        if (!mounted) return;
-        const empresasNormalizadas = Array.isArray(emp)
-          ? emp.map((item) => enhanceEmpresa(item))
+    const load = async () => {
+      setLoading(true);
+      const results = await Promise.allSettled([
+        listarEmpresas({ size: 100 }),
+        listarGruposKPIs(),
+        listarContatos(),
+        listarModelos(),
+      ]);
+
+      if (!mounted) {
+        return;
+      }
+
+      const [empresasResult, kpisResult, contatosResult, modelosResult] = results;
+
+      const empresasPayload = empresasResult?.status === "fulfilled" ? empresasResult.value : [];
+      const empresasLista = Array.isArray(empresasPayload?.items)
+        ? empresasPayload.items
+        : Array.isArray(empresasPayload)
+          ? empresasPayload
           : [];
-        const licencasNormalizadas = Array.isArray(lic)
-          ? lic.map((item) => normalizeEmpresaRelacionada(item))
-          : [];
-        const taxasNormalizadas = Array.isArray(tax)
-          ? tax.map((item) => normalizeEmpresaRelacionada(item))
-          : [];
-        const processosComEmpresa = Array.isArray(proc)
-          ? proc.map((item) => normalizeEmpresaRelacionada(item))
-          : [];
-        setEmpresas(empresasNormalizadas);
-        setLicencas(licencasNormalizadas);
-        setTaxas(taxasNormalizadas);
-        setProcessos(processosComEmpresa);
-        setCertificados(Array.isArray(certs) ? certs : []);
-        setAgendamentos(Array.isArray(agds) ? agds : []);
-        setKpis(kpi);
-        setMunicipios(Array.isArray(mun) ? mun : []);
-        setContatos(Array.isArray(uteis?.contatos) ? uteis.contatos : []);
-        setModelos(Array.isArray(uteis?.modelos) ? uteis.modelos : []);
-        setLoading(false);
-      })
-      .catch((error) => {
-        console.error("Erro ao carregar dados:", error);
-        if (mounted) {
-          setEmpresas([]);
-          setLicencas([]);
-          setTaxas([]);
-          setProcessos([]);
-          setCertificados([]);
-          setAgendamentos([]);
-          setKpis({});
-          setMunicipios([]);
-          setContatos([]);
-          setModelos([]);
-          setLoading(false);
-          enqueueToast("Não foi possível carregar os dados.");
+      const empresasNormalizadas = empresasLista.map((item) => enhanceEmpresa(item));
+
+      const municipioMap = new Map();
+      empresasNormalizadas.forEach((empresa) => {
+        const original = normalizeText(empresa?.municipio || "").trim();
+        if (!original || original === MUNICIPIO_ALL) {
+          return;
         }
+        const normalizedKey = normalizeTextLower(original).trim();
+        if (!normalizedKey || municipioMap.has(normalizedKey)) {
+          return;
+        }
+        municipioMap.set(normalizedKey, original);
       });
+      const municipiosExtraidos = Array.from(municipioMap.values());
+
+      const kpisPayload = kpisResult?.status === "fulfilled" ? kpisResult.value : {};
+      const contatosPayload = contatosResult?.status === "fulfilled" ? contatosResult.value : [];
+      const modelosPayload = modelosResult?.status === "fulfilled" ? modelosResult.value : [];
+
+      setEmpresas(empresasNormalizadas);
+      setLicencas([]);
+      setTaxas([]);
+      setProcessos([]);
+      setCertificados([]);
+      setAgendamentos([]);
+      setKpis(kpisPayload || {});
+      setMunicipios([MUNICIPIO_ALL, ...municipiosExtraidos]);
+      setContatos(Array.isArray(contatosPayload?.items) ? contatosPayload.items : contatosPayload || []);
+      setModelos(Array.isArray(modelosPayload?.items) ? modelosPayload.items : modelosPayload || []);
+      setLoading(false);
+
+      if (results.some((result) => result.status === "rejected")) {
+        enqueueToast("Alguns dados não puderam ser carregados.");
+      }
+    };
+
+    load().catch((error) => {
+      console.error("Erro ao carregar dados:", error);
+      if (mounted) {
+        setEmpresas([]);
+        setLicencas([]);
+        setTaxas([]);
+        setProcessos([]);
+        setCertificados([]);
+        setAgendamentos([]);
+        setKpis({});
+        setMunicipios([MUNICIPIO_ALL]);
+        setContatos([]);
+        setModelos([]);
+        setLoading(false);
+        enqueueToast("Não foi possível carregar os dados.");
+      }
+    });
+
     return () => {
       mounted = false;
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [enqueueToast]);
 
   const empresasById = useMemo(() => {
     const map = new Map();
