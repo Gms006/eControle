@@ -105,12 +105,18 @@ def db_with_org(
             {"org_id": str(user.org_id)},
         )
     except Exception as exc:  # noqa: BLE001
-        logger.warning(
-            "Falha ao definir app.current_org: org_id=%s err=%s",
-            user.org_id,
-            exc,
-        )
-        raise HTTPException(status_code=500, detail="Contexto de organização indisponível") from exc
+        try:
+            db.execute(
+                text("SET LOCAL app.current_org = :org_id"),
+                {"org_id": str(user.org_id)},
+            )
+        except Exception as fallback_exc:  # noqa: BLE001
+            logger.warning(
+                "Falha ao definir app.current_org: org_id=%s err=%s",
+                user.org_id,
+                fallback_exc,
+            )
+            raise HTTPException(status_code=500, detail="Contexto de organização indisponível") from exc
 
     try:
         yield db
