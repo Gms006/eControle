@@ -5,33 +5,11 @@ import PainelScreen from "@/features/painel/PainelScreen";
 import EmpresasScreen from "@/features/empresas/EmpresasScreen";
 import AlertasScreen from "@/features/alertas/AlertasScreen";
 import UteisScreen from "@/features/uteis/UteisScreen";
-import PainelScreen from "@/features/painel/PainelScreen";
-import CertificadosScreen from "@/features/certificados/CertificadosScreen";
-import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
-import { Sparkles, X } from "lucide-react";
-import { normalizeIdentifier, normalizeText, normalizeTextLower } from "@/lib/text";
-import {
-  PROCESS_DIVERSOS_LABEL,
-  buildDiversosOperacaoKey,
-  getProcessBaseType,
-  normalizeProcessType,
-} from "@/lib/process";
-import {
-  MUNICIPIO_ALL,
-  TAB_BACKGROUNDS,
-  TAB_SHORTCUTS,
-  TAXA_TYPE_KEYS,
-} from "@/lib/constants";
 import { listarEmpresas } from "@/services/empresas";
 import { listarGruposKPIs } from "@/services/kpis";
-import { listarContatos, listarModelos } from "@/services/uteis";
-import { isAlertStatus, isProcessStatusInactive } from "@/lib/status";
-import {
-  buildCertificadoIndex,
-  isCertificadoSituacaoAlert,
-  resolveEmpresaCertificadoSituacao,
-} from "@/lib/certificados";
-import HeaderMenuPro from "@/components/HeaderMenuPro";
+import { listarAlertas } from "@/services/alertas";
+import { listarContatos, listarModelos, listarRequerimentos } from "@/services/uteis";
+import { TAB_BACKGROUNDS } from "@/lib/constants";
 
 const NORMALIZE = (value) => (value || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
 
@@ -48,87 +26,51 @@ function useAppData() {
   const [modelos, setModelos] = useState([]);
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
     const load = async () => {
       setLoading(true);
-      const results = await Promise.allSettled([
-        listarEmpresas({ size: 100 }),
-        listarGruposKPIs(),
-        listarContatos(),
-        listarModelos(),
-      ]);
+      try {
+        const [empresasResp, kpisResp, alertasResp, reqResp, contatosResp, modelosResp] =
+          await Promise.all([
+            listarEmpresas(),
+            listarGruposKPIs(),
+            listarAlertas(),
+            listarRequerimentos(),
+            listarContatos(),
+            listarModelos(),
+          ]);
 
-      if (!mounted) {
-        return;
-      }
-
-      const [empresasResult, kpisResult, contatosResult, modelosResult] = results;
-
-      const empresasPayload = empresasResult?.status === "fulfilled" ? empresasResult.value : [];
-      const empresasLista = Array.isArray(empresasPayload?.items)
-        ? empresasPayload.items
-        : Array.isArray(empresasPayload)
-          ? empresasPayload
-          : [];
-      const empresasNormalizadas = empresasLista.map((item) => enhanceEmpresa(item));
-
-      const municipioMap = new Map();
-      empresasNormalizadas.forEach((empresa) => {
-        const original = normalizeText(empresa?.municipio || "").trim();
-        if (!original || original === MUNICIPIO_ALL) {
-          return;
+        if (!active) return;
+        setEmpresas(empresasResp?.items ?? []);
+        setKpiItems(kpisResp?.items ?? []);
+        setAlertas(alertasResp?.items ?? []);
+        setRequerimentos(reqResp?.items ?? []);
+        setContatos(contatosResp?.items ?? []);
+        setModelos(modelosResp?.items ?? []);
+        setError(null);
+      } catch (err) {
+        console.error("[App] Falha ao carregar dados", err);
+        if (active) {
+          setError(err);
+          setEmpresas([]);
+          setKpiItems([]);
+          setAlertas([]);
+          setRequerimentos([]);
+          setContatos([]);
+          setModelos([]);
         }
-        const normalizedKey = normalizeTextLower(original).trim();
-        if (!normalizedKey || municipioMap.has(normalizedKey)) {
-          return;
+      } finally {
+        if (active) {
+          setLoading(false);
         }
-        municipioMap.set(normalizedKey, original);
-      });
-      const municipiosExtraidos = Array.from(municipioMap.values());
-
-      const kpisPayload = kpisResult?.status === "fulfilled" ? kpisResult.value : {};
-      const contatosPayload = contatosResult?.status === "fulfilled" ? contatosResult.value : [];
-      const modelosPayload = modelosResult?.status === "fulfilled" ? modelosResult.value : [];
-
-      setEmpresas(empresasNormalizadas);
-      setLicencas([]);
-      setTaxas([]);
-      setProcessos([]);
-      setCertificados([]);
-      setAgendamentos([]);
-      setKpis(kpisPayload || {});
-      setMunicipios([MUNICIPIO_ALL, ...municipiosExtraidos]);
-      setContatos(Array.isArray(contatosPayload?.items) ? contatosPayload.items : contatosPayload || []);
-      setModelos(Array.isArray(modelosPayload?.items) ? modelosPayload.items : modelosPayload || []);
-      setLoading(false);
-
-      if (results.some((result) => result.status === "rejected")) {
-        enqueueToast("Alguns dados não puderam ser carregados.");
       }
     };
 
-    load().catch((error) => {
-      console.error("Erro ao carregar dados:", error);
-      if (mounted) {
-        setEmpresas([]);
-        setLicencas([]);
-        setTaxas([]);
-        setProcessos([]);
-        setCertificados([]);
-        setAgendamentos([]);
-        setKpis({});
-        setMunicipios([MUNICIPIO_ALL]);
-        setContatos([]);
-        setModelos([]);
-        setLoading(false);
-        enqueueToast("Não foi possível carregar os dados.");
-      }
-    });
-
+    load();
     return () => {
       active = false;
     };
-  }, [enqueueToast]);
+  }, []);
 
   return { loading, error, empresas, kpiItems, alertas, requerimentos, contatos, modelos };
 }
