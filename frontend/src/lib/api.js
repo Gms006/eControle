@@ -339,6 +339,9 @@ export const fetchJson = async (path, options = {}) => {
   const { transform, ...rest } = options || {};
   const response = await request(path, rest);
   if (!response.ok) {
+    if (response.status === 404) {
+      return { items: [], total: 0, page: 1, size: 0 };
+    }
     const message = await buildErrorMessage(response);
     throw new Error(message);
   }
