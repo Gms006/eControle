@@ -1,214 +1,239 @@
-import React, { useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Clipboard, ExternalLink, FileDown, Search } from "lucide-react";
-import { urlArquivoRequerimento, urlFoxit } from "@/services/uteis";
+import InlineBadge from "@/components/InlineBadge";
+import { Clipboard, Mail, MessageSquare, Phone, Search, Users } from "lucide-react";
+import { normalizeText, normalizeTextLower } from "@/lib/text";
 
-const formatDateTime = (value) => {
-  if (!value && value !== 0) return "";
-  const date = new Date(value * 1000);
-  if (Number.isNaN(date.getTime())) return "";
-  return date.toLocaleString("pt-BR");
-};
+export default function UteisScreen(props) {
+  const { contatos, modelos, matchesMunicipioFilter, handleCopy } = props;
 
-const normalize = (value) => (value || "").normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+  const [contatosQuery, setContatosQuery] = useState("");
+  const [modelosQuery, setModelosQuery] = useState("");
 
-export default function UteisScreen({ loading, requerimentos, contatos, modelos }) {
-  const [buscaRequerimentos, setBuscaRequerimentos] = useState("");
-  const [buscaContatos, setBuscaContatos] = useState("");
-  const [buscaModelos, setBuscaModelos] = useState("");
+  const normalizedContatosQuery = useMemo(
+    () => normalizeTextLower(contatosQuery).trim(),
+    [contatosQuery],
+  );
+  const normalizedModelosQuery = useMemo(
+    () => normalizeTextLower(modelosQuery).trim(),
+    [modelosQuery],
+  );
 
-  const requerimentosFiltrados = useMemo(() => {
-    const lista = Array.isArray(requerimentos) ? requerimentos : [];
-    const termo = normalize(buscaRequerimentos);
-    if (!termo) return lista;
-    return lista.filter((item) =>
-      [item.nome, item.municipio, item.tipo, item.relpath]
-        .filter(Boolean)
-        .some((campo) => normalize(campo).includes(termo)),
-    );
-  }, [buscaRequerimentos, requerimentos]);
+  const matchesContatosQuery = useCallback(
+    (fields) => {
+      if (normalizedContatosQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedContatosQuery));
+    },
+    [normalizedContatosQuery],
+  );
 
-  const contatosFiltrados = useMemo(() => {
+  const matchesModelosQuery = useCallback(
+    (fields) => {
+      if (normalizedModelosQuery === "") {
+        return true;
+      }
+      return fields
+        .filter((field) => field !== null && field !== undefined)
+        .some((field) => normalizeTextLower(field).includes(normalizedModelosQuery));
+    },
+    [normalizedModelosQuery],
+  );
+
+  const filteredContatos = useMemo(() => {
     const lista = Array.isArray(contatos) ? contatos : [];
-    const termo = normalize(buscaContatos);
-    if (!termo) return lista;
-    return lista.filter((contato) =>
-      [contato.contato, contato.email, contato.telefone, contato.municipio, contato.categoria]
-        .filter(Boolean)
-        .some((campo) => normalize(campo).includes(termo)),
+    return lista.filter(
+      (contato) =>
+        matchesMunicipioFilter(contato) &&
+        matchesContatosQuery([
+          contato?.contato,
+          contato?.categoria,
+          contato?.municipio,
+          contato?.email,
+          contato?.telefone,
+          contato?.whatsapp,
+        ]),
     );
-  }, [buscaContatos, contatos]);
+  }, [contatos, matchesMunicipioFilter, matchesContatosQuery]);
 
-  const modelosFiltrados = useMemo(() => {
+  const filteredModelos = useMemo(() => {
     const lista = Array.isArray(modelos) ? modelos : [];
-    const termo = normalize(buscaModelos);
-    if (!termo) return lista;
     return lista.filter((modelo) =>
-      [modelo.modelo, modelo.descricao, modelo.utilizacao].filter(Boolean).some((campo) => normalize(campo).includes(termo)),
+      matchesMunicipioFilter(modelo) &&
+      matchesModelosQuery([modelo?.descricao, modelo?.utilizacao]),
     );
-  }, [buscaModelos, modelos]);
+  }, [matchesMunicipioFilter, matchesModelosQuery, modelos]);
+
+  const contatosOrdenadosLista = useMemo(() => {
+    const lista = Array.isArray(filteredContatos) ? filteredContatos : [];
+    return [...lista]
+      .filter((item) => item && (item.contato || item.email || item.telefone))
+      .sort((a, b) => {
+        const catA = normalizeText(a?.categoria || "");
+        const catB = normalizeText(b?.categoria || "");
+        if (catA !== catB) {
+          return catA.localeCompare(catB, "pt-BR");
+        }
+        const nomeA = normalizeText(a?.contato || "");
+        const nomeB = normalizeText(b?.contato || "");
+        return nomeA.localeCompare(nomeB, "pt-BR");
+      });
+  }, [filteredContatos]);
+
+  const modelosOrdenadosLista = useMemo(() => {
+    const lista = Array.isArray(filteredModelos) ? filteredModelos : [];
+    return [...lista]
+      .filter((item) => item && (item.modelo || item.descricao))
+      .sort((a, b) => {
+        const usoA = normalizeText(a?.utilizacao || "");
+        const usoB = normalizeText(b?.utilizacao || "");
+        if (usoA !== usoB) {
+          return usoA.localeCompare(usoB, "pt-BR");
+        }
+        const descA = normalizeText(a?.descricao || "");
+        const descB = normalizeText(b?.descricao || "");
+        return descA.localeCompare(descB, "pt-BR");
+      });
+  }, [filteredModelos]);
 
   return (
-    <div className="space-y-6">
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold">Requerimentos disponíveis</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="max-w-md">
-            <Label className="text-xs uppercase text-slate-500">Buscar requerimento</Label>
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-8"
-                placeholder="Nome, tipo ou município"
-                value={buscaRequerimentos}
-                onChange={(event) => setBuscaRequerimentos(event.target.value)}
-              />
-            </div>
-          </div>
-
-          {loading ? (
-            <div className="py-6 text-center text-sm text-slate-500">Carregando requerimentos…</div>
-          ) : requerimentosFiltrados.length === 0 ? (
-            <div className="py-6 text-center text-sm text-slate-500">Nenhum arquivo encontrado.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nome</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Município</TableHead>
-                    <TableHead>Atualizado em</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {requerimentosFiltrados.map((item) => {
-                    const verUrl = urlArquivoRequerimento(item.id, true);
-                    const baixarUrl = urlArquivoRequerimento(item.id, false);
-                    const foxitUrl = urlFoxit(item.id);
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="font-medium text-slate-800">{item.nome}</TableCell>
-                        <TableCell className="text-sm text-slate-600">{item.tipo ?? "-"}</TableCell>
-                        <TableCell className="text-sm text-slate-600">{item.municipio ?? "-"}</TableCell>
-                        <TableCell className="text-sm text-slate-600">{formatDateTime(item.mtime)}</TableCell>
-                        <TableCell className="text-right space-x-2">
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={verUrl} target="_blank" rel="noreferrer">
-                              <ExternalLink className="mr-1 h-4 w-4" /> Ver
-                            </a>
-                          </Button>
-                          <Button size="sm" variant="outline" asChild>
-                            <a href={baixarUrl} target="_blank" rel="noreferrer">
-                              <FileDown className="mr-1 h-4 w-4" /> Baixar
-                            </a>
-                          </Button>
-                          {foxitUrl && (
-                            <Button size="sm" variant="ghost" asChild>
-                              <a href={foxitUrl}>
-                                <ExternalLink className="mr-1 h-4 w-4" /> Foxit
-                              </a>
-                            </Button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
+    <div className="mt-4 space-y-4">
+      <div className="max-w-xl">
+        <Label className="text-xs uppercase">Pesquisar contatos úteis</Label>
+        <div className="relative">
+          <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+          <Input
+            placeholder="Buscar contato, categoria ou município…"
+            className="pl-8"
+            value={contatosQuery}
+            onChange={(event) => setContatosQuery(event.target.value)}
+          />
+        </div>
+      </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Contatos úteis</CardTitle>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <Users className="h-4 w-4" /> Contatos úteis
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-8"
-                placeholder="Buscar por nome, e-mail ou categoria"
-                value={buscaContatos}
-                onChange={(event) => setBuscaContatos(event.target.value)}
-              />
-            </div>
-            {loading ? (
-              <div className="py-6 text-center text-sm text-slate-500">Carregando contatos…</div>
-            ) : contatosFiltrados.length === 0 ? (
-              <div className="py-6 text-center text-sm text-slate-500">Nenhum contato encontrado.</div>
-            ) : (
-              <ul className="space-y-3 text-sm">
-                {contatosFiltrados.map((contato) => {
-                  const info = [contato.email, contato.telefone, contato.whatsapp]
-                    .filter(Boolean)
-                    .join(" • ");
-                  return (
-                    <li key={`${contato.id}-${contato.contato}`} className="rounded-lg border border-slate-200 bg-white p-3">
-                      <div className="font-medium text-slate-800">{contato.contato}</div>
-                      <div className="text-xs text-slate-500">
-                        {[contato.categoria, contato.municipio].filter(Boolean).join(" • ")}
-                      </div>
-                      {info && (
-                        <div className="mt-2 flex items-center justify-between text-xs text-slate-600">
-                          <span>{info}</span>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => navigator.clipboard?.writeText(info)}
-                            title="Copiar contato"
-                          >
-                            <Clipboard className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      )}
-                    </li>
-                  );
-                })}
-              </ul>
+          <CardContent className="space-y-3 text-sm">
+            {contatosOrdenadosLista.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                Nenhum contato cadastrado no Excel.
+              </div>
             )}
+            {contatosOrdenadosLista.map((contato) => {
+              const whatsappTexto = normalizeTextLower(contato.whatsapp || "");
+              const temWhatsapp =
+                whatsappTexto !== "" &&
+                !["nao", "não", "nao possui", "não possui"].some((neg) => whatsappTexto.includes(neg));
+              const info = [contato.email, contato.telefone, temWhatsapp ? contato.whatsapp : null]
+                .filter((value) => value && value.toString().trim() !== "")
+                .join(" • ");
+              const municipioInfo = [contato.categoria, contato.municipio]
+                .filter((value) => value && value.toString().trim() !== "")
+                .join(" • ");
+              return (
+                <div
+                  key={`${contato.contato}-${contato.email}-${contato.telefone}`}
+                  className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium text-slate-800">{contato.contato}</p>
+                      {municipioInfo && <p className="text-xs text-slate-500">{municipioInfo}</p>}
+                    </div>
+                    {info && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        onClick={() => handleCopy(info, `Contato copiado de ${contato.contato}`)}
+                      >
+                        <Clipboard className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs">
+                    {contato.email && (
+                      <InlineBadge variant="outline" className="bg-white">
+                        <Mail className="h-3 w-3 mr-1" /> {contato.email}
+                      </InlineBadge>
+                    )}
+                    {contato.telefone && (
+                      <InlineBadge variant="outline" className="bg-white">
+                        <Phone className="h-3 w-3 mr-1" /> {contato.telefone}
+                      </InlineBadge>
+                    )}
+                    {temWhatsapp && (
+                      <InlineBadge variant="outline" className="bg-white">
+                        <Phone className="h-3 w-3 mr-1" /> WhatsApp: {contato.whatsapp}
+                      </InlineBadge>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </CardContent>
         </Card>
 
         <Card className="shadow-sm">
           <CardHeader className="pb-2">
-            <CardTitle className="text-base font-semibold">Modelos de mensagem</CardTitle>
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <MessageSquare className="h-4 w-4" /> Modelos de mensagem
+            </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
-              <Input
-                className="pl-8"
-                placeholder="Buscar por descrição ou utilização"
-                value={buscaModelos}
-                onChange={(event) => setBuscaModelos(event.target.value)}
-              />
+          <CardContent className="space-y-3 text-sm">
+            <div className="space-y-2">
+              <Label className="text-xs uppercase">Filtrar modelos</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-400" />
+                <Input
+                  placeholder="Buscar por descrição ou uso…"
+                  className="pl-8"
+                  value={modelosQuery}
+                  onChange={(event) => setModelosQuery(event.target.value)}
+                />
+              </div>
             </div>
-            {loading ? (
-              <div className="py-6 text-center text-sm text-slate-500">Carregando modelos…</div>
-            ) : modelosFiltrados.length === 0 ? (
-              <div className="py-6 text-center text-sm text-slate-500">Nenhum modelo encontrado.</div>
-            ) : (
-              <ul className="space-y-3 text-sm">
-                {modelosFiltrados.map((modelo) => (
-                  <li key={modelo.id} className="rounded-lg border border-slate-200 bg-white p-3">
-                    <div className="font-medium text-slate-800">{modelo.modelo}</div>
-                    <div className="text-xs text-slate-500">{modelo.utilizacao}</div>
-                    {modelo.descricao && <p className="mt-2 text-slate-600 text-sm">{modelo.descricao}</p>}
-                  </li>
-                ))}
-              </ul>
+            {modelosOrdenadosLista.length === 0 && (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-4 text-sm text-slate-500">
+                Nenhum modelo cadastrado no Excel.
+              </div>
             )}
+            {modelosOrdenadosLista.map((modelo) => (
+              <div
+                key={`${modelo.descricao || "Modelo"}-${(modelo.modelo || "").slice(0, 20)}`}
+                className="rounded-xl border border-slate-200 bg-white p-4 space-y-2"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium text-slate-800">{modelo.descricao || "Modelo"}</p>
+                    <p className="text-xs text-slate-500">
+                      {modelo.utilizacao ? `Uso: ${modelo.utilizacao}` : "Clique para copiar e enviar."}
+                    </p>
+                  </div>
+                  {modelo.modelo && (
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => handleCopy(modelo.modelo, `Mensagem copiada: ${modelo.descricao || "Modelo"}`)}
+                    >
+                      <Clipboard className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
+                {modelo.modelo && (
+                  <p className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">{modelo.modelo}</p>
+                )}
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
