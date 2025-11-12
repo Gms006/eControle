@@ -16,6 +16,12 @@ const LEGACY_ENDPOINT_MAP = {
   "/empresas": "/api/v1/empresas",
   "/kpis": "/api/v1/grupos/kpis",
   "/alertas": "/api/v1/alertas",
+  "/licencas": "/api/v1/licencas",
+  "/processos": "/api/v1/processos",
+  "/taxas": "/api/v1/taxas",
+  "/municipios": "/api/v1/municipios",
+  "/uteis": "/api/v1/uteis",
+  "/certificados": "/api/v1/certificados",
 };
 
 const CANONICAL_ENDPOINT_MAP = {
@@ -25,6 +31,18 @@ const CANONICAL_ENDPOINT_MAP = {
   "/api/v1/grupos/kpis": "/kpis",
   "/alertas": "/alertas",
   "/api/v1/alertas": "/alertas",
+  "/licencas": "/licencas",
+  "/api/v1/licencas": "/licencas",
+  "/processos": "/processos",
+  "/api/v1/processos": "/processos",
+  "/taxas": "/taxas",
+  "/api/v1/taxas": "/taxas",
+  "/municipios": "/municipios",
+  "/api/v1/municipios": "/municipios",
+  "/uteis": "/uteis",
+  "/api/v1/uteis": "/uteis",
+  "/certificados": "/certificados",
+  "/api/v1/certificados": "/certificados",
 };
 
 const ensureLeadingSlash = (path = "") => (path.startsWith("/") ? path : `/${path}`);
