@@ -41,4 +41,4 @@ def guc_debug(_: dict = Depends(get_current_user), db = Depends(db_with_org)):
     return {"app.current_org": val}
 
 
-app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router)
