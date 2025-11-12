@@ -1,44 +1,33 @@
 import api, { API_ROOT } from "@/lib/api";
 
-const DEFAULT_PAGE_SIZE = 100;
-
-const clampPageSize = (value) => {
-  const number = Number(value ?? DEFAULT_PAGE_SIZE);
-  if (Number.isNaN(number)) {
-    return DEFAULT_PAGE_SIZE;
-  }
-  return Math.min(Math.max(number, 1), DEFAULT_PAGE_SIZE);
-};
+const DEFAULT_PAGE_SIZE = 200;
 
 export async function listarRequerimentos(params = {}) {
-  const { page, size, sort, ...rest } = params;
   const query = {
-    page: Number(page ?? 1) || 1,
-    size: clampPageSize(size),
-    sort: sort ?? "-mtime",
-    ...rest,
+    page: 1,
+    size: DEFAULT_PAGE_SIZE,
+    sort: "-mtime",
+    ...params,
   };
   const { data } = await api.get("/uteis/requerimentos", { params: query });
   return data;
 }
 
 export async function listarContatos(params = {}) {
-  const { page, size, ...rest } = params;
   const query = {
-    page: Number(page ?? 1) || 1,
-    size: clampPageSize(size),
-    ...rest,
+    page: 1,
+    size: DEFAULT_PAGE_SIZE,
+    ...params,
   };
   const { data } = await api.get("/uteis/contatos", { params: query });
   return data;
 }
 
 export async function listarModelos(params = {}) {
-  const { page, size, ...rest } = params;
   const query = {
-    page: Number(page ?? 1) || 1,
-    size: clampPageSize(size),
-    ...rest,
+    page: 1,
+    size: DEFAULT_PAGE_SIZE,
+    ...params,
   };
   const { data } = await api.get("/uteis/modelos", { params: query });
   return data;
