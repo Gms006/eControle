@@ -141,3 +141,9 @@ def test_empresas_listagem(client: TestClient, admin_token: str) -> None:
     assert body["total"] == len(body["items"])
     if body["items"]:
         assert "empresa_id" in body["items"][0]
+
+
+def test_agendamentos_stub(client: TestClient, admin_token: str) -> None:
+    response = client.get("/api/v1/agendamentos", headers={"Authorization": f"Bearer {admin_token}"})
+    assert response.status_code == 200
+    assert response.json() == {"items": [], "total": 0, "page": 1, "size": 20}
