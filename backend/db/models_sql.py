@@ -16,6 +16,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ENUM as PGEnum, UUID
 from sqlalchemy.orm import declarative_base, relationship
@@ -183,22 +184,36 @@ class Contato(Base):
     __tablename__ = "contatos"
 
     id = Column(Integer, primary_key=True)
+    org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     contato = Column(String(255), nullable=False)
     municipio = Column(String(120))
     telefone = Column(String(60))
-    whatsapp = Column(String(10), nullable=False, default="NÃO")
+    whatsapp = Column(String(10), nullable=False, server_default=text("'NÃO'"))
     email = Column(String(255))
     categoria = Column(pg_enum("categorias_contato"), nullable=False)
+    obs = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    __table_args__ = (Index("idx_contatos_categoria", "categoria"),)
+    __table_args__ = (
+        Index("idx_contatos_categoria", "categoria"),
+        Index("idx_contatos_org_nome", "org_id", func.lower(func.immutable_unaccent(contato))),
+        Index("idx_contatos_org_email", "org_id", func.lower(email)),
+    )
 
 
 class Modelo(Base):
     __tablename__ = "modelos"
 
     id = Column(Integer, primary_key=True)
+    org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     modelo = Column(Text, nullable=False)
     descricao = Column(String(255))
     utilizacao = Column(String(120), nullable=False, default="WhatsApp")
+    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
-    __table_args__ = (Index("idx_modelos_utilizacao", "utilizacao"),)
+    __table_args__ = (
+        Index("idx_modelos_utilizacao", "utilizacao"),
+        Index("idx_modelos_org_titulo", "org_id", func.lower(func.immutable_unaccent(modelo))),
+    )
