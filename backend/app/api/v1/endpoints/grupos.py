@@ -34,12 +34,12 @@ KPI_LABELS: Dict[tuple[str, str], str] = {
 def listar_kpis(
     grupo: str | None = Query(None),
     page: int = Query(1, ge=1),
-    size: int = Query(50, ge=1, le=200),
+    size: int = Query(50, ge=1, le=2000),
     sort: str | None = Query(None),
     db: Session = Depends(db_with_org),
     _: User = Depends(require_role(Role.VIEWER)),
 ) -> GrupoKPIListResponse:
-    page, size = ensure_positive_pagination(page, size, max_size=500)
+    page, size = ensure_positive_pagination(page, size, max_size=2000)
     params: Dict[str, object] = {}
     filters: list[str] = []
 

@@ -11,7 +11,7 @@ router = APIRouter(prefix="/agendamentos", tags=["Agendamentos"])
 @router.get("/")
 def listar_agendamentos(
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=200),
+    size: int = Query(20, ge=1, le=2000),
     _: object = Depends(require_org),
 ) -> dict[str, int | list[dict]]:
     """Stub de agendamentos para evitar 404 até que o domínio seja implementado."""

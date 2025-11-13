@@ -29,7 +29,7 @@ ALLOWED_SORTS: Dict[str, str] = {
 def listar_certificados(
     q: str | None = Query(None, description="Busca por empresa ou CNPJ"),
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=100),
+    size: int = Query(20, ge=1, le=2000),
     sort: str | None = Query(None, description="Campo de ordenação"),
     db: Session = Depends(db_with_org),
     _: User = Depends(require_role(Role.VIEWER)),
