@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, Query
 from psycopg.errors import InsufficientPrivilege
 from sqlalchemy import cast, or_, select, text
@@ -34,7 +36,7 @@ def _listar_contatos_base(
     db: Session,
     search: str | None,
     categoria: str | None,
-    org_id: str,
+    org_id: UUID,
 ) -> list[dict[str, object]]:
     categoria_text = cast(Contato.categoria, String)
     stmt = (
@@ -76,7 +78,7 @@ def _listar_modelos_base(
     db: Session,
     search: str | None,
     utilizacao: str | None,
-    org_id: str,
+    org_id: UUID,
 ) -> list[dict[str, object]]:
     stmt = (
         select(
@@ -115,11 +117,11 @@ def listar_uteis(
     db: Session = Depends(db_with_org),
     user: User = Depends(require_role(Role.VIEWER)),
 ):
-    org_id = str(user.org_id)
+    org_id = user.org_id
 
     contatos: list[dict[str, object]] = []
     if _relation_exists(db, "v_contatos_uteis"):
-        filtros_contatos: list[str] = ["org_id = CAST(:org_id AS uuid)"]
+        filtros_contatos: list[str] = ["org_id = :org_id"]
         params_contatos: dict[str, object] = {"org_id": org_id}
 
         if search:
@@ -168,6 +170,7 @@ def listar_uteis(
                 contatos.append(registro)
         except ProgrammingError as exc:
             if _is_permission_error(exc):
+                db.rollback()
                 contatos = _listar_contatos_base(db, search, categoria, org_id)
             else:  # pragma: no cover - propagates unexpected SQL errors
                 raise
@@ -176,7 +179,7 @@ def listar_uteis(
 
     modelos: list[dict[str, object]] = []
     if _relation_exists(db, "v_modelos_uteis"):
-        filtros_modelos: list[str] = ["org_id = CAST(:org_id AS uuid)"]
+        filtros_modelos: list[str] = ["org_id = :org_id"]
         params_modelos: dict[str, object] = {"org_id": org_id}
 
         if search:
@@ -218,6 +221,7 @@ def listar_uteis(
                 modelos.append(registro)
         except ProgrammingError as exc:
             if _is_permission_error(exc):
+                db.rollback()
                 modelos = _listar_modelos_base(db, search, utilizacao, org_id)
             else:  # pragma: no cover - unexpected SQL errors
                 raise
