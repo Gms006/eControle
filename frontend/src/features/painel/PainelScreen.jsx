@@ -76,7 +76,7 @@ export default function PainelScreen(props) {
   }, [filteredLicencas]);
 
   const alertTrendData = useMemo(() => {
-    if (!Array.isArray(filteredLicencas)) {
+    if (!Array.isArray(filteredLicencas) || filteredLicencas.length === 0) {
       return [];
     }
 
@@ -91,13 +91,19 @@ export default function PainelScreen(props) {
 
       const statusKey = getStatusKey(lic.status);
       if (!statusKey) return;
-      if (!statusKey.includes("vencid") && !statusKey.includes("vence")) return;
+
+      let bucket = null;
+      if (statusKey.includes("vencid")) bucket = "vencidas";
+      else if (statusKey.includes("vence")) bucket = "vencendo";
+      if (!bucket) return;
 
       let validade = parsePtDate(lic.validade);
-      if (!validade && typeof lic.validade === "string") {
-        const isoCandidate = new Date(lic.validade);
-        if (!Number.isNaN(isoCandidate?.getTime())) {
-          validade = isoCandidate;
+      if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
+        if (typeof lic.validade === "string") {
+          const isoCandidate = new Date(lic.validade);
+          if (!Number.isNaN(isoCandidate?.getTime())) {
+            validade = isoCandidate;
+          }
         }
       }
 
@@ -111,7 +117,8 @@ export default function PainelScreen(props) {
       }
 
       const key = `${monthDate.getFullYear()}-${monthDate.getMonth()}`;
-      counts.set(key, (counts.get(key) ?? 0) + 1);
+      const previous = counts.get(key) ?? { vencendo: 0, vencidas: 0 };
+      counts.set(key, { ...previous, [bucket]: previous[bucket] + 1 });
     });
 
     const data = [];
@@ -121,16 +128,19 @@ export default function PainelScreen(props) {
     ) {
       const currentDate = new Date(year, month, 1);
       const key = `${year}-${month}`;
-      const total = counts.get(key) ?? 0;
+      const monthCounts = counts.get(key) ?? { vencendo: 0, vencidas: 0 };
       const monthLabel = currentDate
         .toLocaleDateString("pt-BR", { month: "short" })
         .replace(/\./g, "")
         .toLowerCase();
+
       data.push({
         date: currentDate,
         ts: currentDate.getTime(),
         label: `${monthLabel}/${String(year).slice(-2)}`,
-        total_alertas: total,
+        total_alertas: monthCounts.vencendo + monthCounts.vencidas,
+        alertas_vencendo: monthCounts.vencendo,
+        alertas_vencidas: monthCounts.vencidas,
       });
 
       month += 1;
