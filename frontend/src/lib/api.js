@@ -22,6 +22,7 @@ const LEGACY_ENDPOINT_MAP = {
   "/municipios": "/api/v1/municipios",
   "/uteis": "/api/v1/uteis",
   "/certificados": "/api/v1/certificados",
+  "/agendamentos": "/api/v1/agendamentos",
 };
 
 const CANONICAL_ENDPOINT_MAP = {
@@ -43,6 +44,8 @@ const CANONICAL_ENDPOINT_MAP = {
   "/api/v1/uteis": "/uteis",
   "/certificados": "/certificados",
   "/api/v1/certificados": "/certificados",
+  "/agendamentos": "/agendamentos",
+  "/api/v1/agendamentos": "/agendamentos",
 };
 
 const ensureLeadingSlash = (path = "") => (path.startsWith("/") ? path : `/${path}`);
