@@ -19,6 +19,7 @@ class LicencaView(BaseModel):
     tipo: str
     status: str
     validade: Optional[date] = None
+    validade_br: Optional[str] = None
     dias_para_vencer: Optional[int] = None
 
     model_config = ConfigDict(from_attributes=True)
