@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InlineBadge from "@/components/InlineBadge";
@@ -151,12 +152,18 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
   }, [selectedLicTipo, tiposLicenca]);
 
   const tiposLicencaSelecionados = useMemo(
-    () => (selectedLicTipo === "Todos" 
+    () => (selectedLicTipo === "Todos"
       ? tiposLicenca.map(t => t.normalized)
       : [selectedLicTipo]
     ),
     [selectedLicTipo, tiposLicenca],
   );
+
+  const renderValidade = (lic) => {
+    if (lic?.validade_br) return lic.validade_br;
+    if (lic?.validade) return dayjs(lic.validade).format("DD/MM/YYYY");
+    return "—";
+  };
 
   return (
     <>
@@ -289,7 +296,7 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                             <TableCell>
                               <StatusBadge status={lic.status} />
                             </TableCell>
-                            <TableCell>{lic.validade || "—"}</TableCell>
+                            <TableCell>{renderValidade(lic)}</TableCell>
                             <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
                           </TableRow>
                         ))}

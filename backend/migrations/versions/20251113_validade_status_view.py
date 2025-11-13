@@ -89,6 +89,10 @@ def upgrade() -> None:
           COALESCE(l.validade, extract_first_br_date(l.status)) AS validade,
           CASE
             WHEN COALESCE(l.validade, extract_first_br_date(l.status)) IS NULL THEN NULL
+            ELSE to_char(COALESCE(l.validade, extract_first_br_date(l.status)), 'DD/MM/YYYY')
+          END AS validade_br,
+          CASE
+            WHEN COALESCE(l.validade, extract_first_br_date(l.status)) IS NULL THEN NULL
             ELSE (COALESCE(l.validade, extract_first_br_date(l.status)) - CURRENT_DATE)
           END::int AS dias_para_vencer,
           l.obs,
