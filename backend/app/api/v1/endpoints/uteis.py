@@ -2,11 +2,13 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 from psycopg.errors import InsufficientPrivilege
-from sqlalchemy import text
+from sqlalchemy import cast, or_, select, text
 from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session
+from sqlalchemy.types import String
 
 from app.deps.auth import Role, User, db_with_org, require_role
+from db.models_sql import Contato, Modelo
 
 router = APIRouter(prefix="/uteis", tags=["Uteis"])
 
@@ -34,50 +36,40 @@ def _listar_contatos_base(
     categoria: str | None,
     org_id: str,
 ) -> list[dict[str, object]]:
-    filtros: list[str] = ["org_id = :org_id::uuid"]
-    params: dict[str, object] = {"org_id": org_id}
+    categoria_text = cast(Contato.categoria, String)
+    stmt = (
+        select(
+            Contato.id,
+            Contato.contato.label("contato"),
+            Contato.municipio,
+            Contato.telefone,
+            Contato.whatsapp,
+            Contato.email,
+            categoria_text.label("categoria"),
+            Contato.created_at,
+            Contato.updated_at,
+        )
+        .where(Contato.org_id == org_id)
+    )
 
     if search:
-        params["search"] = f"%{search}%"
-        filtros.append(
-            "(" "contato ILIKE :search OR "
-            "coalesce(email,'') ILIKE :search OR "
-            "coalesce(telefone,'') ILIKE :search OR "
-            "coalesce(municipio,'') ILIKE :search OR "
-            "coalesce(whatsapp,'') ILIKE :search)"
+        pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                Contato.contato.ilike(pattern),
+                Contato.email.ilike(pattern),
+                Contato.telefone.ilike(pattern),
+                Contato.municipio.ilike(pattern),
+                Contato.whatsapp.ilike(pattern),
+            )
         )
 
     if categoria:
-        params["categoria"] = categoria
-        filtros.append("categoria = :categoria::categoria_contato_enum")
+        stmt = stmt.where(Contato.categoria == categoria)
 
-    where_clause = " WHERE " + " AND ".join(filtros) if filtros else ""
+    stmt = stmt.order_by(categoria_text, Contato.contato)
 
-    query = text(
-        """
-        SELECT
-            id,
-            contato AS nome,
-            municipio,
-            telefone,
-            whatsapp,
-            email,
-            categoria::text AS categoria,
-            created_at,
-            updated_at
-        FROM contatos
-        {where}
-        ORDER BY categoria, contato
-        """.format(where=where_clause)
-    )
-
-    registros: list[dict[str, object]] = []
-    for row in db.execute(query, params).mappings().all():
-        registro = dict(row)
-        registro["contato"] = registro.pop("nome")
-        registros.append(registro)
-
-    return registros
+    return [dict(row) for row in db.execute(stmt).mappings().all()]
 
 
 def _listar_modelos_base(
@@ -86,46 +78,33 @@ def _listar_modelos_base(
     utilizacao: str | None,
     org_id: str,
 ) -> list[dict[str, object]]:
-    filtros: list[str] = ["org_id = :org_id::uuid"]
-    params: dict[str, object] = {"org_id": org_id}
+    stmt = (
+        select(
+            Modelo.id,
+            Modelo.modelo.label("modelo"),
+            Modelo.descricao.label("descricao"),
+            Modelo.utilizacao.label("utilizacao"),
+            Modelo.created_at,
+            Modelo.updated_at,
+        )
+        .where(Modelo.org_id == org_id)
+    )
 
     if search:
-        params["search"] = f"%{search}%"
-        filtros.append(
-            "(" "modelo ILIKE :search OR "
-            "coalesce(descricao,'') ILIKE :search)"
+        pattern = f"%{search}%"
+        stmt = stmt.where(
+            or_(
+                Modelo.modelo.ilike(pattern),
+                Modelo.descricao.ilike(pattern),
+            )
         )
 
     if utilizacao:
-        params["utilizacao"] = utilizacao
-        filtros.append("utilizacao = :utilizacao")
+        stmt = stmt.where(Modelo.utilizacao == utilizacao)
 
-    where_clause = " WHERE " + " AND ".join(filtros) if filtros else ""
+    stmt = stmt.order_by(Modelo.utilizacao, Modelo.modelo)
 
-    query = text(
-        """
-        SELECT
-            id,
-            modelo AS titulo,
-            descricao AS conteudo,
-            utilizacao AS categoria,
-            created_at,
-            updated_at
-        FROM modelos
-        {where}
-        ORDER BY categoria, modelo
-        """.format(where=where_clause)
-    )
-
-    registros: list[dict[str, object]] = []
-    for row in db.execute(query, params).mappings().all():
-        registro = dict(row)
-        registro["modelo"] = registro.pop("titulo")
-        registro["descricao"] = registro.pop("conteudo")
-        registro["utilizacao"] = registro.pop("categoria")
-        registros.append(registro)
-
-    return registros
+    return [dict(row) for row in db.execute(stmt).mappings().all()]
 
 
 @router.get("")
@@ -136,10 +115,12 @@ def listar_uteis(
     db: Session = Depends(db_with_org),
     user: User = Depends(require_role(Role.VIEWER)),
 ):
+    org_id = str(user.org_id)
+
     contatos: list[dict[str, object]] = []
     if _relation_exists(db, "v_contatos_uteis"):
-        filtros_contatos: list[str] = []
-        params_contatos: dict[str, object] = {}
+        filtros_contatos: list[str] = ["org_id = CAST(:org_id AS uuid)"]
+        params_contatos: dict[str, object] = {"org_id": org_id}
 
         if search:
             params_contatos["search"] = f"%{search}%"
@@ -153,7 +134,9 @@ def listar_uteis(
 
         if categoria:
             params_contatos["categoria"] = categoria
-            filtros_contatos.append("categoria = :categoria::categoria_contato_enum")
+            filtros_contatos.append(
+                "categoria = CAST(:categoria AS categoria_contato_enum)"
+            )
 
         where_clause_contatos = ""
         if filtros_contatos:
@@ -185,16 +168,16 @@ def listar_uteis(
                 contatos.append(registro)
         except ProgrammingError as exc:
             if _is_permission_error(exc):
-                contatos = _listar_contatos_base(db, search, categoria, str(user.org_id))
+                contatos = _listar_contatos_base(db, search, categoria, org_id)
             else:  # pragma: no cover - propagates unexpected SQL errors
                 raise
     elif _relation_exists(db, "contatos"):
-        contatos = _listar_contatos_base(db, search, categoria, str(user.org_id))
+        contatos = _listar_contatos_base(db, search, categoria, org_id)
 
     modelos: list[dict[str, object]] = []
     if _relation_exists(db, "v_modelos_uteis"):
-        filtros_modelos: list[str] = []
-        params_modelos: dict[str, object] = {}
+        filtros_modelos: list[str] = ["org_id = CAST(:org_id AS uuid)"]
+        params_modelos: dict[str, object] = {"org_id": org_id}
 
         if search:
             params_modelos["search"] = f"%{search}%"
@@ -235,10 +218,10 @@ def listar_uteis(
                 modelos.append(registro)
         except ProgrammingError as exc:
             if _is_permission_error(exc):
-                modelos = _listar_modelos_base(db, search, utilizacao, str(user.org_id))
+                modelos = _listar_modelos_base(db, search, utilizacao, org_id)
             else:  # pragma: no cover - unexpected SQL errors
                 raise
     elif _relation_exists(db, "modelos"):
-        modelos = _listar_modelos_base(db, search, utilizacao, str(user.org_id))
+        modelos = _listar_modelos_base(db, search, utilizacao, org_id)
 
     return {"contatos": contatos, "modelos": modelos}
