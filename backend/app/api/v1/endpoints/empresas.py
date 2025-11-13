@@ -44,7 +44,7 @@ def listar_empresas(
     porte: str | None = Query(None),
     categoria: str | None = Query(None),
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=2000),
+    size: int = Query(2000, ge=1, le=2000),
     sort: str | None = Query(None, description="Campo de ordenação"),
     db: Session = Depends(db_with_org),
     _: User = Depends(require_role(Role.VIEWER)),
