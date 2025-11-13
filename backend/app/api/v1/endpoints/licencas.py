@@ -28,7 +28,7 @@ ALLOWED_SORTS: Dict[str, str] = {
 
 
 def _fetch_licenca_view(db: Session, licenca_id: int) -> LicencaView:
-    query = text("SELECT * FROM v_licencas_status WHERE licenca_id = :licenca_id")
+    query = text("SELECT * FROM v_licencas_api WHERE licenca_id = :licenca_id")
     row = db.execute(query, {"licenca_id": licenca_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Licença não encontrada")
@@ -69,7 +69,7 @@ def listar_licencas(
         filters.append("dias_para_vencer IS NOT NULL AND dias_para_vencer <= :vencer_em_dias")
 
     where_clause = build_where_clause(filters)
-    base_query = f"SELECT * FROM v_licencas_status{where_clause}"
+    base_query = f"SELECT * FROM v_licencas_api{where_clause}"
     sort_column, direction = resolve_sort(sort, ALLOWED_SORTS, "validade")
     data = paginate_query(db, base_query, params, sort_column, direction, page, size)
     return LicencaListResponse(**data)
