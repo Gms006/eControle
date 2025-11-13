@@ -231,7 +231,12 @@ function AppContent() {
         setCertificados(Array.isArray(certs) ? certs : []);
         setAgendamentos(Array.isArray(agds) ? agds : []);
         setKpis(kpi);
-        setMunicipios(Array.isArray(mun) ? mun : []);
+        const municipiosItems = Array.isArray(mun?.items)
+          ? mun.items
+          : Array.isArray(mun)
+            ? mun
+            : [];
+        setMunicipios(municipiosItems);
         setContatos(Array.isArray(uteis?.contatos) ? uteis.contatos : []);
         setModelos(Array.isArray(uteis?.modelos) ? uteis.modelos : []);
         setLoading(false);
