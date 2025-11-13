@@ -31,7 +31,7 @@ def listar_alertas(
     tipo_alerta: str | None = Query(None),
     empresa_id: int | None = Query(None),
     page: int = Query(1, ge=1),
-    size: int = Query(20, ge=1, le=2000),
+    size: int = Query(2000, ge=1, le=2000),
     sort: str | None = Query(None),
     db: Session = Depends(db_with_org),
     _: User = Depends(require_role(Role.VIEWER)),
