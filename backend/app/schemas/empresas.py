@@ -45,12 +45,17 @@ class EmpresaBase(BaseModel):
     certificado: Optional[str] = None
     ie: Optional[str] = None
     im: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
     telefone: Optional[str] = None
     email: Optional[str] = None
     obs: Optional[str] = None
     proprietario: Optional[str] = None
     cpf: Optional[str] = None
     responsavel: Optional[str] = None
+    responsavel_legal: Optional[str] = None
+    cpf_responsavel_legal: Optional[str] = None
+    responsavel_fiscal: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
 
@@ -71,11 +76,16 @@ class EmpresaUpdate(BaseModel):
     certificado: Optional[str] = None
     ie: Optional[str] = None
     im: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
     telefone: Optional[str] = None
     email: Optional[str] = None
     obs: Optional[str] = None
     proprietario: Optional[str] = None
     cpf: Optional[str] = None
     responsavel: Optional[str] = None
+    responsavel_legal: Optional[str] = None
+    cpf_responsavel_legal: Optional[str] = None
+    responsavel_fiscal: Optional[str] = None
 
     model_config = ConfigDict(extra="forbid")
