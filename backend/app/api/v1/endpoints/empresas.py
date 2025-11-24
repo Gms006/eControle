@@ -19,18 +19,53 @@ from db.models_sql import Empresa
 router = APIRouter(prefix="/empresas", tags=["Empresas"])
 
 ALLOWED_SORTS: Dict[str, str] = {
-    "empresa": "empresa",
-    "cnpj": "cnpj",
-    "municipio": "municipio",
-    "updated_at": "updated_at",
-    "total_licencas": "total_licencas",
-    "total_taxas": "total_taxas",
-    "processos_ativos": "processos_ativos",
+    "empresa": "v.empresa",
+    "cnpj": "v.cnpj",
+    "municipio": "v.municipio",
+    "updated_at": "v.updated_at",
+    "total_licencas": "v.total_licencas",
+    "total_taxas": "v.total_taxas",
+    "processos_ativos": "v.processos_ativos",
 }
 
 
+BASE_EMPRESA_QUERY = """
+SELECT
+    v.empresa_id,
+    v.org_id,
+    v.empresa,
+    v.cnpj,
+    v.municipio,
+    v.porte,
+    v.categoria,
+    v.situacao,
+    v.status_empresas,
+    v.debito,
+    v.certificado,
+    e.ie,
+    e.im,
+    e.inscricao_municipal,
+    e.inscricao_estadual,
+    e.telefone,
+    e.email,
+    e.obs,
+    e.proprietario,
+    e.cpf,
+    e.responsavel,
+    e.responsavel_legal,
+    e.cpf_responsavel_legal,
+    e.responsavel_fiscal,
+    v.total_licencas,
+    v.total_taxas,
+    v.processos_ativos,
+    v.updated_at
+FROM v_empresas v
+JOIN empresas e ON e.id = v.empresa_id AND e.org_id = v.org_id
+"""
+
+
 def _fetch_empresa_view(db: Session, empresa_id: int) -> EmpresaView:
-    query = text("SELECT * FROM v_empresas WHERE empresa_id = :empresa_id")
+    query = text(f"{BASE_EMPRESA_QUERY} WHERE v.empresa_id = :empresa_id")
     row = db.execute(query, {"empresa_id": empresa_id}).mappings().first()
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Empresa não encontrada")
@@ -55,19 +90,19 @@ def listar_empresas(
 
     if q:
         params["q"] = f"%{q}%"
-        filters.append("(empresa ILIKE :q OR cnpj ILIKE :q)")
+        filters.append("(v.empresa ILIKE :q OR v.cnpj ILIKE :q)")
     if municipio:
         params["municipio"] = municipio
-        filters.append("municipio = :municipio")
+        filters.append("v.municipio = :municipio")
     if porte:
         params["porte"] = porte
-        filters.append("porte = :porte")
+        filters.append("v.porte = :porte")
     if categoria:
         params["categoria"] = categoria
-        filters.append("categoria = :categoria")
+        filters.append("v.categoria = :categoria")
 
     where_clause = build_where_clause(filters)
-    base_query = f"SELECT * FROM v_empresas{where_clause}"
+    base_query = f"{BASE_EMPRESA_QUERY}{where_clause}"
     sort_column, direction = resolve_sort(sort, ALLOWED_SORTS, "empresa")
     data = paginate_query(db, base_query, params, sort_column, direction, page, size)
     return EmpresaListResponse(**data)

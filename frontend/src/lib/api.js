@@ -216,6 +216,24 @@ export const normalizeEmpresaFromApi = (item) => {
   if (normalized.org_id !== undefined && normalized.org_id !== null) {
     normalized.org_id = String(normalized.org_id);
   }
+  if (normalized.inscricao_municipal !== undefined && normalized.inscricaoMunicipal === undefined) {
+    normalized.inscricaoMunicipal = normalized.inscricao_municipal;
+  }
+  if (normalized.inscricao_estadual !== undefined && normalized.inscricaoEstadual === undefined) {
+    normalized.inscricaoEstadual = normalized.inscricao_estadual;
+  }
+  if (normalized.responsavel_legal !== undefined && normalized.responsavelLegal === undefined) {
+    normalized.responsavelLegal = normalized.responsavel_legal;
+  }
+  if (
+    normalized.cpf_responsavel_legal !== undefined &&
+    normalized.cpfResponsavelLegal === undefined
+  ) {
+    normalized.cpfResponsavelLegal = normalized.cpf_responsavel_legal;
+  }
+  if (normalized.responsavel_fiscal !== undefined && normalized.responsavelFiscal === undefined) {
+    normalized.responsavelFiscal = normalized.responsavel_fiscal;
+  }
   return normalized;
 };
 

@@ -333,6 +333,35 @@ export default function EmpresasScreen({
                       <InlineBadge variant="outline" className="bg-white">
                         Débito: {empresa.debito}
                       </InlineBadge>
+                      {empresa.responsavelFiscal && (
+                        <InlineBadge variant="outline" className="bg-white">
+                          Resp. fiscal: {empresa.responsavelFiscal}
+                        </InlineBadge>
+                      )}
+                    </div>
+
+                    <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-semibold uppercase text-slate-500">Contatos</p>
+                        <p>
+                          Telefone: <span className="font-medium">{empresa.telefone || "—"}</span>
+                        </p>
+                        <p>
+                          E-mail: <span className="font-medium">{empresa.email || "—"}</span>
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-[11px] font-semibold uppercase text-slate-500">Responsáveis</p>
+                        <p>
+                          Legal: <span className="font-medium">{empresa.responsavelLegal || "—"}</span>
+                        </p>
+                        <p>
+                          CPF resp. legal: <span className="font-medium">{empresa.cpfResponsavelLegal || "—"}</span>
+                        </p>
+                        <p>
+                          Fiscal: <span className="font-medium">{empresa.responsavelFiscal || "—"}</span>
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
