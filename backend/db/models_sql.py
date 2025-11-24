@@ -1,6 +1,7 @@
 """SQLAlchemy models for the eControle schema v1."""
 from __future__ import annotations
 
+import enum
 import os
 from pathlib import Path
 from typing import Dict
@@ -10,6 +11,7 @@ from sqlalchemy import (
     Column,
     Date,
     DateTime,
+    Enum as SAEnum,
     ForeignKey,
     Index,
     Integer,
@@ -58,6 +60,12 @@ def pg_enum(enum_key: str) -> PGEnum:
     return PGEnum(*values, name=ENUM_NAME_MAP[enum_key], create_type=False)
 
 
+class ResponsavelFiscalEnum(str, enum.Enum):
+    CARLA = "Carla"
+    DENISE = "Denise"
+    FERNANDO = "Fernando"
+
+
 class Empresa(Base):
     __tablename__ = "empresas"
 
@@ -71,6 +79,8 @@ class Empresa(Base):
     categoria = Column(String(120))
     ie = Column(String(50))
     im = Column(String(50))
+    inscricao_municipal = Column(String(50))
+    inscricao_estadual = Column(String(50))
     situacao = Column(String(120))
     debito = Column(String(120))
     certificado = Column(String(120))
@@ -80,6 +90,12 @@ class Empresa(Base):
     telefone = Column(String(60))
     email = Column(String(255))
     responsavel = Column(String(255))
+    responsavel_legal = Column(String(255))
+    cpf_responsavel_legal = Column(String(14))
+    responsavel_fiscal = Column(
+        SAEnum(ResponsavelFiscalEnum, name="responsavel_fiscal_enum", create_type=False),
+        nullable=True,
+    )
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
     created_by = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"))
