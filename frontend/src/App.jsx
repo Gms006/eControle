@@ -82,11 +82,28 @@ const enhanceEmpresa = (empresa) => {
     normalizeIdentifier(empresa.inscricao_municipal) ||
     normalizeIdentifier(empresa.inscricaoMunicipal) ||
     normalizeIdentifier(empresa["inscrição_municipal"]);
+  const inscricaoMunicipal =
+    normalizeIdentifier(empresa.inscricaoMunicipal) ||
+    normalizeIdentifier(empresa.inscricao_municipal) ||
+    normalizeIdentifier(empresa["inscrição_municipal"]);
+  const inscricaoEstadual =
+    normalizeIdentifier(empresa.inscricaoEstadual) ||
+    normalizeIdentifier(empresa.inscricao_estadual) ||
+    normalizeIdentifier(empresa["inscrição_estadual"]);
+  const responsavelLegal = empresa.responsavelLegal ?? empresa.responsavel_legal;
+  const cpfResponsavelLegal =
+    normalizeIdentifier(empresa.cpfResponsavelLegal) || empresa.cpf_responsavel_legal;
+  const responsavelFiscal = empresa.responsavelFiscal ?? empresa.responsavel_fiscal;
   const empresaId = extractEmpresaId(empresa);
   return {
     ...empresa,
     ie,
     im,
+    inscricaoMunicipal: inscricaoMunicipal ?? im,
+    inscricaoEstadual: inscricaoEstadual ?? ie,
+    responsavelLegal,
+    cpfResponsavelLegal,
+    responsavelFiscal,
     empresaId: empresaId ?? empresa?.id,
     empresa_id: empresaId ?? empresa?.id,
   };
@@ -428,6 +445,10 @@ function AppContent() {
           empresa.email,
           empresa.ie,
           empresa.im,
+          empresa.telefone,
+          empresa.responsavel,
+          empresa.responsavelLegal,
+          empresa.responsavelFiscal,
         ]);
         const matchesMunicipio = matchesMunicipioFilter(empresa);
         const matchesAlert = !somenteAlertas || companyHasAlert(empresa);

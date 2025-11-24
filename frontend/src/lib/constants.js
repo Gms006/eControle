@@ -21,6 +21,14 @@ export const TAB_SHORTCUTS = {
   7: "uteis",
 };
 
+export const RESPONSAVEL_FISCAL_OPTIONS = [
+  { value: "Carla", label: "Carla" },
+  { value: "Denise", label: "Denise" },
+  { value: "Fernando", label: "Fernando" },
+];
+
+export const RESPONSAVEL_FISCAL_VALUES = RESPONSAVEL_FISCAL_OPTIONS.map((item) => item.value);
+
 export const DEFAULT_LICENCA_TIPOS = [
   "Sanitária",
   "CERCON",
