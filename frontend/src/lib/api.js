@@ -275,31 +275,25 @@ export const mapKpiItemsToRecord = (items) => {
   }, {});
 };
 
+const normalizeCollectionPayload = (payload, mapper) => {
+  const itemsSource = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  const normalizedItems = mapper ? itemsSource.map((item) => mapper(item)) : itemsSource;
+  const total = toFiniteNumber(payload?.total) ?? normalizedItems.length;
+  const page = toFiniteNumber(payload?.page) ?? 1;
+  const size = toFiniteNumber(payload?.size) ?? normalizedItems.length;
+  return attachPaginationInfo(normalizedItems, { total, page, size });
+};
+
 const DEFAULT_TRANSFORMS = {
-  "/empresas": (payload) => {
-    const itemsSource = Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload)
-        ? payload
-        : [];
-    const normalizedItems = itemsSource.map((item) => normalizeEmpresaFromApi(item));
-    const total = toFiniteNumber(payload?.total) ?? normalizedItems.length;
-    const page = toFiniteNumber(payload?.page) ?? 1;
-    const size = toFiniteNumber(payload?.size) ?? normalizedItems.length;
-    return attachPaginationInfo(normalizedItems, { total, page, size });
-  },
-  "/alertas": (payload) => {
-    const itemsSource = Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload)
-        ? payload
-        : [];
-    const normalizedItems = itemsSource.map((item) => normalizeAlertaFromApi(item));
-    const total = toFiniteNumber(payload?.total) ?? normalizedItems.length;
-    const page = toFiniteNumber(payload?.page) ?? 1;
-    const size = toFiniteNumber(payload?.size) ?? normalizedItems.length;
-    return attachPaginationInfo(normalizedItems, { total, page, size });
-  },
+  "/empresas": (payload) => normalizeCollectionPayload(payload, normalizeEmpresaFromApi),
+  "/alertas": (payload) => normalizeCollectionPayload(payload, normalizeAlertaFromApi),
+  "/licencas": (payload) => normalizeCollectionPayload(payload),
+  "/processos": (payload) => normalizeCollectionPayload(payload),
+  "/taxas": (payload) => normalizeCollectionPayload(payload),
   "/kpis": (payload) => {
     if (payload && typeof payload === "object" && !Array.isArray(payload) && !payload.items) {
       return payload;
