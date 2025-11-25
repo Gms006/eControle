@@ -1,10 +1,11 @@
 import React from "react";
 import { Clipboard } from "lucide-react";
-import { normalizeIdentifier } from "@/lib/text";
+import { formatCnpj, normalizeIdentifier } from "@/lib/text";
 
 function CopyableIdentifier({ label, value, onCopy }) {
   const normalizedValue = normalizeIdentifier(value);
-  const displayValue = normalizedValue || "—";
+  const formattedCnpj = label === "CNPJ" ? formatCnpj(value) : undefined;
+  const displayValue = formattedCnpj || normalizedValue || "—";
   return (
     <button
       type="button"

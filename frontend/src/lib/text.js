@@ -21,6 +21,13 @@ export const normalizeDocumentDigits = (value) => {
   return digits === "" ? undefined : digits;
 };
 
+export const formatCnpj = (value) => {
+  const digits = normalizeDocumentDigits(value);
+  if (!digits) return undefined;
+  if (digits.length !== 14) return digits;
+  return `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12, 14)}`;
+};
+
 export const buildNormalizedSearchKey = (value) => {
   const normalized = removeDiacritics(normalizeTextLower(value));
   const sanitized = normalized.replace(NON_ALPHANUMERIC_REGEX, "");
