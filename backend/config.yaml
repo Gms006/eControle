@@ -4,12 +4,10 @@ sheet_names:
   taxas: "TAXAS"
   processos: "PROCESSOS"   # ÚNICA ABA de Processos
   uteis: "CONTATOS E MODELOS"
-  # === NOVAS ENTRADAS PARA A NOVA PLANILHA CERTIFICADOS.xlsm ===
   certificados: "Certificados"
   certificados_agendamentos: "Agendamentos"
 
-# Nomes das Tabelas (ListObjects) dentro da aba PROCESSOS
-# — estas strings devem bater exatamente com os nomes dos ListObjects no Excel
+# Nomes das seções/tabelas lógicas utilizadas pelo ETL
 table_names:
   empresas:
     principal: "Principal"
@@ -32,7 +30,6 @@ table_names:
     contatos: "Contatos"
     modelos: "Modelos"
 
-  # === NOVAS ENTRADAS PARA A NOVA PLANILHA CERTIFICADOS.xlsm ===
   certificados:
     certificados: "Certificados"
   certificados_agendamentos:
@@ -220,7 +217,6 @@ column_aliases:
     STATUS_PADRAO: ["status_procAmbiental"]
     # Ambiental não tem campos específicos adicionais segundo o dicionário
 
-  # === NOVAS ENTRADAS PARA A NOVA PLANILHA CERTIFICADOS.xlsm ===
   certificados:
     CERTIFICADO: ["CERTIFICADO"]
     VALIDO_DE: ["VÁLIDO DE", "VALIDO DE", "VALIDO_DE", "VÁLIDO_DE"]

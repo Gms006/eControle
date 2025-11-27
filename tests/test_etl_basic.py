@@ -10,7 +10,7 @@ import sqlalchemy as sa
 from sqlalchemy.engine import Engine
 
 from backend.etl.contracts import load_contract
-from backend.etl.extract_xlsm import ROW_NUMBER_KEY
+from backend.etl.extract import ROW_NUMBER_KEY
 from backend.etl.load_upsert import run as run_loader
 from backend.etl.transform_normalize import TransformError, transform
 
@@ -192,7 +192,7 @@ def test_upsert_idempotent(engine, contract):
         engine,
         normalized,
         run_id="run-1",
-        file_source="teste.xlsx",
+        file_source="teste.csv",
         dry_run=False,
     )
     assert any(item["action"] == "insert" and item["table"] == "empresas" for item in first)
@@ -201,7 +201,7 @@ def test_upsert_idempotent(engine, contract):
         engine,
         normalized,
         run_id="run-2",
-        file_source="teste.xlsx",
+        file_source="teste.csv",
         dry_run=False,
     )
     assert any(item["action"] == "skip" and item["table"] == "empresas" for item in second)
@@ -213,7 +213,7 @@ def test_upsert_idempotent(engine, contract):
         engine,
         normalized_update,
         run_id="run-3",
-        file_source="teste.xlsx",
+        file_source="teste.csv",
         dry_run=False,
     )
     assert any(item["action"] == "update" and item["table"] == "taxas" for item in third)

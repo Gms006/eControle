@@ -26,8 +26,6 @@ class Settings(BaseModel):
             ".pdf",
             ".doc",
             ".docx",
-            ".xls",
-            ".xlsx",
             ".png",
             ".jpg",
             ".jpeg",
