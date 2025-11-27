@@ -337,7 +337,8 @@ const isTaxaEmAberto = (status) => {
   if (!normalized || normalized === "*" || normalized === "-" || normalized === "—") {
     return false;
   }
-  return normalized.includes("abert");
+  const hasSlashRatio = /\d+\s*\/\s*\d+/u.test(normalized);
+  return hasSlashRatio || normalized.includes("abert");
 };
 
 const applyTaxaStatusGeral = (collection) => {
