@@ -323,6 +323,32 @@ const NORMALIZED_TAXA_TIPO_TO_KEY = Object.entries(TAXA_TIPO_TO_KEY).reduce(
 );
 
 const TAXA_COLUMN_KEYS = Object.values(TAXA_TIPO_TO_KEY);
+const TAXA_STATUS_GERAL_KEYS = Object.entries(TAXA_TIPO_TO_KEY)
+  .filter(([label]) => label !== "TPI" && label !== "Bombeiros" && label !== "Status Geral")
+  .map(([, key]) => key);
+
+const isTaxaEmAberto = (status) => {
+  if (status === undefined || status === null) return false;
+  const normalized = String(status)
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase();
+  if (!normalized || normalized === "*" || normalized === "-" || normalized === "—") {
+    return false;
+  }
+  return normalized.includes("abert");
+};
+
+const applyTaxaStatusGeral = (collection) => {
+  if (!Array.isArray(collection)) return collection;
+  collection.forEach((item) => {
+    if (!item || typeof item !== "object") return;
+    const hasAberta = TAXA_STATUS_GERAL_KEYS.some((key) => isTaxaEmAberto(item[key]));
+    item.status_geral = hasAberta ? "Irregular" : "Regular";
+  });
+  return collection;
+};
 
 const normalizeTaxasFromApi = (payload) => {
   const collection = normalizeCollectionPayload(payload);
@@ -346,7 +372,7 @@ const normalizeTaxasFromApi = (payload) => {
   );
 
   if (!hasTipoEntries || alreadyWide) {
-    return collection;
+    return applyTaxaStatusGeral(collection);
   }
 
   const grouped = [];
@@ -390,7 +416,7 @@ const normalizeTaxasFromApi = (payload) => {
     }
   });
 
-  return attachPaginationInfo(grouped, metadata);
+  return applyTaxaStatusGeral(attachPaginationInfo(grouped, metadata));
 };
 
 const DEFAULT_TRANSFORMS = {
