@@ -305,7 +305,10 @@ const normalizeTaxaTipo = (tipo) => {
     .trim()
     .normalize("NFD")
     .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase();
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .trim();
 };
 
 const NORMALIZED_TAXA_TIPO_TO_KEY = Object.entries(TAXA_TIPO_TO_KEY).reduce(
