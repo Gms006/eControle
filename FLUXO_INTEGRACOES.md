@@ -7,7 +7,7 @@
 ## Visão geral da arquitetura
 
 * **Stack**: FastAPI + PostgreSQL, **multi-tenancy por organização** (`org_id :: uuid`).
-* **Segurança**: JWT HS256 (payload: `sub`, `org_id`, `email`, `role`, `iat`, `exp`).
+* **Segurança**: JWT HS256 (payload: `sub`, `org_id`, `email`, `role`, `iat`, `exp`) carregado de `JWT_SECRET`/`JWT_ALG` via `.env`.
 * **Contexto de organização**: por request, `SET LOCAL app.current_org = :org_id` (GUC) + filtros por `org_id` em views/consultas.
 * **Padrões de API**: paginação (`page`, `size<=100`), ordenação opcional (`sort`), busca normalizada (função `immutable_unaccent`).
 * **Compatibilidade visual**: front atual **sem mudança de layout**; apenas troca da origem (planilha → API/views).
@@ -19,10 +19,10 @@
 ### 1) Schemas e extensões
 
 * Schema principal: `public`.
-* Extensões mínimas:
+* Extensões mínimas (entregues via Alembic):
 
-  * `CREATE EXTENSION IF NOT EXISTS unaccent;`
-* Funções utilitárias:
+  * `CREATE EXTENSION IF NOT EXISTS unaccent;` (`20251207_01_unaccent_extension_indexes`).
+* Funções utilitárias (também criadas pela migration `20251207_01_unaccent_extension_indexes`):
 
   * `immutable_unaccent(text) RETURNS text` (envolve `unaccent` e é marcada `IMMUTABLE` para uso em índices).
 * GUC opcional (se adotado): `app.current_org` (text/uuid) para escopo da org na sessão.
@@ -44,7 +44,8 @@
 * **empresas**
 
   * `id serial PK`, `org_id uuid FK`, `empresa`, `cnpj`, `municipio`,
-    **legados**: `porte?`, `categoria?`, `ie?`, `im?`, `situacao?`, `debito?`, `certificado?`, `obs?`, …
+    **legados**: `porte?`, `categoria?`, `inscricao_estadual?`, `inscricao_municipal?`, `situacao?`, `debito?`, `certificado?`,
+    `responsavel_legal?`, `cpf_responsavel_legal?`, `responsavel_fiscal?`, `obs?`, …
   * `created_at timestamptz DEFAULT now()`, `updated_at date NOT NULL DEFAULT current_date` *(campo legado permanece `date`)*
   * `created_by? int FK users(id) ON DELETE SET NULL`, `updated_by? int FK users(id) ON DELETE SET NULL`
 
@@ -119,8 +120,8 @@
 
 ### 1) Funções & extensões
 
-* `unaccent` habilitado.
-* `immutable_unaccent(text)` para uso em **índices funcionais** e em **buscas normalizadas** do front/API.
+* `unaccent` habilitado via Alembic (`20251207_01_unaccent_extension_indexes`).
+* `immutable_unaccent(text)` criada na mesma migration para uso em **índices funcionais** e em **buscas normalizadas** do front/API.
 
 ### 2) Views consolidadas (todas operando por `org_id`)
 
@@ -171,20 +172,19 @@
 * **certificados**
 
   * `uq_certificados_org_serial (org_id, serial)` **UNIQUE**
-* **úteis (S3 reforçou)**
+* **úteis (S3 reforçou via Alembic)**
 
   * `idx_contatos_org_nome (org_id, lower(immutable_unaccent(contato)))`
-  * `idx_contatos_org_email (org_id, lower(email))`
   * `idx_modelos_org_titulo (org_id, lower(immutable_unaccent(modelo)))`
   * *(opcional S4+)* UNIQUE parcial por nome/título normalizado dentro da org.
 
 ---
 
-## S3 — API / Segurança / Front (contrato) ⚠️ **EM ANDAMENTO (backend OK; front finalizando)**
+## S3 — API / Segurança / Front (contrato) ✅ **CONCLUÍDO**
 
 ### 1) Segurança e contexto
 
-* **JWT (HS256)**; secret e algoritmo via `.env`.
+* **JWT (HS256)**; secret e algoritmo via `.env` (`JWT_SECRET` obrigatório).
 * Em cada request: validar token, extrair `org_id`, e **escopar a conexão** (`SET LOCAL app.current_org = :org_id`).
 * **Pydantic**: `org_id` **serializado como string**; datas em ISO; paginação consistente.
 
@@ -198,47 +198,27 @@
 * `GET /processos?...`
 * `GET /alertas`
 * `GET /grupos/kpis`
-* **Apoio**:
+* `GET /municipios` (distintos por org, para combos/filtros)
+* **Stub**: `GET /agendamentos` retorna `{items: [], total: 0, page, size}` para evitar 404 até modelagem completa.
 
-  * `GET /municipios` (distintos por org, para combos/filtros)
+### 3) Úteis (S3 somente leitura)
 
-### 3) Úteis (backend concluído; front em fase final)
+* Backend expõe **apenas** `GET /api/v1/uteis`, combinando contatos e modelos.
+* Fonte dos dados: views criadas em S3 (`v_contatos_uteis` e `v_modelos_uteis`) que normalizam campos esperados pelo front; `v_licencas_api` e `v_taxas_tpi` servem às listas de licenças/TPI com status/validade/dias_para_vencer normalizados.
+* **Não existem** `POST/PUT/PATCH/DELETE` em `/uteis/contatos` ou `/uteis/modelos` nesta fase.
 
-* **Contatos**
+### 4) Migrations (Alembic) da S3
 
-  * `GET /uteis/contatos?search=&categoria=&page=&size=`
-  * `POST /uteis/contatos`
-  * `PUT/PATCH /uteis/contatos/{id}`
-  * `DELETE /uteis/contatos/{id}`
-* **Modelos**
+* `20251112_01_certificados_agendamentos`: cria `certificados`, `agendamentos` e a view `v_certificados_status` com cálculo de `dias_restantes`/`situacao`.
+* `20251130_01_schema_sync`: adiciona colunas fiscais/jurídicas em `empresas` (`inscricao_municipal`, `inscricao_estadual`, `responsavel_legal`, `cpf_responsavel_legal`, `responsavel_fiscal`), cria `empresas_backup_categoria`, `cnds` (com índice `idx_cnds_org_empresa`), funções `clean_status_label`/`extract_first_br_date` e views `v_contatos_uteis`, `v_modelos_uteis`, `v_licencas_api`, `v_taxas_tpi`.
+* `20251207_01_unaccent_extension_indexes`: garante extensão `unaccent`, função `immutable_unaccent` e os índices funcionais de busca (`ix_empresas_org_empresa_norm`, `ix_empresas_org_municipio_norm`, `idx_contatos_org_nome`, `idx_modelos_org_titulo`).
+* Resultado: qualquer banco novo com `alembic upgrade head` já nasce com colunas extras em `empresas`, tabela `cnds`, views de Úteis/licenças/taxas e índices de busca normalizada multi-tenant.
 
-  * `GET /uteis/modelos?search=&categoria=&page=&size=`
-  * `POST /uteis/modelos`
-  * `PUT/PATCH /uteis/modelos/{id}`
-  * `DELETE /uteis/modelos/{id}`
-* **Notas**:
+### 5) Impacto no front (status)
 
-  * Views **`v_contatos_uteis`** e **`v_modelos_uteis`** garantem compat com o layout já existente.
-  * **Triggers**:
-
-    * `CREATE FUNCTION set_updated_at() RETURNS trigger ...`
-    * `CREATE TRIGGER tg_upd_contatos BEFORE UPDATE ON contatos FOR EACH ROW EXECUTE FUNCTION set_updated_at();`
-    * `CREATE TRIGGER tg_upd_modelos  BEFORE UPDATE ON modelos  FOR EACH ROW EXECUTE FUNCTION set_updated_at();`
-
-### 4) Stubs/minimização de 404 (ativos)
-
-* `GET /agendamentos` — responde vazio paginado com shape final (até o model real da S4).
-
-### 5) Migrations (Alembic)
-
-* Cadeia única **head** (ex.: `9bb2edce4fb5` + `be2b8ef49772`).
-* Inclui: extensão `unaccent`, função `immutable_unaccent`, índices multi-tenant, views de apoio, FKs novas (ex.: `agendamentos.org_id`), índices/trigger de Úteis.
-
-### 6) Impacto no front (status)
-
-* **Cliente HTTP**: injeta Bearer; `VITE_API_BASE_URL`; trata 404 → coleção vazia.
+* **Cliente HTTP**: injeta Bearer automaticamente, usa `VITE_API_BASE_URL` e trata `404` como coleção vazia para listas.
 * **Páginas atuais** (Empresas/Licenças/Taxas/Processos/KPIs/Alertas): OK.
-* **Aba “Úteis”**: listagem e filtros prontos; **CRUD** em finalização (componentes e handlers).
+* **Aba “Úteis”**: em produção, lista contatos/modelos via `GET /uteis`, com filtros/busca/copiar; **sem** formulários de criação/edição/remoção (CRUD fica para S6).
 * **Sem alteração de layout**: apenas novas chamadas e mapeamentos já compatíveis.
 
 ---
@@ -454,11 +434,12 @@
 **Back-end:**
 
 * Completar CRUDs (POST/PUT/DELETE) para: `empresas`, `licencas`, `taxas`, `processos`, **`contatos` e `modelos`** (Úteis) — agora com `org_id` real.
+* Incluir `POST/PUT/PATCH/DELETE` específicos para `/api/v1/uteis/contatos` e `/api/v1/uteis/modelos`, persistindo em `contatos` e `modelos` e reutilizando as views para leitura.
 * Auditar `created_by/updated_by` via JWT.
 
 **Impacto no Front:**
 
-* Habilitar botões **Novo/Editar/Excluir** nas telas existentes (inclusive **Aba Úteis**).
+* Habilitar botões **Novo/Editar/Excluir** nas telas existentes (inclusive **Aba Úteis**, com formulários/modais de contatos/modelos).
 * **Validações de formulário**: CNPJ/CPF/datas; feedback otimista e rollback de erro.
 
 ---
