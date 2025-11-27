@@ -18,8 +18,10 @@ import {
   DIVERSOS_OPERACAO_SEM,
   PROCESS_BASE_COLUMNS,
   PROCESS_DIVERSOS_LABEL,
+  PROCESS_DATE_COLUMNS,
   resolveProcessExtraColumns,
   getDiversosOperacaoLabel,
+  formatProcessDate,
 } from "@/lib/process";
 import { PROCESS_ALL } from "@/lib/constants";
 import { normalizeIdentifier, normalizeText } from "@/lib/text";
@@ -208,6 +210,9 @@ export default function ProcessosScreen({
   const renderProcessValue = useCallback(
     (proc, column) => {
       const rawValue = proc?.[column.key];
+      if (PROCESS_DATE_COLUMNS.has(column.key)) {
+        return formatProcessDate(rawValue);
+      }
       if (column.isStatus) {
         return <StatusBadge status={proc.situacao ?? rawValue} />;
       }

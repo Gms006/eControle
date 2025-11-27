@@ -1,4 +1,5 @@
-import { normalizeText, removeDiacritics } from "@/lib/text";
+import dayjs from "dayjs";
+import { normalizeText, parsePtDate, removeDiacritics } from "@/lib/text";
 
 export const PROCESS_DIVERSOS_LABEL = "Diversos";
 export const DIVERSOS_OPERACAO_ALL = "__PROCESS_DIVERSOS_ALL__";
@@ -9,6 +10,25 @@ export const PROCESS_BASE_COLUMNS = [
   { key: "data_solicitacao", label: "Data de Solicitação" },
   { key: "situacao", label: "Situação", isStatus: true },
 ];
+
+export const PROCESS_DATE_COLUMNS = new Set([
+  "data_solicitacao",
+  "prazo",
+  "data_val",
+]);
+
+export const formatProcessDate = (value) => {
+  const normalized = normalizeText(value).trim();
+  if (normalized === "") return "—";
+
+  const parsedPtDate = parsePtDate(normalized);
+  if (parsedPtDate) {
+    return dayjs(parsedPtDate).format("DD/MM/YYYY");
+  }
+
+  const parsed = dayjs(normalized);
+  return parsed.isValid() ? parsed.format("DD/MM/YYYY") : "—";
+};
 
 const normalizeProcessColumnKey = (value) =>
   removeDiacritics(String(value ?? "").toLowerCase()).replace(/[^a-z0-9]+/g, "_");
