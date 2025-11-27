@@ -275,31 +275,107 @@ export const mapKpiItemsToRecord = (items) => {
   }, {});
 };
 
+const normalizeCollectionPayload = (payload, mapper) => {
+  const itemsSource = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload)
+      ? payload
+      : [];
+  const normalizedItems = mapper ? itemsSource.map((item) => mapper(item)) : itemsSource;
+  const total = toFiniteNumber(payload?.total) ?? normalizedItems.length;
+  const page = toFiniteNumber(payload?.page) ?? 1;
+  const size = toFiniteNumber(payload?.size) ?? normalizedItems.length;
+  return attachPaginationInfo(normalizedItems, { total, page, size });
+};
+
+const TAXA_TIPO_TO_KEY = {
+  TPI: "tpi",
+  Funcionamento: "func",
+  Publicidade: "publicidade",
+  "Sanitária": "sanitaria",
+  "Localização/Instalação": "localizacao_instalacao",
+  "Área Pública": "area_publica",
+  Bombeiros: "bombeiros",
+  "Status Geral": "status_geral",
+};
+
+const TAXA_COLUMN_KEYS = Object.values(TAXA_TIPO_TO_KEY);
+
+const normalizeTaxasFromApi = (payload) => {
+  const collection = normalizeCollectionPayload(payload);
+  const metadata = {
+    total: collection.total,
+    page: collection.page,
+    size: collection.size,
+  };
+
+  const itemsSource = Array.isArray(payload?.items)
+    ? payload.items
+    : Array.isArray(payload)
+      ? payload
+      : [];
+
+  const hasTipoEntries = itemsSource.some(
+    (item) => item && typeof item === "object" && Object.hasOwn(item, "tipo"),
+  );
+  const alreadyWide = itemsSource.some(
+    (item) => item && typeof item === "object" && TAXA_COLUMN_KEYS.some((key) => key in item),
+  );
+
+  if (!hasTipoEntries || alreadyWide) {
+    return collection;
+  }
+
+  const grouped = [];
+  const byEmpresa = new Map();
+
+  itemsSource.forEach((item) => {
+    if (!item || typeof item !== "object") return;
+
+    const empresaId = toFiniteNumber(item.empresa_id ?? item.empresaId ?? item.id);
+    if (empresaId === undefined) return;
+
+    let group = byEmpresa.get(empresaId);
+    if (!group) {
+      group = {
+        ...item,
+        empresaId,
+        empresa_id: empresaId,
+      };
+      byEmpresa.set(empresaId, group);
+      grouped.push(group);
+    }
+
+    const mappedKey = item.tipo && TAXA_TIPO_TO_KEY[item.tipo];
+    const statusValue =
+      item.status ?? item.status_taxas ?? item.statusTaxa ?? item.status_tipo ?? item.statusTipo;
+    if (mappedKey && statusValue !== undefined) {
+      group[mappedKey] = statusValue;
+    }
+
+    if (group.empresa === undefined && item.empresa !== undefined) {
+      group.empresa = item.empresa;
+    }
+    if (group.cnpj === undefined && item.cnpj !== undefined) {
+      group.cnpj = item.cnpj;
+    }
+    if (group.municipio === undefined && item.municipio !== undefined) {
+      group.municipio = item.municipio;
+    }
+    if (!group.data_envio && item.data_envio) {
+      group.data_envio = item.data_envio;
+    }
+  });
+
+  return attachPaginationInfo(grouped, metadata);
+};
+
 const DEFAULT_TRANSFORMS = {
-  "/empresas": (payload) => {
-    const itemsSource = Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload)
-        ? payload
-        : [];
-    const normalizedItems = itemsSource.map((item) => normalizeEmpresaFromApi(item));
-    const total = toFiniteNumber(payload?.total) ?? normalizedItems.length;
-    const page = toFiniteNumber(payload?.page) ?? 1;
-    const size = toFiniteNumber(payload?.size) ?? normalizedItems.length;
-    return attachPaginationInfo(normalizedItems, { total, page, size });
-  },
-  "/alertas": (payload) => {
-    const itemsSource = Array.isArray(payload?.items)
-      ? payload.items
-      : Array.isArray(payload)
-        ? payload
-        : [];
-    const normalizedItems = itemsSource.map((item) => normalizeAlertaFromApi(item));
-    const total = toFiniteNumber(payload?.total) ?? normalizedItems.length;
-    const page = toFiniteNumber(payload?.page) ?? 1;
-    const size = toFiniteNumber(payload?.size) ?? normalizedItems.length;
-    return attachPaginationInfo(normalizedItems, { total, page, size });
-  },
+  "/empresas": (payload) => normalizeCollectionPayload(payload, normalizeEmpresaFromApi),
+  "/alertas": (payload) => normalizeCollectionPayload(payload, normalizeAlertaFromApi),
+  "/licencas": (payload) => normalizeCollectionPayload(payload),
+  "/processos": (payload) => normalizeCollectionPayload(payload),
+  "/taxas": (payload) => normalizeTaxasFromApi(payload),
   "/kpis": (payload) => {
     if (payload && typeof payload === "object" && !Array.isArray(payload) && !payload.items) {
       return payload;
