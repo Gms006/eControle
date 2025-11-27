@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     agendamentos,
     alertas,
     certificados,
+    cnds,
     empresas,
     grupos,
     licencas,
@@ -24,6 +25,7 @@ api_router.include_router(processos.router)
 api_router.include_router(alertas.router)
 api_router.include_router(grupos.router)
 api_router.include_router(certificados.router)
+api_router.include_router(cnds.router)
 api_router.include_router(municipios.router)
 api_router.include_router(uteis.router)
 api_router.include_router(agendamentos.router)
