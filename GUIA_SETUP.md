@@ -1,26 +1,10 @@
 # Guia de Setup - eControle
 
-Este passo a passo leva do zero até o projeto rodando com backend FastAPI, integração com Excel macro-enabled (.xlsm), automação de CND/CAE via Playwright e frontend React.
+Passo a passo para sair do zero até a aplicação executando com o backend FastAPI multi-tenant (API v1), banco PostgreSQL versionado por Alembic, automação de CND/CAE e frontend React. O ETL/legado baseado em planilha é opcional e fica isolado ao final. A visão geral está no [`README.md`](README.md).
 
 ---
 
-## Pré-requisitos
-
-- **Python 3.10+** (recomendado 3.11)
-- **Node.js 18+** (o projeto usa Vite)
-- **npm** ou **pnpm** (os comandos abaixo usam npm)
-- **Git**
-- Arquivos Excel `.xlsm`:
-  - Planilha operacional (empresas/licenças/taxas/processos/contatos)
-  - Planilha de certificados/agendamentos
-
-> Mantenha as planilhas fora do versionamento. Crie `data/` localmente e copie os arquivos para lá.
-
----
-
-## 1. Backend (FastAPI)
-
-### 1.1 Criar ambiente virtual e instalar dependências
+## 1. Preparar ambiente Python (API v1)
 
 ```bash
 cd backend
@@ -28,157 +12,130 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 pip install --upgrade pip
 pip install -r requirements.txt
-python -m playwright install chromium  # necessário para automações de CND/CAE
+python -m playwright install chromium  # requerido para CND/CAE
 ```
 
-O arquivo [`backend/requirements.txt`](backend/requirements.txt) já lista:
-- FastAPI, Uvicorn e Pydantic
-- openpyxl + portalocker para acessar `.xlsm`
-- PyYAML para ler `config.yaml`
-- python-dotenv para carregar `.env`
-- requests/aiofiles/playwright para automações e rota estática de CND
+### 1.1 Variáveis de ambiente (`backend/.env`)
 
-### 1.2 Configurar variáveis de ambiente
-
-Crie `backend/.env` com as chaves mínimas (ajuste conforme seu ambiente):
+Defina ao menos:
 
 ```ini
-EXCEL_PATH=../data/arquivo.xlsm         # planilha operacional
-CONFIG_PATH=./config.yaml               # opcional se usar outro mapeamento
-CORS_ORIGINS=http://localhost:5173      # origins permitidos
-API_HOST=0.0.0.0
-API_PORT=8000
-LOG_LEVEL=INFO
-CND_DIR_BASE=certidoes                  # onde os PDFs serão salvos
-CND_HEADLESS=true                       # false para acompanhar a automação
-CAPTCHA_MODE=manual                     # image_2captcha para resolver automaticamente
-API_KEY_2CAPTCHA=                       # obrigatório se usar 2Captcha
+DATABASE_URL=postgresql+psycopg://usuario:senha@localhost:5432/econtrole
+JWT_SECRET=troque-por-um-segredo
+JWT_ALG=HS256
+CONFIG_PATH=./config.yaml
+CORS_ORIGINS=["http://localhost:5173"]
+UTEIS_REQ_ROOT=G:/PMA/Requerimentos Word/Modelos
+UTEIS_ALLOWED_EXTS=.pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg
+UTEIS_REQ_MAX_DEPTH=4
 ```
 
-Em produção, considere chaves adicionais:
-- `CND_CHROME_PATH` para apontar para um executável Chromium customizado.
-- `PLANILHA_CERT_PATH` (ver abaixo) para centralizar o caminho da planilha de certificados.
+Outras chaves opcionais:
 
-### 1.3 Configurar `config.yaml` e planilhas
+- `CND_DIR_BASE`, `CND_HEADLESS`, `CND_CHROME_PATH`, `CAPTCHA_MODE`, `API_KEY_2CAPTCHA` – automações Playwright de CND/CAE.
+- `PLANILHA_CERT_PATH` somente se usar o fluxo legado de certificados/agendamentos via planilha (`backend/services/data_certificados.py`).
 
-- Atualize `backend/config.yaml` com os nomes de abas (`sheet_names`), tabelas (`table_names`) e aliases (`column_aliases`).
-- Use o endpoint `/api/diagnostico` para validar se todas as colunas obrigatórias foram reconhecidas.
-- Se a planilha mudar de layout, ajuste o YAML e recarregue o backend (`/api/refresh`).
+### 1.2 Banco de dados (PostgreSQL + Alembic)
 
-### 1.4 Planilha de certificados
-
-O arquivo [`backend/services/data_certificados.py`](backend/services/data_certificados.py) contém a constante `PLANILHA_CERT_PATH`. Altere-a para o caminho correto da planilha `.xlsm` que armazena certificados/agendamentos. Utilize caminhos absolutos em produção.
-
-### 1.5 Executar o backend
+Crie/atualize o schema com Alembic (tabelas, enums, views, índices e funções utilitárias):
 
 ```bash
-uvicorn api:app --reload --host $API_HOST --port $API_PORT
+cd backend
+alembic upgrade head
 ```
 
-Testes rápidos:
+Após isso, o banco já terá as views consumidas pelo front (`v_empresas`, `v_licencas_status`, `v_taxas_status`, `v_processos_resumo`, `v_alertas_vencendo_30d`, `v_grupos_kpis`, `v_contatos_uteis`, `v_modelos_uteis`) e índices de busca normalizada.
+
+### 1.3 Executar a API v1
 
 ```bash
-curl http://localhost:8000/health
-curl "http://localhost:8000/api/empresas?query=&municipio=&so_alertas=false"
+cd backend
+uvicorn backend.main:app --reload
 ```
 
-Para recarregar a planilha sem reiniciar o servidor use `POST /api/refresh`.
+- Healthcheck: `GET /healthz`.
+- Debug multi-tenant: `GET /__debug/guc`.
+- Rotas principais em `/api/v1/*` exigem JWT (`Authorization: Bearer ...`).
+
+Para gerar um token de desenvolvimento:
+
+```bash
+cd backend
+python scripts/dev/mint_jwt.py --org-id 00000000-0000-0000-0000-000000000001 --sub 1 --role ADMIN
+```
 
 ---
 
 ## 2. Frontend (React + Vite)
 
-### 2.1 Instalar dependências
-
 ```bash
 cd frontend
 npm install
-```
-
-Principais dependências:
-- React 18 + React DOM
-- Tailwind CSS + postcss/autoprefixer
-- shadcn/ui (componentes Radix `.jsx` adaptados)
-- Recharts, lucide-react, clsx, tailwind-merge
-
-### 2.2 Variáveis de ambiente
-
-Durante o desenvolvimento o proxy do Vite (configurado em `vite.config.js`) redireciona `/api` para `http://localhost:8000`. Para apontar para outra origem (ex.: homologação), crie `frontend/.env.local` com:
-
-```
-VITE_API_URL=https://sua.api/econtrole
-```
-
-### 2.3 Rodar o frontend
-
-```bash
 npm run dev
 ```
 
-A aplicação abrirá em `http://localhost:5173`. A aba **Painel** usa os KPIs do backend; as demais abas (Empresas, Licenças, Taxas, Processos, Úteis, Certificados) consomem os demais endpoints.
+- O servidor abre em `http://localhost:5173`.
+- Para apontar para outro backend, crie `frontend/.env.local` com `VITE_API_URL=https://sua.api/econtrole`.
+- O proxy padrão do Vite redireciona `/api` para `http://localhost:8000` durante o desenvolvimento.
 
 ---
 
-## 3. Automação de CND/CAE (Playwright)
+## 3. Legado opcional (planilhas)
 
-- Execute `python -m playwright install chromium` sempre que atualizar o Playwright.
-- Ajuste `CND_HEADLESS=false` para depurar captchas manualmente.
-- Para habilitar resolução automática de captcha configure:
-  ```ini
-  CAPTCHA_MODE=image_2captcha
-  API_KEY_2CAPTCHA=sua-chave
-  ```
-- Os PDFs ficam em `CND_DIR_BASE` e são servidos em `/cnds/<arquivo>.pdf`.
-- A emissão de CAE (`POST /api/cae/emitir`) espera município `Anápolis`, CNPJ com 14 dígitos e inscrição municipal normalizada.
+Use apenas se precisar integrar uma planilha `.xlsm` existente.
 
----
+### 3.1 ETL (Excel → Postgres)
 
-## 4. Integração com VS Code (opcional)
+Compartilha o mesmo `.env` da API v1.
 
-`.vscode/launch.json` sugerido para debug:
+```bash
+# Ajuda geral
+python -m etl
 
-```json
-{
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Backend: Uvicorn",
-      "type": "python",
-      "request": "launch",
-      "module": "uvicorn",
-      "args": ["api:app", "--reload", "--host", "0.0.0.0", "--port", "8000"],
-      "envFile": "${workspaceFolder}/backend/.env",
-      "cwd": "${workspaceFolder}/backend"
-    },
-    {
-      "name": "Frontend: Vite",
-      "type": "node",
-      "request": "launch",
-      "cwd": "${workspaceFolder}/frontend",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"]
-    }
-  ]
-}
+# Validar mapeamento da planilha vs config.yaml
+python -m etl debug-source caminho/planilha.xlsm
+
+# Importação idempotente
+python -m etl import caminho/planilha.xlsm --dry-run   # simulação
+python -m etl import caminho/planilha.xlsm --apply     # grava no banco
 ```
 
-`.vscode/settings.json` mínimo:
+O contrato do ETL fica em `backend/etl/contracts.py` e usa as configurações de `config.yaml` para mapear abas, tabelas e aliases.
 
-```json
-{
-  "python.defaultInterpreterPath": "${workspaceFolder}/backend/.venv/bin/python",
-  "python.terminal.activateEnvironment": true,
-  "editor.formatOnSave": true
-}
+### 3.2 Backend legado baseado em Excel
+
+Para leitura direta da planilha (sem banco), configure outro `.env` em `backend/` com os valores mínimos:
+
+```ini
+EXCEL_PATH=../data/operacional.xlsm
+CONFIG_PATH=./config.yaml
+CORS_ORIGINS=http://localhost:5173
+API_HOST=0.0.0.0
+API_PORT=8000
+LOG_LEVEL=INFO
+CND_DIR_BASE=certidoes
+CND_HEADLESS=true
+CAPTCHA_MODE=manual
+API_KEY_2CAPTCHA=
 ```
+
+Execute com:
+
+```bash
+cd backend
+uvicorn backend.api:app --reload --host $API_HOST --port $API_PORT
+```
+
+As rotas `/api/*`, `/api/cnds`, `/api/cae` e `/api/certificados` ficarão disponíveis; os PDFs gerados ficam em `CND_DIR_BASE`.
 
 ---
 
-## 5. Dúvidas frequentes
+## 4. Dicas rápidas e troubleshooting
 
-- **Planilha não carrega?** Confira `EXCEL_PATH`, permissões de leitura e se outra pessoa não está com a planilha aberta (o lock usa `portalocker`).
-- **Coluna não aparece?** Rode `/api/diagnostico` e veja se o alias está no `config.yaml`.
-- **Playwright reclama de dependências?** Execute novamente `python -m playwright install chromium`. Em ambientes Linux, confirme se bibliotecas do Chromium estão instaladas.
-- **Frontend não acha a API?** Verifique `VITE_API_URL` ou o proxy no `vite.config.js`.
+- **Planilha não carrega?** Verifique `EXCEL_PATH`, permissões e se o arquivo não está aberto por outra pessoa (lock via `portalo
+cker`).
+- **Coluna ausente?** Rode `python -m etl debug-source` ou `/api/diagnostico` (legado) e ajuste `backend/config.yaml`.
+- **Problemas com Playwright?** Reinstale `python -m playwright install chromium` e valide dependências do Chromium no sistema.
+- **JWT inválido?** Confira `JWT_SECRET`, `JWT_ALG` e o payload usado pelo script `mint_jwt.py`.
 
-Pronto! O eControle deve estar acessível em `http://localhost:5173` utilizando o backend em `http://localhost:8000`.
+Pronto! O eControle deve responder na porta 8000 (API) e 5173 (frontend) usando o banco configurado em `DATABASE_URL`.
