@@ -299,6 +299,29 @@ const TAXA_TIPO_TO_KEY = {
   "Status Geral": "status_geral",
 };
 
+const normalizeTaxaTipo = (tipo) => {
+  if (typeof tipo !== "string") return "";
+  return tipo
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .toLowerCase()
+    .replace(/\s+/gu, " ")
+    .trim();
+};
+
+const NORMALIZED_TAXA_TIPO_TO_KEY = Object.entries(TAXA_TIPO_TO_KEY).reduce(
+  (acc, [label, key]) => {
+    const normalized = normalizeTaxaTipo(label);
+    if (normalized) {
+      acc[normalized] = key;
+    }
+    return acc;
+  },
+  {},
+);
+
 const TAXA_COLUMN_KEYS = Object.values(TAXA_TIPO_TO_KEY);
 
 const normalizeTaxasFromApi = (payload) => {
@@ -346,7 +369,7 @@ const normalizeTaxasFromApi = (payload) => {
       grouped.push(group);
     }
 
-    const mappedKey = item.tipo && TAXA_TIPO_TO_KEY[item.tipo];
+    const mappedKey = NORMALIZED_TAXA_TIPO_TO_KEY[normalizeTaxaTipo(item.tipo)];
     const statusValue =
       item.status ?? item.status_taxas ?? item.statusTaxa ?? item.status_tipo ?? item.statusTipo;
     if (mappedKey && statusValue !== undefined) {
