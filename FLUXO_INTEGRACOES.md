@@ -180,7 +180,7 @@
 
 ---
 
-## S3 — API / Segurança / Front (contrato) ⚠️ **EM ANDAMENTO (backend estável; front usando leitura)**
+## S3 — API / Segurança / Front (contrato) ✅ **CONCLUÍDO**
 
 ### 1) Segurança e contexto
 
@@ -218,7 +218,7 @@
 
 * **Cliente HTTP**: injeta Bearer automaticamente, usa `VITE_API_BASE_URL` e trata `404` como coleção vazia para listas.
 * **Páginas atuais** (Empresas/Licenças/Taxas/Processos/KPIs/Alertas): OK.
-* **Aba “Úteis”**: hoje lista contatos/modelos via `GET /uteis`, com filtros/busca/copiar; **sem** formulários de criação/edição/remoção (CRUD fica para S6).
+* **Aba “Úteis”**: em produção, lista contatos/modelos via `GET /uteis`, com filtros/busca/copiar; **sem** formulários de criação/edição/remoção (CRUD fica para S6).
 * **Sem alteração de layout**: apenas novas chamadas e mapeamentos já compatíveis.
 
 ---
