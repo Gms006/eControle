@@ -1,27 +1,23 @@
 # eControle
 
-Plataforma interna para acompanhar empresas, licenças, taxas, processos administrativos, certificados digitais e materiais de apoio. Os dados operacionais nascem em planilhas Excel habilitadas para macro (`.xlsm`), são normalizados por um ETL idempotente e ficam disponíveis em um PostgreSQL consumido por uma API FastAPI multi-tenant e por um frontend React.
-
-> ⚠️ As planilhas reais **não são versionadas**. Crie a pasta `data/` localmente e armazene os arquivos apenas em ambientes controlados.
+Plataforma interna para acompanhar empresas, licenças, taxas, processos administrativos, certificados digitais e materiais de apoio. Os dados operacionais são persistidos diretamente em PostgreSQL, consumidos por uma API FastAPI multi-tenant e por um frontend React. O ETL continua disponível para normalizar arquivos CSV legados quando necessário.
 
 ---
 
 ## Visão geral
 
-- **Fonte de dados:** abas e ListObjects mapeados por `backend/config.yaml` e lidos com `openpyxl`/`portalocker`.
-- **ETL:** `python -m etl` grava staging (`stg_*`) e aplica UPSERT idempotente, preservando `run_id`/`row_hash`.
+- **Fonte de dados:** PostgreSQL acessado diretamente pela API.
+- **ETL:** `python -m etl` grava staging (`stg_*`) a partir de CSV e aplica UPSERT idempotente, preservando `run_id`/`row_hash`.
 - **API v1 (multi-tenant):** `backend/main.py` injeta `app.current_org` em cada requisição e expõe rotas `/api/v1/*` com autenticação JWT.
-- **API legada:** `backend/api.py` continua atendendo leitura direta das planilhas e integra automações de CND/CAE.
 - **Frontend:** React + Vite, configurado via `VITE_API_URL`.
 
 Arquitetura resumida:
 
 ```
-Excel (.xlsm/.csv) ──▶ backend/etl ──▶ PostgreSQL ──▶ backend/main.py (FastAPI v1)
-          │                                       │
-          └──────────── backend/api.py ───────────┘  (API legada baseada em planilha)
-                                                    ▼
-                                               frontend (React 18 + Vite)
+CSV (opcional) ──▶ backend/etl ──▶ PostgreSQL ──▶ backend/main.py (FastAPI v1)
+                                                 │
+                                                 ▼
+                                            frontend (React 18 + Vite)
 ```
 
 ---
@@ -42,15 +38,8 @@ Excel (.xlsm/.csv) ──▶ backend/etl ──▶ PostgreSQL ──▶ backend/
 - Usa o mesmo `.env` da API v1 (`DATABASE_URL`, `CONFIG_PATH`) e contratos definidos em `contracts.py`.
 - Principais comandos:
   - `python -m etl` – ajuda.
-  - `python -m etl debug-source caminho/planilha.xlsm` – validação do mapeamento.
-  - `python -m etl import caminho/planilha.xlsm --dry-run|--apply` – carga idempotente.
-
-### Backend legado baseado em planilha (`backend/api.py`)
-
-- Mantido para leitura direta do Excel, sem banco de dados.
-- Rotas: `/api/*`, `/api/cnds`, `/api/cae`, `/api/certificados` e serviço estático `/cnds/*` para PDFs emitidos.
-- Variáveis mínimas: `EXCEL_PATH`, `CONFIG_PATH`, `CORS_ORIGINS`, `API_HOST`, `API_PORT`, `CND_DIR_BASE`, `CND_HEADLESS`, `CAPTCHA_MODE`, `API_KEY_2CAPTCHA`.
-- O módulo `backend/services/data_certificados.py` lê a planilha dedicada de certificados/agendamentos (ajuste `PLANILHA_CERT_PATH`).
+  - `python -m etl debug-source caminho/dados.csv` – validação do mapeamento.
+  - `python -m etl import caminho/dados.csv --dry-run|--apply` – carga idempotente.
 
 ### Automação de CND/CAE (Playwright)
 
@@ -91,7 +80,7 @@ Use este resumo para validar o ambiente; o passo a passo completo está em [`GUI
    ```
 5. **Rodar ETL** (exemplo de importação)
    ```bash
-   python -m etl import caminho/planilha.xlsm --apply
+   python -m etl import caminho/dados.csv --apply
    ```
 6. **Frontend**
    ```bash
@@ -104,9 +93,7 @@ Use este resumo para validar o ambiente; o passo a passo completo está em [`GUI
 
 ## Dados e configuração
 
-- Atualize `backend/config.yaml` ao alterar o layout das planilhas; a CLI `python -m etl debug-source` e `/api/diagnostico` (legado) ajudam a validar os aliases.
-- Os arquivos Excel não são versionados; use a pasta `data/` localmente.
-- Certificados/agendamentos: ajuste `PLANILHA_CERT_PATH` em `backend/services/data_certificados.py` para apontar para a planilha real.
+- Atualize `backend/config.yaml` ao alterar os aliases usados pelo ETL; a CLI `python -m etl debug-source` ajuda a validar o mapeamento.
 
 ---
 
@@ -117,7 +104,7 @@ Os testes usam Pytest:
 - `tests/test_api_v1.py` cobre autenticação, paginação e filtros da API multi-tenant.
 - `tests/test_auth_smoke.py` valida parsing de JWT e hierarquia de roles.
 - `tests/test_etl_basic.py` garante idempotência do ETL.
-- `tests/test_smoke.py` mantém verificações básicas da API legada.
+- `tests/test_smoke.py` mantém verificações básicas da API.
 
 Execute com:
 

@@ -11,8 +11,6 @@ DEFAULT_ALLOWED_EXTS = {
     ".pdf",
     ".doc",
     ".docx",
-    ".xls",
-    ".xlsx",
     ".png",
     ".jpg",
     ".jpeg",

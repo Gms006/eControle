@@ -15,7 +15,7 @@ from .normalizers import (
     parse_decimal_br,
     strip_accents,
 )
-from .extract_xlsm import ROW_NUMBER_KEY
+from .extract import ROW_NUMBER_KEY
 
 
 @dataclass(slots=True)

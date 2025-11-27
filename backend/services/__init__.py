@@ -72,7 +72,7 @@ def validar_empresa(empresa: Empresa) -> List[str]:
 
 
 # ============================================================================
-# NORMALIZAÇÃO (em memória - não altera Excel)
+# NORMALIZAÇÃO (em memória)
 # ============================================================================
 
 def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
@@ -101,7 +101,7 @@ def normalizar_licencas(licencas_raw: List[LicencaRaw]) -> List[Licenca]:
             validade_raw = getattr(raw, val_attr, None)
 
             status_raw = "*" if status_raw in ("", None) else str(status_raw).strip()
-            validade = _coerce_excel_date(validade_raw)
+            validade = _coerce_date_value(validade_raw)
 
             status, validade_embutida = _parse_status_licenca(status_raw)
             if not validade and validade_embutida:
@@ -201,8 +201,8 @@ def _parse_status_licenca(status_raw: str) -> tuple[str, Optional[str]]:
     return (status_raw.strip() or "*", None)
 
 
-def _coerce_excel_date(value) -> Optional[str]:
-    """Normaliza valores de data vindos do Excel para dd/mm/YYYY."""
+def _coerce_date_value(value) -> Optional[str]:
+    """Normaliza valores de data vindos de strings ou números para dd/mm/YYYY."""
     if value in (None, ""):
         return None
 

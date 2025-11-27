@@ -9,11 +9,10 @@ from typing import Optional
 
 import sqlalchemy as sa
 import typer
-from openpyxl import load_workbook
 from typer.main import TyperArgument
 
 from .contracts import load_contract
-from .extract_xlsm import load as load_source
+from .extract import load as load_source
 from .load_upsert import run as run_loader
 from .transform_normalize import transform
 
@@ -74,7 +73,7 @@ def import_command(
         readable=True,
         dir_okay=False,
         resolve_path=True,
-        help="Arquivo XLSM/XLSX/CSV",
+        help="Arquivo CSV",
     ),
     dry_run: bool = typer.Option(
         True,
@@ -125,31 +124,18 @@ def debug_source(
         readable=True,
         dir_okay=False,
         resolve_path=True,
-        help="Arquivo XLSM/XLSX/CSV",
+        help="Arquivo CSV",
     ),
 ) -> None:
-    """Mostra diagnóstico do arquivo x contrato (abas, mapeamentos e contagens extraídas)."""
+    """Mostra diagnóstico rápido do arquivo x contrato (mapeamentos e contagens)."""
 
     contract = load_contract()
-
-    # 1) Abas reais do Excel
-    wb = load_workbook(filename=source, read_only=True, data_only=True, keep_vba=True)
-    typer.echo("\n== Abas no arquivo ==")
-    for name in wb.sheetnames:
-        typer.echo(f"- {name}")
-
-    # 2) sheet_names do contrato
-    typer.echo("\n== sheet_names do contrato ==")
-    for logical, sheet in contract.sheet_names.items():
-        typer.echo(f"{logical:20s} -> {sheet}")
-
-    # 3) Rodar a extração e mostrar chaves e tamanhos
+    # Rodar a extração e mostrar chaves e tamanhos
     raw = load_source(source, contract)
 
     typer.echo("\n== Seções extraídas ==")
     for key, val in raw.items():
         if isinstance(val, dict):
-            # processos: dict de tabelas lógicas
             total = sum(len(v or []) for v in val.values())
             details = ", ".join(f"{k}:{len(v or [])}" for k, v in val.items())
             typer.echo(f"- {key}: {total} ({details})")

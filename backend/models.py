@@ -151,7 +151,7 @@ class Modelo:
 
 @dataclass
 class LicencaRaw:
-    """Licença raw (estrutura larga do Excel) - uso temporário para leitura"""
+    """Licença raw (estrutura larga importada) - uso temporário para leitura"""
     empresa_id: int
     empresa: str
     cnpj: str
@@ -171,7 +171,7 @@ class LicencaRaw:
 
 @dataclass
 class TaxaRaw:
-    """Taxa raw (estrutura larga do Excel) - uso temporário para leitura"""
+    """Taxa raw (estrutura larga importada) - uso temporário para leitura"""
     empresa_id: int
     empresa: str
     cnpj: str
