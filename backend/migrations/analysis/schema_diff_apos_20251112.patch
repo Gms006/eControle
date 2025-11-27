@@ -1,0 +1,1798 @@
+diff --git "a/.\\schema_ref_20251112.sql" "b/.\\schema_atual.sql"
+index 3945300..c6e277c 100644
+--- "a/.\\schema_ref_20251112.sql"
++++ "b/.\\schema_atual.sql"
+@@ -2,7 +2,7 @@
+  - -   P o s t g r e S Q L   d a t a b a s e   d u m p 
+ 
+  - - 
+ 
+  
+ 
+- \ r e s t r i c t   q g 7 H d 0 Z 1 q a I 4 u y 1 R 7 2 e e Z U d 0 g T C f t i E r U E 4 Z f 2 d 4 z 0 f E 4 i Q p C t L o o 6 m H b K u f N Q t 
+ 
++ \ r e s t r i c t   x u E G 5 4 L 3 K D 9 x Y p e h s 9 F F z r X 6 x 9 k X a R w 2 5 f 9 I G G 4 L W x a U 3 q v G f h F n N U b 0 w X a b V e d 
+ 
+  
+ 
+  - -   D u m p e d   f r o m   d a t a b a s e   v e r s i o n   1 8 . 0 
+ 
+  - -   D u m p e d   b y   p g _ d u m p   v e r s i o n   1 8 . 0 
+ 
+@@ -20,13 +20,13 @@
+  S E T   r o w _ s e c u r i t y   =   o f f ; 
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   p u b l i c ;   T y p e :   S C H E M A ;   S c h e m a :   - ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   a p p ;   T y p e :   S C H E M A ;   S c h e m a :   - ;   O w n e r :   p o s t g r e s 
+ 
+  - - 
+ 
+  
+ 
+- - -   * n o t *   c r e a t i n g   s c h e m a ,   s i n c e   i n i t d b   c r e a t e s   i t 
+ 
++ C R E A T E   S C H E M A   a p p ; 
+ 
+  
+ 
+  
+ 
+- A L T E R   S C H E M A   p u b l i c   O W N E R   T O   e c o n t r o l e ; 
+ 
++ A L T E R   S C H E M A   a p p   O W N E R   T O   p o s t g r e s ; 
+ 
+  
+ 
+  - - 
+ 
+  - -   N a m e :   u n a c c e n t ;   T y p e :   E X T E N S I O N ;   S c h e m a :   - ;   O w n e r :   - 
+ 
+@@ -115,6 +115,19 @@
+  A L T E R   T Y P E   p u b l i c . o r g a o _ d i v e r s o s _ e n u m   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   r e s p o n s a v e l _ f i s c a l _ e n u m ;   T y p e :   T Y P E ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   T Y P E   p u b l i c . r e s p o n s a v e l _ f i s c a l _ e n u m   A S   E N U M   ( 
+ 
++         ' C a r l a ' , 
+ 
++         ' D e n i s e ' , 
+ 
++         ' F e r n a n d o ' 
+ 
++ ) ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   T Y P E   p u b l i c . r e s p o n s a v e l _ f i s c a l _ e n u m   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   s e r v i c o _ s a n i t a r i o _ e n u m ;   T y p e :   T Y P E ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -164,6 +177,75 @@
+  A L T E R   T Y P E   p u b l i c . u s e r _ r o l e _ e n u m   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   c l e a n _ s t a t u s _ l a b e l ( t e x t ) ;   T y p e :   F U N C T I O N ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   F U N C T I O N   p u b l i c . c l e a n _ s t a t u s _ l a b e l ( s r c   t e x t )   R E T U R N S   t e x t 
+ 
++         L A N G U A G E   s q l   I M M U T A B L E 
+ 
++         A S   $ _ $ 
+ 
++     W I T H   t 0   A S   ( 
+ 
++         S E L E C T   c o a l e s c e ( s r c ,   ' ' )   A S   s 
+ 
++     ) , 
+ 
++     - -   r e m o v e   q u a l q u e r   d a t a   d d / m m / y y y y   o u   d d - m m - y y y y 
+ 
++     t 1   A S   ( 
+ 
++         S E L E C T   r e g e x p _ r e p l a c e ( s ,   ' ( \ d { 1 , 2 } ) [ / - ] ( \ d { 1 , 2 } ) [ / - ] ( \ d { 2 , 4 } ) ' ,   ' ' ,   ' g ' )   A S   s 
+ 
++         F R O M   t 0 
+ 
++     ) , 
+ 
++     - -   r e m o v e   s u f i x o s   c o m o   "   .   V a l " ,   "   -   V a l i d a d e " ,   "   -   V e n c . "   n o   f i m   d a   s t r i n g 
+ 
++     t 2   A S   ( 
+ 
++         S E L E C T   r e g e x p _ r e p l a c e ( 
+ 
++                           s , 
+ 
++                           ' ( [ [ : s p a c e : ] \ . \ - - - ] * ) ( V A L ( I D A D E ) ? | V E N C \ . ? ) \ . ? [ [ : s p a c e : ] ] * $ ' , 
+ 
++                           ' ' , 
+ 
++                           ' g i ' 
+ 
++                       )   A S   s 
+ 
++         F R O M   t 1 
+ 
++     ) , 
+ 
++     - -   t r i m   d e   p o n t u a È Ã Ý %Õ o / t r a È Ã Ý o s / e s p a È Ã Ý o s 
+ 
++     t 3   A S   ( 
+ 
++         S E L E C T   b t r i m ( s ,   '   . - - , ; - ' )   A S   s 
+ 
++         F R O M   t 2 
+ 
++     ) 
+ 
++     S E L E C T 
+ 
++         C A S E 
+ 
++             W H E N   s   ~ *   ' \ b v e n c '       T H E N   ' V e n c i d o ' 
+ 
++             W H E N   s   ~ *   ' \ b p o s s '       T H E N   ' P o s s u i ' 
+ 
++             W H E N   s   ~ *   ' \ b d i s p '       T H E N   ' D i s p e n s a ' 
+ 
++             W H E N   s   ~ *   ' \ b s u j e '       T H E N   ' S u j e i t o ' 
+ 
++             E L S E   s 
+ 
++         E N D 
+ 
++     F R O M   t 3 ; 
+ 
++ $ _ $ ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   F U N C T I O N   p u b l i c . c l e a n _ s t a t u s _ l a b e l ( s r c   t e x t )   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   e x t r a c t _ f i r s t _ b r _ d a t e ( t e x t ) ;   T y p e :   F U N C T I O N ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   F U N C T I O N   p u b l i c . e x t r a c t _ f i r s t _ b r _ d a t e ( s r c   t e x t )   R E T U R N S   d a t e 
+ 
++         L A N G U A G E   s q l   I M M U T A B L E   S T R I C T 
+ 
++         A S   $ $ 
+ 
++     W I T H   m   A S   ( 
+ 
++         S E L E C T   r e g e x p _ m a t c h ( s r c ,   ' ( \ d { 1 , 2 } ) [ / - ] ( \ d { 1 , 2 } ) [ / - ] ( \ d { 2 , 4 } ) ' )   A S   m m 
+ 
++     ) 
+ 
++     S E L E C T   C A S E 
+ 
++                       W H E N   m . m m   I S   N U L L   T H E N   N U L L : : d a t e 
+ 
++                       E L S E   t o _ d a t e ( 
+ 
++                           l p a d ( ( m . m m ) [ 1 ] , 2 , ' 0 ' )   | |   ' / '   | | 
+ 
++                           l p a d ( ( m . m m ) [ 2 ] , 2 , ' 0 ' )   | |   ' / '   | | 
+ 
++                           ( C A S E   W H E N   l e n g t h ( ( m . m m ) [ 3 ] ) = 2   T H E N   ' 2 0 '   | |   ( m . m m ) [ 3 ]   E L S E   ( m . m m ) [ 3 ]   E N D ) , 
+ 
++                           ' D D / M M / Y Y Y Y ' 
+ 
++                       ) 
+ 
++                   E N D 
+ 
++     F R O M   m ; 
+ 
++ $ $ ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   F U N C T I O N   p u b l i c . e x t r a c t _ f i r s t _ b r _ d a t e ( s r c   t e x t )   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i m m u t a b l e _ u n a c c e n t ( t e x t ) ;   T y p e :   F U N C T I O N ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -174,6 +256,36 @@
+  
+ 
+  A L T E R   F U N C T I O N   p u b l i c . i m m u t a b l e _ u n a c c e n t ( t e x t )   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
++ - - 
+ 
++ - -   N a m e :   s e t _ u p d a t e d _ a t ( ) ;   T y p e :   F U N C T I O N ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( )   R E T U R N S   t r i g g e r 
+ 
++         L A N G U A G E   p l p g s q l 
+ 
++         A S   $ $ 
+ 
++ B E G I N   N E W . u p d a t e d _ a t   =   n o w ( ) ;   R E T U R N   N E W ;   E N D ;   $ $ ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( )   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   t r g _ l i c e n c a s _ f i l l _ v a l i d a d e ( ) ;   T y p e :   F U N C T I O N ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   F U N C T I O N   p u b l i c . t r g _ l i c e n c a s _ f i l l _ v a l i d a d e ( )   R E T U R N S   t r i g g e r 
+ 
++         L A N G U A G E   p l p g s q l 
+ 
++         A S   $ $ 
+ 
++ B E G I N 
+ 
++     I F   N E W . v a l i d a d e   I S   N U L L   A N D   N E W . s t a t u s   I S   N O T   N U L L   T H E N 
+ 
++         N E W . v a l i d a d e   : =   e x t r a c t _ f i r s t _ b r _ d a t e ( N E W . s t a t u s ) ; 
+ 
++     E N D   I F ; 
+ 
++     R E T U R N   N E W ; 
+ 
++ E N D ; 
+ 
++ $ $ ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   F U N C T I O N   p u b l i c . t r g _ l i c e n c a s _ f i l l _ v a l i d a d e ( )   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
+  S E T   d e f a u l t _ t a b l e s p a c e   =   ' ' ; 
+ 
+  
+ 
+  S E T   d e f a u l t _ t a b l e _ a c c e s s _ m e t h o d   =   h e a p ; 
+ 
+@@ -225,7 +337,7 @@
+  - - 
+ 
+  
+ 
+  C R E A T E   T A B L E   p u b l i c . a l e m b i c _ v e r s i o n   ( 
+ 
+-         v e r s i o n _ n u m   c h a r a c t e r   v a r y i n g ( 2 5 5 )   N O T   N U L L 
+ 
++         v e r s i o n _ n u m   c h a r a c t e r   v a r y i n g ( 1 2 8 )   N O T   N U L L 
+ 
+  ) ; 
+ 
+  
+ 
+  
+ 
+@@ -277,6 +389,49 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   c n d s ;   T y p e :   T A B L E ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   T A B L E   p u b l i c . c n d s   ( 
+ 
++         i d   i n t e g e r   N O T   N U L L , 
+ 
++         o r g _ i d   u u i d   N O T   N U L L , 
+ 
++         e m p r e s a _ i d   i n t e g e r   N O T   N U L L , 
+ 
++         e s f e r a   c h a r a c t e r   v a r y i n g   N O T   N U L L , 
+ 
++         o r g a o   c h a r a c t e r   v a r y i n g   N O T   N U L L , 
+ 
++         s t a t u s   c h a r a c t e r   v a r y i n g   N O T   N U L L , 
+ 
++         u r l   t e x t , 
+ 
++         d a t a _ e m i s s a o   d a t e , 
+ 
++         v a l i d a d e   d a t e , 
+ 
++         c r e a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( )   N O T   N U L L , 
+ 
++         u p d a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e 
+ 
++ ) ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   T A B L E   p u b l i c . c n d s   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   c n d s _ i d _ s e q ;   T y p e :   S E Q U E N C E ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   S E Q U E N C E   p u b l i c . c n d s _ i d _ s e q 
+ 
++         A S   i n t e g e r 
+ 
++         S T A R T   W I T H   1 
+ 
++         I N C R E M E N T   B Y   1 
+ 
++         N O   M I N V A L U E 
+ 
++         N O   M A X V A L U E 
+ 
++         C A C H E   1 ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   S E Q U E N C E   p u b l i c . c n d s _ i d _ s e q   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   c n d s _ i d _ s e q ;   T y p e :   S E Q U E N C E   O W N E D   B Y ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   S E Q U E N C E   p u b l i c . c n d s _ i d _ s e q   O W N E D   B Y   p u b l i c . c n d s . i d ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   c o n t a t o s ;   T y p e :   T A B L E ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -287,7 +442,10 @@
+          t e l e f o n e   c h a r a c t e r   v a r y i n g ( 6 0 ) , 
+ 
+          w h a t s a p p   c h a r a c t e r   v a r y i n g ( 1 0 )   D E F A U L T   ' N %Ô O ' : : c h a r a c t e r   v a r y i n g   N O T   N U L L , 
+ 
+          e m a i l   c h a r a c t e r   v a r y i n g ( 2 5 5 ) , 
+ 
+-         c a t e g o r i a   p u b l i c . c a t e g o r i a _ c o n t a t o _ e n u m   N O T   N U L L 
+ 
++         c a t e g o r i a   p u b l i c . c a t e g o r i a _ c o n t a t o _ e n u m   N O T   N U L L , 
+ 
++         o r g _ i d   u u i d   N O T   N U L L , 
+ 
++         c r e a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( ) , 
+ 
++         u p d a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( ) 
+ 
+  ) ; 
+ 
+  
+ 
+  
+ 
+@@ -343,6 +501,11 @@
+          o r g _ i d   u u i d   N O T   N U L L , 
+ 
+          c r e a t e d _ b y   i n t e g e r , 
+ 
+          u p d a t e d _ b y   i n t e g e r , 
+ 
++         i n s c r i c a o _ m u n i c i p a l   t e x t , 
+ 
++         i n s c r i c a o _ e s t a d u a l   t e x t , 
+ 
++         r e s p o n s a v e l _ l e g a l   t e x t , 
+ 
++         c p f _ r e s p o n s a v e l _ l e g a l   t e x t , 
+ 
++         r e s p o n s a v e l _ f i s c a l   p u b l i c . r e s p o n s a v e l _ f i s c a l _ e n u m , 
+ 
+          C O N S T R A I N T   c k _ e m p r e s a s _ c n p j _ d i g i t s _ l e n   C H E C K   ( ( ( ( c n p j ) : : t e x t   ~   ' ^ [ 0 - 9 ] { 1 1 } $ ' : : t e x t )   O R   ( ( c n p j ) : : t e x t   ~   ' ^ [ 0 - 9 ] { 1 4 } $ ' : : t e x t ) ) ) , 
+ 
+          C O N S T R A I N T   c k _ e m p r e s a s _ c n p j _ f o r m a t o   C H E C K   ( ( ( c h a r _ l e n g t h ( ( c n p j ) : : t e x t )   =   1 4 )   A N D   ( ( c n p j ) : : t e x t   ~   ' ^ [ 0 - 9 ] + $ ' : : t e x t ) ) ) 
+ 
+  ) ; 
+ 
+@@ -351,6 +514,19 @@
+  A L T E R   T A B L E   p u b l i c . e m p r e s a s   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   e m p r e s a s _ b a c k u p _ c a t e g o r i a ;   T y p e :   T A B L E ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   T A B L E   p u b l i c . e m p r e s a s _ b a c k u p _ c a t e g o r i a   ( 
+ 
++         i d   i n t e g e r , 
+ 
++         c n p j   c h a r a c t e r   v a r y i n g ( 1 4 ) , 
+ 
++         c a t e g o r i a   c h a r a c t e r   v a r y i n g ( 1 2 0 ) 
+ 
++ ) ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   T A B L E   p u b l i c . e m p r e s a s _ b a c k u p _ c a t e g o r i a   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   e m p r e s a s _ i d _ s e q ;   T y p e :   S E Q U E N C E ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -424,7 +600,10 @@
+          i d   i n t e g e r   N O T   N U L L , 
+ 
+          m o d e l o   t e x t   N O T   N U L L , 
+ 
+          d e s c r i c a o   c h a r a c t e r   v a r y i n g ( 2 5 5 ) , 
+ 
+-         u t i l i z a c a o   c h a r a c t e r   v a r y i n g ( 1 2 0 )   D E F A U L T   ' W h a t s A p p ' : : c h a r a c t e r   v a r y i n g   N O T   N U L L 
+ 
++         u t i l i z a c a o   c h a r a c t e r   v a r y i n g ( 1 2 0 )   D E F A U L T   ' W h a t s A p p ' : : c h a r a c t e r   v a r y i n g   N O T   N U L L , 
+ 
++         o r g _ i d   u u i d   N O T   N U L L , 
+ 
++         c r e a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( ) , 
+ 
++         u p d a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( ) 
+ 
+  ) ; 
+ 
+  
+ 
+  
+ 
+@@ -870,8 +1049,8 @@
+          o b s   t e x t , 
+ 
+          c r e a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( )   N O T   N U L L , 
+ 
+          u p d a t e d _ a t   t i m e s t a m p   w i t h   t i m e   z o n e   D E F A U L T   n o w ( ) , 
+ 
+-         o r g _ i d   u u i d   N O T   N U L L , 
+ 
+          v e n c i m e n t o _ t p i   d a t e , 
+ 
++         o r g _ i d   u u i d   N O T   N U L L , 
+ 
+          c r e a t e d _ b y   i n t e g e r , 
+ 
+          u p d a t e d _ b y   i n t e g e r 
+ 
+  ) ; 
+ 
+@@ -1030,6 +1209,26 @@
+  A L T E R   V I E W   p u b l i c . v _ c e r t i f i c a d o s _ s t a t u s   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   v _ c o n t a t o s _ u t e i s ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   V I E W   p u b l i c . v _ c o n t a t o s _ u t e i s   A S 
+ 
++   S E L E C T   i d , 
+ 
++         c o n t a t o   A S   n o m e , 
+ 
++         e m a i l , 
+ 
++         t e l e f o n e , 
+ 
++         c a t e g o r i a , 
+ 
++         o r g _ i d , 
+ 
++         c r e a t e d _ a t , 
+ 
++         u p d a t e d _ a t , 
+ 
++         m u n i c i p i o , 
+ 
++         w h a t s a p p 
+ 
++       F R O M   p u b l i c . c o n t a t o s   c ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   V I E W   p u b l i c . v _ c o n t a t o s _ u t e i s   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   v _ e m p r e s a s ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1116,6 +1315,34 @@
+  A L T E R   V I E W   p u b l i c . v _ g r u p o s _ k p i s   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   v _ l i c e n c a s _ a p i ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   V I E W   p u b l i c . v _ l i c e n c a s _ a p i   A S 
+ 
++   S E L E C T   l . i d   A S   l i c e n c a _ i d , 
+ 
++         l . e m p r e s a _ i d , 
+ 
++         l . o r g _ i d , 
+ 
++         e . e m p r e s a , 
+ 
++         e . c n p j , 
+ 
++         e . m u n i c i p i o , 
+ 
++         l . t i p o , 
+ 
++         p u b l i c . c l e a n _ s t a t u s _ l a b e l ( ( l . s t a t u s ) : : t e x t )   A S   s t a t u s , 
+ 
++         C O A L E S C E ( l . v a l i d a d e ,   p u b l i c . e x t r a c t _ f i r s t _ b r _ d a t e ( ( l . s t a t u s ) : : t e x t ) )   A S   v a l i d a d e , 
+ 
++         t o _ c h a r ( ( C O A L E S C E ( l . v a l i d a d e ,   p u b l i c . e x t r a c t _ f i r s t _ b r _ d a t e ( ( l . s t a t u s ) : : t e x t ) ) ) : : t i m e s t a m p   w i t h   t i m e   z o n e ,   ' D D / M M / Y Y Y Y ' : : t e x t )   A S   v a l i d a d e _ b r , 
+ 
++                 C A S E 
+ 
++                         W H E N   ( C O A L E S C E ( l . v a l i d a d e ,   p u b l i c . e x t r a c t _ f i r s t _ b r _ d a t e ( ( l . s t a t u s ) : : t e x t ) )   I S   N U L L )   T H E N   N U L L : : i n t e g e r 
+ 
++                         E L S E   ( C O A L E S C E ( l . v a l i d a d e ,   p u b l i c . e x t r a c t _ f i r s t _ b r _ d a t e ( ( l . s t a t u s ) : : t e x t ) )   -   C U R R E N T _ D A T E ) 
+ 
++                 E N D   A S   d i a s _ p a r a _ v e n c e r , 
+ 
++         l . o b s , 
+ 
++         l . c r e a t e d _ a t , 
+ 
++         l . u p d a t e d _ a t 
+ 
++       F R O M   ( p u b l i c . l i c e n c a s   l 
+ 
++           L E F T   J O I N   p u b l i c . e m p r e s a s   e   O N   ( ( e . i d   =   l . e m p r e s a _ i d ) ) ) ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   V I E W   p u b l i c . v _ l i c e n c a s _ a p i   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   v _ l i c e n c a s _ s t a t u s ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1141,6 +1368,23 @@
+  A L T E R   V I E W   p u b l i c . v _ l i c e n c a s _ s t a t u s   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   v _ m o d e l o s _ u t e i s ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   V I E W   p u b l i c . v _ m o d e l o s _ u t e i s   A S 
+ 
++   S E L E C T   i d , 
+ 
++         m o d e l o   A S   t i t u l o , 
+ 
++         d e s c r i c a o   A S   c o n t e u d o , 
+ 
++         u t i l i z a c a o   A S   c a t e g o r i a , 
+ 
++         o r g _ i d , 
+ 
++         c r e a t e d _ a t , 
+ 
++         u p d a t e d _ a t 
+ 
++       F R O M   p u b l i c . m o d e l o s   m ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   V I E W   p u b l i c . v _ m o d e l o s _ u t e i s   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   v _ p r o c e s s o s _ r e s u m o ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1193,6 +1437,25 @@
+  A L T E R   V I E W   p u b l i c . v _ t a x a s _ s t a t u s   O W N E R   T O   e c o n t r o l e ; 
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   v _ t a x a s _ t p i ;   T y p e :   V I E W ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   V I E W   p u b l i c . v _ t a x a s _ t p i   A S 
+ 
++   S E L E C T   t . i d , 
+ 
++         e . e m p r e s a , 
+ 
++         e . c n p j , 
+ 
++         t . s t a t u s , 
+ 
++         t o _ c h a r ( ( t . v e n c i m e n t o _ t p i ) : : t i m e s t a m p   w i t h   t i m e   z o n e ,   ' D D / M M ' : : t e x t )   A S   v e n c i m e n t o _ d d m m , 
+ 
++         t . v e n c i m e n t o _ t p i   A S   v e n c i m e n t o _ d a t e , 
+ 
++         t . o b s 
+ 
++       F R O M   ( p u b l i c . t a x a s   t 
+ 
++           J O I N   p u b l i c . e m p r e s a s   e   O N   ( ( e . i d   =   t . e m p r e s a _ i d ) ) ) 
+ 
++     W H E R E   ( ( t . t i p o ) : : t e x t   =   ' T P I ' : : t e x t ) ; 
+ 
++ 
+ 
++ 
+ 
++ A L T E R   V I E W   p u b l i c . v _ t a x a s _ t p i   O W N E R   T O   p o s t g r e s ; 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   a g e n d a m e n t o s   i d ;   T y p e :   D E F A U L T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1207,6 +1470,13 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   c n d s   i d ;   T y p e :   D E F A U L T ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . c n d s   A L T E R   C O L U M N   i d   S E T   D E F A U L T   n e x t v a l ( ' p u b l i c . c n d s _ i d _ s e q ' : : r e g c l a s s ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   c o n t a t o s   i d ;   T y p e :   D E F A U L T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1336,6 +1606,14 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   c n d s   c n d s _ p k e y ;   T y p e :   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . c n d s 
+ 
++         A D D   C O N S T R A I N T   c n d s _ p k e y   P R I M A R Y   K E Y   ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   c o n t a t o s   c o n t a t o s _ p k e y ;   T y p e :   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1464,19 +1742,18 @@
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u s e r s   u q _ u s e r s _ o r g _ e m a i l ;   T y p e :   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u s e r s   u s e r s _ p k e y ;   T y p e :   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+  A L T E R   T A B L E   O N L Y   p u b l i c . u s e r s 
+ 
+-         A D D   C O N S T R A I N T   u q _ u s e r s _ o r g _ e m a i l   U N I Q U E   ( o r g _ i d ,   e m a i l ) ; 
+ 
++         A D D   C O N S T R A I N T   u s e r s _ p k e y   P R I M A R Y   K E Y   ( i d ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u s e r s   u s e r s _ p k e y ;   T y p e :   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   i d x _ c n d s _ o r g _ e m p r e s a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
+  - - 
+ 
+  
+ 
+- A L T E R   T A B L E   O N L Y   p u b l i c . u s e r s 
+ 
+-         A D D   C O N S T R A I N T   u s e r s _ p k e y   P R I M A R Y   K E Y   ( i d ) ; 
+ 
++ C R E A T E   I N D E X   i d x _ c n d s _ o r g _ e m p r e s a   O N   p u b l i c . c n d s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+@@ -1487,6 +1764,27 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i d x _ c o n t a t o s _ o r g _ c a t ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ c o n t a t o s _ o r g _ c a t   O N   p u b l i c . c o n t a t o s   U S I N G   b t r e e   ( o r g _ i d ,   c a t e g o r i a ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ c o n t a t o s _ o r g _ e m a i l ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ c o n t a t o s _ o r g _ e m a i l   O N   p u b l i c . c o n t a t o s   U S I N G   b t r e e   ( o r g _ i d ,   l o w e r ( ( e m a i l ) : : t e x t ) ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ c o n t a t o s _ o r g _ n o m e ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ c o n t a t o s _ o r g _ n o m e   O N   p u b l i c . c o n t a t o s   U S I N G   b t r e e   ( o r g _ i d ,   l o w e r ( p u b l i c . i m m u t a b l e _ u n a c c e n t ( ( c o n t a t o ) : : t e x t ) ) ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i d x _ e m p r e s a s _ m u n i c i p i o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1494,6 +1792,13 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i d x _ e m p r e s a s _ o r g _ m u n i c i p i o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ e m p r e s a s _ o r g _ m u n i c i p i o   O N   p u b l i c . e m p r e s a s   U S I N G   b t r e e   ( o r g _ i d ,   m u n i c i p i o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i d x _ l i c e n c a s _ e m p r e s a _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1501,6 +1806,20 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i d x _ l i c e n c a s _ o r g _ e m p r e s a _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ l i c e n c a s _ o r g _ e m p r e s a _ t i p o   O N   p u b l i c . l i c e n c a s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ l i c e n c a s _ o r g _ s t a t u s _ v a l i d a d e ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ l i c e n c a s _ o r g _ s t a t u s _ v a l i d a d e   O N   p u b l i c . l i c e n c a s   U S I N G   b t r e e   ( o r g _ i d ,   s t a t u s ,   v a l i d a d e ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i d x _ l i c e n c a s _ v a l i d a d e ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1508,6 +1827,20 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i d x _ m o d e l o s _ o r g _ t i t u l o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ m o d e l o s _ o r g _ t i t u l o   O N   p u b l i c . m o d e l o s   U S I N G   b t r e e   ( o r g _ i d ,   l o w e r ( p u b l i c . i m m u t a b l e _ u n a c c e n t ( m o d e l o ) ) ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ m o d e l o s _ o r g _ u t i l i z a c a o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ m o d e l o s _ o r g _ u t i l i z a c a o   O N   p u b l i c . m o d e l o s   U S I N G   b t r e e   ( o r g _ i d ,   u t i l i z a c a o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i d x _ m o d e l o s _ u t i l i z a c a o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1522,6 +1855,20 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i d x _ p r o c e s s o s _ o r g _ e m p r e s a _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ p r o c e s s o s _ o r g _ e m p r e s a _ t i p o   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ p r o c e s s o s _ o r g _ s i t u a c a o _ p r a z o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ p r o c e s s o s _ o r g _ s i t u a c a o _ p r a z o   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   s i t u a c a o ,   p r a z o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i d x _ p r o c e s s o s _ p r a z o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1592,6 +1939,27 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i d x _ t a x a s _ o r g _ e m p r e s a _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ t a x a s _ o r g _ e m p r e s a _ t i p o   O N   p u b l i c . t a x a s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ t a x a s _ o r g _ s t a t u s _ e n v i o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ t a x a s _ o r g _ s t a t u s _ e n v i o   O N   p u b l i c . t a x a s   U S I N G   b t r e e   ( o r g _ i d ,   s t a t u s ,   d a t a _ e n v i o ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   i d x _ t a x a s _ o r g _ v e n c _ t p i ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i d x _ t a x a s _ o r g _ v e n c _ t p i   O N   p u b l i c . t a x a s   U S I N G   b t r e e   ( o r g _ i d ,   v e n c i m e n t o _ t p i ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i d x _ t a x a s _ s t a t u s ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1655,6 +2023,13 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   i x _ e m p r e s a s _ o r g _ i d ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   I N D E X   i x _ e m p r e s a s _ o r g _ i d   O N   p u b l i c . e m p r e s a s   U S I N G   b t r e e   ( o r g _ i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   i x _ e m p r e s a s _ o r g _ m u n i c i p i o _ n o r m ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1697,87 +2072,108 @@
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ a v u l s o _ d o c _ t i p o _ d a t a _ n u l l _ p r o t o c o l o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ d o c _ t i p o _ d a t a _ n u l l _ p r o t o c o l o   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( d o c u m e n t o ,   t i p o ,   d a t a _ s o l i c i t a c a o )   W H E R E   ( p r o t o c o l o   I S   N U L L ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ d a t a   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( o r g _ i d ,   d o c u m e n t o ,   t i p o ,   d a t a _ s o l i c i t a c a o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N O T   N U L L ) ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ a v u l s o _ d o c _ t i p o _ n u l l _ p r o t o c o l o _ n u l l _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ s e m _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ d o c _ t i p o _ n u l l _ p r o t o c o l o _ n u l l _ d a t a   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( d o c u m e n t o ,   t i p o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N U L L ) ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ s e m _ d a t a   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( o r g _ i d ,   d o c u m e n t o ,   t i p o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N U L L ) ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ p r o c _ a v u l s o _ o r g _ p r o t o c o l o _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ d a t a   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( o r g _ i d ,   d o c u m e n t o ,   t i p o ,   d a t a _ s o l i c i t a c a o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N O T   N U L L ) ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ o r g _ p r o t o c o l o _ t i p o   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( o r g _ i d ,   p r o t o c o l o ,   t i p o )   W H E R E   ( p r o t o c o l o   I S   N O T   N U L L ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ s e m _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ o r g _ d o c _ t i p o _ s e m _ d a t a   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( o r g _ i d ,   d o c u m e n t o ,   t i p o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N U L L ) ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ d a t a   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ,   d a t a _ s o l i c i t a c a o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N O T   N U L L ) ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ a v u l s o _ o r g _ p r o t o c o l o _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ s e m _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ a v u l s o _ o r g _ p r o t o c o l o _ t i p o   O N   p u b l i c . p r o c e s s o s _ a v u l s o s   U S I N G   b t r e e   ( o r g _ i d ,   p r o t o c o l o ,   t i p o )   W H E R E   ( p r o t o c o l o   I S   N O T   N U L L ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ s e m _ d a t a   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N U L L ) ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ e m p r e s a _ t i p o _ c o m _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ p r o c _ o r g _ p r o t o c o l o _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ e m p r e s a _ t i p o _ c o m _ d a t a   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( e m p r e s a _ i d ,   t i p o ,   d a t a _ s o l i c i t a c a o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N O T   N U L L ) ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ o r g _ p r o t o c o l o _ t i p o   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   p r o t o c o l o ,   t i p o )   W H E R E   ( p r o t o c o l o   I S   N O T   N U L L ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ e m p r e s a _ t i p o _ s e m _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ t a x a s _ o r g _ e m p r e s a _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ e m p r e s a _ t i p o _ s e m _ d a t a   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( e m p r e s a _ i d ,   t i p o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N U L L ) ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ t a x a s _ o r g _ e m p r e s a _ t i p o   O N   p u b l i c . t a x a s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   u q _ u s e r s _ o r g _ e m a i l ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ d a t a   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ,   d a t a _ s o l i c i t a c a o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N O T   N U L L ) ) ; 
+ 
++ C R E A T E   U N I Q U E   I N D E X   u q _ u s e r s _ o r g _ e m a i l   O N   p u b l i c . u s e r s   U S I N G   b t r e e   ( o r g _ i d ,   e m a i l ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ s e m _ d a t a ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   l i c e n c a s   l i c e n c a s _ f i l l _ v a l i d a d e _ b i u r ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ o r g _ e m p r e s a _ t i p o _ s e m _ d a t a   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o )   W H E R E   ( ( p r o t o c o l o   I S   N U L L )   A N D   ( d a t a _ s o l i c i t a c a o   I S   N U L L ) ) ; 
+ 
++ C R E A T E   T R I G G E R   l i c e n c a s _ f i l l _ v a l i d a d e _ b i u r   B E F O R E   I N S E R T   O R   U P D A T E   O N   p u b l i c . l i c e n c a s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . t r g _ l i c e n c a s _ f i l l _ v a l i d a d e ( ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ o r g _ p r o t o c o l o _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   c o n t a t o s   t g _ u p d _ c o n t a t o s ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ o r g _ p r o t o c o l o _ t i p o   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( o r g _ i d ,   p r o t o c o l o ,   t i p o )   W H E R E   ( p r o t o c o l o   I S   N O T   N U L L ) ; 
+ 
++ C R E A T E   T R I G G E R   t g _ u p d _ c o n t a t o s   B E F O R E   U P D A T E   O N   p u b l i c . c o n t a t o s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ p r o c _ p r o t o c o l o _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   m o d e l o s   t g _ u p d _ m o d e l o s ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ p r o c _ p r o t o c o l o _ t i p o   O N   p u b l i c . p r o c e s s o s   U S I N G   b t r e e   ( p r o t o c o l o ,   t i p o )   W H E R E   ( p r o t o c o l o   I S   N O T   N U L L ) ; 
+ 
++ C R E A T E   T R I G G E R   t g _ u p d _ m o d e l o s   B E F O R E   U P D A T E   O N   p u b l i c . m o d e l o s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+- - -   N a m e :   u q _ t a x a s _ o r g _ e m p r e s a _ t i p o ;   T y p e :   I N D E X ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - -   N a m e :   e m p r e s a s   t r g _ e m p r e s a s _ u p d a t e d _ a t ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+- C R E A T E   U N I Q U E   I N D E X   u q _ t a x a s _ o r g _ e m p r e s a _ t i p o   O N   p u b l i c . t a x a s   U S I N G   b t r e e   ( o r g _ i d ,   e m p r e s a _ i d ,   t i p o ) ; 
+ 
++ C R E A T E   T R I G G E R   t r g _ e m p r e s a s _ u p d a t e d _ a t   B E F O R E   U P D A T E   O N   p u b l i c . e m p r e s a s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   l i c e n c a s   t r g _ l i c e n c a s _ u p d a t e d _ a t ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   T R I G G E R   t r g _ l i c e n c a s _ u p d a t e d _ a t   B E F O R E   U P D A T E   O N   p u b l i c . l i c e n c a s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   p r o c e s s o s   t r g _ p r o c e s s o s _ u p d a t e d _ a t ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   T R I G G E R   t r g _ p r o c e s s o s _ u p d a t e d _ a t   B E F O R E   U P D A T E   O N   p u b l i c . p r o c e s s o s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   t a x a s   t r g _ t a x a s _ u p d a t e d _ a t ;   T y p e :   T R I G G E R ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ C R E A T E   T R I G G E R   t r g _ t a x a s _ u p d a t e d _ a t   B E F O R E   U P D A T E   O N   p u b l i c . t a x a s   F O R   E A C H   R O W   E X E C U T E   F U N C T I O N   p u b l i c . s e t _ u p d a t e d _ a t ( ) ; 
+ 
+  
+ 
+  
+ 
+  - - 
+ 
+@@ -1797,6 +2193,54 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   c n d s   c n d s _ e m p r e s a _ i d _ f k e y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . c n d s 
+ 
++         A D D   C O N S T R A I N T   c n d s _ e m p r e s a _ i d _ f k e y   F O R E I G N   K E Y   ( e m p r e s a _ i d )   R E F E R E N C E S   p u b l i c . e m p r e s a s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   c n d s   c n d s _ o r g _ i d _ f k e y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . c n d s 
+ 
++         A D D   C O N S T R A I N T   c n d s _ o r g _ i d _ f k e y   F O R E I G N   K E Y   ( o r g _ i d )   R E F E R E N C E S   p u b l i c . o r g s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   e m p r e s a s   e m p r e s a s _ c r e a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . e m p r e s a s 
+ 
++         A D D   C O N S T R A I N T   e m p r e s a s _ c r e a t e d _ b y _ f k   F O R E I G N   K E Y   ( c r e a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   e m p r e s a s   e m p r e s a s _ u p d a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . e m p r e s a s 
+ 
++         A D D   C O N S T R A I N T   e m p r e s a s _ u p d a t e d _ b y _ f k   F O R E I G N   K E Y   ( u p d a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   a g e n d a m e n t o s   f k _ a g e n d a m e n t o s _ o r g ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . a g e n d a m e n t o s 
+ 
++         A D D   C O N S T R A I N T   f k _ a g e n d a m e n t o s _ o r g   F O R E I G N   K E Y   ( o r g _ i d )   R E F E R E N C E S   p u b l i c . o r g s ( i d )   O N   D E L E T E   C A S C A D E ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   c o n t a t o s   f k _ c o n t a t o s _ o r g ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . c o n t a t o s 
+ 
++         A D D   C O N S T R A I N T   f k _ c o n t a t o s _ o r g   F O R E I G N   K E Y   ( o r g _ i d )   R E F E R E N C E S   p u b l i c . o r g s ( i d )   O N   D E L E T E   C A S C A D E ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   e m p r e s a s   f k _ e m p r e s a s _ c r e a t e d _ b y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1845,6 +2289,14 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   m o d e l o s   f k _ m o d e l o s _ o r g ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . m o d e l o s 
+ 
++         A D D   C O N S T R A I N T   f k _ m o d e l o s _ o r g   F O R E I G N   K E Y   ( o r g _ i d )   R E F E R E N C E S   p u b l i c . o r g s ( i d )   O N   D E L E T E   C A S C A D E ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   p r o c e s s o s _ a v u l s o s   f k _ p r o c e s s o s _ a v u l s o s _ o r g ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1901,6 +2353,14 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   l i c e n c a s   l i c e n c a s _ c r e a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . l i c e n c a s 
+ 
++         A D D   C O N S T R A I N T   l i c e n c a s _ c r e a t e d _ b y _ f k   F O R E I G N   K E Y   ( c r e a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   l i c e n c a s   l i c e n c a s _ e m p r e s a _ i d _ f k e y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1909,6 +2369,22 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   l i c e n c a s   l i c e n c a s _ u p d a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . l i c e n c a s 
+ 
++         A D D   C O N S T R A I N T   l i c e n c a s _ u p d a t e d _ b y _ f k   F O R E I G N   K E Y   ( u p d a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   p r o c e s s o s   p r o c e s s o s _ c r e a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . p r o c e s s o s 
+ 
++         A D D   C O N S T R A I N T   p r o c e s s o s _ c r e a t e d _ b y _ f k   F O R E I G N   K E Y   ( c r e a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   p r o c e s s o s   p r o c e s s o s _ e m p r e s a _ i d _ f k e y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1917,6 +2393,22 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   p r o c e s s o s   p r o c e s s o s _ u p d a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . p r o c e s s o s 
+ 
++         A D D   C O N S T R A I N T   p r o c e s s o s _ u p d a t e d _ b y _ f k   F O R E I G N   K E Y   ( u p d a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   t a x a s   t a x a s _ c r e a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . t a x a s 
+ 
++         A D D   C O N S T R A I N T   t a x a s _ c r e a t e d _ b y _ f k   F O R E I G N   K E Y   ( c r e a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   t a x a s   t a x a s _ e m p r e s a _ i d _ f k e y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1925,6 +2417,14 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   t a x a s   t a x a s _ u p d a t e d _ b y _ f k ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   T A B L E   O N L Y   p u b l i c . t a x a s 
+ 
++         A D D   C O N S T R A I N T   t a x a s _ u p d a t e d _ b y _ f k   F O R E I G N   K E Y   ( u p d a t e d _ b y )   R E F E R E N C E S   p u b l i c . u s e r s ( i d ) ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   N a m e :   u s e r s   u s e r s _ o r g _ i d _ f k e y ;   T y p e :   F K   C O N S T R A I N T ;   S c h e m a :   p u b l i c ;   O w n e r :   e c o n t r o l e 
+ 
+  - - 
+ 
+  
+ 
+@@ -1933,9 +2433,37 @@
+  
+ 
+  
+ 
+  - - 
+ 
++ - -   N a m e :   S C H E M A   p u b l i c ;   T y p e :   A C L ;   S c h e m a :   - ;   O w n e r :   p g _ d a t a b a s e _ o w n e r 
+ 
++ - - 
+ 
++ 
+ 
++ G R A N T   U S A G E   O N   S C H E M A   p u b l i c   T O   e c o n t r o l e ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   F U N C T I O N   c l e a n _ s t a t u s _ l a b e l ( s r c   t e x t ) ;   T y p e :   A C L ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ G R A N T   A L L   O N   F U N C T I O N   p u b l i c . c l e a n _ s t a t u s _ l a b e l ( s r c   t e x t )   T O   e c o n t r o l e ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   T A B L E   v _ l i c e n c a s _ a p i ;   T y p e :   A C L ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ G R A N T   S E L E C T   O N   T A B L E   p u b l i c . v _ l i c e n c a s _ a p i   T O   e c o n t r o l e ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
++ - -   N a m e :   D E F A U L T   P R I V I L E G E S   F O R   F U N C T I O N S ;   T y p e :   D E F A U L T   A C L ;   S c h e m a :   p u b l i c ;   O w n e r :   p o s t g r e s 
+ 
++ - - 
+ 
++ 
+ 
++ A L T E R   D E F A U L T   P R I V I L E G E S   F O R   R O L E   p o s t g r e s   I N   S C H E M A   p u b l i c   G R A N T   A L L   O N   F U N C T I O N S   T O   e c o n t r o l e ; 
+ 
++ 
+ 
++ 
+ 
++ - - 
+ 
+  - -   P o s t g r e S Q L   d a t a b a s e   d u m p   c o m p l e t e 
+ 
+  - - 
+ 
+  
+ 
+- \ u n r e s t r i c t   q g 7 H d 0 Z 1 q a I 4 u y 1 R 7 2 e e Z U d 0 g T C f t i E r U E 4 Z f 2 d 4 z 0 f E 4 i Q p C t L o o 6 m H b K u f N Q t 
+ 
++ \ u n r e s t r i c t   x u E G 5 4 L 3 K D 9 x Y p e h s 9 F F z r X 6 x 9 k X a R w 2 5 f 9 I G G 4 L W x a U 3 q v G f h F n N U b 0 w X a b V e d 
+ 
+  
+ 
+  
+\ No newline at end of file
