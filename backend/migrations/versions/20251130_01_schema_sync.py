@@ -83,6 +83,15 @@ def upgrade() -> None:
             ["org_id", "empresa_id"],
         )
 
+    # NOVO PASSO: Remover as views dependentes antes de recriar as funções.
+    # Isso resolve o erro DependentObjectsStillExist.
+    op.execute("DROP VIEW IF EXISTS public.v_taxas_tpi")
+    op.execute("DROP VIEW IF EXISTS public.v_modelos_uteis")
+    op.execute("DROP VIEW IF EXISTS public.v_licencas_api")
+    op.execute("DROP VIEW IF EXISTS public.v_contatos_uteis")
+
+    # Passo 1: Recriar a função clean_status_label
+    op.execute("DROP FUNCTION IF EXISTS public.clean_status_label(text)")
     op.execute(
         """
         CREATE OR REPLACE FUNCTION public.clean_status_label(src text) RETURNS text
@@ -93,14 +102,14 @@ def upgrade() -> None:
           ),
           -- remove qualquer data dd/mm/yyyy ou dd-mm-yyyy
           t1 AS (
-            SELECT regexp_replace(s, '(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})', '', 'g') AS s
+            SELECT regexp_replace(s, '(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})', '', 'g') AS s
             FROM t0
           ),
           -- remove sufixos como " . Val", " - Validade", " - Venc." no fim da string
           t2 AS (
             SELECT regexp_replace(
                      s,
-                     '([[:space:]\\.\\---]*)(VAL(IDADE)?|VENC\\.?)\\.?[[:space:]]*$',
+                     '([[:space:]\.\---]*)(VAL(IDADE)?|VENC\.?)\.?[[:space:]]*$',
                      '',
                      'gi'
                    ) AS s
@@ -113,10 +122,10 @@ def upgrade() -> None:
           )
           SELECT
             CASE
-              WHEN s ~* '\\bvenc'   THEN 'Vencido'
-              WHEN s ~* '\\bposs'   THEN 'Possui'
-              WHEN s ~* '\\bdisp'   THEN 'Dispensa'
-              WHEN s ~* '\\bsuje'   THEN 'Sujeito'
+              WHEN s ~* '\bvenc'   THEN 'Vencido'
+              WHEN s ~* '\bposs'   THEN 'Possui'
+              WHEN s ~* '\bdisp'   THEN 'Dispensa'
+              WHEN s ~* '\bsuje'   THEN 'Sujeito'
               ELSE s
             END
           FROM t3;
@@ -124,13 +133,15 @@ def upgrade() -> None:
         """
     )
 
+    # Passo 2: Recriar a função extract_first_br_date
+    op.execute("DROP FUNCTION IF EXISTS public.extract_first_br_date(text)")
     op.execute(
         """
         CREATE OR REPLACE FUNCTION public.extract_first_br_date(src text) RETURNS date
             LANGUAGE sql IMMUTABLE STRICT
             AS $$
           WITH m AS (
-            SELECT regexp_match(src, '(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})') AS mm
+            SELECT regexp_match(src, '(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})') AS mm
           )
           SELECT CASE
                    WHEN m.mm IS NULL THEN NULL::date
@@ -146,6 +157,7 @@ def upgrade() -> None:
         """
     )
 
+    # Passo 3: Recriar as views
     op.execute(
         """
         CREATE OR REPLACE VIEW public.v_contatos_uteis AS
