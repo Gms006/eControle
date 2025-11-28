@@ -22,53 +22,64 @@ responsavel_fiscal_enum = postgresql.ENUM(
 
 def upgrade() -> None:
     bind = op.get_bind()
+    inspector = sa.inspect(bind)
     responsavel_fiscal_enum.create(bind, checkfirst=True)
 
-    op.add_column("empresas", sa.Column("inscricao_municipal", sa.Text(), nullable=True))
-    op.add_column("empresas", sa.Column("inscricao_estadual", sa.Text(), nullable=True))
-    op.add_column("empresas", sa.Column("responsavel_legal", sa.Text(), nullable=True))
-    op.add_column("empresas", sa.Column("cpf_responsavel_legal", sa.Text(), nullable=True))
-    op.add_column(
+    def add_column_if_missing(table_name: str, column: sa.Column) -> None:
+        if not inspector.has_column(table_name, column.name):
+            op.add_column(table_name, column)
+
+    add_column_if_missing("empresas", sa.Column("inscricao_municipal", sa.Text(), nullable=True))
+    add_column_if_missing("empresas", sa.Column("inscricao_estadual", sa.Text(), nullable=True))
+    add_column_if_missing("empresas", sa.Column("responsavel_legal", sa.Text(), nullable=True))
+    add_column_if_missing("empresas", sa.Column("cpf_responsavel_legal", sa.Text(), nullable=True))
+    add_column_if_missing(
         "empresas",
         sa.Column("responsavel_fiscal", responsavel_fiscal_enum, nullable=True),
     )
 
-    op.create_table(
-        "empresas_backup_categoria",
-        sa.Column("id", sa.Integer(), nullable=True),
-        sa.Column("cnpj", sa.String(length=14), nullable=True),
-        sa.Column("categoria", sa.String(length=120), nullable=True),
-    )
+    if not inspector.has_table("empresas_backup_categoria"):
+        op.create_table(
+            "empresas_backup_categoria",
+            sa.Column("id", sa.Integer(), nullable=True),
+            sa.Column("cnpj", sa.String(length=14), nullable=True),
+            sa.Column("categoria", sa.String(length=120), nullable=True),
+        )
 
-    op.create_table(
-        "cnds",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("org_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("orgs.id"), nullable=False),
-        sa.Column(
-            "empresa_id",
-            sa.Integer(),
-            sa.ForeignKey("empresas.id"),
-            nullable=False,
-        ),
-        sa.Column("esfera", sa.String(), nullable=False),
-        sa.Column("orgao", sa.String(), nullable=False),
-        sa.Column("status", sa.String(), nullable=False),
-        sa.Column("url", sa.Text(), nullable=True),
-        sa.Column("data_emissao", sa.Date(), nullable=True),
-        sa.Column("validade", sa.Date(), nullable=True),
-        sa.Column(
-            "created_at",
-            sa.DateTime(timezone=True),
-            server_default=sa.text("now()"),
-            nullable=False,
-        ),
-        sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
-    )
-    op.create_index(
-        "idx_cnds_org_empresa",
-        "cnds",
-        ["org_id", "empresa_id"],
-    )
+    if not inspector.has_table("cnds"):
+        op.create_table(
+            "cnds",
+            sa.Column("id", sa.Integer(), primary_key=True),
+            sa.Column("org_id", postgresql.UUID(as_uuid=False), sa.ForeignKey("orgs.id"), nullable=False),
+            sa.Column(
+                "empresa_id",
+                sa.Integer(),
+                sa.ForeignKey("empresas.id"),
+                nullable=False,
+            ),
+            sa.Column("esfera", sa.String(), nullable=False),
+            sa.Column("orgao", sa.String(), nullable=False),
+            sa.Column("status", sa.String(), nullable=False),
+            sa.Column("url", sa.Text(), nullable=True),
+            sa.Column("data_emissao", sa.Date(), nullable=True),
+            sa.Column("validade", sa.Date(), nullable=True),
+            sa.Column(
+                "created_at",
+                sa.DateTime(timezone=True),
+                server_default=sa.text("now()"),
+                nullable=False,
+            ),
+            sa.Column("updated_at", sa.DateTime(timezone=True), nullable=True),
+        )
+
+    refreshed_inspector = sa.inspect(bind)
+    existing_cnds_indexes = {idx["name"] for idx in refreshed_inspector.get_indexes("cnds")}
+    if "idx_cnds_org_empresa" not in existing_cnds_indexes:
+        op.create_index(
+            "idx_cnds_org_empresa",
+            "cnds",
+            ["org_id", "empresa_id"],
+        )
 
     op.execute(
         """
