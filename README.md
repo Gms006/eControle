@@ -53,6 +53,15 @@ CSV (opcional) ──▶ backend/etl ──▶ PostgreSQL ──▶ backend/main
 - `npm run dev` levanta o servidor em `http://localhost:5173`; `VITE_API_URL` pode apontar para outro backend.
 - Estrutura por features (`src/features/*`), provedores em `src/providers/` e utilitários em `src/lib/`.
 
+#### Dicionário de comandos de busca
+
+- `nome: valor` – filtra somente pelos campos de nome/fantasia da empresa.
+- `razao: valor` – busca apenas pela razão social.
+- `cnpj: valor` – restringe a pesquisa ao CNPJ.
+- `responsavel: valor` – pesquisa direcionada ao responsável legal.
+
+Também é possível selecionar o campo diretamente pelo dropdown ao lado da barra de busca; quando nenhum campo é escolhido, a pesquisa continua abrangendo todos os campos como antes.
+
 ---
 
 ## Operação rápida

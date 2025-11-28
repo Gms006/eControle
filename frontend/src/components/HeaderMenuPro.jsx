@@ -59,6 +59,7 @@ function Brand() {
 /** Props esperadas:
  * tab, onTabChange
  * query, onQueryChange
+ * searchField, onSearchFieldChange, searchFieldOptions
  * municipio, municipios, onMunicipioChange
  * somenteAlertas, onSomenteAlertasChange
  * modoFoco, onModoFocoChange
@@ -68,6 +69,9 @@ export default function HeaderMenuPro({
   onTabChange,
   query,
   onQueryChange,
+  searchField = "all",
+  onSearchFieldChange,
+  searchFieldOptions = [],
   municipio,
   municipios,
   onMunicipioChange,
@@ -105,15 +109,29 @@ export default function HeaderMenuPro({
 
           {/* Busca global */}
           <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-350" />
-              <Input
-                id="global-search-input"
-                placeholder="Buscar: Empresa, CNPJ, palavra-chave…  (Ctrl/Cmd + K)"
-                value={query}
-                onChange={(e) => onQueryChange?.(e.target.value)}
-                className="pl-8"
-              />
+            <div className="relative flex gap-2">
+              <Select value={searchField} onValueChange={onSearchFieldChange}>
+                <SelectTrigger className="w-32 pl-3 pr-2 h-10 text-sm">
+                  <SelectValue placeholder="Campo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {searchFieldOptions.map((option) => (
+                    <SelectItem key={option.key} value={option.key}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <div className="relative flex-1">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-350" />
+                <Input
+                  id="global-search-input"
+                  placeholder="Buscar: Empresa, CNPJ ou comando (ex.: nome: Silva)  (Ctrl/Cmd + K)"
+                  value={query}
+                  onChange={(e) => onQueryChange?.(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
             </div>
           </div>
 
