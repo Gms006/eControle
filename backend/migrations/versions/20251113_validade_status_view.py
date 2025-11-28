@@ -18,9 +18,21 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # 1. REMOVER OBJETOS DEPENDENTES (VIEWS E TRIGGERS)
+    # A view v_licencas_api depende das funções utilitárias.
+    op.execute("DROP VIEW IF EXISTS public.v_licencas_api")
+    # O trigger depende da função trg_licencas_fill_validade.
+    op.execute("DROP TRIGGER IF EXISTS licencas_fill_validade_biur ON public.licencas")
+
+    # 2. REMOVER FUNÇÕES PARA EVITAR ERRO DE PERMISSÃO (OWNERSHIP)
+    # O CASCADE não é necessário aqui se as dependências foram removidas acima.
+    op.execute("DROP FUNCTION IF EXISTS public.trg_licencas_fill_validade()")
+    op.execute("DROP FUNCTION IF EXISTS public.clean_status_label(text)")
+    op.execute("DROP FUNCTION IF EXISTS public.extract_first_br_date(text)")
+
     op.execute(
         """
-        -- funções utilitárias
+        -- 3. RECRIAÇÃO DAS FUNÇÕES UTILITÁRIAS
         CREATE OR REPLACE FUNCTION public.extract_first_br_date(src text)
         RETURNS date
         LANGUAGE sql
@@ -28,7 +40,7 @@ def upgrade() -> None:
         STRICT
         AS $$
           WITH m AS (
-            SELECT regexp_match(src, '(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})') AS mm
+            SELECT regexp_match(src, '(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})') AS mm
           )
           SELECT CASE
                    WHEN m.mm IS NULL THEN NULL::date
@@ -49,14 +61,14 @@ def upgrade() -> None:
         AS $$
           SELECT btrim(
                    regexp_replace(
-                     regexp_replace(coalesce(src,''),'(\\d{1,2})[/-](\\d{1,2})[/-](\\d{2,4})','', 'g'),
-                     '\\.?[\\s-]*(VAL\\.?|VALIDADE|VENC\\.?)\\b', '', 'gi'
+                     regexp_replace(coalesce(src,''),'(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})','', 'g'),
+                     '\.?[\s-]*(VAL\.?|VALIDADE|VENC\.?)\b', '', 'gi'
                    ),
                    ' .–—,;-'
                  );
         $$;
 
-        -- trigger para preencher validade
+        -- 4. RECRIAÇÃO DA FUNÇÃO DO TRIGGER
         CREATE OR REPLACE FUNCTION public.trg_licencas_fill_validade()
         RETURNS trigger
         LANGUAGE plpgsql
@@ -69,13 +81,13 @@ def upgrade() -> None:
         END;
         $$;
 
-        DROP TRIGGER IF EXISTS licencas_fill_validade_biur ON public.licencas;
+        -- 5. RECRIAÇÃO DO TRIGGER
         CREATE TRIGGER licencas_fill_validade_biur
         BEFORE INSERT OR UPDATE ON public.licencas
         FOR EACH ROW
         EXECUTE FUNCTION public.trg_licencas_fill_validade();
 
-        -- view consumida pela API
+        -- 6. RECRIAÇÃO DA VIEW
         CREATE OR REPLACE VIEW public.v_licencas_api AS
         SELECT
           l.id               AS licenca_id,
