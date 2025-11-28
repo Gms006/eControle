@@ -8,7 +8,7 @@ import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
 revision = "20251128_01_certificate_keys"
-down_revision = "20251207_01_unaccent_extension_indexes"
+down_revision = ("20251114_00_merge_status_view_clean", "20251207_01_unaccent_extension_indexes")
 branch_labels = None
 depends_on = None
 
