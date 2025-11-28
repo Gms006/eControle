@@ -26,7 +26,8 @@ def upgrade() -> None:
     responsavel_fiscal_enum.create(bind, checkfirst=True)
 
     def add_column_if_missing(table_name: str, column: sa.Column) -> None:
-        if not inspector.has_column(table_name, column.name):
+        existing_columns = {col["name"] for col in inspector.get_columns(table_name)}
+        if column.name not in existing_columns:
             op.add_column(table_name, column)
 
     add_column_if_missing("empresas", sa.Column("inscricao_municipal", sa.Text(), nullable=True))
