@@ -35,7 +35,11 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
           taxa.cnpj,
           ...TAXA_SEARCH_KEYS.map((key) => taxa?.[key]),
         ];
-        return matchesQuery(camposPesquisa);
+        return matchesQuery(camposPesquisa, {
+          nome: [taxa.empresa],
+          razao: [taxa.empresa],
+          cnpj: [taxa.cnpj],
+        });
       }),
     [matchesMunicipioFilter, matchesQuery, taxas],
   );

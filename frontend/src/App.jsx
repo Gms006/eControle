@@ -9,7 +9,12 @@ import PainelScreen from "@/features/painel/PainelScreen";
 import CertificadosScreen from "@/features/certificados/CertificadosScreen";
 import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import { Sparkles, X } from "lucide-react";
-import { normalizeIdentifier, normalizeText, normalizeTextLower } from "@/lib/text";
+import {
+  normalizeIdentifier,
+  normalizeText,
+  normalizeTextLower,
+  removeDiacritics,
+} from "@/lib/text";
 import {
   PROCESS_DIVERSOS_LABEL,
   buildDiversosOperacaoKey,
@@ -109,9 +114,18 @@ const enhanceEmpresa = (empresa) => {
   };
 };
 
+const SEARCH_FIELD_OPTIONS = [
+  { key: "all", label: "Todos os campos" },
+  { key: "nome", label: "Nome" },
+  { key: "razao", label: "Razão Social" },
+  { key: "cnpj", label: "CNPJ" },
+  { key: "responsavelLegal", label: "Responsável legal" },
+];
+
 function AppContent() {
   const [tab, setTab] = useState("painel");
   const [query, setQuery] = useState("");
+  const [queryField, setQueryField] = useState("all");
   const [municipio, setMunicipio] = useState();
   const [somenteAlertas, setSomenteAlertas] = useState(false);
   const [modoFoco, setModoFoco] = useState(true);
@@ -350,15 +364,61 @@ function AppContent() {
   }, [processosNormalizados]);
 
   const matchesQuery = useCallback(
-    (fields) => {
-      if (normalizedQueryValue === "") {
+    (fields, fieldMap = {}) => {
+      const commandMatch = normalizedQueryValue.match(/^\s*([a-zçãõáéíóú_\s-]+):\s*(.+)$/i);
+      const commandKey = commandMatch?.[1];
+      const commandValue = commandMatch?.[2];
+
+      const resolveFieldKey = (value) => {
+        const key = removeDiacritics(normalizeTextLower(value)).replace(/[^a-z]/g, "");
+        if (["nome", "name"].includes(key)) return "nome";
+        if (["razao", "razaosocial", "razao_social"].includes(key)) return "razao";
+        if (["cnpj"].includes(key)) return "cnpj";
+        if (["responsavel", "responsavellegal", "responsavel_legal"].includes(key)) return "responsavelLegal";
+        return undefined;
+      };
+
+      const directiveField = commandKey ? resolveFieldKey(commandKey) : undefined;
+      const resolvedField = directiveField ?? (queryField !== "all" ? queryField : undefined);
+
+      const normalizeSearchValue = (value) => removeDiacritics(normalizeTextLower(value));
+      const searchValue = normalizeSearchValue(commandValue ?? normalizedQueryValue).trim();
+      const compactNeedle = searchValue.replace(/[^a-z0-9]/g, "");
+
+      if (searchValue === "") {
         return true;
       }
-      return fields
+
+      const collectCandidates = () => {
+        if (resolvedField) {
+          const value = fieldMap[resolvedField];
+          if (Array.isArray(value)) {
+            return value;
+          }
+          if (value !== undefined) {
+            return [value];
+          }
+          return [];
+        }
+        const base = Array.isArray(fields) ? fields : Object.values(fields || {});
+        return base;
+      };
+
+      const normalizeCandidate = (field) => normalizeSearchValue(field);
+
+      return collectCandidates()
         .filter((field) => field !== null && field !== undefined)
-        .some((field) => normalizeTextLower(field).includes(normalizedQueryValue));
+        .some((field) => {
+          const candidate = normalizeCandidate(field);
+          if (candidate.includes(searchValue)) return true;
+          if (compactNeedle !== "") {
+            const compactCandidate = candidate.replace(/[^a-z0-9]/g, "");
+            return compactCandidate.includes(compactNeedle);
+          }
+          return false;
+        });
     },
-    [normalizedQueryValue],
+    [normalizedQueryValue, queryField],
   );
 
   const matchesMunicipioFilter = useCallback(
@@ -392,14 +452,21 @@ function AppContent() {
       licencas.filter(
         (lic) =>
           matchesMunicipioFilter(lic) &&
-          matchesQuery([
-            lic.empresa,
-            lic.cnpj,
-            lic.tipo,
-            lic.status,
-            lic.validade,
-            lic.obs,
-          ]),
+          matchesQuery(
+            [
+              lic.empresa,
+              lic.cnpj,
+              lic.tipo,
+              lic.status,
+              lic.validade,
+              lic.obs,
+            ],
+            {
+              nome: [lic.empresa],
+              razao: [lic.empresa],
+              cnpj: [lic.cnpj],
+            },
+          ),
       ),
     [licencas, matchesMunicipioFilter, matchesQuery],
   );
@@ -439,6 +506,8 @@ function AppContent() {
         if (!empresa) return false;
         const matchesQueryEmpresa = matchesQuery([
           empresa.empresa,
+          empresa.razaoSocial,
+          empresa.razao_social,
           empresa.cnpj,
           empresa.municipio,
           empresa.categoria,
@@ -449,7 +518,12 @@ function AppContent() {
           empresa.responsavel,
           empresa.responsavelLegal,
           empresa.responsavelFiscal,
-        ]);
+        ], {
+          nome: [empresa.empresa, empresa.nome, empresa.nomeFantasia, empresa.fantasia],
+          razao: [empresa.razaoSocial, empresa.razao_social, empresa.razao],
+          cnpj: [empresa.cnpj, empresa.cpfCnpj, empresa.cpf_cnpj],
+          responsavelLegal: [empresa.responsavelLegal, empresa.responsavel_legal],
+        });
         const matchesMunicipio = matchesMunicipioFilter(empresa);
         const matchesAlert = !somenteAlertas || companyHasAlert(empresa);
         return matchesQueryEmpresa && matchesMunicipio && matchesAlert;
@@ -510,6 +584,9 @@ function AppContent() {
         onTabChange={setTab}
         query={query}
         onQueryChange={setQuery}
+        searchField={queryField}
+        onSearchFieldChange={setQueryField}
+        searchFieldOptions={SEARCH_FIELD_OPTIONS}
         municipio={municipioSelectValue}
         municipios={municipiosOptions}
         onMunicipioChange={handleMunicipioChange}
