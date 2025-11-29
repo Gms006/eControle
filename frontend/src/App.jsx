@@ -9,7 +9,12 @@ import PainelScreen from "@/features/painel/PainelScreen";
 import CertificadosScreen from "@/features/certificados/CertificadosScreen";
 import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import { Sparkles, X } from "lucide-react";
-import { normalizeIdentifier, normalizeText, normalizeTextLower } from "@/lib/text";
+import {
+  normalizeIdentifier,
+  normalizeText,
+  normalizeTextLower,
+  removeDiacritics,
+} from "@/lib/text";
 import {
   PROCESS_DIVERSOS_LABEL,
   buildDiversosOperacaoKey,
@@ -375,7 +380,10 @@ function AppContent() {
 
       const directiveField = commandKey ? resolveFieldKey(commandKey) : undefined;
       const resolvedField = directiveField ?? (queryField !== "all" ? queryField : undefined);
-      const searchValue = normalizeTextLower(commandValue ?? normalizedQueryValue).trim();
+
+      const normalizeSearchValue = (value) => removeDiacritics(normalizeTextLower(value));
+      const searchValue = normalizeSearchValue(commandValue ?? normalizedQueryValue).trim();
+      const compactNeedle = searchValue.replace(/[^a-z0-9]/g, "");
 
       if (searchValue === "") {
         return true;
@@ -396,9 +404,19 @@ function AppContent() {
         return base;
       };
 
+      const normalizeCandidate = (field) => normalizeSearchValue(field);
+
       return collectCandidates()
         .filter((field) => field !== null && field !== undefined)
-        .some((field) => normalizeTextLower(field).includes(searchValue));
+        .some((field) => {
+          const candidate = normalizeCandidate(field);
+          if (candidate.includes(searchValue)) return true;
+          if (compactNeedle !== "") {
+            const compactCandidate = candidate.replace(/[^a-z0-9]/g, "");
+            return compactCandidate.includes(compactNeedle);
+          }
+          return false;
+        });
     },
     [normalizedQueryValue, queryField],
   );
