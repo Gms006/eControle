@@ -255,6 +255,57 @@ export const normalizeAlertaFromApi = (item) => {
   return normalized;
 };
 
+export const normalizeCertificadoFromApi = (item) => {
+  if (!item || typeof item !== "object") {
+    return item;
+  }
+
+  const normalized = { ...item };
+
+  // Normaliza id / cert_id
+  const idCandidates = [item.id, item.cert_id, item.certId];
+  let resolvedId;
+  for (const candidate of idCandidates) {
+    const parsed = toFiniteNumber(candidate);
+    if (parsed !== undefined) {
+      resolvedId = parsed;
+      break;
+    }
+  }
+  if (resolvedId !== undefined) {
+    normalized.id = resolvedId;
+    normalized.cert_id = resolvedId;
+  }
+
+  // org_id sempre string
+  if (normalized.org_id !== undefined && normalized.org_id !== null) {
+    normalized.org_id = String(normalized.org_id);
+  }
+
+  // empresa → titular (o Card usa "titular")
+  if (normalized.titular === undefined && normalized.empresa !== undefined) {
+    normalized.titular = normalized.empresa;
+  }
+
+  // Campos de data: tanto snake_case quanto camelCase
+  if (normalized.validoDe === undefined && normalized.valido_de !== undefined) {
+    normalized.validoDe = normalized.valido_de;
+  }
+  if (normalized.validoAte === undefined && normalized.valido_ate !== undefined) {
+    normalized.validoAte = normalized.valido_ate;
+  }
+
+  // diasRestantes: número sempre
+  const diasRestantes = toFiniteNumber(
+    normalized.diasRestantes ?? normalized.dias_restantes,
+  );
+  if (diasRestantes !== undefined) {
+    normalized.diasRestantes = diasRestantes;
+  }
+
+  return normalized;
+};
+
 export const mapKpiItemsToRecord = (items) => {
   if (!Array.isArray(items)) {
     return {};
@@ -426,6 +477,8 @@ const DEFAULT_TRANSFORMS = {
   "/licencas": (payload) => normalizeCollectionPayload(payload),
   "/processos": (payload) => normalizeCollectionPayload(payload),
   "/taxas": (payload) => normalizeTaxasFromApi(payload),
+  "/certificados": (payload) =>
+    normalizeCollectionPayload(payload, normalizeCertificadoFromApi),
   "/kpis": (payload) => {
     if (payload && typeof payload === "object" && !Array.isArray(payload) && !payload.items) {
       return payload;
