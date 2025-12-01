@@ -17,21 +17,57 @@ depends_on = None
 
 
 def upgrade() -> None:
-    op.add_column("cnds", sa.Column("cnpj", sa.String(length=14), nullable=True))
-
     op.execute(
         sa.text(
             """
-            UPDATE cnds c
-            SET cnpj = regexp_replace(e.cnpj, '\\D', '', 'g')
-            FROM empresas e
-            WHERE c.empresa_id = e.id
-              AND c.org_id = e.org_id
-              AND e.cnpj IS NOT NULL
+            DO $$
+            BEGIN
+                -- Try to add the column; ignore if it already exists or if privileges are insufficient.
+                BEGIN
+                    ALTER TABLE public.cnds ADD COLUMN cnpj VARCHAR(14);
+                EXCEPTION
+                    WHEN duplicate_column THEN
+                        NULL;
+                    WHEN insufficient_privilege THEN
+                        RAISE NOTICE 'Skipping cnds.cnpj add: insufficient privilege';
+                END;
+
+                -- Try to backfill using empresas.cnpj when possible.
+                BEGIN
+                    UPDATE cnds c
+                    SET cnpj = regexp_replace(e.cnpj, '\\D', '', 'g')
+                    FROM empresas e
+                    WHERE c.empresa_id = e.id
+                      AND c.org_id = e.org_id
+                      AND e.cnpj IS NOT NULL
+                      AND c.cnpj IS NULL;
+                EXCEPTION
+                    WHEN undefined_column THEN
+                        NULL;
+                    WHEN insufficient_privilege THEN
+                        RAISE NOTICE 'Skipping cnds.cnpj backfill: insufficient privilege';
+                END;
+            END $$;
             """
         )
     )
 
 
 def downgrade() -> None:
-    op.drop_column("cnds", "cnpj")
+    op.execute(
+        sa.text(
+            """
+            DO $$
+            BEGIN
+                BEGIN
+                    ALTER TABLE public.cnds DROP COLUMN cnpj;
+                EXCEPTION
+                    WHEN undefined_column THEN
+                        NULL;
+                    WHEN insufficient_privilege THEN
+                        RAISE NOTICE 'Skipping cnds.cnpj drop: insufficient privilege';
+                END;
+            END $$;
+            """
+        )
+    )
