@@ -38,9 +38,15 @@ const SITUACAO_OPTIONS = ["Todos", "Válido", "Vencendo em breve", "Vencido"];
 const getDateTimestamp = (value) => {
   const date = extractDate(value);
   if (!date) return null;
-  const [day, month, year] = date.split("/").map((item) => Number.parseInt(item, 10));
-  const timestamp = new Date(year, month - 1, day).getTime();
-  return Number.isNaN(timestamp) ? null : timestamp;
+
+  if (DATE_REGEX.test(date)) {
+    const [day, month, year] = date.split("/").map((item) => Number.parseInt(item, 10));
+    const timestamp = new Date(year, month - 1, day).getTime();
+    return Number.isNaN(timestamp) ? null : timestamp;
+  }
+
+  const parsed = Date.parse(date);
+  return Number.isNaN(parsed) ? null : parsed;
 };
 
 const compareByDate = (a, b, direction) => {
