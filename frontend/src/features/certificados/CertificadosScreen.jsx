@@ -136,18 +136,21 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
             onChange={(event) => setSearch(event.target.value)}
             className="w-full md:w-72"
           />
-          <Select value={situacao} onValueChange={setSituacao}>
-            <SelectTrigger className="w-full md:w-56">
-              <SelectValue placeholder="Situação" />
-            </SelectTrigger>
-            <SelectContent>
-              {SITUACAO_OPTIONS.map((option) => (
-                <SelectItem key={option} value={option}>
-                  {option}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-600">Filtrar por Situação</span>
+            <Select value={situacao} onValueChange={setSituacao}>
+              <SelectTrigger className="w-full md:w-56">
+                <SelectValue placeholder="Situação" />
+              </SelectTrigger>
+              <SelectContent>
+                {SITUACAO_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-slate-600">Ordenar por</span>
             {SORT_FIELDS.map((option) => {
