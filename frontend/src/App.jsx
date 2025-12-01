@@ -365,7 +365,7 @@ function AppContent() {
 
   const matchesQuery = useCallback(
     (fields, fieldMap = {}) => {
-      const commandMatch = normalizedQueryValue.match(/^([a-zçãõáéíóú]+):\s*(.+)$/i);
+      const commandMatch = normalizedQueryValue.match(/^([a-zçãõáéíóú\s_]+):\s*(.+)$/i);
       const commandKey = commandMatch?.[1];
       const commandValue = commandMatch?.[2];
 
