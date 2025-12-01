@@ -65,6 +65,28 @@ const toFiniteNumber = (value) => {
   return undefined;
 };
 
+const NOME_PREPOSICOES = ["da", "de", "do", "das", "dos", "e"];
+
+export const normalizeNomePessoa = (nome) => {
+  if (!nome || typeof nome !== "string") return nome;
+
+  const trimmed = nome.trim();
+  if (!trimmed) return trimmed;
+
+  return trimmed
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word, index) => {
+      // preposições / conjunções no meio do nome ficam minúsculas
+      if (index > 0 && NOME_PREPOSICOES.includes(word)) {
+        return word;
+      }
+      // capitaliza primeira letra, resto minúsculo
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+};
+
 const getCanonicalKey = (path = "") => {
   const normalizedPath = ensureLeadingSlash(path);
   const resolved = CANONICAL_ENDPOINT_MAP[normalizedPath];
@@ -260,7 +282,7 @@ export const normalizeCertificadoFromApi = (item) => {
   const normalized = { ...item };
 
   // id / cert_id
-  const idCandidates = [item.id, item.cert_id];
+  const idCandidates = [item.id, item.cert_id, item.certId];
   for (const candidate of idCandidates) {
     const parsed = toFiniteNumber(candidate);
     if (parsed !== undefined) {
@@ -275,12 +297,21 @@ export const normalizeCertificadoFromApi = (item) => {
     normalized.org_id = String(normalized.org_id);
   }
 
-  // titular: usa empresa (que agora já é o "Emitido para" nos órfãos)
-  const titular =
+  // titular base: empresa (ou fallback da view/subject)
+  let titular =
     normalized.titular ??
     normalized.empresa ??
     normalized.subject ??
     "";
+
+  // Se NÃO houver empresa vinculada (empresa_id nulo),
+  // assumimos que é pessoa física e normalizamos o nome.
+  if (
+    (normalized.empresa_id === null || normalized.empresa_id === undefined) &&
+    titular
+  ) {
+    titular = normalizeNomePessoa(titular);
+  }
 
   normalized.titular = titular;
 
