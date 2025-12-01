@@ -9,7 +9,12 @@ import PainelScreen from "@/features/painel/PainelScreen";
 import CertificadosScreen from "@/features/certificados/CertificadosScreen";
 import ToastProvider, { useToast } from "@/providers/ToastProvider.jsx";
 import { Sparkles, X } from "lucide-react";
-import { normalizeIdentifier, normalizeText, normalizeTextLower } from "@/lib/text";
+import {
+  buildNormalizedSearchKey,
+  normalizeIdentifier,
+  normalizeText,
+  normalizeTextLower,
+} from "@/lib/text";
 import {
   PROCESS_DIVERSOS_LABEL,
   buildDiversosOperacaoKey,
@@ -375,9 +380,9 @@ function AppContent() {
 
       const directiveField = commandKey ? resolveFieldKey(commandKey) : undefined;
       const resolvedField = directiveField ?? (queryField !== "all" ? queryField : undefined);
-      const searchValue = normalizeTextLower(commandValue ?? normalizedQueryValue).trim();
+      const searchKey = buildNormalizedSearchKey(commandValue ?? normalizedQueryValue);
 
-      if (searchValue === "") {
+      if (!searchKey) {
         return true;
       }
 
@@ -398,7 +403,10 @@ function AppContent() {
 
       return collectCandidates()
         .filter((field) => field !== null && field !== undefined)
-        .some((field) => normalizeTextLower(field).includes(searchValue));
+        .some((field) => {
+          const normalizedField = buildNormalizedSearchKey(field);
+          return normalizedField?.includes(searchKey);
+        });
     },
     [normalizedQueryValue, queryField],
   );
