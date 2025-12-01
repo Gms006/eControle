@@ -16,6 +16,13 @@ import { normalizeTextLower } from "@/lib/text";
 
 const DATE_REGEX = /(\d{2}\/\d{2}\/\d{4})/;
 
+const SORT_OPTIONS = [
+  { value: "validade-asc", label: "Data de Validade (crescente)" },
+  { value: "validade-desc", label: "Data de Validade (decrescente)" },
+  { value: "nome-asc", label: "Nome (crescente)" },
+  { value: "nome-desc", label: "Nome (decrescente)" },
+];
+
 const extractDate = (value) => {
   if (typeof value !== "string") {
     return "";
@@ -29,10 +36,38 @@ const extractDate = (value) => {
 
 const SITUACAO_OPTIONS = ["Todos", "Válido", "Vencendo em breve", "Vencido"];
 
+const getDateTimestamp = (value) => {
+  const date = extractDate(value);
+  if (!date) return null;
+  const [day, month, year] = date.split("/").map((item) => Number.parseInt(item, 10));
+  const timestamp = new Date(year, month - 1, day).getTime();
+  return Number.isNaN(timestamp) ? null : timestamp;
+};
+
+const compareByDate = (a, b, direction) => {
+  const timeA = getDateTimestamp(a?.validoAte ?? "");
+  const timeB = getDateTimestamp(b?.validoAte ?? "");
+  if (timeA === null && timeB === null) return 0;
+  if (timeA === null) return 1;
+  if (timeB === null) return -1;
+  return direction === "desc" ? timeB - timeA : timeA - timeB;
+};
+
+const compareByName = (a, b, direction) => {
+  const nameA = normalizeTextLower(a?.titular ?? "").trim();
+  const nameB = normalizeTextLower(b?.titular ?? "").trim();
+  if (!nameA && !nameB) return 0;
+  if (!nameA) return 1;
+  if (!nameB) return -1;
+  const result = nameA.localeCompare(nameB);
+  return direction === "desc" ? result * -1 : result;
+};
+
 export default function CertificadosScreen({ certificados, agendamentos, soAlertas }) {
   const [subTab, setSubTab] = useState("certificados");
   const [search, setSearch] = useState("");
   const [situacao, setSituacao] = useState("Todos");
+  const [sortBy, setSortBy] = useState("validade-asc");
 
   const certificadosLista = useMemo(
     () => (Array.isArray(certificados) ? certificados : []),
@@ -63,19 +98,20 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
   }, [certificadosLista, search, situacao, soAlertas]);
 
   const orderedCertificados = useMemo(() => {
-    return [...filteredCertificados].sort((a, b) => {
-      const dateA = extractDate(a?.validoAte ?? "");
-      const dateB = extractDate(b?.validoAte ?? "");
-      if (!dateA && !dateB) return 0;
-      if (!dateA) return 1;
-      if (!dateB) return -1;
-      const [dayA, monthA, yearA] = dateA.split("/").map((value) => Number.parseInt(value, 10));
-      const [dayB, monthB, yearB] = dateB.split("/").map((value) => Number.parseInt(value, 10));
-      const timeA = new Date(yearA, monthA - 1, dayA).getTime();
-      const timeB = new Date(yearB, monthB - 1, dayB).getTime();
-      return timeA - timeB;
-    });
-  }, [filteredCertificados]);
+    const comparator = (a, b) => {
+      if (sortBy === "validade-desc") {
+        return compareByDate(a, b, "desc");
+      }
+      if (sortBy === "nome-asc") {
+        return compareByName(a, b, "asc");
+      }
+      if (sortBy === "nome-desc") {
+        return compareByName(a, b, "desc");
+      }
+      return compareByDate(a, b, "asc");
+    };
+    return [...filteredCertificados].sort(comparator);
+  }, [filteredCertificados, sortBy]);
 
   return (
     <Tabs value={subTab} onValueChange={setSubTab} className="space-y-4">
@@ -99,6 +135,18 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
               {SITUACAO_OPTIONS.map((option) => (
                 <SelectItem key={option} value={option}>
                   {option}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={sortBy} onValueChange={setSortBy}>
+            <SelectTrigger className="w-full md:w-56">
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              {SORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
                 </SelectItem>
               ))}
             </SelectContent>
