@@ -109,19 +109,22 @@ export default function HeaderMenuPro({
 
           {/* Busca global */}
           <div className="flex-1">
-            <div className="relative flex gap-2">
-              <Select value={searchField} onValueChange={onSearchFieldChange}>
-                <SelectTrigger className="w-32 pl-3 pr-2 h-10 text-sm">
-                  <SelectValue placeholder="Campo" />
-                </SelectTrigger>
-                <SelectContent>
-                  {searchFieldOptions.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="relative flex items-end gap-3">
+              <div className="flex w-36 md:w-40 flex-col gap-1">
+                <Label className="text-[11px] text-slate-500">Pesquisar por</Label>
+                <Select value={searchField} onValueChange={onSearchFieldChange}>
+                  <SelectTrigger className="h-9 rounded-lg border border-slate-200 bg-white/70 px-3 text-[13px] shadow-sm">
+                    <SelectValue placeholder="Campo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {searchFieldOptions.map((option) => (
+                      <SelectItem key={option.key} value={option.key}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="relative flex-1">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-350" />
                 <Input
