@@ -506,6 +506,10 @@ function AppContent() {
         if (!empresa) return false;
         const matchesQueryEmpresa = matchesQuery([
           empresa.empresa,
+          empresa.nome,
+          empresa.nomeFantasia,
+          empresa.nome_fantasia,
+          empresa.fantasia,
           empresa.razaoSocial,
           empresa.razao_social,
           empresa.cnpj,
@@ -519,7 +523,13 @@ function AppContent() {
           empresa.responsavelLegal,
           empresa.responsavelFiscal,
         ], {
-          nome: [empresa.empresa, empresa.nome, empresa.nomeFantasia, empresa.fantasia],
+          nome: [
+            empresa.empresa,
+            empresa.nome,
+            empresa.nomeFantasia,
+            empresa.nome_fantasia,
+            empresa.fantasia,
+          ],
           razao: [empresa.razaoSocial, empresa.razao_social, empresa.razao],
           cnpj: [empresa.cnpj, empresa.cpfCnpj, empresa.cpf_cnpj],
           responsavelLegal: [empresa.responsavelLegal, empresa.responsavel_legal],
