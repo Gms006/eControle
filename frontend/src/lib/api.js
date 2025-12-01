@@ -65,6 +65,28 @@ const toFiniteNumber = (value) => {
   return undefined;
 };
 
+const NOME_PREPOSICOES = ["da", "de", "do", "das", "dos", "e"];
+
+export const normalizeNomePessoa = (nome) => {
+  if (!nome || typeof nome !== "string") return nome;
+
+  const trimmed = nome.trim();
+  if (!trimmed) return trimmed;
+
+  return trimmed
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word, index) => {
+      // preposições / conjunções no meio do nome ficam minúsculas
+      if (index > 0 && NOME_PREPOSICOES.includes(word)) {
+        return word;
+      }
+      // capitaliza primeira letra, resto minúsculo
+      return word.charAt(0).toUpperCase() + word.slice(1);
+    })
+    .join(" ");
+};
+
 const getCanonicalKey = (path = "") => {
   const normalizedPath = ensureLeadingSlash(path);
   const resolved = CANONICAL_ENDPOINT_MAP[normalizedPath];
@@ -256,38 +278,44 @@ export const normalizeAlertaFromApi = (item) => {
 };
 
 export const normalizeCertificadoFromApi = (item) => {
-  if (!item || typeof item !== "object") {
-    return item;
-  }
-
+  if (!item || typeof item !== "object") return item;
   const normalized = { ...item };
 
-  // Normaliza id / cert_id
+  // id / cert_id
   const idCandidates = [item.id, item.cert_id, item.certId];
-  let resolvedId;
   for (const candidate of idCandidates) {
     const parsed = toFiniteNumber(candidate);
     if (parsed !== undefined) {
-      resolvedId = parsed;
+      normalized.id = parsed;
+      normalized.cert_id = parsed;
       break;
     }
   }
-  if (resolvedId !== undefined) {
-    normalized.id = resolvedId;
-    normalized.cert_id = resolvedId;
-  }
 
-  // org_id sempre string
-  if (normalized.org_id !== undefined && normalized.org_id !== null) {
+  // org_id string
+  if (normalized.org_id != null) {
     normalized.org_id = String(normalized.org_id);
   }
 
-  // empresa → titular (o Card usa "titular")
-  if (normalized.titular === undefined && normalized.empresa !== undefined) {
-    normalized.titular = normalized.empresa;
+  // titular base: empresa (ou fallback da view/subject)
+  let titular =
+    normalized.titular ??
+    normalized.empresa ??
+    normalized.subject ??
+    "";
+
+  // Se NÃO houver empresa vinculada (empresa_id nulo),
+  // assumimos que é pessoa física e normalizamos o nome.
+  if (
+    (normalized.empresa_id === null || normalized.empresa_id === undefined) &&
+    titular
+  ) {
+    titular = normalizeNomePessoa(titular);
   }
 
-  // Campos de data: tanto snake_case quanto camelCase
+  normalized.titular = titular;
+
+  // datas snake_case → camelCase
   if (normalized.validoDe === undefined && normalized.valido_de !== undefined) {
     normalized.validoDe = normalized.valido_de;
   }
@@ -295,7 +323,7 @@ export const normalizeCertificadoFromApi = (item) => {
     normalized.validoAte = normalized.valido_ate;
   }
 
-  // diasRestantes: número sempre
+  // diasRestantes
   const diasRestantes = toFiniteNumber(
     normalized.diasRestantes ?? normalized.dias_restantes,
   );
