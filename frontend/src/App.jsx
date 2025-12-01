@@ -395,7 +395,10 @@ function AppContent() {
           if (value !== undefined) {
             return [value];
           }
-          return [];
+          // FIX: Fazer fallback para fields quando fieldMap[resolvedField] não existir
+          // ao invés de retornar array vazio
+          const base = Array.isArray(fields) ? fields : Object.values(fields || {});
+          return base;
         }
         const base = Array.isArray(fields) ? fields : Object.values(fields || {});
         return base;
@@ -509,8 +512,15 @@ function AppContent() {
           empresa.responsavelLegal,
           empresa.responsavelFiscal,
         ], {
+          // A SOLUÇÃO: usar empresa.empresa como fallback para razao!
+          // Muitas empresas não têm razaoSocial separada, o campo "empresa" contém tudo
           nome: [empresa.empresa, empresa.nome, empresa.nomeFantasia, empresa.fantasia],
-          razao: [empresa.razaoSocial, empresa.razao_social, empresa.razao],
+          razao: [
+            empresa.razaoSocial, 
+            empresa.razao_social, 
+            empresa.razao,
+            empresa.empresa // ← ADICIONE ISTO! É o fallback essencial
+          ],
           cnpj: [empresa.cnpj, empresa.cpfCnpj, empresa.cpf_cnpj],
           responsavelLegal: [empresa.responsavelLegal, empresa.responsavel_legal],
         });
