@@ -36,7 +36,8 @@ SELECT
     END AS situacao
 FROM public.certificados c
 LEFT JOIN public.empresas e ON (e.id = c.empresa_id AND e.org_id = c.org_id)
-WHERE current_setting('app.current_org', true) IS NULL OR e.org_id = current_setting('app.current_org')::uuid;
+WHERE current_setting('app.current_org', true) IS NULL
+    OR COALESCE(e.org_id, c.org_id) = current_setting('app.current_org')::uuid;
 """
 
 
