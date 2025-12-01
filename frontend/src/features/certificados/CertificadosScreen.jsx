@@ -13,14 +13,13 @@ import CertificadoCard from "@/features/certificados/CertificadoCard";
 import AgendamentosTable from "@/features/certificados/AgendamentosTable";
 import { categorizeCertificadoSituacao } from "@/lib/certificados";
 import { normalizeTextLower } from "@/lib/text";
+import { cn } from "@/lib/utils";
 
 const DATE_REGEX = /(\d{2}\/\d{2}\/\d{4})/;
 
-const SORT_OPTIONS = [
-  { value: "validade-asc", label: "Data de Validade (crescente)" },
-  { value: "validade-desc", label: "Data de Validade (decrescente)" },
-  { value: "nome-asc", label: "Nome (crescente)" },
-  { value: "nome-desc", label: "Nome (decrescente)" },
+const SORT_FIELDS = [
+  { value: "vencimento", label: "Vencimento" },
+  { value: "nome", label: "Nome" },
 ];
 
 const extractDate = (value) => {
@@ -39,9 +38,15 @@ const SITUACAO_OPTIONS = ["Todos", "Válido", "Vencendo em breve", "Vencido"];
 const getDateTimestamp = (value) => {
   const date = extractDate(value);
   if (!date) return null;
-  const [day, month, year] = date.split("/").map((item) => Number.parseInt(item, 10));
-  const timestamp = new Date(year, month - 1, day).getTime();
-  return Number.isNaN(timestamp) ? null : timestamp;
+
+  if (DATE_REGEX.test(date)) {
+    const [day, month, year] = date.split("/").map((item) => Number.parseInt(item, 10));
+    const timestamp = new Date(year, month - 1, day).getTime();
+    return Number.isNaN(timestamp) ? null : timestamp;
+  }
+
+  const parsed = Date.parse(date);
+  return Number.isNaN(parsed) ? null : parsed;
 };
 
 const compareByDate = (a, b, direction) => {
@@ -67,7 +72,17 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
   const [subTab, setSubTab] = useState("certificados");
   const [search, setSearch] = useState("");
   const [situacao, setSituacao] = useState("Todos");
-  const [sortBy, setSortBy] = useState("validade-asc");
+  const [sortField, setSortField] = useState("vencimento");
+  const [sortDir, setSortDir] = useState("asc");
+
+  const handleSortClick = (field) => {
+    if (field === sortField) {
+      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSortField(field);
+    setSortDir("asc");
+  };
 
   const certificadosLista = useMemo(
     () => (Array.isArray(certificados) ? certificados : []),
@@ -99,19 +114,13 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
 
   const orderedCertificados = useMemo(() => {
     const comparator = (a, b) => {
-      if (sortBy === "validade-desc") {
-        return compareByDate(a, b, "desc");
+      if (sortField === "nome") {
+        return compareByName(a, b, sortDir);
       }
-      if (sortBy === "nome-asc") {
-        return compareByName(a, b, "asc");
-      }
-      if (sortBy === "nome-desc") {
-        return compareByName(a, b, "desc");
-      }
-      return compareByDate(a, b, "asc");
+      return compareByDate(a, b, sortDir);
     };
     return [...filteredCertificados].sort(comparator);
-  }, [filteredCertificados, sortBy]);
+  }, [filteredCertificados, sortDir, sortField]);
 
   return (
     <Tabs value={subTab} onValueChange={setSubTab} className="space-y-4">
@@ -139,18 +148,28 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
               ))}
             </SelectContent>
           </Select>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-full md:w-56">
-              <SelectValue placeholder="Ordenar por" />
-            </SelectTrigger>
-            <SelectContent>
-              {SORT_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-slate-600">Ordenar por</span>
+            {SORT_FIELDS.map((option) => {
+              const isActive = sortField === option.value;
+              const directionSymbol = isActive ? (sortDir === "asc" ? "↑" : "↓") : null;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => handleSortClick(option.value)}
+                  className={cn(
+                    "flex items-center gap-1 rounded-full border px-3 py-1.5 text-sm transition-colors",
+                    "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
+                    isActive && "border-primary/60 bg-primary/5 text-primary font-semibold"
+                  )}
+                >
+                  <span>{option.label}</span>
+                  {directionSymbol && <span className="text-xs">{directionSymbol}</span>}
+                </button>
+              );
+            })}
+          </div>
           {soAlertas && (
             <InlineBadge variant="outline" className="uppercase tracking-wide">
               Modo foco ativo
