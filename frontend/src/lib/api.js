@@ -253,8 +253,12 @@ export const normalizeEmpresaFromApi = (item) => {
   ) {
     normalized.cpfResponsavelLegal = normalized.cpf_responsavel_legal;
   }
-  if (normalized.responsavel_fiscal !== undefined && normalized.responsavelFiscal === undefined) {
-    normalized.responsavelFiscal = normalized.responsavel_fiscal;
+  const responsavelFiscalRaw =
+    normalized.responsavelFiscal ?? normalized.responsavel_fiscal;
+  if (responsavelFiscalRaw !== undefined) {
+    const responsavelFiscal = normalizeNomePessoa(responsavelFiscalRaw);
+    normalized.responsavelFiscal = responsavelFiscal;
+    normalized.responsavel_fiscal = responsavelFiscal;
   }
   return normalized;
 };
