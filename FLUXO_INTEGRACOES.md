@@ -49,6 +49,17 @@
   * `created_at timestamptz DEFAULT now()`, `updated_at date NOT NULL DEFAULT current_date` *(campo legado permanece `date`)*
   * `created_by? int FK users(id) ON DELETE SET NULL`, `updated_by? int FK users(id) ON DELETE SET NULL`
 
+* **contatos**
+
+  * `id serial PK`, `org_id uuid FK`, `contato varchar NOT NULL`, `municipio varchar?`, `telefone varchar?`, `whatsapp varchar NOT NULL DEFAULT 'NÃO'`,
+    `email varchar?`, `categoria categoria_contato_enum NOT NULL`,
+    `created_at timestamptz DEFAULT now()`, `updated_at timestamptz DEFAULT now()`
+
+* **modelos**
+
+  * `id serial PK`, `org_id uuid FK`, `modelo text NOT NULL`, `descricao varchar?`, `utilizacao varchar NOT NULL DEFAULT 'WhatsApp'`,
+    `created_at timestamptz DEFAULT now()`, `updated_at timestamptz DEFAULT now()`
+
 * **licencas**
 
   * `id serial PK`, `org_id uuid FK`, `empresa_id int FK empresas(id) ON DELETE CASCADE`,
