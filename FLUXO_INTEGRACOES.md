@@ -52,7 +52,11 @@
 * **licencas**
 
   * `id serial PK`, `org_id uuid FK`, `empresa_id int FK empresas(id) ON DELETE CASCADE`,
-    `tipo varchar NOT NULL`, `status varchar NOT NULL`, `validade date?`, `obs text?`,
+    `categoria varchar NOT NULL` (ex.: **ALVARÁ VIG SANITÁRIA**, **LICENÇA AMBIENTAL**),
+    `tipo_documento varchar NOT NULL` (Definitivo, Provisório, Dispensa, etc.),
+    `status varchar NOT NULL`, `status_bruto varchar?` (texto como "Possui. Val dd/mm/aaaa"),
+    `municipio varchar?`, `fonte varchar NOT NULL DEFAULT 'ARQUIVO'` (ou `PROCESSO`),
+    `validade date?`, `arquivo?`, `caminho?`, `obs text?`,
     `created_at timestamptz DEFAULT now()`, `updated_at timestamptz DEFAULT now()`,
     `created_by? int`, `updated_by? int`
 
@@ -128,7 +132,7 @@
 * Operacionais/KPI:
 
   * `v_empresas` (contagens por empresa, status, datas)
-  * `v_licencas_status` (inclui `dias_para_vencer`)
+  * `v_licencas_status` (normaliza `categoria`, `tipo_documento`, `status_bruto`, `fonte` e inclui `dias_para_vencer`)
   * `v_taxas_status` (inclui `esta_pago`, `vencimento_tpi`)
   * `v_processos_resumo` (status e prazos)
   * `v_alertas_vencendo_30d` (janela de 30 dias)
@@ -156,7 +160,8 @@
 * **licencas**
 
   * `ix_licencas_org_validade (org_id, validade)`
-  * `uq_licencas_org_empresa_tipo (org_id, empresa_id, tipo)` **UNIQUE**
+  * `ix_licencas_org_categoria (org_id, lower(immutable_unaccent(categoria)))`
+  * `uq_licencas_org_empresa_categoria (org_id, empresa_id, categoria)` **UNIQUE** (categoria consolidada por empresa)
 * **taxas**
 
   * `ix_taxas_org_vencimento_tpi (org_id, vencimento_tpi)`
