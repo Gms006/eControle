@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import DefaultDict, Iterable, List, Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.orm import Session
 
 from db.models_sql import Empresa, Licenca, Processo
@@ -352,7 +352,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                 resultado = _interpretar_processo(processo, categoria) if processo else None
 
             if resultado is None:
-                status = "SUJEITO" if categoria in _SUJEITO_ALWAYS else "ISENTO"
+                status = "SUJEITO"
                 resultado = InterpretedLicenca(
                     categoria=categoria,
                     status=status,
@@ -380,6 +380,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         existente.status,
                     )
                     continue
+
                 if _should_skip_isento(existente, categoria, bool(registro_arquivo)):
                     logger.debug(
                         "Mantendo ISENTO existente: empresa_id=%s categoria=%s",
@@ -387,21 +388,52 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         categoria,
                     )
                     continue
-                existente.tipo = categoria
-                existente.status = resultado.status
-                existente.validade = resultado.validade
-                existente.obs = resultado.status_bruto
-                db.add(existente)
-            else:
-                novo = Licenca(
-                    empresa_id=empresa.id,
-                    org_id=empresa.org_id,
-                    tipo=categoria,
-                    status=resultado.status,
-                    validade=resultado.validade,
-                    obs=resultado.status_bruto,
+
+                # UPDATE via SQL cru - só colunas que existem
+                db.execute(
+                    text(
+                        """
+                        UPDATE licencas
+                        SET tipo     = :tipo,
+                            status   = :status,
+                            validade = :validade,
+                            obs      = :obs
+                            WHERE id = :id
+                        """
+                    ),
+                    {
+                        "id": existente.id,
+                        "tipo": categoria,
+                        "status": resultado.status,
+                        "validade": resultado.validade,
+                        "obs": resultado.status_bruto,
+                    },
                 )
-                db.add(novo)
+
+            else:
+                # INSERT via SQL cru - só colunas que existem
+                db.execute(
+                    text(
+                        """
+                        INSERT INTO licencas (
+                            empresa_id, org_id, tipo, status,
+                            validade, obs
+                        ) VALUES (
+                            :empresa_id, :org_id, :tipo, :status,
+                            :validade, :obs
+                        )
+                        """
+                    ),
+                    {
+                        "empresa_id": empresa.id,
+                        "org_id": empresa.org_id,
+                        "tipo": categoria,
+                        "status": resultado.status,
+                        "validade": resultado.validade,
+                        "obs": resultado.status_bruto,
+                    },
+                )
+
             total_upsert += 1
             total_categorias += 1
 
