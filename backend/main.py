@@ -7,6 +7,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.api.v1.api import api_router
+from caes.routes import router as cae_router
+from cnds.municipal.routes import router as cnds_router
 from app.core.config import settings
 from app.deps.auth import db_with_org, get_current_user
 
@@ -42,3 +44,5 @@ def guc_debug(_: dict = Depends(get_current_user), db = Depends(db_with_org)):
 
 
 app.include_router(api_router)
+app.include_router(cnds_router, prefix="/api")
+app.include_router(cae_router)
