@@ -52,7 +52,11 @@
 * **licencas**
 
   * `id serial PK`, `org_id uuid FK`, `empresa_id int FK empresas(id) ON DELETE CASCADE`,
-    `tipo varchar NOT NULL`, `status varchar NOT NULL`, `validade date?`, `obs text?`,
+    `categoria varchar NOT NULL` (ex.: **ALVARÁ VIG SANITÁRIA**, **LICENÇA AMBIENTAL**),
+    `tipo_documento varchar NOT NULL` (Definitivo, Provisório, Dispensa, etc.),
+    `status varchar NOT NULL`, `status_bruto varchar?` (texto como "Possui. Val dd/mm/aaaa"),
+    `municipio varchar?`, `fonte varchar NOT NULL DEFAULT 'ARQUIVO'` (ou `PROCESSO`),
+    `validade date?`, `arquivo?`, `caminho?`, `obs text?`,
     `created_at timestamptz DEFAULT now()`, `updated_at timestamptz DEFAULT now()`,
     `created_by? int`, `updated_by? int`
 
@@ -128,7 +132,7 @@
 * Operacionais/KPI:
 
   * `v_empresas` (contagens por empresa, status, datas)
-  * `v_licencas_status` (inclui `dias_para_vencer`)
+  * `v_licencas_status` (normaliza `categoria`, `tipo_documento`, `status_bruto`, `fonte` e inclui `dias_para_vencer`)
   * `v_taxas_status` (inclui `esta_pago`, `vencimento_tpi`)
   * `v_processos_resumo` (status e prazos)
   * `v_alertas_vencendo_30d` (janela de 30 dias)
@@ -156,7 +160,8 @@
 * **licencas**
 
   * `ix_licencas_org_validade (org_id, validade)`
-  * `uq_licencas_org_empresa_tipo (org_id, empresa_id, tipo)` **UNIQUE**
+  * `ix_licencas_org_categoria (org_id, lower(immutable_unaccent(categoria)))`
+  * `uq_licencas_org_empresa_categoria (org_id, empresa_id, categoria)` **UNIQUE** (categoria consolidada por empresa)
 * **taxas**
 
   * `ix_taxas_org_vencimento_tpi (org_id, vencimento_tpi)`
@@ -223,16 +228,16 @@
 
 ---
 
-# S4 — Certificados & CNDs (ingestão direta + watcher + alertas + API/Front) ▶️ **PLANEJADO (dividido)**
+# S4 — Certificados & Licenças (ingestão direta + watcher + alertas + API/Front) ▶️ **PLANEJADO (dividido)**
 
-> Integra integração de **certificados (.pfx)** e **CNDs (PDF/HTML/Imagem)** direto no banco, com watcher de diretório, staging, deduplicação, KPIs e alertas.
+> Integra **certificados (.pfx)** e **licenças** (Alvarás, Licenças Ambientais, Uso do Solo, dispensas, etc.) direto no banco, com watcher de diretório, staging, deduplicação, KPIs e alertas. A carga de CNDs passa para etapa posterior (S5 ou específica).
 
 ## S4.1 — Certificados (.pfx) — Ingestão direta
 
 **Back-end**
 
 * Extrator (Python `cryptography`/OpenSSL) → coleta: `serial`, `sha1`, `subject`, `issuer`, `valido_de`, `valido_ate`, `arquivo`, `caminho`; match de empresa por `cnpj` (nome do arquivo/planilha de referência ou mapeamento).
-* Upsert em `certificados`; chave: **`uq_certificados_org_serial (org_id, serial)`**.
+* Upsert em `certificados`; chave: **`uq_certificados_org_serial (org_id, serial)`**; `v_certificados_status` calcula `dias_restantes`/`situacao` para o front.
 
 **Schema/Índices**
 
@@ -248,165 +253,72 @@
 
 ---
 
-## S4.2 — Watcher de diretórios + fila (Certificados & CNDs)
+## S4.2 — Ingestão em lote de LICENÇAS (a partir dos diretórios)
+
+**Back-end**
+
+* Serviço de ingestão que replica a lógica do legado `consulta_alvarás.py`, lendo a árvore `G:\EMPRESAS\<EMPRESA_NORMALIZADA>\Societário\Alvarás e Certidões\<Município>`.
+* Detecta documentos por **padrões de nome** herdados (ex.: **ALVARÁ BOMBEIROS**, **ALVARÁ VIG SANITÁRIA** — definitivo/provisório, **ALVARÁ FUNCIONAMENTO** — definitivo/provisório/condicionado, **LICENÇA AMBIENTAL**, **USO DO SOLO**, **DISPENSAS** sanitária/ambiental/mista).
+* Persiste em tabela(s)/views de licenças campos como: `org_id`, `empresa_id`, `municipio`, `categoria`, `tipo_documento` (Definitivo, Provisório, Dispensa…), `data_validade`, `status_bruto_arquivo` (ex.: "Possui. Val dd/mm/aaaa", "Vencido. Val dd/mm/aaaa"), `fonte` (`ARQUIVO` ou `PROCESSO`), `created_at/updated_at`.
+* **Hierarquia Arquivo > Processos > Sujeito**:
+
+  * Se houver arquivo definitivo/dispensa/possui/vencido, ele define o status da licença.
+  * Se não houver arquivo, usa `processos.situacao` mapeada para **Possui** / **Sujeito** / status normalizado.
+  * Regras de não sobrescrever `'*'` ou `'NÃO'` permanecem na escrita para o banco.
+
+**DoD parcial (S4.2)**
+
+* Executar o serviço manualmente preenche o banco de licenças espelhando o comportamento da planilha legado (`consulta_alvarás.py`).
+
+---
+
+## S4.3 — Watcher de diretórios + fila (Certificados & LICENÇAS)
 
 **Back-end**
 
 * `watchdog` monitora (paths configuráveis por `.env`):
 
-  * `G:\Certificados Digitais\**\*.pfx`
-  * `G:\CNDs\**\*.(pdf|html|png|jpg|jpeg)`
-* Enfileira (Redis) → workers com backoff; métricas por org/dia.
+  * **Certificados**: `G:\Certificados Digitais\**\*.pfx`
+  * **Licenças**: `G:\EMPRESAS\<EMPRESA_NORMALIZADA>\Societário\Alvarás e Certidões\**\*.(pdf|png|jpg|jpeg)`
+* Ao detectar criação/alteração, enfileira (Redis ou equivalente) jobs para reprocessar o certificado ou as licenças daquela empresa/município.
+* Alimenta os mesmos pipelines de **S4.1** (certificados) e **S4.2** (licenças) de forma contínua.
+* A ingestão de **CNDs** fica para etapa posterior (S5 ou específica), não mais neste estágio.
 
 **Front**
 
-* (Opcional) badge “Sincronizado às HH:MM” em Certificados e CNDs/Alertas.
+* (Opcional) badge “Sincronizado às HH:MM” em Certificados e Licenças/Alertas.
 
 ---
 
-## S4.3 — Regras de alerta e KPIs (unificado)
+## S4.4 — Regras de alerta e KPIs (CERTIFICADO / LICENÇA)
 
 **Back-end**
 
-* Consolidar na `v_alertas_vencendo_30d` **Certificados + Licenças + CNDs**:
+* `v_alertas_vencendo_30d` unifica **Certificados + Licenças**:
 
-  * `tipo_alerta`: `CERTIFICADO`, `LICENCA`, `CND`
+  * `tipo_alerta`: `CERTIFICADO`, `LICENCA`
   * `descricao`, `validade`, `dias_restantes`
-* Jobs diários (pg_cron/APScheduler) para envio de e-mails/notificações.
+* `v_licencas_status` (nova) espelha os campos de alertas para licenças: `org_id`, `empresa_id`, `empresa`, `cnpj`, `categoria`, `descricao_status`, `validade`, `dias_restantes`, `situacao_resumida` (`VENCIDA`, `VENCE EM 7 DIAS`, `VÁLIDA`, `SUJEITO`, etc.).
+* Jobs diários (pg_cron/APScheduler) para envio de e-mails/notificações de vencimentos críticos.
 
 **Front**
 
-* Tabela **Alertas** já exibe (filtrar por tipo).
+* Tabela **Alertas** exibe e permite filtrar por tipo (CERTIFICADO/LICENCA).
 
 ---
 
-## S4.4 — Endpoints (Certificados)
+## S4.5 — OCR de licenças (ou ponte para S5 — CNDs)
 
-**API**
-
-* `GET /certificados?empresa=&serial=&page=&size=&sort=`
-* `POST /certificados/ingest` (upload único ou apontar caminho)
-* (Opc) `POST /certificados/reindex`
-
-**Front**
-
-* (Opc) modal de upload; caso contrário somente leitura.
-
----
-
-## S4.5 — **CNDs (diretório + OCR + alertas + API/Front)**
-
-### S4.5.1 — Fontes & naming
-
-* Diretório base configurável: **`G:\CNDs\`** (ou múltiplos por org).
-* Aceitos: **PDF/HTML/Imagem** (`.pdf`, `.html`, `.htm`, `.png`, `.jpg`, `.jpeg`).
-* Convenções úteis (não obrigatórias, mas recomendadas):
-
-  * `CNPJ_ORGAO_ESFERA_DDMMYYYY.pdf` (ex.: `01987654000123_RFB_FEDERAL_31012026.pdf`)
-  * Variedades: tolerar nomes livres e **extrair metadados por OCR/HTML**.
-
-### S4.5.2 — Pipeline de ingestão
-
-**Back-end**
-
-1. **Descoberta** (watcher) → fila por arquivo.
-2. **Parser**:
-
-   * PDF: `pdfminer.six`/`pypdf`; se bloqueado, converte página para imagem e aplica **Tesseract OCR**.
-   * HTML: `BeautifulSoup` (metatags e texto).
-   * Imagem: Tesseract OCR direto.
-3. **Extração de metadados**:
-
-   * `cnpj` (regex robusto), `orgao` (e.g., RFB, PGFN, SEFAZ-UF, PREFEITURA, PROCON, TRABALHISTA), `esfera` (`FEDERAL`, `ESTADUAL`, `MUNICIPAL`),
-     `data_emissao?`, **`validade?`**, `status` (`REGULAR`, `IRREGULAR`, `EMITIDA`, etc.), `url?` (se capturado de HTML).
-4. **Matching de empresa**:
-
-   * via `cnpj` extraído; fallback por **mapa CNPJ ↔ pasta** (ex.: `G:\CNDs\{CNPJ}\*`).
-5. **Deduplicação**:
-
-   * `row_hash` do conteúdo + `org_id` + `empresa_id` + `orgao` + `esfera` + `validade`.
-   * Regras de sobreposição: mantém **mais recente por `validade`**.
-6. **Upsert** em `cnds`:
-
-   * chave natural para evitar duplicatas funcionais: `(org_id, empresa_id, orgao, esfera, validade)`; se não houver validade, usar `(org_id, empresa_id, orgao, esfera, data_emissao)` como fallback.
-   * Preencher `created_at`, `updated_at`.
-
-**Staging**
-
-* `stg_cnds` (separada, caso ainda não exista):
-
-  * `id serial PK`, `org_id uuid NOT NULL`, `run_id varchar NOT NULL`, `file_source varchar NOT NULL`,
-  * `row_number int NOT NULL`, `row_hash varchar NOT NULL`,
-  * `payload jsonb NOT NULL` (texto OCR + metadados brutos),
-  * `ingested_at timestamptz DEFAULT now()`
-* Índices: `idx_stg_cnds_run_id (run_id)`, `idx_stg_cnds_org (org_id)`.
-
-### S4.5.3 — Schema/índices (tabela `cnds`)
-
-**Tabela já existente** (S1): `cnds(id, org_id, empresa_id, esfera, orgao, status, url?, data_emissao?, validade?, created_at, updated_at)`
-
-* **FKs**:
-
-  * `org_id → orgs(id) ON DELETE CASCADE`
-  * `empresa_id → empresas(id) ON DELETE CASCADE`
-* **Índices recomendados**:
-
-  * `idx_cnds_org_empresa (org_id, empresa_id)`
-  * `ix_cnds_org_validade (org_id, validade)`
-  * `ix_cnds_org_orgao_esfera (org_id, orgao, esfera)`
-  * (Opcional) **UNIQUE parcial**:
-
-    * `uq_cnds_org_emp_orgao_esfera_valid (org_id, empresa_id, orgao, esfera, validade) WHERE validade IS NOT NULL`
-* **Triggers**:
-
-  * `BEFORE UPDATE` → `set_updated_at()` (mesma função usada em contatos/modelos).
-
-### S4.5.4 — Views e alertas
-
-* **`v_alertas_vencendo_30d`** passa a considerar CNDs:
-
-  * `tipo_alerta='CND'`, `descricao` com `orgao/esfera`, `validade`, `dias_restantes`.
-* (Opc) **`v_cnds_status`**:
-
-  * Campos: `empresa`, `cnpj`, `orgao`, `esfera`, `status`, `validade`, `dias_restantes`, `situacao` (`Vencida`, `Vence em ≤7d`, `Vence em ≤30d`, `OK`), `url?`.
-  * Índices materiais (se virar MV) conforme demanda.
-
-### S4.5.5 — API (CNDs)
-
-**Endpoints**
-
-* `GET /cnds?empresa=&orgao=&esfera=&status=&vencendo=&page=&size=&sort=`
-
-  * `vencendo`: `7` | `30` | `EXPIRADAS` | `OK`
-* `POST /cnds/ingest` (adm): upload ou apontar caminho (processa 1..N arquivos).
-* (Opc) `POST /cnds/reindex` — reprocessa staging/quarentena.
-* Respostas sempre **escopadas por `org_id`**.
-
-### S4.5.6 — Front-end
-
-* **Listagem CNDs** (nova rota ou dentro de “Licenças/CNDs”):
-
-  * Colunas: Empresa, CNPJ, Órgão, Esfera, Status, **Validade**, **Dias restantes**, Ações (abrir arquivo local / copiar URL).
-  * Filtros: `orgao`, `esfera`, `status`, `vencendo (≤7/≤30/expiradas)`, busca por empresa/CNPJ.
-  * **Abertura de arquivo local**: apenas metadado/caminho exibido; a abertura é no **cliente** (SO do usuário).
-* **Alertas**: já aparecem em “Alertas” (com filtro por tipo).
-* **Sem alteração de layout** global; só adiciona rota/tabela se você desejar deixar explícito no menu.
-
-### S4.5.7 — Qualidade & logs
-
-* Registro por arquivo: `arquivo`, `cnpj_detectado`, `empresa_id`, `orgao`, `esfera`, `validade`, `hash`, `status`.
-* Relatório de falhas comuns: **OCR vazio**, **CNPJ não encontrado**, **validade não detectada**, **múltiplas validades no documento**.
-* Modo “teste” (dry-run) que não grava, apenas reporta parsing e matches.
-
----
+* Complementa o reconhecimento por nome de arquivo para **licenças** (PDF imagem/foto), aplicando OCR quando necessário.
+* Em alternativa, pode servir de ponte para um **S5 dedicado a CNDs**, mantendo S4 focado apenas em Certificados + Licenças.
 
 ## DoD (Definition of Done) S4
 
 * **S4.1**: `.pfx` ingerindo/atualizando `certificados` com `v_certificados_status` refletindo **dias_restantes**.
-* **S4.2**: watcher + fila funcionando em **certificados** e **CNDs** (dois coletores).
-* **S4.3**: `v_alertas_vencendo_30d` unificado (**CERTIFICADO / LICENCA / CND**); job diário ativo.
-* **S4.4**: endpoints de certificados; (opc) reindex.
-* **S4.5**: ingestão CNDs com OCR/HTML, **GET /cnds** paginado com filtros, e tabela no front (ou incorporado em “Licenças/CNDs”), sem quebrar layout.
+* **S4.2**: ingestão em lote de **licenças** (regras espelhando `consulta_alvarás.py`) populando tabelas/views no PostgreSQL.
+* **S4.3**: watcher + fila funcionando em **certificados** e **licenças** em produção.
+* **S4.4**: `v_alertas_vencendo_30d` unificado (**CERTIFICADO / LICENCA**) + job diário ativo.
+* **S4.5**: OCR de licenças ou ponte clara para S5 de CNDs, mantendo S4 focado em Certificados + Licenças.
 
 ---
 
@@ -456,11 +368,12 @@
 
 ---
 
-## S8 — Desligamento do Excel (read-only)
+## S8 — Desligamento do Excel (read-only) ✅ **CONCLUÍDO**
 
 **Back-end/Operação:**
 
-* Congelar planilha; snapshot + `pg_dump`; playbook de rollback; validar restore.
+* STATUS: CONCLUÍDO — backend FastAPI + PostgreSQL é a fonte primária; não há rotinas core lendo planilhas para alimentar o portal (apenas scripts de migração/export legados quando necessário).
+* Congelar planilha; snapshot + `pg_dump`; playbook de rollback; validar restore. Excel permanece apenas como consulta/exportação legada.
 
 **Impacto no Front:**
 
