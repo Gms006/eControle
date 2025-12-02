@@ -389,6 +389,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                     )
                     continue
 
+                # UPDATE via SQL cru - só colunas que existem
                 db.execute(
                     text(
                         """
@@ -396,11 +397,8 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         SET tipo     = :tipo,
                             status   = :status,
                             validade = :validade,
-                            obs      = :obs,
-                            arquivo  = :arquivo,
-                            caminho  = :caminho,
-                            fonte    = :fonte
-                        WHERE id = :id
+                            obs      = :obs
+                            WHERE id = :id
                         """
                     ),
                     {
@@ -409,21 +407,20 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         "status": resultado.status,
                         "validade": resultado.validade,
                         "obs": resultado.status_bruto,
-                        "arquivo": resultado.arquivo,
-                        "caminho": resultado.caminho,
-                        "fonte": resultado.fonte,
                     },
                 )
+
             else:
+                # INSERT via SQL cru - só colunas que existem
                 db.execute(
                     text(
                         """
                         INSERT INTO licencas (
                             empresa_id, org_id, tipo, status,
-                            validade, obs, arquivo, caminho, fonte
+                            validade, obs
                         ) VALUES (
                             :empresa_id, :org_id, :tipo, :status,
-                            :validade, :obs, :arquivo, :caminho, :fonte
+                            :validade, :obs
                         )
                         """
                     ),
@@ -434,11 +431,9 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         "status": resultado.status,
                         "validade": resultado.validade,
                         "obs": resultado.status_bruto,
-                        "arquivo": resultado.arquivo,
-                        "caminho": resultado.caminho,
-                        "fonte": resultado.fonte,
                     },
                 )
+
             total_upsert += 1
             total_categorias += 1
 
