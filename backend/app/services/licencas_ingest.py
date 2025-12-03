@@ -51,7 +51,7 @@ _DATE_REGEX = re.compile(r"(?i)(\d{2})[./-](\d{2})[./-](\d{4})")
 
 _PATTERN_DEFINITIONS: Sequence[tuple[str, re.Pattern[str], str]] = (
     (
-        "ALVARÁ BOMBEIROS",
+        "CERCON",
         re.compile(
             r"(?i)^alvar[aá]\s*bombeiros(?:\s*-\s*(?P<tipo>definitivo|provis[óo]rio|condicionado))?(?:\s*-\s*(?:val\s*)?(?P<data>\d{2}[./-]\d{2}[./-]\d{4}))?"
         ),
@@ -92,7 +92,7 @@ _CATEGORIAS_BASE = {categoria for categoria, _, _ in _PATTERN_DEFINITIONS}
 
 _SUJEITO_ALWAYS = {
     "ALVARÁ FUNCIONAMENTO",
-    "ALVARÁ BOMBEIROS",
+    "CERCON",
     "CERTIDÃO USO DO SOLO",
 }
 
