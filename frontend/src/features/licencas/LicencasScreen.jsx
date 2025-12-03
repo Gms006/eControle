@@ -76,6 +76,12 @@ const CANONICAL_BY_ALIAS = {
 
   // CERCON (já canônico)
   CERCON: "CERCON",
+  ALVARA_BOMBEIROS: "CERCON",
+  ALVARA_BOMBEIRO: "CERCON",
+  ALVARA_BM: "CERCON",
+  BOMBEIROS: "CERCON",
+  CERTIFICADO_BOMBEIROS: "CERCON",
+  CBMGO: "CERCON",
 };
 
 // Normaliza removendo acentos, padroniza separadores e aplica alias → canônico

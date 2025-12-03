@@ -51,7 +51,7 @@ _DATE_REGEX = re.compile(r"(?i)(\d{2})[./-](\d{2})[./-](\d{4})")
 
 _PATTERN_DEFINITIONS: Sequence[tuple[str, re.Pattern[str], str]] = (
     (
-        "ALVARÁ BOMBEIROS",
+        "CERCON",
         re.compile(
             r"(?i)^alvar[aá]\s*bombeiros(?:\s*-\s*(?P<tipo>definitivo|provis[óo]rio|condicionado))?(?:\s*-\s*(?:val\s*)?(?P<data>\d{2}[./-]\d{2}[./-]\d{4}))?"
         ),
@@ -90,9 +90,22 @@ _PATTERN_DEFINITIONS: Sequence[tuple[str, re.Pattern[str], str]] = (
 
 _CATEGORIAS_BASE = {categoria for categoria, _, _ in _PATTERN_DEFINITIONS}
 
+_CANONICAL_TIPO_ALIASES: dict[str, list[str]] = {
+    "CERCON": ["CERCON"],
+    "ALVARÁ VIG SANITÁRIA": ["ALVARÁ VIG SANITÁRIA", "SANITÁRIA", "SANITARIA"],
+    "ALVARÁ FUNCIONAMENTO": ["ALVARÁ FUNCIONAMENTO", "FUNCIONAMENTO"],
+    "CERTIDÃO USO DO SOLO": ["CERTIDÃO USO DO SOLO", "USO DO SOLO"],
+    "LICENÇA AMBIENTAL": ["LICENÇA AMBIENTAL", "AMBIENTAL"],
+}
+
+
+def _aliases_for_categoria(categoria: str) -> list[str]:
+    aliases = _CANONICAL_TIPO_ALIASES.get(categoria)
+    return aliases if aliases else [categoria]
+
 _SUJEITO_ALWAYS = {
     "ALVARÁ FUNCIONAMENTO",
-    "ALVARÁ BOMBEIROS",
+    "CERCON",
     "CERTIDÃO USO DO SOLO",
 }
 
@@ -255,13 +268,14 @@ def _interpretar_documentos(documentos: Iterable[DocumentoArquivo]) -> list[Inte
 
 
 def _buscar_processos(db: Session, org_id: UUID, empresa_id: int, categoria: str) -> Optional[Processo]:
+    aliases = _aliases_for_categoria(categoria)
     stmt = (
         select(Processo)
         .where(
             and_(
                 Processo.org_id == org_id,
                 Processo.empresa_id == empresa_id,
-                func.lower(Processo.tipo) == func.lower(categoria),
+                func.lower(Processo.tipo).in_([a.lower() for a in aliases]),
             )
         )
         .order_by(Processo.updated_at.desc())
@@ -364,10 +378,11 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                     fonte="PROCESSO",
                 )
 
+            aliases = _aliases_for_categoria(categoria)
             stmt_existente = select(Licenca).where(
                 Licenca.org_id == empresa.org_id,
                 Licenca.empresa_id == empresa.id,
-                func.lower(Licenca.tipo) == func.lower(categoria),
+                func.lower(Licenca.tipo).in_([a.lower() for a in aliases]),
             )
             existente = db.execute(stmt_existente).scalars().first()
 
