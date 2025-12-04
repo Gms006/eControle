@@ -64,6 +64,7 @@
 
   * `id serial PK`, `org_id uuid FK`, `empresa_id int FK empresas(id) ON DELETE CASCADE`,
     `categoria varchar NOT NULL` (ex.: **ALVARÁ VIG SANITÁRIA**, **LICENÇA AMBIENTAL**),
+    `tipo_codigo text? FK licenca_tipos(codigo)` (código oficial: **ALF, AVS, AMB, CUSOLO, CERCON**),
     `tipo_documento varchar NOT NULL` (Definitivo, Provisório, Dispensa, etc.),
     `status varchar NOT NULL`, `status_bruto varchar?` (texto como "Possui. Val dd/mm/aaaa"),
     `municipio varchar?`, `fonte varchar NOT NULL DEFAULT 'ARQUIVO'` (ou `PROCESSO`),
@@ -77,6 +78,11 @@
     `tipo varchar NOT NULL`, `status varchar NOT NULL`, `data_envio date?`, `vencimento_tpi date?`, `obs text?`,
     `created_at timestamptz DEFAULT now()`, `updated_at timestamptz DEFAULT now()`,
     `created_by? int`, `updated_by? int`
+
+* **licenca_tipos**
+
+  * Tabela de apoio com códigos oficiais de licença: `codigo text PK` (**ALF, AVS, AMB, CUSOLO, CERCON**),
+    `nome text NOT NULL`, `descricao text?`, `ativo boolean NOT NULL DEFAULT true`.
 
 * **processos**
 
@@ -173,6 +179,7 @@
   * `ix_licencas_org_validade (org_id, validade)`
   * `ix_licencas_org_categoria (org_id, lower(immutable_unaccent(categoria)))`
   * `uq_licencas_org_empresa_categoria (org_id, empresa_id, categoria)` **UNIQUE** (categoria consolidada por empresa)
+  * `licencas_tipo_codigo_fkey` → `licenca_tipos(codigo)`
 * **taxas**
 
   * `ix_taxas_org_vencimento_tpi (org_id, vencimento_tpi)`
