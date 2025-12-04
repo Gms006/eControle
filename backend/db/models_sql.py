@@ -118,6 +118,7 @@ class Licenca(Base):
     empresa_id = Column(Integer, ForeignKey("empresas.id", ondelete="CASCADE"), nullable=False)
     org_id = Column(UUID(as_uuid=False), ForeignKey("orgs.id", ondelete="CASCADE"), nullable=False)
     tipo = Column(String(50), nullable=False)
+    tipo_codigo = Column(Text, ForeignKey("licenca_tipos.codigo"))
     status = Column(String(120), nullable=False)
     validade = Column(Date)
     obs = Column(Text)
