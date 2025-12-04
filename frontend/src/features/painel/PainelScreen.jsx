@@ -34,6 +34,21 @@ import {
 } from "@/lib/status";
 
 const MONTHS_WINDOW = 12;
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const buildPrazoLabel = (diasRestantes) => {
+  if (diasRestantes === null || diasRestantes === undefined) {
+    return "—";
+  }
+  if (diasRestantes === 0) {
+    return "Hoje";
+  }
+  if (diasRestantes > 0) {
+    return diasRestantes === 1 ? "Em 1 dia" : `Em ${diasRestantes} dias`;
+  }
+  const abs = Math.abs(diasRestantes);
+  return abs === 1 ? "Há 1 dia" : `Há ${abs} dias`;
+};
 
 export default function PainelScreen(props) {
   const {
@@ -44,6 +59,7 @@ export default function PainelScreen(props) {
     empresas,
     licencas,
     taxas,
+    certificados,
     filteredLicencas,
     processosNormalizados,
     filterEmpresas,
@@ -172,6 +188,43 @@ export default function PainelScreen(props) {
     [companyHasAlert, empresas, filterEmpresas],
   );
 
+  const certificadosVencendo = useMemo(() => {
+    const lista = Array.isArray(certificados) ? certificados : [];
+    if (lista.length === 0) return [];
+
+    const today = new Date();
+    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+
+    return lista
+      .map((cert) => {
+        let diasRestantes = Number.isFinite(cert?.diasRestantes) ? cert.diasRestantes : null;
+        if (diasRestantes === null) {
+          let validade = parsePtDate(cert?.validoAte);
+          if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
+            if (typeof cert?.validoAte === "string") {
+              const isoCandidate = new Date(cert.validoAte);
+              if (!Number.isNaN(isoCandidate?.getTime())) {
+                validade = isoCandidate;
+              }
+            }
+          }
+
+          if (validade instanceof Date && !Number.isNaN(validade.getTime())) {
+            const end = new Date(validade.getFullYear(), validade.getMonth(), validade.getDate());
+            const diffMs = end.getTime() - start.getTime();
+            diasRestantes = Math.trunc(diffMs / MS_PER_DAY);
+          }
+        }
+
+        return {
+          ...cert,
+          diasRestantes,
+        };
+      })
+      .filter((cert) => cert.diasRestantes !== null && cert.diasRestantes >= 0 && cert.diasRestantes <= 7)
+      .sort((a, b) => a.diasRestantes - b.diasRestantes);
+  }, [certificados]);
+
   return (
     <div className="mt-4 space-y-4">
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -296,55 +349,90 @@ export default function PainelScreen(props) {
         </Card>
       </div>
 
-      <Card className="shadow-sm">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base font-semibold flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" /> Empresas com pendências
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-60">
-            <ul className="divide-y divide-slate-200">
-              {empresasComPendencias.length === 0 && (
-                <li className="px-4 py-6 text-sm text-slate-500 text-center">
-                  Nenhuma pendência identificada no momento.
-                </li>
-              )}
-              {empresasComPendencias.map((empresa) => {
-                const empresaId = extractEmpresaId(empresa);
-                const licencasPendentes =
-                  empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
-                const situacaoCertificado = empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO;
-                const mostrarCertificado = isCertificadoSituacaoAlert(situacaoCertificado);
-                return (
-                  <li key={empresa.id} className="px-4 py-3 text-sm">
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" /> Empresas com pendências
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-60">
+              <ul className="divide-y divide-slate-200">
+                {empresasComPendencias.length === 0 && (
+                  <li className="px-4 py-6 text-sm text-slate-500 text-center">
+                    Nenhuma pendência identificada no momento.
+                  </li>
+                )}
+                {empresasComPendencias.map((empresa) => {
+                  const empresaId = extractEmpresaId(empresa);
+                  const licencasPendentes =
+                    empresaId !== undefined ? licencasByEmpresa.get(empresaId) || [] : [];
+                  const situacaoCertificado = empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO;
+                  const mostrarCertificado = isCertificadoSituacaoAlert(situacaoCertificado);
+                  return (
+                    <li key={empresa.id} className="px-4 py-3 text-sm">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="font-medium text-slate-800">{empresa.empresa}</p>
+                          <p className="text-xs text-slate-500 flex items-center gap-1">
+                            <MapPin className="h-3 w-3" /> {empresa.municipio}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap gap-1">
+                          {normalizeTextLower(empresa.debito) === "sim" && (
+                            <StatusBadge status="Não pago" />
+                          )}
+                          {mostrarCertificado && <StatusBadge status={situacaoCertificado} />}
+                          {licencasPendentes
+                            .filter((lic) => isAlertStatus(lic.status))
+                            .slice(0, 2)
+                            .map((lic) => (
+                              <StatusBadge key={`${empresa.id}-${lic.tipo}`} status={lic.status} />
+                            ))}
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+
+        <Card className="shadow-sm">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
+              <ShieldAlert className="h-4 w-4" /> Certificados vencendo
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-60">
+              <ul className="divide-y divide-slate-200">
+                {certificadosVencendo.length === 0 && (
+                  <li className="px-4 py-6 text-sm text-slate-500 text-center">
+                    Nenhum certificado vence nos próximos 7 dias.
+                  </li>
+                )}
+                {certificadosVencendo.map((cert) => (
+                  <li key={`${cert.titular}-${cert.validoAte}`} className="px-4 py-3 text-sm">
                     <div className="flex items-start justify-between gap-4">
                       <div>
-                        <p className="font-medium text-slate-800">{empresa.empresa}</p>
-                        <p className="text-xs text-slate-500 flex items-center gap-1">
-                          <MapPin className="h-3 w-3" /> {empresa.municipio}
-                        </p>
+                        <p className="font-medium text-slate-800">{cert.titular || "Sem titular"}</p>
+                        <p className="text-xs text-slate-500">Válido até {cert.validoAte || "—"}</p>
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {normalizeTextLower(empresa.debito) === "sim" && (
-                          <StatusBadge status="Não pago" />
-                        )}
-                        {mostrarCertificado && <StatusBadge status={situacaoCertificado} />}
-                        {licencasPendentes
-                          .filter((lic) => isAlertStatus(lic.status))
-                          .slice(0, 2)
-                          .map((lic) => (
-                            <StatusBadge key={`${empresa.id}-${lic.tipo}`} status={lic.status} />
-                          ))}
+                      <div className="text-right space-y-1">
+                        <StatusBadge status={cert.situacao || ""} />
+                        <p className="text-xs text-slate-500">{buildPrazoLabel(cert.diasRestantes)}</p>
                       </div>
                     </div>
                   </li>
-                );
-              })}
-            </ul>
-          </ScrollArea>
-        </CardContent>
-      </Card>
+                ))}
+              </ul>
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }
