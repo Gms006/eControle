@@ -90,6 +90,14 @@ _PATTERN_DEFINITIONS: Sequence[tuple[str, re.Pattern[str], str]] = (
 
 _CATEGORIAS_BASE = {categoria for categoria, _, _ in _PATTERN_DEFINITIONS}
 
+MAPEAMENTO_TIPO_ARQUIVO_PARA_CODIGO = {
+    "ALVARÁ BOMBEIROS": "CERCON",
+    "ALVARÁ FUNCIONAMENTO": "ALF",
+    "ALVARÁ VIG SANITÁRIA": "AVS",
+    "LICENÇA AMBIENTAL": "AMB",
+    "CERTIDÃO USO DO SOLO": "CUSOLO",
+}
+
 _CANONICAL_TIPO_ALIASES: dict[str, list[str]] = {
     "CERCON": ["CERCON"],
     "ALVARÁ VIG SANITÁRIA": ["ALVARÁ VIG SANITÁRIA", "SANITÁRIA", "SANITARIA"],
@@ -102,6 +110,13 @@ _CANONICAL_TIPO_ALIASES: dict[str, list[str]] = {
 def _aliases_for_categoria(categoria: str) -> list[str]:
     aliases = _CANONICAL_TIPO_ALIASES.get(categoria)
     return aliases if aliases else [categoria]
+
+
+def _tipo_codigo_para_categoria(categoria: str) -> str | None:
+    codigo = MAPEAMENTO_TIPO_ARQUIVO_PARA_CODIGO.get(categoria)
+    if codigo:
+        return codigo
+    return categoria if categoria in MAPEAMENTO_TIPO_ARQUIVO_PARA_CODIGO.values() else None
 
 _SUJEITO_ALWAYS = {
     "ALVARÁ FUNCIONAMENTO",
@@ -379,6 +394,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                 )
 
             aliases = _aliases_for_categoria(categoria)
+            tipo_codigo = _tipo_codigo_para_categoria(categoria)
             stmt_existente = select(Licenca).where(
                 Licenca.org_id == empresa.org_id,
                 Licenca.empresa_id == empresa.id,
@@ -410,6 +426,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         """
                         UPDATE licencas
                         SET tipo     = :tipo,
+                            tipo_codigo = :tipo_codigo,
                             status   = :status,
                             validade = :validade,
                             obs      = :obs
@@ -419,6 +436,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                     {
                         "id": existente.id,
                         "tipo": categoria,
+                        "tipo_codigo": tipo_codigo,
                         "status": resultado.status,
                         "validade": resultado.validade,
                         "obs": resultado.status_bruto,
@@ -431,10 +449,10 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                     text(
                         """
                         INSERT INTO licencas (
-                            empresa_id, org_id, tipo, status,
+                            empresa_id, org_id, tipo, tipo_codigo, status,
                             validade, obs
                         ) VALUES (
-                            :empresa_id, :org_id, :tipo, :status,
+                            :empresa_id, :org_id, :tipo, :tipo_codigo, :status,
                             :validade, :obs
                         )
                         """
@@ -443,6 +461,7 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                         "empresa_id": empresa.id,
                         "org_id": empresa.org_id,
                         "tipo": categoria,
+                        "tipo_codigo": tipo_codigo,
                         "status": resultado.status,
                         "validade": resultado.validade,
                         "obs": resultado.status_bruto,
