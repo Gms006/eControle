@@ -609,6 +609,7 @@ function AppContent() {
                 empresas={empresasComCertificados}
                 licencas={licencas}
                 taxas={taxas}
+                certificados={certificados}
                 filteredLicencas={filteredLicencas}
                 processosNormalizados={processosNormalizados}
                 filterEmpresas={filterEmpresas}
