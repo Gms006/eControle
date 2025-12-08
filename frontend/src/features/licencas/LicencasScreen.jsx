@@ -204,7 +204,9 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
       map.get(key)?.licencas.push(lic);
     });
 
-    return Array.from(map.values());
+    return Array.from(map.values()).sort((a, b) =>
+      (a.empresa || "").localeCompare(b.empresa || ""),
+    );
   }, [licencasVisiveis]);
 
   useEffect(() => {
@@ -314,7 +316,14 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             {display}
                           </p>
-                          <StatusBadge status={chosen?.status} />
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <StatusBadge status={chosen?.status} />
+                            {chosen && (
+                              <span className="text-[11px] text-slate-600">
+                                Vencimento: {renderValidade(chosen)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       );
                     })}
