@@ -206,23 +206,23 @@ export default function PainelScreen(props) {
 
     return lista
       .map((cert) => {
-        let diasRestantes = Number.isFinite(cert?.diasRestantes) ? cert.diasRestantes : null;
-        if (diasRestantes === null) {
-          let validade = parsePtDate(cert?.validoAte);
-          if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
-            if (typeof cert?.validoAte === "string") {
-              const isoCandidate = new Date(cert.validoAte);
-              if (!Number.isNaN(isoCandidate?.getTime())) {
-                validade = isoCandidate;
-              }
+        let diasRestantes = null;
+        let validade = parsePtDate(cert?.validoAte);
+        if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
+          if (typeof cert?.validoAte === "string") {
+            const isoCandidate = new Date(cert.validoAte);
+            if (!Number.isNaN(isoCandidate?.getTime())) {
+              validade = isoCandidate;
             }
           }
+        }
 
-          if (validade instanceof Date && !Number.isNaN(validade.getTime())) {
-            const end = new Date(validade.getFullYear(), validade.getMonth(), validade.getDate());
-            const diffMs = end.getTime() - start.getTime();
-            diasRestantes = Math.trunc(diffMs / MS_PER_DAY);
-          }
+        if (validade instanceof Date && !Number.isNaN(validade.getTime())) {
+          const end = new Date(validade.getFullYear(), validade.getMonth(), validade.getDate());
+          const diffMs = end.getTime() - start.getTime();
+          diasRestantes = Math.trunc(diffMs / MS_PER_DAY);
+        } else if (Number.isFinite(cert?.diasRestantes)) {
+          diasRestantes = cert.diasRestantes;
         }
 
         return {
@@ -230,7 +230,7 @@ export default function PainelScreen(props) {
           diasRestantes,
         };
       })
-      .filter((cert) => cert.diasRestantes !== null && cert.diasRestantes >= 0 && cert.diasRestantes <= 7)
+      .filter((cert) => cert.diasRestantes !== null && cert.diasRestantes <= 7)
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
   }, [certificados, todayKey]);
 

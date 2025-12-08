@@ -326,6 +326,10 @@ export const normalizeLicencaFromApi = (item) => {
     normalized.dataVencimento ??
     normalized.data_vencimento;
 
+  if (validade !== undefined) {
+    normalized.validade = validade;
+  }
+
   const diasRestantes = computeDiasRestantes(validade);
   if (diasRestantes !== null) {
     normalized.diasRestantes = diasRestantes;
