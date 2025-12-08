@@ -47,6 +47,20 @@ const buildPrazoLabel = (diasRestantes) => {
   return abs === 1 ? "Há 1 dia" : `Há ${abs} dias`;
 };
 
+const resolveDiasRestantesFromCertificado = (certificado) => {
+  const directValue = certificado?.diasRestantes ?? certificado?.dias_restantes;
+  if (Number.isFinite(directValue)) {
+    return Math.round(directValue);
+  }
+  if (typeof directValue === "string") {
+    const parsed = Number(directValue.trim());
+    if (Number.isFinite(parsed)) {
+      return Math.round(parsed);
+    }
+  }
+  return null;
+};
+
 export default function CertificadoCard({ certificado }) {
   const [todayKey, setTodayKey] = useState(() => new Date().toDateString());
 
@@ -65,14 +79,14 @@ export default function CertificadoCard({ certificado }) {
 
   const diasRestantes = useMemo(() => {
     const target = parseDateValue(certificado?.validoAte ?? "");
-    if (!target) {
-      return null;
+    if (target) {
+      const now = new Date();
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const diffMs = target.getTime() - start.getTime();
+      return Math.round(diffMs / MS_PER_DAY);
     }
-    const now = new Date();
-    const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const diffMs = target.getTime() - start.getTime();
-    return Math.round(diffMs / MS_PER_DAY);
-  }, [certificado?.validoAte, todayKey]);
+    return resolveDiasRestantesFromCertificado(certificado);
+  }, [certificado, todayKey]);
 
   const prazoLabel = useMemo(() => buildPrazoLabel(diasRestantes), [diasRestantes]);
 
