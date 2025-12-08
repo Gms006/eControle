@@ -1,3 +1,6 @@
+import { getStatusKey } from "@/lib/status";
+import { parsePtDate } from "@/lib/text";
+
 const DEFAULT_API_BASE = "http://localhost:8000";
 
 export const normalizeApiBase = (rawBase) => {
@@ -49,6 +52,38 @@ const CANONICAL_ENDPOINT_MAP = {
 };
 
 const ensureLeadingSlash = (path = "") => (path.startsWith("/") ? path : `/${path}`);
+
+const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
+const parseDateValue = (value) => {
+  if (!value) return null;
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const ptDate = parsePtDate(value);
+    if (ptDate instanceof Date && !Number.isNaN(ptDate.getTime())) {
+      return ptDate;
+    }
+    const isoCandidate = new Date(value);
+    if (!Number.isNaN(isoCandidate.getTime())) {
+      return isoCandidate;
+    }
+  }
+  return null;
+};
+
+const computeDiasRestantes = (dateValue) => {
+  const target = parseDateValue(dateValue);
+  if (!(target instanceof Date)) {
+    return null;
+  }
+  const now = new Date();
+  const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const end = new Date(target.getFullYear(), target.getMonth(), target.getDate());
+  const diffMs = end.getTime() - start.getTime();
+  return Math.trunc(diffMs / MS_PER_DAY);
+};
 
 const toFiniteNumber = (value) => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -281,6 +316,36 @@ export const normalizeAlertaFromApi = (item) => {
   return normalized;
 };
 
+export const normalizeLicencaFromApi = (item) => {
+  if (!item || typeof item !== "object") return item;
+
+  const normalized = { ...item };
+  const validade =
+    normalized.validade ??
+    normalized.data_validade ??
+    normalized.dataVencimento ??
+    normalized.data_vencimento;
+
+  const diasRestantes = computeDiasRestantes(validade);
+  if (diasRestantes !== null) {
+    normalized.diasRestantes = diasRestantes;
+    normalized.dias_restantes = diasRestantes;
+
+    const statusKey = getStatusKey(normalized.status);
+    if (!statusKey || statusKey.includes("venc") || statusKey === "valido") {
+      if (diasRestantes < 0) {
+        normalized.status = "Vencido";
+      } else if (diasRestantes <= 30) {
+        normalized.status = "Vence≤30d";
+      } else if (!statusKey) {
+        normalized.status = "Válido";
+      }
+    }
+  }
+
+  return normalized;
+};
+
 export const normalizeCertificadoFromApi = (item) => {
   if (!item || typeof item !== "object") return item;
   const normalized = { ...item };
@@ -327,12 +392,22 @@ export const normalizeCertificadoFromApi = (item) => {
     normalized.validoAte = normalized.valido_ate;
   }
 
-  // diasRestantes
-  const diasRestantes = toFiniteNumber(
-    normalized.diasRestantes ?? normalized.dias_restantes,
-  );
-  if (diasRestantes !== undefined) {
+  // diasRestantes recalculado pela data de validade
+  const diasRestantes = computeDiasRestantes(normalized.validoAte ?? normalized.valido_ate);
+  if (diasRestantes !== null) {
     normalized.diasRestantes = diasRestantes;
+    normalized.dias_restantes = diasRestantes;
+
+    const situacaoKey = getStatusKey(normalized.situacao);
+    if (diasRestantes < 0) {
+      normalized.situacao = "Vencido";
+    } else if (diasRestantes <= 7) {
+      if (!situacaoKey || situacaoKey.includes("venc") || situacaoKey.includes("valido")) {
+        normalized.situacao = "Vencendo em breve";
+      }
+    } else if (!situacaoKey) {
+      normalized.situacao = "Válido";
+    }
   }
 
   return normalized;
@@ -506,7 +581,7 @@ const normalizeTaxasFromApi = (payload) => {
 const DEFAULT_TRANSFORMS = {
   "/empresas": (payload) => normalizeCollectionPayload(payload, normalizeEmpresaFromApi),
   "/alertas": (payload) => normalizeCollectionPayload(payload, normalizeAlertaFromApi),
-  "/licencas": (payload) => normalizeCollectionPayload(payload),
+  "/licencas": (payload) => normalizeCollectionPayload(payload, normalizeLicencaFromApi),
   "/processos": (payload) => normalizeCollectionPayload(payload),
   "/taxas": (payload) => normalizeTaxasFromApi(payload),
   "/certificados": (payload) =>
