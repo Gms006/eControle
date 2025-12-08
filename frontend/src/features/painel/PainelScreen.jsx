@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import InlineBadge from "@/components/InlineBadge";
@@ -36,6 +36,29 @@ import {
 const MONTHS_WINDOW = 12;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+const parseDateToLocalDay = (value) => {
+  if (!value) return null;
+
+  if (value instanceof Date && !Number.isNaN(value.getTime())) {
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+  }
+
+  if (typeof value === "string") {
+    const ptDate = parsePtDate(value);
+    if (ptDate instanceof Date && !Number.isNaN(ptDate.getTime())) {
+      return ptDate;
+    }
+
+    const isoMatch = value.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch;
+      return new Date(Number(year), Number(month) - 1, Number(day));
+    }
+  }
+
+  return null;
+};
+
 const buildPrazoLabel = (diasRestantes) => {
   if (diasRestantes === null || diasRestantes === undefined) {
     return "—";
@@ -71,6 +94,15 @@ export default function PainelScreen(props) {
   void query;
   void municipio;
   void soAlertas;
+
+  const [todayKey, setTodayKey] = useState(() => new Date().toDateString());
+
+  useEffect(() => {
+    const update = () => setTodayKey(new Date().toDateString());
+    update();
+    const interval = setInterval(update, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const licencaResumo = useMemo(() => {
     return filteredLicencas.reduce(
@@ -113,16 +145,7 @@ export default function PainelScreen(props) {
       else if (statusKey.includes("vence")) bucket = "vencendo";
       if (!bucket) return;
 
-      let validade = parsePtDate(lic.validade);
-      if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
-        if (typeof lic.validade === "string") {
-          const isoCandidate = new Date(lic.validade);
-          if (!Number.isNaN(isoCandidate?.getTime())) {
-            validade = isoCandidate;
-          }
-        }
-      }
-
+      const validade = parseDateToLocalDay(lic.validade);
       if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
         return;
       }
@@ -197,23 +220,14 @@ export default function PainelScreen(props) {
 
     return lista
       .map((cert) => {
-        let diasRestantes = Number.isFinite(cert?.diasRestantes) ? cert.diasRestantes : null;
-        if (diasRestantes === null) {
-          let validade = parsePtDate(cert?.validoAte);
-          if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
-            if (typeof cert?.validoAte === "string") {
-              const isoCandidate = new Date(cert.validoAte);
-              if (!Number.isNaN(isoCandidate?.getTime())) {
-                validade = isoCandidate;
-              }
-            }
-          }
+        let diasRestantes = null;
+        const validade = parseDateToLocalDay(cert?.validoAte);
 
-          if (validade instanceof Date && !Number.isNaN(validade.getTime())) {
-            const end = new Date(validade.getFullYear(), validade.getMonth(), validade.getDate());
-            const diffMs = end.getTime() - start.getTime();
-            diasRestantes = Math.trunc(diffMs / MS_PER_DAY);
-          }
+        if (validade instanceof Date && !Number.isNaN(validade.getTime())) {
+          const diffMs = validade.getTime() - start.getTime();
+          diasRestantes = Math.round(diffMs / MS_PER_DAY);
+        } else if (Number.isFinite(cert?.diasRestantes)) {
+          diasRestantes = cert.diasRestantes;
         }
 
         return {
@@ -221,9 +235,9 @@ export default function PainelScreen(props) {
           diasRestantes,
         };
       })
-      .filter((cert) => cert.diasRestantes !== null && cert.diasRestantes >= 0 && cert.diasRestantes <= 7)
+      .filter((cert) => cert.diasRestantes !== null && cert.diasRestantes <= 7)
       .sort((a, b) => a.diasRestantes - b.diasRestantes);
-  }, [certificados]);
+  }, [certificados, todayKey]);
 
   return (
     <div className="mt-4 space-y-4">

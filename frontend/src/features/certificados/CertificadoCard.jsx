@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import StatusBadge from "@/components/StatusBadge";
@@ -48,6 +48,15 @@ const buildPrazoLabel = (diasRestantes) => {
 };
 
 export default function CertificadoCard({ certificado }) {
+  const [todayKey, setTodayKey] = useState(() => new Date().toDateString());
+
+  useEffect(() => {
+    const update = () => setTodayKey(new Date().toDateString());
+    update();
+    const interval = setInterval(update, 60 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, []);
+
   const titular = certificado?.titular ?? "";
   const validoDe = extractDateLabel(certificado?.validoDe ?? "");
   const validoAte = extractDateLabel(certificado?.validoAte ?? "");
@@ -61,10 +70,9 @@ export default function CertificadoCard({ certificado }) {
     }
     const now = new Date();
     const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const end = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-    const diffMs = end.getTime() - start.getTime();
-    return Math.trunc(diffMs / MS_PER_DAY);
-  }, [certificado?.validoAte]);
+    const diffMs = target.getTime() - start.getTime();
+    return Math.round(diffMs / MS_PER_DAY);
+  }, [certificado?.validoAte, todayKey]);
 
   const prazoLabel = useMemo(() => buildPrazoLabel(diasRestantes), [diasRestantes]);
 
