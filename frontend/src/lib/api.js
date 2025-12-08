@@ -57,17 +57,37 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const parseDateValue = (value) => {
   if (!value) return null;
+
+  const buildLocalDate = (year, month, day) => {
+    if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
+      return null;
+    }
+    return new Date(year, month - 1, day);
+  };
+
   if (value instanceof Date && !Number.isNaN(value.getTime())) {
-    return value;
+    return new Date(value.getFullYear(), value.getMonth(), value.getDate());
   }
+
   if (typeof value === "string") {
     const ptDate = parsePtDate(value);
     if (ptDate instanceof Date && !Number.isNaN(ptDate.getTime())) {
       return ptDate;
     }
+
+    const isoMatch = value.match(/^(\d{4})[-/](\d{2})[-/](\d{2})/);
+    if (isoMatch) {
+      const [, year, month, day] = isoMatch;
+      return buildLocalDate(Number(year), Number(month), Number(day));
+    }
+
     const isoCandidate = new Date(value);
     if (!Number.isNaN(isoCandidate.getTime())) {
-      return isoCandidate;
+      return new Date(
+        isoCandidate.getFullYear(),
+        isoCandidate.getMonth(),
+        isoCandidate.getDate(),
+      );
     }
   }
   return null;
@@ -80,9 +100,8 @@ const computeDiasRestantes = (dateValue) => {
   }
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const end = new Date(target.getFullYear(), target.getMonth(), target.getDate());
-  const diffMs = end.getTime() - start.getTime();
-  return Math.trunc(diffMs / MS_PER_DAY);
+  const diffMs = target.getTime() - start.getTime();
+  return Math.round(diffMs / MS_PER_DAY);
 };
 
 const toFiniteNumber = (value) => {
