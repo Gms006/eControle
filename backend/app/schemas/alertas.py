@@ -24,3 +24,16 @@ class AlertaView(BaseModel):
 
 class AlertaListResponse(PaginatedResponse[AlertaView]):
     pass
+
+
+class AlertaTrendItem(BaseModel):
+    mes: date
+    alertas_vencendo: int
+    alertas_vencidas: int
+    total_alertas: int
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class AlertaTrendResponse(BaseModel):
+    items: list[AlertaTrendItem]

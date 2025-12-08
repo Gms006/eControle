@@ -6,3 +6,7 @@ export const listarAlertas = async (params = {}) => {
     query: { page, size, sort, tipo_alerta, empresa_id },
   });
 };
+
+export const listarTendenciaAlertas = async () => {
+  return fetchJson("/api/v1/alertas/tendencia");
+};

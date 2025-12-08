@@ -32,8 +32,8 @@ import {
   isAlertStatus,
   isProcessStatusInactive,
 } from "@/lib/status";
+import { listarTendenciaAlertas } from "@/services/alertas";
 
-const MONTHS_WINDOW = 12;
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 const parseDateToLocalDay = (value) => {
@@ -96,6 +96,7 @@ export default function PainelScreen(props) {
   void soAlertas;
 
   const [todayKey, setTodayKey] = useState(() => new Date().toDateString());
+  const [alertTrendData, setAlertTrendData] = useState([]);
 
   useEffect(() => {
     const update = () => setTodayKey(new Date().toDateString());
@@ -123,74 +124,57 @@ export default function PainelScreen(props) {
     );
   }, [filteredLicencas]);
 
-  const alertTrendData = useMemo(() => {
-    if (!Array.isArray(filteredLicencas) || filteredLicencas.length === 0) {
-      return [];
-    }
+  useEffect(() => {
+    let active = true;
 
-    const now = new Date();
-    const end = new Date(now.getFullYear(), now.getMonth(), 1);
-    const start = new Date(end.getFullYear(), end.getMonth() - (MONTHS_WINDOW - 1), 1);
+    listarTendenciaAlertas()
+      .then((response) => {
+        const items = Array.isArray(response?.items)
+          ? response.items
+          : Array.isArray(response)
+            ? response
+            : [];
 
-    const counts = new Map();
+        const normalized = items
+          .map((item) => {
+            const monthDate = parseDateToLocalDay(item?.mes);
+            if (!(monthDate instanceof Date) || Number.isNaN(monthDate.getTime())) {
+              return null;
+            }
+            const vencendo = Number(item?.alertas_vencendo) || 0;
+            const vencidas = Number(item?.alertas_vencidas) || 0;
+            const monthLabel = monthDate
+              .toLocaleDateString("pt-BR", { month: "short" })
+              .replace(/\./g, "")
+              .toLowerCase();
 
-    filteredLicencas.forEach((lic) => {
-      if (!lic || !isAlertStatus(lic.status)) return;
+            return {
+              date: monthDate,
+              ts: monthDate.getTime(),
+              label: `${monthLabel}/${String(monthDate.getFullYear()).slice(-2)}`,
+              total_alertas: vencendo + vencidas,
+              alertas_vencendo: vencendo,
+              alertas_vencidas: vencidas,
+            };
+          })
+          .filter(Boolean)
+          .sort((a, b) => a.ts - b.ts);
 
-      const statusKey = getStatusKey(lic.status);
-      if (!statusKey) return;
-
-      let bucket = null;
-      if (statusKey.includes("vencid")) bucket = "vencidas";
-      else if (statusKey.includes("vence")) bucket = "vencendo";
-      if (!bucket) return;
-
-      const validade = parseDateToLocalDay(lic.validade);
-      if (!(validade instanceof Date) || Number.isNaN(validade.getTime())) {
-        return;
-      }
-
-      const monthDate = new Date(validade.getFullYear(), validade.getMonth(), 1);
-      if (monthDate < start || monthDate > end) {
-        return;
-      }
-
-      const key = `${monthDate.getFullYear()}-${monthDate.getMonth()}`;
-      const previous = counts.get(key) ?? { vencendo: 0, vencidas: 0 };
-      counts.set(key, { ...previous, [bucket]: previous[bucket] + 1 });
-    });
-
-    const data = [];
-    for (
-      let year = start.getFullYear(), month = start.getMonth();
-      year < end.getFullYear() || (year === end.getFullYear() && month <= end.getMonth());
-    ) {
-      const currentDate = new Date(year, month, 1);
-      const key = `${year}-${month}`;
-      const monthCounts = counts.get(key) ?? { vencendo: 0, vencidas: 0 };
-      const monthLabel = currentDate
-        .toLocaleDateString("pt-BR", { month: "short" })
-        .replace(/\./g, "")
-        .toLowerCase();
-
-      data.push({
-        date: currentDate,
-        ts: currentDate.getTime(),
-        label: `${monthLabel}/${String(year).slice(-2)}`,
-        total_alertas: monthCounts.vencendo + monthCounts.vencidas,
-        alertas_vencendo: monthCounts.vencendo,
-        alertas_vencidas: monthCounts.vencidas,
+        if (active) {
+          setAlertTrendData(normalized);
+        }
+      })
+      .catch((error) => {
+        console.error("[Painel] Falha ao carregar tendência de alertas", error);
+        if (active) {
+          setAlertTrendData([]);
+        }
       });
 
-      month += 1;
-      if (month > 11) {
-        month = 0;
-        year += 1;
-      }
-    }
-
-    return data;
-  }, [filteredLicencas]);
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const processosAtivos = useMemo(() => {
     return processosNormalizados.filter((proc) => !isProcessStatusInactive(proc.status));

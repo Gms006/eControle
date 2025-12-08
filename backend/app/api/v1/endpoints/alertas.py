@@ -5,6 +5,7 @@ from typing import Dict
 import hashlib
 
 from fastapi import APIRouter, Depends, Query
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.utils import (
@@ -14,7 +15,7 @@ from app.api.v1.endpoints.utils import (
     resolve_sort,
 )
 from app.deps.auth import Role, User, db_with_org, require_role
-from app.schemas.alertas import AlertaListResponse
+from app.schemas.alertas import AlertaListResponse, AlertaTrendResponse
 
 router = APIRouter(prefix="/alertas", tags=["Alertas"])
 
@@ -63,3 +64,40 @@ def listar_alertas(
     data["items"] = items
 
     return AlertaListResponse(**data)
+
+
+@router.get("/tendencia", response_model=AlertaTrendResponse)
+def tendencia_alertas(
+    db: Session = Depends(db_with_org),
+    _: User = Depends(require_role(Role.VIEWER)),
+) -> AlertaTrendResponse:
+    """Retorna a evolução mensal de alertas de licenças vencendo ou vencidas."""
+
+    sql = text(
+        """
+        SELECT
+            date_trunc('month', validade)::date AS mes,
+            count(*) FILTER (WHERE validade >= CURRENT_DATE) AS alertas_vencendo,
+            count(*) FILTER (WHERE validade < CURRENT_DATE) AS alertas_vencidas
+        FROM licencas
+        WHERE validade IS NOT NULL
+          AND date_trunc('month', validade) >= date_trunc('month', CURRENT_DATE) - interval '11 months'
+          AND (current_setting('app.current_org', true) IS NULL OR org_id = (current_setting('app.current_org'))::uuid)
+        GROUP BY mes
+        ORDER BY mes
+        """
+    )
+
+    rows = db.execute(sql).mappings().all()
+    items = [
+        {
+            "mes": row["mes"],
+            "alertas_vencendo": int(row.get("alertas_vencendo", 0) or 0),
+            "alertas_vencidas": int(row.get("alertas_vencidas", 0) or 0),
+            "total_alertas": int(row.get("alertas_vencendo", 0) or 0)
+            + int(row.get("alertas_vencidas", 0) or 0),
+        }
+        for row in rows
+    ]
+
+    return AlertaTrendResponse(items=items)
