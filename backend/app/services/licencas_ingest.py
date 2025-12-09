@@ -262,12 +262,27 @@ def _interpretar_documentos(documentos: Iterable[DocumentoArquivo]) -> list[Inte
         datados = [d for d in docs if d.validade]
         if datados:
             mais_recente = max(datados, key=lambda d: d.validade or date.min)
+
+            # Status técnico continua sendo apenas POSSUI / VENCIDO
             status = "POSSUI" if mais_recente.validade and mais_recente.validade >= hoje else "VENCIDO"
-            status_bruto = (
-                f"Possui. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
-                if status == "POSSUI"
-                else f"Vencido. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
-            )
+
+            # Refinar rótulo para Condicionado / Provisório quando aplicável
+            tipo_lower = (mais_recente.tipo_documento or "").lower()
+            eh_condicionado = "condicionad" in tipo_lower
+            eh_provisorio = "provis" in tipo_lower  # cobre provisório / provisorio
+
+            if eh_condicionado:
+                sufixo = " (Condicionado)"
+            elif eh_provisorio:
+                sufixo = " (Provisório)"
+            else:
+                sufixo = ""
+
+            if status == "POSSUI":
+                status_bruto = f"Possui{sufixo}. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
+            else:
+                status_bruto = f"Vencido{sufixo}. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
+
             resultados.append(
                 InterpretedLicenca(
                     categoria=categoria,
@@ -421,16 +436,17 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                     continue
 
                 # UPDATE via SQL cru - só colunas que existem
+                # Regra: não apagar validade antiga se não houver nova (validade = NULL)
                 db.execute(
                     text(
                         """
                         UPDATE licencas
-                        SET tipo     = :tipo,
+                        SET tipo        = :tipo,
                             tipo_codigo = :tipo_codigo,
-                            status   = :status,
-                            validade = :validade,
-                            obs      = :obs
-                            WHERE id = :id
+                            status      = :status,
+                            validade    = COALESCE(:validade, validade),
+                            obs         = :obs
+                        WHERE id = :id
                         """
                     ),
                     {
