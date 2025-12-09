@@ -228,7 +228,15 @@ def _interpretar_documentos(documentos: Iterable[DocumentoArquivo]) -> list[Inte
     resultados: list[InterpretedLicenca] = []
 
     for categoria, docs in agrupado.items():
-        definitivo = next((d for d in docs if d.tipo_documento.lower() == "definitivo"), None)
+        # Trata "Definitivo" como sem vencimento apenas quando não houver data
+        definitivo = next(
+            (
+                d
+                for d in docs
+                if d.tipo_documento.lower() == "definitivo" and d.validade is None
+            ),
+            None,
+        )
         if definitivo:
             resultados.append(
                 InterpretedLicenca(
