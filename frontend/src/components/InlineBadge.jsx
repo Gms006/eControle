@@ -2,7 +2,7 @@ import React from "react";
 
 function InlineBadge({ children, className = "", variant = "solid", ...props }) {
   const base =
-    "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium";
+    "inline-flex items-center justify-center gap-1 rounded-full border px-2 py-0.5 text-center text-xs font-medium";
   
   const variants = {
     solid: "bg-slate-100 border-transparent text-slate-700",
