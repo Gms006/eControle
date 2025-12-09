@@ -349,6 +349,31 @@ export const normalizeLicencaFromApi = (item) => {
   const statusBruto =
     normalized.status_bruto ?? normalized.statusBruto ?? normalized.obs ?? normalized.observacao;
 
+  // ----------------------------------------------------------
+  // Extrai um "detalhe" amigável do status:
+  //   - "Definitivo"
+  //   - "Condicionado"
+  //   - "Provisório"
+  // Usado só para UI: badge ao lado do status.
+  // ----------------------------------------------------------
+  if (typeof statusBruto === "string") {
+    const lower = statusBruto.toLowerCase();
+    let detalhe = undefined;
+
+    if (lower.includes("condicionad")) {
+      detalhe = "Condicionado";
+    } else if (lower.includes("provis")) {
+      // cobre "provisório" / "provisorio"
+      detalhe = "Provisório";
+    } else if (lower.includes("definitiv")) {
+      detalhe = "Definitivo";
+    }
+
+    if (detalhe) {
+      normalized.status_detalhe = detalhe;
+    }
+  }
+
   const validade =
     normalized.validade ??
     normalized.data_validade ??
