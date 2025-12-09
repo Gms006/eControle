@@ -38,6 +38,15 @@ const extractDate = (value) => {
 
 const SITUACAO_OPTIONS = ["Todos", ...CERTIFICADO_SITUACAO_CATEGORIES];
 
+const normalizeSituacaoDisplay = (situacao) => {
+  if (situacao === "Todos") return "Todos";
+  return situacao
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
+
 const getDateTimestamp = (value) => {
   const date = extractDate(value);
   if (!date) return null;
@@ -153,7 +162,7 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
               <SelectContent>
                 {SITUACAO_OPTIONS.map((option) => (
                   <SelectItem key={option} value={option}>
-                    {option}
+                    {normalizeSituacaoDisplay(option)}
                   </SelectItem>
                 ))}
               </SelectContent>
