@@ -455,7 +455,9 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                                   <StatusBadge status={lic.status} />
                                 </TableCell>
                                 <TableCell>{renderValidade(lic)}</TableCell>
-                                <TableCell className="text-xs text-slate-600">{lic.obs || "—"}</TableCell>
+                                <TableCell className="text-xs text-slate-600">
+                                  {lic.status_bruto || lic.obs || "—"}
+                                </TableCell>
                               </TableRow>
                             ))}
                             {registros.length === 0 && (
