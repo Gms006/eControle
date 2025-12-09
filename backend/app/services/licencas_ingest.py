@@ -157,6 +157,15 @@ def _extract_date(value: str | None) -> Optional[date]:
     return parsed
 
 
+def _normalize_status_value(status: str | None) -> Optional[str]:
+    if status is None:
+        return None
+    normalized = status.strip()
+    if not normalized:
+        return normalized
+    return normalized[0].upper() + normalized[1:].lower()
+
+
 def _buscar_arquivos_validos(base_dir: Path, empresa_municipio: str | None) -> list[Path]:
     if not base_dir.exists() or not base_dir.is_dir():
         return []
@@ -233,7 +242,7 @@ def _interpretar_documentos(documentos: Iterable[DocumentoArquivo]) -> list[Inte
             resultados.append(
                 InterpretedLicenca(
                     categoria=categoria,
-                    status="POSSUI",
+                    status=_normalize_status_value("POSSUI"),
                     status_bruto="Definitivo",
                     tipo_documento="Definitivo",
                     validade=None,
@@ -249,7 +258,7 @@ def _interpretar_documentos(documentos: Iterable[DocumentoArquivo]) -> list[Inte
             resultados.append(
                 InterpretedLicenca(
                     categoria=categoria,
-                    status="DISPENSA",
+                    status=_normalize_status_value("DISPENSA"),
                     status_bruto=mais_recente.status_bruto,
                     tipo_documento="Dispensa",
                     validade=mais_recente.validade,
@@ -262,12 +271,28 @@ def _interpretar_documentos(documentos: Iterable[DocumentoArquivo]) -> list[Inte
         datados = [d for d in docs if d.validade]
         if datados:
             mais_recente = max(datados, key=lambda d: d.validade or date.min)
-            status = "POSSUI" if mais_recente.validade and mais_recente.validade >= hoje else "VENCIDO"
-            status_bruto = (
-                f"Possui. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
-                if status == "POSSUI"
-                else f"Vencido. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
-            )
+
+            # Status técnico continua sendo apenas POSSUI / VENCIDO
+            status_raw = "POSSUI" if mais_recente.validade and mais_recente.validade >= hoje else "VENCIDO"
+            status = _normalize_status_value(status_raw)
+
+            # Refinar rótulo para Condicionado / Provisório quando aplicável
+            tipo_lower = (mais_recente.tipo_documento or "").lower()
+            eh_condicionado = "condicionad" in tipo_lower
+            eh_provisorio = "provis" in tipo_lower  # cobre provisório / provisorio
+
+            if eh_condicionado:
+                sufixo = " (Condicionado)"
+            elif eh_provisorio:
+                sufixo = " (Provisório)"
+            else:
+                sufixo = ""
+
+            if status_raw == "POSSUI":
+                status_bruto = f"Possui{sufixo}. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
+            else:
+                status_bruto = f"Vencido{sufixo}. Val {mais_recente.validade.strftime('%d/%m/%Y')}"
+
             resultados.append(
                 InterpretedLicenca(
                     categoria=categoria,
@@ -305,10 +330,10 @@ def _interpretar_processo(processo: Processo, categoria: str) -> Optional[Interp
         return None
 
     if any(word in situacao_lower for word in ("licenc", "conclu", "defer", "aprov")):
-        status = "POSSUI"
+        status = _normalize_status_value("POSSUI")
         status_bruto = situacao or "Possui"
     else:
-        status = situacao.title()
+        status = _normalize_status_value(situacao)
         status_bruto = situacao
 
     return InterpretedLicenca(
@@ -381,11 +406,11 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                 resultado = _interpretar_processo(processo, categoria) if processo else None
 
             if resultado is None:
-                status = "SUJEITO"
+                status = _normalize_status_value("SUJEITO")
                 resultado = InterpretedLicenca(
                     categoria=categoria,
                     status=status,
-                    status_bruto=status.title(),
+                    status_bruto=status,
                     tipo_documento="",
                     validade=None,
                     arquivo=None,
@@ -421,16 +446,17 @@ def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id:
                     continue
 
                 # UPDATE via SQL cru - só colunas que existem
+                # Regra: não apagar validade antiga se não houver nova (validade = NULL)
                 db.execute(
                     text(
                         """
                         UPDATE licencas
-                        SET tipo     = :tipo,
+                        SET tipo        = :tipo,
                             tipo_codigo = :tipo_codigo,
-                            status   = :status,
-                            validade = :validade,
-                            obs      = :obs
-                            WHERE id = :id
+                            status      = :status,
+                            validade    = COALESCE(:validade, validade),
+                            obs         = :obs
+                        WHERE id = :id
                         """
                     ),
                     {
