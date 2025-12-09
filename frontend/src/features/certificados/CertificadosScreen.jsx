@@ -11,7 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InlineBadge from "@/components/InlineBadge";
 import CertificadoCard from "@/features/certificados/CertificadoCard";
 import AgendamentosTable from "@/features/certificados/AgendamentosTable";
-import { categorizeCertificadoSituacao } from "@/lib/certificados";
+import {
+  CERTIFICADO_SITUACAO_CATEGORIES,
+  categorizeCertificadoSituacao,
+} from "@/lib/certificados";
 import { normalizeTextLower } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
@@ -33,7 +36,7 @@ const extractDate = (value) => {
   return value.trim();
 };
 
-const SITUACAO_OPTIONS = ["Todos", "Válido", "Vencendo em breve", "Vencido"];
+const SITUACAO_OPTIONS = ["Todos", ...CERTIFICADO_SITUACAO_CATEGORIES];
 
 const getDateTimestamp = (value) => {
   const date = extractDate(value);
@@ -102,7 +105,12 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
       if (situacao !== "Todos" && categoria !== situacao) {
         return false;
       }
-      if (soAlertas && !["Vencido", "Vencendo em breve"].includes(categoria)) {
+      if (
+        soAlertas &&
+        !["VENCIDO", "VENCE DENTRO DE 7 DIAS", "VENCE DENTRO DE 30 DIAS"].includes(
+          categoria,
+        )
+      ) {
         return false;
       }
       if (query === "") {
