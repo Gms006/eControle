@@ -335,36 +335,63 @@ export const normalizeAlertaFromApi = (item) => {
   return normalized;
 };
 
+const formatStatusCase = (status) => {
+  if (typeof status !== "string") return status;
+  const trimmed = status.trim();
+  if (!trimmed) return trimmed;
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1).toLowerCase();
+};
+
 export const normalizeLicencaFromApi = (item) => {
   if (!item || typeof item !== "object") return item;
 
   const normalized = { ...item };
+  const statusBruto =
+    normalized.status_bruto ?? normalized.statusBruto ?? normalized.obs ?? normalized.observacao;
+
   const validade =
     normalized.validade ??
     normalized.data_validade ??
     normalized.dataVencimento ??
-    normalized.data_vencimento;
+    normalized.data_vencimento ??
+    (() => {
+      const match =
+        typeof statusBruto === "string"
+          ? statusBruto.match(/val(?:\.|idade)?\s*[:.]?\s*(\d{1,2}\/\d{1,2}\/\d{2,4})/i)
+          : null;
+      return match ? match[1] : undefined;
+    })();
 
   if (validade !== undefined) {
     normalized.validade = validade;
+    const parsedValidade = parseDateValue(validade);
+    if (parsedValidade instanceof Date && !Number.isNaN(parsedValidade.getTime())) {
+      const dd = String(parsedValidade.getDate()).padStart(2, "0");
+      const mm = String(parsedValidade.getMonth() + 1).padStart(2, "0");
+      const yyyy = parsedValidade.getFullYear();
+      normalized.validade_br = `${dd}/${mm}/${yyyy}`;
+    }
   }
+
+  const rawStatusFromBruto =
+    typeof statusBruto === "string"
+      ? (statusBruto.match(/^(possui|vencido)/i)?.[1] ?? undefined)
+      : undefined;
 
   const diasRestantes = computeDiasRestantes(validade);
   if (diasRestantes !== null) {
     normalized.diasRestantes = diasRestantes;
     normalized.dias_restantes = diasRestantes;
-
-    const statusKey = getStatusKey(normalized.status);
-    if (!statusKey || statusKey.includes("venc") || statusKey === "valido") {
-      if (diasRestantes < 0) {
-        normalized.status = "Vencido";
-      } else if (diasRestantes <= 30) {
-        normalized.status = "Vence≤30d";
-      } else if (!statusKey) {
-        normalized.status = "Válido";
-      }
-    }
   }
+
+  const baseStatus = formatStatusCase(normalized.status ?? rawStatusFromBruto);
+  if (diasRestantes !== null && rawStatusFromBruto) {
+    normalized.status = diasRestantes < 0 ? "Vencido" : "Possui";
+  } else if (baseStatus) {
+    normalized.status = baseStatus;
+  }
+
+  normalized.status_bruto = statusBruto;
 
   return normalized;
 };
