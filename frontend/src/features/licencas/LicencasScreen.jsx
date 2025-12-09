@@ -316,11 +316,18 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                           <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                             {display}
                           </p>
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <StatusBadge status={chosen?.status} />
-                            {chosen && (
-                              <span className="text-[11px] text-slate-600">
-                                Vencimento: {renderValidade(chosen)}
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <StatusBadge status={chosen?.status} />
+                              {chosen && (
+                                <span className="text-[11px] text-slate-600">
+                                  Vencimento: {renderValidade(chosen)}
+                                </span>
+                              )}
+                            </div>
+                            {chosen?.status_bruto && (
+                              <span className="text-[11px] text-slate-500">
+                                {chosen.status_bruto}
                               </span>
                             )}
                           </div>
