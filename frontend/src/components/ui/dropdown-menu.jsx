@@ -156,7 +156,7 @@ export function MiniBadge({ children, className }) {
   return (
     <span
       className={cn(
-        "ml-2 inline-flex items-center rounded-md bg-slate-100 px-1.5 py-0 text-[10px] font-medium text-slate-600",
+        "ml-2 inline-flex items-center justify-center rounded-md bg-slate-100 px-1.5 py-0 text-center text-[10px] font-medium text-slate-600",
         className
       )}
     >
