@@ -11,7 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import InlineBadge from "@/components/InlineBadge";
 import CertificadoCard from "@/features/certificados/CertificadoCard";
 import AgendamentosTable from "@/features/certificados/AgendamentosTable";
-import { categorizeCertificadoSituacao } from "@/lib/certificados";
+import {
+  CERTIFICADO_SITUACAO_CATEGORIES,
+  categorizeCertificadoSituacao,
+} from "@/lib/certificados";
 import { normalizeTextLower } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
@@ -33,13 +36,16 @@ const extractDate = (value) => {
   return value.trim();
 };
 
-const SITUACAO_OPTIONS = [
-  "Todos",
-  "VÁLIDO",
-  "VENCE DENTRO DE 7 DIAS",
-  "VENCE DENTRO DE 30 DIAS",
-  "VENCIDO",
-];
+const SITUACAO_OPTIONS = ["Todos", ...CERTIFICADO_SITUACAO_CATEGORIES];
+
+const normalizeSituacaoDisplay = (situacao) => {
+  if (situacao === "Todos") return "Todos";
+  return situacao
+    .toLowerCase()
+    .split(" ")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+};
 
 const getDateTimestamp = (value) => {
   const date = extractDate(value);
@@ -156,7 +162,7 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
               <SelectContent>
                 {SITUACAO_OPTIONS.map((option) => (
                   <SelectItem key={option} value={option}>
-                    {option}
+                    {normalizeSituacaoDisplay(option)}
                   </SelectItem>
                 ))}
               </SelectContent>

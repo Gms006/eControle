@@ -10,6 +10,13 @@ const MIN_DOCUMENT_LENGTH = 11;
 
 export const DEFAULT_CERTIFICADO_SITUACAO = "Não Possui";
 
+export const CERTIFICADO_SITUACAO_CATEGORIES = Object.freeze([
+  "VÁLIDO",
+  "VENCE DENTRO DE 7 DIAS",
+  "VENCE DENTRO DE 30 DIAS",
+  "VENCIDO",
+]);
+
 const getDocumentKey = (value) => {
   const digits = normalizeDocumentDigits(value);
   if (!digits) {
@@ -127,8 +134,6 @@ export const isCertificadoSituacaoAlert = (situacao) => {
     return true;
   }
   const categoria = categorizeCertificadoSituacao(situacao);
-  return ["VENCIDO", "VENCE DENTRO DE 7 DIAS", "VENCE DENTRO DE 30 DIAS"].includes(
-    categoria,
-  );
+  return CERTIFICADO_SITUACAO_CATEGORIES.includes(categoria) && categoria !== "VÁLIDO";
 };
 
