@@ -76,6 +76,12 @@ export default function CertificadoCard({ certificado }) {
   const validoAte = extractDateLabel(certificado?.validoAte ?? "");
   const senha = certificado?.senha ?? "";
   const situacao = certificado?.situacao ?? "";
+  const cpfCnpj =
+    certificado?.cnpj ??
+    certificado?.cpf ??
+    certificado?.cpfCnpj ??
+    certificado?.documento ??
+    certificado?.document;
 
   const diasRestantes = useMemo(() => {
     const target = parseDateValue(certificado?.validoAte ?? "");
@@ -102,6 +108,7 @@ export default function CertificadoCard({ certificado }) {
         </div>
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-600">
+        <CopyableIdentifier label="CPF/CNPJ" value={cpfCnpj} />
         <CopyableIdentifier label="Senha" value={senha} />
         <div>
           <div className="text-xs uppercase tracking-wide text-slate-500">Prazo para vencimento</div>

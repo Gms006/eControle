@@ -33,7 +33,13 @@ const extractDate = (value) => {
   return value.trim();
 };
 
-const SITUACAO_OPTIONS = ["Todos", "Válido", "Vencendo em breve", "Vencido"];
+const SITUACAO_OPTIONS = [
+  "Todos",
+  "VÁLIDO",
+  "VENCE DENTRO DE 7 DIAS",
+  "VENCE DENTRO DE 30 DIAS",
+  "VENCIDO",
+];
 
 const getDateTimestamp = (value) => {
   const date = extractDate(value);
@@ -102,7 +108,12 @@ export default function CertificadosScreen({ certificados, agendamentos, soAlert
       if (situacao !== "Todos" && categoria !== situacao) {
         return false;
       }
-      if (soAlertas && !["Vencido", "Vencendo em breve"].includes(categoria)) {
+      if (
+        soAlertas &&
+        !["VENCIDO", "VENCE DENTRO DE 7 DIAS", "VENCE DENTRO DE 30 DIAS"].includes(
+          categoria,
+        )
+      ) {
         return false;
       }
       if (query === "") {

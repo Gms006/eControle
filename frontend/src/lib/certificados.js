@@ -98,13 +98,22 @@ export const categorizeCertificadoSituacao = (situacao) => {
     return "Outros";
   }
   if (key.includes("vencid")) {
-    return "Vencido";
+    return "VENCIDO";
   }
-  if (key.includes("vencend") || key.includes("vence")) {
-    return "Vencendo em breve";
+  if (key.includes("30") || key.includes("trint")) {
+    return "VENCE DENTRO DE 30 DIAS";
+  }
+  if (
+    key.includes("7") ||
+    key.includes("sete") ||
+    key.includes("breve") ||
+    key.includes("vencend") ||
+    key.includes("vence")
+  ) {
+    return "VENCE DENTRO DE 7 DIAS";
   }
   if (key.includes("valido") || key.includes("vigent") || key.includes("ativo")) {
-    return "Válido";
+    return "VÁLIDO";
   }
   return "Outros";
 };
@@ -118,6 +127,8 @@ export const isCertificadoSituacaoAlert = (situacao) => {
     return true;
   }
   const categoria = categorizeCertificadoSituacao(situacao);
-  return categoria === "Vencido" || categoria === "Vencendo em breve";
+  return ["VENCIDO", "VENCE DENTRO DE 7 DIAS", "VENCE DENTRO DE 30 DIAS"].includes(
+    categoria,
+  );
 };
 

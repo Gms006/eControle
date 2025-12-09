@@ -450,13 +450,17 @@ export const normalizeCertificadoFromApi = (item) => {
 
     const situacaoKey = getStatusKey(normalized.situacao);
     if (diasRestantes < 0) {
-      normalized.situacao = "Vencido";
+      normalized.situacao = "VENCIDO";
     } else if (diasRestantes <= 7) {
       if (!situacaoKey || situacaoKey.includes("venc") || situacaoKey.includes("valido")) {
-        normalized.situacao = "Vencendo em breve";
+        normalized.situacao = "VENCE DENTRO DE 7 DIAS";
+      }
+    } else if (diasRestantes <= 30) {
+      if (!situacaoKey || situacaoKey.includes("venc") || situacaoKey.includes("valido")) {
+        normalized.situacao = "VENCE DENTRO DE 30 DIAS";
       }
     } else if (!situacaoKey) {
-      normalized.situacao = "Válido";
+      normalized.situacao = "VÁLIDO";
     }
   }
 
