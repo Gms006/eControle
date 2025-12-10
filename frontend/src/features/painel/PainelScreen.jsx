@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import InlineBadge from "@/components/InlineBadge";
+import { Chip } from "@/components/Chip";
 import StatusBadge from "@/components/StatusBadge";
 import KPI from "@/components/KPI";
 import {
@@ -333,13 +333,13 @@ export default function PainelScreen(props) {
               >
                 <span className="font-medium text-slate-700">{item.label}</span>
                 {item.pass ? (
-                  <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                  <Chip variant="success">
                     <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> OK
-                  </InlineBadge>
+                  </Chip>
                 ) : (
-                  <InlineBadge className="bg-amber-100 text-amber-700 border-amber-200">
+                  <Chip variant="warning">
                     <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Verificar
-                  </InlineBadge>
+                  </Chip>
                 )}
               </div>
             ))}

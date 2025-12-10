@@ -107,109 +107,99 @@ export const isAlertStatus = (status) => {
   return ALERT_STATUS_KEYWORDS.some((keyword) => key.includes(keyword));
 };
 
-export const STATUS_VARIANT_CLASSES = {
-  success: "bg-emerald-100 text-emerald-700 border-emerald-200",
-  warning: "bg-amber-100 text-amber-700 border-amber-200",
-  danger: "bg-red-100 text-red-700 border-red-200",
-  info: "bg-sky-100 text-sky-700 border-sky-200",
-  neutral: "bg-slate-200 text-slate-700 border-slate-300",
-  muted: "bg-slate-100 text-slate-600 border-slate-200",
-  plain: "bg-transparent border-transparent text-slate-500",
-};
-
 export const resolveStatusClass = (status) => {
   const normalized = normalizeText(status);
   const trimmed = normalized.trim();
 
   if (trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—") {
-    return { variant: "plain", className: STATUS_VARIANT_CLASSES.plain };
+    return { variant: "outline" };
   }
 
   const key = removeDiacritics(trimmed.toLowerCase());
   const normalizedKey = key.replace(/\s+/g, " ").trim();
 
   if (normalizedKey === "valido") {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (normalizedKey === "vencido") {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "danger" };
   }
 
   const fraction = parseProgressFraction(trimmed);
   if (fraction) {
     const { current, total } = fraction;
     if (!Number.isFinite(current) || !Number.isFinite(total) || total <= 0) {
-      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+      return { variant: "warning" };
     }
     if (current < total) {
-      return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+      return { variant: "warning" };
     }
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (key.includes("possui debit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "danger" };
   }
 
   if (key.includes("sem debit") || key.includes("nao possui debit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (key.includes("sujeit")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "warning" };
   }
 
   if (key.includes("valido")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (key.includes("vencid")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "danger" };
   }
 
   if (key.includes("vencend") || key.includes("vence")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    return { variant: "warning" };
   }
 
   if (key === "nao" || key.startsWith("nao ") || key.includes(" nao ")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
+    return { variant: "neutral" };
   }
 
   if (key.includes("possui")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (key.includes("pago") && !key.includes("nao")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (key.includes("em aberto") || key.includes("emaberto") || key.includes("nao pago")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "danger" };
   }
 
   if (key.includes("indefer") || key.includes("negad")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "danger" };
   }
 
   if (key.includes("conclu")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
   if (key.includes("andament") || key.includes("aguard")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.warning };
+    return { variant: "warning" };
   }
 
   if (key.includes("pendent")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.muted };
+    return { variant: "neutral" };
   }
 
   if (key.includes("nao se aplica") || key.includes("n/a")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
+    return { variant: "neutral" };
   }
 
   if (key.includes("dispens") || key.includes("orient") || key.includes("inform") || key.includes("consult")) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.info };
+    return { variant: "neutral" };
   }
 
   if (
@@ -219,7 +209,7 @@ export const resolveStatusClass = (status) => {
     key.includes("bloque") ||
     key.includes("inadimpl")
   ) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.danger };
+    return { variant: "danger" };
   }
 
   if (
@@ -230,10 +220,10 @@ export const resolveStatusClass = (status) => {
     (key.includes("em dia") && !key.includes("irregular")) ||
     (key === "sim" && !key.includes("irregular"))
   ) {
-    return { variant: "solid", className: STATUS_VARIANT_CLASSES.success };
+    return { variant: "success" };
   }
 
-  return { variant: "solid", className: STATUS_VARIANT_CLASSES.neutral };
+  return { variant: "neutral" };
 };
 
 export const isProcessStatusInactive = (status) => {

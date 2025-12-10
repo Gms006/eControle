@@ -2,7 +2,15 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }) {
-  return <div className={cn("rounded-2xl border bg-card text-card-foreground shadow-sm", className)} {...props} />;
+  return (
+    <section
+      className={cn(
+        "bg-surface-card rounded-2xl shadow-soft border border-slate-100 p-4 lg:p-5",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 export function CardHeader({ className, ...props }) {

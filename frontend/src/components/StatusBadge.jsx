@@ -1,5 +1,5 @@
 import React from "react";
-import InlineBadge from "@/components/InlineBadge";
+import { Chip } from "@/components/Chip";
 import { normalizeText } from "@/lib/text";
 import { resolveStatusClass } from "@/lib/status";
 
@@ -10,9 +10,9 @@ function StatusBadge({ status }) {
     trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—" ? "—" : trimmed;
   const { variant, className } = resolveStatusClass(status);
   return (
-    <InlineBadge variant={variant} className={className}>
+    <Chip variant={variant} className={className}>
       {displayValue}
-    </InlineBadge>
+    </Chip>
   );
 }
 

@@ -12,7 +12,7 @@ import {
   MiniBadge,
   Kbd,
 } from "@/components/ui/dropdown-menu";
-import InlineBadge from "@/components/InlineBadge";
+import { Chip } from "@/components/Chip";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import { Mail, Phone, Clipboard, ExternalLink, File, Loader2 } from "lucide-react";
@@ -251,7 +251,7 @@ export default function EmpresasScreen({
         <span>
           {filteredEmpresas.length} de {empresas.length} empresas exibidas
         </span>
-        {soAlertas && <InlineBadge variant="outline">Modo alertas ativo</InlineBadge>}
+        {soAlertas && <Chip variant="warning">Modo alertas ativo</Chip>}
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -299,13 +299,13 @@ export default function EmpresasScreen({
           const lastCAE = caeFiles[0];
 
           return (
-            <Card key={empresa.id} className="shadow-sm overflow-hidden border border-white/60">
-              <CardContent className="p-4 space-y-3">
+            <Card key={empresa.id} className="overflow-hidden">
+              <CardContent className="p-0 space-y-3">
                 <div className="flex items-start gap-3">
                   <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
                     {avatarLabel}
                   </div>
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 p-4 pb-0">
                     <div className="flex items-start justify-between gap-2">
                       <div>
                         <h3 className="text-base font-semibold leading-tight text-slate-800">
@@ -324,20 +324,22 @@ export default function EmpresasScreen({
                     </div>
 
                     <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                      <InlineBadge variant="outline" className="bg-white">
-                        Categoria: {empresa.categoria || "—"}
-                      </InlineBadge>
-                      <InlineBadge variant="outline" className="bg-white">
+                      <Chip>Categoria: {empresa.categoria || "—"}</Chip>
+                      <Chip
+                        variant={getStatusKey(empresa.certificado).includes("valido") ? "success" : "danger"}
+                      >
                         Certificado: {empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO}
-                      </InlineBadge>
-                      <InlineBadge variant="outline" className="bg-white">
+                      </Chip>
+                      <Chip
+                        variant={getStatusKey(empresa.debito).includes("sem debit") ? "success" : "neutral"}
+                        size={getStatusKey(empresa.debito).includes("sem debit") ? "md" : "sm"}
+                      >
                         Débito: {empresa.debito}
-                      </InlineBadge>
+                      </Chip>
                       {empresa.responsavelFiscal && (
-                        <InlineBadge variant="outline" className="bg-white">
-                          Resp. fiscal: {empresa.responsavelFiscal}
-                        </InlineBadge>
+                        <Chip>Resp. fiscal: {empresa.responsavelFiscal}</Chip>
                       )}
+                      {empresa.municipio && <Chip>Município: {empresa.municipio}</Chip>}
                     </div>
 
                     <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
@@ -368,27 +370,23 @@ export default function EmpresasScreen({
 
                 <Separator />
 
-                <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="rounded-lg border border-emerald-100 bg-emerald-50/70 p-3">
-                    <p className="text-[11px] uppercase text-emerald-600 font-semibold">Licenças</p>
-                    <div className="mt-1 flex items-end gap-2">
-                      <span className="text-2xl font-semibold text-emerald-700">
-                        {licSummary.total}
-                      </span>
-                      <div className="space-y-0.5 text-[11px] text-emerald-700/80">
+                <div className="grid grid-cols-2 gap-3 text-xs px-4 pb-2">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[11px] uppercase text-slate-500 font-semibold">Licenças</p>
+                    <div className="mt-1 flex items-end gap-2 text-slate-800">
+                      <span className="text-2xl font-semibold">{licSummary.total}</span>
+                      <div className="space-y-0.5 text-[11px] text-slate-600">
                         <p>Ativas: {licSummary.ativas}</p>
                         <p>Vencendo: {licSummary.vencendo}</p>
                         <p>Vencidas: {licSummary.vencidas}</p>
                       </div>
                     </div>
                   </div>
-                  <div className="rounded-lg border border-sky-100 bg-sky-50/70 p-3">
-                    <p className="text-[11px] uppercase text-sky-600 font-semibold">Processos</p>
-                    <div className="mt-1 flex items-end gap-2">
-                      <span className="text-2xl font-semibold text-sky-700">
-                        {processosEmpresa.length}
-                      </span>
-                      <div className="space-y-0.5 text-[11px] text-sky-700/80">
+                  <div className="rounded-xl border border-slate-200 bg-white p-3">
+                    <p className="text-[11px] uppercase text-slate-500 font-semibold">Processos</p>
+                    <div className="mt-1 flex items-end gap-2 text-slate-800">
+                      <span className="text-2xl font-semibold">{processosEmpresa.length}</span>
+                      <div className="space-y-0.5 text-[11px] text-slate-600">
                         <p>Ativos: {processosAtivosEmpresa.length}</p>
                         <p>Encerrados: {processosEmpresa.length - processosAtivosEmpresa.length}</p>
                         <p>
@@ -404,7 +402,7 @@ export default function EmpresasScreen({
 
                 <Separator />
 
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap gap-2 px-4 pb-4">
                   <Button
                     size="sm"
                     variant="outline"

@@ -21,12 +21,7 @@ import {
   getProcessBaseType,
   normalizeProcessType,
 } from "@/lib/process";
-import {
-  MUNICIPIO_ALL,
-  TAB_BACKGROUNDS,
-  TAB_SHORTCUTS,
-  TAXA_TYPE_KEYS,
-} from "@/lib/constants";
+import { MUNICIPIO_ALL, TAB_SHORTCUTS, TAXA_TYPE_KEYS } from "@/lib/constants";
 import { fetchJson } from "@/lib/api";
 import { isAlertStatus, isProcessStatusInactive } from "@/lib/status";
 import {
@@ -588,7 +583,7 @@ function AppContent() {
   );
 
   return (
-    <>
+    <div className="min-h-screen bg-surface-body text-slate-900">
       <HeaderMenuPro
         tab={tab}
         onTabChange={setTab}
@@ -605,113 +600,115 @@ function AppContent() {
         modoFoco={modoFoco}
         onModoFocoChange={setModoFoco}
       />
-      <div className={`p-4 md:p-6 max-w-[1400px] mx-auto rounded-2xl ${TAB_BACKGROUNDS[tab]}`}>
-        {loading ? (
-          <div className="p-6 text-center">Carregando dados...</div>
-        ) : (
-          <Tabs value={tab} onValueChange={setTab}>
-            <TabsContent value="painel">
-              <PainelScreen
-                query={query}
-                municipio={municipio}
-                soAlertas={somenteAlertas}
-                kpis={kpis}
-                empresas={empresasComCertificados}
-                licencas={licencas}
-                taxas={taxas}
-                certificados={certificados}
-                filteredLicencas={filteredLicencas}
-                processosNormalizados={processosNormalizados}
-                filterEmpresas={filterEmpresas}
-                companyHasAlert={companyHasAlert}
-                licencasByEmpresa={licencasByEmpresa}
-                extractEmpresaId={extractEmpresaId}
-              />
-            </TabsContent>
+      <main className="pt-20 px-4 pb-8 lg:px-8">
+        <div className="mx-auto max-w-[1400px] space-y-4">
+          {loading ? (
+            <div className="p-6 text-center">Carregando dados...</div>
+          ) : (
+            <Tabs value={tab} onValueChange={setTab}>
+              <TabsContent value="painel">
+                <PainelScreen
+                  query={query}
+                  municipio={municipio}
+                  soAlertas={somenteAlertas}
+                  kpis={kpis}
+                  empresas={empresasComCertificados}
+                  licencas={licencas}
+                  taxas={taxas}
+                  certificados={certificados}
+                  filteredLicencas={filteredLicencas}
+                  processosNormalizados={processosNormalizados}
+                  filterEmpresas={filterEmpresas}
+                  companyHasAlert={companyHasAlert}
+                  licencasByEmpresa={licencasByEmpresa}
+                  extractEmpresaId={extractEmpresaId}
+                />
+              </TabsContent>
 
-            <TabsContent value="empresas" className="mt-4 space-y-3">
-              <EmpresasScreen
-                filteredEmpresas={filteredEmpresas}
-                empresas={empresasComCertificados}
-                soAlertas={somenteAlertas}
-                extractEmpresaId={extractEmpresaId}
-                licencasByEmpresa={licencasByEmpresa}
-                taxasByEmpresa={taxasByEmpresa}
-                processosByEmpresa={processosByEmpresa}
-                handleCopy={handleCopy}
-                enqueueToast={enqueueToast}
-              />
-            </TabsContent>
+              <TabsContent value="empresas" className="mt-4 space-y-3">
+                <EmpresasScreen
+                  filteredEmpresas={filteredEmpresas}
+                  empresas={empresasComCertificados}
+                  soAlertas={somenteAlertas}
+                  extractEmpresaId={extractEmpresaId}
+                  licencasByEmpresa={licencasByEmpresa}
+                  taxasByEmpresa={taxasByEmpresa}
+                  processosByEmpresa={processosByEmpresa}
+                  handleCopy={handleCopy}
+                  enqueueToast={enqueueToast}
+                />
+              </TabsContent>
 
-            <TabsContent value="licencas" className="mt-4">
-              <LicencasScreen licencas={licencas} filteredLicencas={filteredLicencas} modoFoco={modoFoco} />
-            </TabsContent>
+              <TabsContent value="licencas" className="mt-4">
+                <LicencasScreen licencas={licencas} filteredLicencas={filteredLicencas} modoFoco={modoFoco} />
+              </TabsContent>
 
-            <TabsContent value="taxas" className="mt-4">
-              <TaxasScreen
-                taxas={taxas}
-                modoFoco={modoFoco}
-                matchesMunicipioFilter={matchesMunicipioFilter}
-                matchesQuery={matchesQuery}
-              />
-            </TabsContent>
+              <TabsContent value="taxas" className="mt-4">
+                <TaxasScreen
+                  taxas={taxas}
+                  modoFoco={modoFoco}
+                  matchesMunicipioFilter={matchesMunicipioFilter}
+                  matchesQuery={matchesQuery}
+                />
+              </TabsContent>
 
-            <TabsContent value="processos">
-              <ProcessosScreen
-                processosNormalizados={processosNormalizados}
-                modoFoco={modoFoco}
-                matchesMunicipioFilter={matchesMunicipioFilter}
-                matchesQuery={matchesQuery}
-                handleCopy={handleCopy}
-              />
-            </TabsContent>
+              <TabsContent value="processos">
+                <ProcessosScreen
+                  processosNormalizados={processosNormalizados}
+                  modoFoco={modoFoco}
+                  matchesMunicipioFilter={matchesMunicipioFilter}
+                  matchesQuery={matchesQuery}
+                  handleCopy={handleCopy}
+                />
+              </TabsContent>
 
-            <TabsContent value="uteis">
-              <UteisScreen
-                query={query}
-                municipio={municipio}
-                soAlertas={somenteAlertas}
-                contatos={contatos}
-                modelos={modelos}
-                matchesMunicipioFilter={matchesMunicipioFilter}
-                handleCopy={handleCopy}
-              />
-            </TabsContent>
+              <TabsContent value="uteis">
+                <UteisScreen
+                  query={query}
+                  municipio={municipio}
+                  soAlertas={somenteAlertas}
+                  contatos={contatos}
+                  modelos={modelos}
+                  matchesMunicipioFilter={matchesMunicipioFilter}
+                  handleCopy={handleCopy}
+                />
+              </TabsContent>
 
-            <TabsContent value="certificados" className="mt-4">
-              <CertificadosScreen
-                certificados={certificados}
-                agendamentos={agendamentos}
-                soAlertas={somenteAlertas}
-              />
-            </TabsContent>
-          </Tabs>
-        )}
+              <TabsContent value="certificados" className="mt-4">
+                <CertificadosScreen
+                  certificados={certificados}
+                  agendamentos={agendamentos}
+                  soAlertas={somenteAlertas}
+                />
+              </TabsContent>
+            </Tabs>
+          )}
 
-        <div className="pointer-events-none fixed inset-x-0 bottom-4 flex justify-center sm:justify-end px-4">
-          <div className="w-full sm:max-w-sm space-y-2">
-            {toasts.map((toast) => (
-              <div
-                key={toast.id}
-                className="pointer-events-auto rounded-xl border border-slate-200 bg-white shadow-lg px-4 py-3 flex items-start gap-3"
-              >
-                <div className="mt-0.5">
-                  <Sparkles className="h-4 w-4 text-amber-500" />
-                </div>
-                <div className="text-sm text-slate-700 flex-1">{toast.message}</div>
-                <button
-                  type="button"
-                  className="text-slate-400 hover:text-slate-600"
-                  onClick={() => dismissToast(toast.id)}
+          <div className="pointer-events-none fixed inset-x-0 bottom-4 flex justify-center sm:justify-end px-4">
+            <div className="w-full sm:max-w-sm space-y-2">
+              {toasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  className="pointer-events-auto rounded-xl border border-slate-200 bg-white shadow-lg px-4 py-3 flex items-start gap-3"
                 >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            ))}
+                  <div className="mt-0.5">
+                    <Sparkles className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <div className="text-sm text-slate-700 flex-1">{toast.message}</div>
+                  <button
+                    type="button"
+                    className="text-slate-400 hover:text-slate-600"
+                    onClick={() => dismissToast(toast.id)}
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
 
