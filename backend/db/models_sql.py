@@ -61,9 +61,9 @@ def pg_enum(enum_key: str) -> PGEnum:
 
 
 class ResponsavelFiscalEnum(str, enum.Enum):
-    CARLA = "Carla"
-    DENISE = "Denise"
-    FERNANDO = "Fernando"
+    CARLA = "CARLA"
+    DENISE = "DENISE"
+    FERNANDO = "FERNANDO"
 
 
 class Empresa(Base):
