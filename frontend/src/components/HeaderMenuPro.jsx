@@ -97,7 +97,14 @@ export default function HeaderMenuPro({
   const handleNew = (type) => console.log(`[Novo] criar ${type}`);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-brand-900/85 backdrop-blur-xl">
+    <header
+      className="
+        fixed inset-x-0 top-0 z-40
+        border-b border-white/10
+        bg-brand-900 bg-opacity-90
+        backdrop-blur-xl
+      "
+    >
       <div className="max-w-[1400px] mx-auto px-4 lg:px-6">
         {/* Linha 1: marca + busca + ações + perfil */}
         <div className="h-16 flex items-center gap-4">
