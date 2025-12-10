@@ -6,6 +6,8 @@ export default {
     './components/**/*.{js,jsx}',
     './app/**/*.{js,jsx}',
     './src/**/*.{js,jsx}',
+    './src/**/*.{ts,tsx}',
+    './index.html',
   ],
   theme: {
     extend: {
@@ -43,11 +45,32 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        brand: {
+          900: "#22489c",
+          700: "#2857b8",
+          600: "#2f66d4",
+          100: "#e3ebff",
+        },
+        surface: {
+          body: "#F5F7FB",
+          card: "#FFFFFF",
+        },
+        status: {
+          success: "#16A34A",
+          warning: "#F97316",
+          danger: "#EF4444",
+          neutral: "#6B7280",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
+        xl: "0.75rem",
+        "2xl": "1rem",
+      },
+      boxShadow: {
+        soft: "0 18px 45px rgba(15, 23, 42, 0.06)",
       },
     },
   },
