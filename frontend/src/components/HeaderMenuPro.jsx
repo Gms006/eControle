@@ -38,16 +38,20 @@ function Brand() {
   return (
     <div className="flex items-center gap-2">
       {failed ? (
-        <Crown aria-label="eControle" className="h-8 w-8 text-white" />
+        <Crown aria-label="eControle" className="h-8 w-8 text-indigo-600" />
       ) : (
         <img
-          src="/logo-econtrole-branca.svg"
+          src="/favicons/crown/favicon-coroa-gradient.svg"
           alt="eControle"
-          className="h-8 w-auto"
+          className="h-8 w-8"
           onError={() => setFailed(true)}
         />
       )}
-      <div className="text-xl md:text-2xl font-extrabold tracking-tight text-white">eControle</div>
+      <div className="text-xl md:text-2xl font-extrabold tracking-tight">
+        <span className="bg-gradient-to-r from-indigo-600 via-sky-500 to-emerald-500 bg-clip-text text-transparent">
+          eControle
+        </span>
+      </div>
     </div>
   );
 }
@@ -97,10 +101,8 @@ export default function HeaderMenuPro({
   const handleNew = (type) => console.log(`[Novo] criar ${type}`);
 
   return (
-    <header
-      className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-brand-900/85 backdrop-blur-xl text-slate-50"
-    >
-      <div className="mx-auto max-w-7xl px-4 lg:px-6">
+    <header className="sticky top-0 z-40 w-full border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div className="max-w-[1400px] mx-auto px-4">
         {/* Linha 1: marca + busca + ações + perfil */}
         <div className="h-16 flex items-center gap-3">
           <Brand />
