@@ -1,0 +1,12 @@
+<svg width="160" height="40" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="160" height="40" rx="8" fill="url(#paint0)"/>
+  <path d="M24 10L14 20L24 30" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M36 10L46 20L36 30" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="55" y="25" fill="white" font-family="Inter, Arial, sans-serif" font-size="16" font-weight="700">eControle</text>
+  <defs>
+    <linearGradient id="paint0" x1="0" y1="0" x2="160" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#22489c"/>
+      <stop offset="1" stop-color="#2f66d4"/>
+    </linearGradient>
+  </defs>
+</svg>
