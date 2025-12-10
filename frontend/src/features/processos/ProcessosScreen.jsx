@@ -316,8 +316,8 @@ export default function ProcessosScreen({
       </div>
 
       {selectedProcessType === PROCESS_DIVERSOS_LABEL && diversosOperacoes.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 bg-surface-card p-3 shadow-soft">
-          <Label className="text-xs uppercase text-slate-600">
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-violet-200 bg-violet-50/70 p-3">
+          <Label className="text-xs uppercase text-violet-600">
             Filtrar Diversos por operação
           </Label>
           <Select value={selectedDiversosOperacao} onValueChange={setSelectedDiversosOperacao}>

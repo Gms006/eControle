@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Paleta base usada pelos componentes derivados do shadcn/ui */
+/* Variáveis de tema (compatíveis com tailwind.config.js) */
 :root {
   --background: 0 0% 100%;
   --foreground: 222.2 47.4% 11.2%;
@@ -36,7 +36,6 @@
 }
 
 @layer base {
-  body {
-    @apply bg-surface-body text-slate-900 antialiased;
-  }
+  * { @apply border-border; }
+  body { @apply bg-background text-foreground; }
 }

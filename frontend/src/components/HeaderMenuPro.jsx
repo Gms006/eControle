@@ -36,18 +36,23 @@ const NAV_ITEMS = [
 function Brand() {
   const [failed, setFailed] = React.useState(false);
   return (
-    <button className="flex items-center gap-2">
+    <div className="flex items-center gap-2">
       {failed ? (
-        <Crown aria-label="eControle" className="h-7 w-7 text-white" />
+        <Crown aria-label="eControle" className="h-8 w-8 text-indigo-600" />
       ) : (
         <img
-          src="/logo-econtrole-branca.svg"
+          src="/favicons/crown/favicon-coroa-gradient.svg"
           alt="eControle"
-          className="h-7 w-auto"
+          className="h-8 w-8"
           onError={() => setFailed(true)}
         />
       )}
-    </button>
+      <div className="text-xl md:text-2xl font-extrabold tracking-tight">
+        <span className="bg-gradient-to-r from-indigo-600 via-sky-500 to-emerald-500 bg-clip-text text-transparent">
+          eControle
+        </span>
+      </div>
+    </div>
   );
 }
 
@@ -96,27 +101,19 @@ export default function HeaderMenuPro({
   const handleNew = (type) => console.log(`[Novo] criar ${type}`);
 
   return (
-    <header
-      className="
-        fixed inset-x-0 top-0 z-40
-        border-b border-white/10
-        bg-brand-900/85
-        backdrop-blur-xl
-        text-slate-50
-      "
-    >
-      <div className="mx-auto max-w-7xl px-4 lg:px-6">
+    <header className="sticky top-0 z-40 w-full border-b bg-white/70 backdrop-blur supports-[backdrop-filter]:bg-white/60">
+      <div className="max-w-[1400px] mx-auto px-4">
         {/* Linha 1: marca + busca + ações + perfil */}
-        <div className="flex h-16 items-center gap-6 justify-between">
+        <div className="h-16 flex items-center gap-3">
           <Brand />
 
           {/* Busca global */}
           <div className="flex-1">
             <div className="relative flex items-end gap-3">
               <div className="flex w-36 md:w-40 flex-col gap-1">
-                <Label className="text-[11px] text-white/80">Pesquisar por</Label>
+                <Label className="text-[11px] text-slate-500">Pesquisar por</Label>
                 <Select value={searchField} onValueChange={onSearchFieldChange}>
-                  <SelectTrigger className="h-9 rounded-xl border border-white/15 bg-white/10 px-3 text-[13px] text-slate-50 shadow-inner">
+                  <SelectTrigger className="h-9 rounded-lg border border-slate-200 bg-white/70 px-3 text-[13px] shadow-sm">
                     <SelectValue placeholder="Campo" />
                   </SelectTrigger>
                   <SelectContent>
@@ -129,13 +126,13 @@ export default function HeaderMenuPro({
                 </Select>
               </div>
               <div className="relative flex-1">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-white/60" />
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-slate-350" />
                 <Input
                   id="global-search-input"
                   placeholder="Buscar: Empresa, CNPJ ou comando (ex.: nome: Silva)  (Ctrl/Cmd + K)"
                   value={query}
                   onChange={(e) => onQueryChange?.(e.target.value)}
-                  className="pl-8 border-white/15 bg-white/10 text-slate-50 placeholder:text-white/70 focus-visible:ring-white/30"
+                  className="pl-8"
                 />
               </div>
             </div>
@@ -145,14 +142,7 @@ export default function HeaderMenuPro({
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  title="Criar novo"
-                  className="bg-white text-brand-900 shadow-soft hover:bg-slate-50"
-                >
-                  + Novo
-                </Button>
+                <Button size="sm" variant="secondary" title="Criar novo">+ Novo</Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-44">
                 <DropdownMenuItem onSelect={() => handleNew("empresa")}>
@@ -163,32 +153,18 @@ export default function HeaderMenuPro({
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
-            <Button
-              size="icon"
-              variant="secondary"
-              title="Notificações"
-              className="border-white/20 bg-white/10 text-white hover:bg-white/15"
-            >
-              <Bell className="h-4 w-4" />
-            </Button>
-            <Button
-              size="icon"
-              variant="secondary"
-              title="Favoritos"
-              className="border-white/20 bg-white/10 text-white hover:bg-white/15"
-            >
-              <Star className="h-4 w-4" />
-            </Button>
+            <Button size="icon" variant="secondary" title="Notificações"><Bell className="h-4 w-4" /></Button>
+            <Button size="icon" variant="secondary" title="Favoritos"><Star className="h-4 w-4" /></Button>
           </div>
 
           {/* Perfil */}
-          <div className="flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-2 py-1 text-xs text-slate-50">
-            <div className="h-7 w-7 rounded-full bg-white text-brand-900 grid place-items-center text-xs font-semibold">MC</div>
+          <div className="flex items-center gap-2 rounded-xl border bg-white/70 backdrop-blur px-2 py-1">
+            <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-indigo-500 to-sky-500 grid place-items-center text-white text-xs font-semibold">MC</div>
             <div className="hidden md:block leading-tight">
-              <div className="text-xs font-semibold">Maria Clara</div>
-              <div className="text-[10px] text-white/80">Neto Contabilidade</div>
+              <div className="text-xs font-medium">Maria Clara</div>
+              <div className="text-[10px] text-slate-500">Neto Contabilidade</div>
             </div>
-            <ChevronsUpDown className="h-4 w-4 text-white/70" />
+            <ChevronsUpDown className="h-4 w-4 text-slate-500" />
           </div>
         </div>
 
@@ -196,12 +172,12 @@ export default function HeaderMenuPro({
         <div className="pb-3 -mt-1">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-2 lg:gap-y-1.5 gap-x-1">
             <Tabs value={tab} onValueChange={onTabChange} className="w-full lg:flex-1 min-w-0">
-              <TabsList className="flex w-full flex-nowrap items-stretch gap-1 overflow-x-auto rounded-2xl bg-white/10 lg:overflow-visible">
+              <TabsList className="flex w-full flex-nowrap items-stretch gap-1 overflow-x-auto lg:overflow-visible">
                 {NAV_ITEMS.map(({ key, label, icon: Icon }, index) => (
                   <TabsTrigger
                     key={key}
                     value={key}
-                    className="gap-2 whitespace-nowrap text-slate-100 lg:flex-1 lg:basis-0 lg:justify-center data-[state=active]:bg-white data-[state=active]:text-brand-900"
+                    className="gap-2 whitespace-nowrap lg:flex-1 lg:basis-0 lg:justify-center"
                     data-tab-target={key}
                     title={`Alt+${index + 1} para abrir | Alt+↑ para topo`}
                   >
@@ -211,12 +187,13 @@ export default function HeaderMenuPro({
               </TabsList>
               {NAV_ITEMS.map(({ key }) => <TabsContent key={key} value={key} />)}
             </Tabs>
+
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-end gap-y-2 sm:gap-y-0 sm:gap-x-1">
               {/* Municípios */}
               <div className="w-36 md:w-44 xl:w-45 shrink-0">
-                <Label className="text-[11px] text-white/80 lg:inline xl:inline">Município</Label>
+                <Label className="text-[11px] text-slate-500 lg:inline xl:inline">Município</Label>
                 <Select value={municipio} onValueChange={onMunicipioChange}>
-                  <SelectTrigger className="h-8 px-2 text-[13px] border-white/20 bg-white/10 text-slate-50">
+                  <SelectTrigger className="h-8 px-2 text-[13px]">
                     <SelectValue placeholder="Todos" />
                   </SelectTrigger>
                   <SelectContent>
@@ -226,35 +203,39 @@ export default function HeaderMenuPro({
               </div>
 
               {/* Somente alertas */}
-              <div className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-3 py-2 shrink-0 min-w-[180px] justify-between">
+              <div className="inline-flex items-center gap-0.5 rounded-md border px-2 py-2 bg-white/60 shrink-0 min-w-[160px] justify-between">
                 <Switch
                   checked={!!somenteAlertas}
                   onCheckedChange={onSomenteAlertasChange}
                   className="75"
                 />
-                <span className="text-xs font-medium text-white leading-tight">Somente alertas</span>
+                <span className="text-xs font-medium text-slate-600 leading-tight">Somente alertas</span>
                 {somenteAlertas ? (
-                  <span className="inline-flex items-center rounded-md bg-white/20 px-2 py-0.5 text-[10px] text-white whitespace-nowrap">
+                  <span className="inline-flex items-center rounded-md bg-red-100 px-1 py-0.5 text-[10px] text-red-700 whitespace-nowrap">
                     <ShieldAlert className="mr-0.5 h-3 w-3" /> ON
                   </span>
                 ) : (
-                  <span className="inline-flex items-center rounded-md bg-white/10 px-2 py-0.5 text-[10px] text-white/80">OFF</span>
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">
+                    OFF
+                  </span>
                 )}
               </div>
 
               {/* Modo foco */}
-              <div className="inline-flex items-center gap-1 rounded-full border border-white/15 bg-white/10 px-3 py-2 shrink-0 min-w-[160px] justify-between">
+              <div className="inline-flex items-center gap-0.5 rounded-md border px-2 py-2 bg-white/60 shrink-0 min-w-[130px] justify-between">
                 <Switch checked={!!modoFoco} onCheckedChange={onModoFocoChange} className="75" />
-                <span className="text-xs font-medium text-white leading-tight">Modo foco</span>
+                <span className="text-xs font-medium text-slate-600 leading-tight">Modo foco</span>
                 {modoFoco ? (
-                  <span className="inline-flex items-center rounded-md bg-white/20 px-2 py-0.5 text-[10px] text-white whitespace-nowrap">ON</span>
+                  <span className="inline-flex items-center rounded-md bg-emerald-100 px-1 py-0.5 text-[10px] text-emerald-700 whitespace-nowrap">ON</span>
                 ) : (
-                  <span className="inline-flex items-center rounded-md bg-white/10 px-2 py-0.5 text-[10px] text-white/80">OFF</span>
+                  <span className="inline-flex items-center rounded-md bg-slate-100 px-1 py-0.5 text-[10px] text-slate-700">OFF</span>
                 )}
               </div>
             </div>
           </div>
         </div>
+        
+        <Separator />
       </div>
     </header>
   );
