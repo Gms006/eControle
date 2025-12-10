@@ -101,7 +101,7 @@ export default function HeaderMenuPro({
       className="
         fixed inset-x-0 top-0 z-40
         border-b border-white/10
-        bg-brand-900 bg-opacity-90
+        bg-[#22489c] bg-opacity-90
         backdrop-blur-xl
       "
     >
