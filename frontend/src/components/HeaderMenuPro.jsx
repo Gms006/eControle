@@ -59,7 +59,7 @@ function Brand() {
         <Crown aria-label="eControle" className="h-8 w-8 text-white" />
       ) : (
         <img
-          src="/favicons/crown/favicon-coroa-white.svg"
+          src="/favicons/crown/white/favicon.svg"
           alt="eControle"
           className="h-8 w-8"
           onError={() => setFailed(true)}
