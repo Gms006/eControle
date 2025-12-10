@@ -179,7 +179,7 @@ export default function HeaderMenuPro({
                     value={key}
                     className="gap-2 whitespace-nowrap lg:flex-1 lg:basis-0 lg:justify-center"
                     data-tab-target={key}
-                    title={`Alt+${index + 1}`}
+                    title={`Alt+${index + 1} para abrir | Alt+↑ para topo`}
                   >
                     <Icon className="h-[15px] w-[15px] shrink-0" aria-hidden /> {label}
                   </TabsTrigger>
