@@ -583,7 +583,7 @@ function AppContent() {
   );
 
   return (
-    <div className="min-h-screen bg-surface-body text-slate-900">
+    <div className="min-h-screen bg-surface-body bg-[#F5F7FB] text-slate-900">
       <HeaderMenuPro
         tab={tab}
         onTabChange={setTab}
