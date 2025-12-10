@@ -6,6 +6,8 @@
 |--------|--------|-----------------|
 | **Ctrl/Cmd + K** | Focar na barra de pesquisa global | Sempre |
 | **Alt + ↑** (Seta para Cima) | Rolar até o topo da aba aberta | Quando em uma aba |
+| **Clique** | Copiar CNPJ/CPF com máscara | Em campos copiáveis |
+| **Ctrl/Cmd + Clique** | Copiar CNPJ/CPF sem máscara | Em campos copiáveis |
 
 ## Atalhos de Navegação entre Abas
 
