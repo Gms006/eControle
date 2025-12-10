@@ -327,21 +327,21 @@ export default function PainelScreen(props) {
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {selfTestResults.map((item) => (
-                <div
-                  key={item.label}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
-                >
-                  <span className="font-medium text-slate-700">{item.label}</span>
-                  {item.pass ? (
-                    <InlineBadge variant="success">
-                      <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> OK
-                    </InlineBadge>
-                  ) : (
-                    <InlineBadge variant="warning">
-                      <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Verificar
-                    </InlineBadge>
-                  )}
-                </div>
+              <div
+                key={item.label}
+                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-3 py-2"
+              >
+                <span className="font-medium text-slate-700">{item.label}</span>
+                {item.pass ? (
+                  <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
+                    <CheckCircle2 className="h-3.5 w-3.5 mr-1" /> OK
+                  </InlineBadge>
+                ) : (
+                  <InlineBadge className="bg-amber-100 text-amber-700 border-amber-200">
+                    <AlertTriangle className="h-3.5 w-3.5 mr-1" /> Verificar
+                  </InlineBadge>
+                )}
+              </div>
             ))}
           </CardContent>
         </Card>

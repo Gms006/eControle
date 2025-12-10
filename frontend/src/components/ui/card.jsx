@@ -2,19 +2,11 @@ import * as React from "react";
 import { cn } from "@/lib/utils";
 
 export function Card({ className, ...props }) {
-  return (
-    <div
-      className={cn(
-        "rounded-2xl border border-slate-100 bg-surface-card text-slate-900 shadow-soft",
-        className,
-      )}
-      {...props}
-    />
-  );
+  return <div className={cn("rounded-2xl border bg-card text-card-foreground shadow-sm", className)} {...props} />;
 }
 
 export function CardHeader({ className, ...props }) {
-  return <div className={cn("flex flex-col space-y-1.5 p-4 lg:p-5", className)} {...props} />;
+  return <div className={cn("flex flex-col space-y-1.5 p-4", className)} {...props} />;
 }
 
 export function CardTitle({ className, ...props }) {
@@ -22,9 +14,9 @@ export function CardTitle({ className, ...props }) {
 }
 
 export function CardContent({ className, ...props }) {
-  return <div className={cn("p-4 pt-0 lg:p-5 lg:pt-0", className)} {...props} />;
+  return <div className={cn("p-4 pt-0", className)} {...props} />;
 }
 
 export function CardFooter({ className, ...props }) {
-  return <div className={cn("flex items-center p-4 pt-0 lg:p-5 lg:pt-0", className)} {...props} />;
+  return <div className={cn("flex items-center p-4 pt-0", className)} {...props} />;
 }
