@@ -180,6 +180,16 @@ function AppContent() {
           return;
         }
       }
+
+      // Alt + Seta para Cima: rolar até o topo da aba
+      if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        if (typeof window !== 'undefined') {
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        return;
+      }
+
       const shortcutValue = TAB_SHORTCUTS[event.key];
       if (!shortcutValue) {
         return;
