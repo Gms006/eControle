@@ -1,6 +1,16 @@
 export const MUNICIPIO_ALL = "__ALL__";
 export const PROCESS_ALL = "__PROCESS_ALL__";
 
+export const TAB_BACKGROUNDS = {
+  painel: "bg-sky-50",
+  empresas: "bg-indigo-50",
+  certificados: "bg-teal-50",
+  licencas: "bg-emerald-50",
+  taxas: "bg-amber-50",
+  processos: "bg-violet-50",
+  uteis: "bg-slate-50",
+};
+
 export const TAB_SHORTCUTS = {
   1: "painel",
   2: "empresas",

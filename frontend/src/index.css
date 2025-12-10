@@ -37,5 +37,5 @@
 
 @layer base {
   * { @apply border-border; }
-  body { @apply bg-surface-body text-slate-900; }
+  body { @apply bg-background text-foreground; }
 }
