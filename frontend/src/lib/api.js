@@ -655,6 +655,14 @@ const normalizeTaxasFromApi = (payload) => {
       group[mappedKey] = statusValue;
     }
 
+    if (mappedKey === "tpi") {
+      const vencimentoTpi =
+        item.vencimento_tpi ?? item.vencimentoTpi ?? item.tpi_vencimento ?? item.vencimento;
+      if (vencimentoTpi !== undefined && group.vencimento_tpi === undefined) {
+        group.vencimento_tpi = vencimentoTpi;
+      }
+    }
+
     if (group.empresa === undefined && item.empresa !== undefined) {
       group.empresa = item.empresa;
     }
