@@ -84,6 +84,21 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
   const [viewMode, setViewMode] = useState("empresas");
   const [selectedTipo, setSelectedTipo] = useState("__ALL__");
 
+  // Debug
+  useEffect(() => {
+    if (import.meta.env.DEV && taxas.length > 0) {
+      const tpisComVencimento = taxas.filter((t) => t.vencimento_tpi);
+      const tpisSemVencimento = taxas.filter((t) => !t.vencimento_tpi && t.tpi);
+      console.log("[TaxasScreen] Debug TPIs:", {
+        totalTaxas: taxas.length,
+        tpisComVencimento: tpisComVencimento.length,
+        tpisSemVencimento: tpisSemVencimento.length,
+        primeiroComVencimento: tpisComVencimento[0],
+        primeiroSemVencimento: tpisSemVencimento[0],
+      });
+    }
+  }, [taxas]);
+
   const taxaTipos = useMemo(
     () => TAXA_COLUMNS.filter((column) => column.key !== "status_geral"),
     [],

@@ -624,6 +624,15 @@ const normalizeTaxasFromApi = (payload) => {
     (item) => item && typeof item === "object" && TAXA_COLUMN_KEYS.some((key) => key in item),
   );
 
+  if (import.meta.env.DEV) {
+    console.log("[normalizeTaxasFromApi] Debug:", {
+      hasTipoEntries,
+      alreadyWide,
+      itemCount: itemsSource.length,
+      firstItem: itemsSource[0],
+    });
+  }
+
   if (!hasTipoEntries || alreadyWide) {
     return applyTaxaStatusGeral(collection);
   }
@@ -658,7 +667,15 @@ const normalizeTaxasFromApi = (payload) => {
     if (mappedKey === "tpi") {
       const vencimentoTpi =
         item.vencimento_tpi ?? item.vencimentoTpi ?? item.tpi_vencimento ?? item.vencimento;
-      if (vencimentoTpi !== undefined && group.vencimento_tpi === undefined) {
+      if (import.meta.env.DEV) {
+        console.log("[normalizeTaxasFromApi] TPI vencimento:", {
+          itemVencimento: item.vencimento_tpi,
+          resolved: vencimentoTpi,
+          groupVencimento: group.vencimento_tpi,
+        });
+      }
+      // Prefer non-null vencimento: set if undefined OR if new value is not null and current is null
+      if (vencimentoTpi !== undefined && (group.vencimento_tpi === undefined || (vencimentoTpi && !group.vencimento_tpi))) {
         group.vencimento_tpi = vencimentoTpi;
       }
     }
