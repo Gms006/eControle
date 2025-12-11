@@ -600,7 +600,7 @@ function AppContent() {
         modoFoco={modoFoco}
         onModoFocoChange={setModoFoco}
       />
-      <main className="pt-20 px-4 pb-8 lg:px-8">
+      <main className="pt-16 px-4 pb-6 lg:px-8">
         <div className="mx-auto max-w-[1400px] space-y-4">
           {loading ? (
             <div className="p-6 text-center">Carregando dados...</div>
