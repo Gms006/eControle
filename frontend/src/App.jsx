@@ -654,6 +654,7 @@ function AppContent() {
                   modoFoco={modoFoco}
                   matchesMunicipioFilter={matchesMunicipioFilter}
                   matchesQuery={matchesQuery}
+                  handleCopy={handleCopy}
                 />
               </TabsContent>
 

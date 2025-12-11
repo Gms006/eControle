@@ -118,6 +118,10 @@ export const resolveStatusClass = (status) => {
   const key = removeDiacritics(trimmed.toLowerCase());
   const normalizedKey = key.replace(/\s+/g, " ").trim();
 
+  if (trimmed.includes("/")) {
+    return { variant: "warning" };
+  }
+
   if (normalizedKey === "valido") {
     return { variant: "success" };
   }
@@ -224,6 +228,21 @@ export const resolveStatusClass = (status) => {
   }
 
   return { variant: "neutral" };
+};
+
+export const formatStatusDisplay = (status) => {
+  const normalized = normalizeText(status);
+  const trimmed = normalized.trim();
+
+  if (trimmed === "" || trimmed === "*" || trimmed === "-" || trimmed === "—") {
+    return "—";
+  }
+
+  if (trimmed.toLowerCase() === "isento") {
+    return "Isento";
+  }
+
+  return trimmed;
 };
 
 export const isProcessStatusInactive = (status) => {

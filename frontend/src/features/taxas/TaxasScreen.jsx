@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import CopyableIdentifier from "@/components/CopyableIdentifier";
 import {
   Table,
   TableBody,
@@ -13,7 +14,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants";
-import { hasRelevantStatus, isAlertStatus } from "@/lib/status";
+import {
+  formatStatusDisplay,
+  hasRelevantStatus,
+  isAlertStatus,
+  resolveStatusClass,
+} from "@/lib/status";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
 import { Receipt, FileCheck2, BriefcaseBusiness } from "lucide-react";
 import { Chip } from "@/components/Chip";
@@ -43,19 +49,8 @@ function formatVencimentoCurto(value) {
 }
 
 function LinhaTipoTaxa({ tipo, status, vencimento }) {
-  const normalized = String(status || "").toLowerCase();
-
-  let variant = "neutral";
-
-  if (normalized.startsWith("em aberto")) {
-    variant = "danger";
-  } else if (normalized === "pago") {
-    variant = "success";
-  } else if (normalized === "isento" || normalized === "sem status") {
-    variant = "neutral";
-  } else if (normalized.includes("alerta")) {
-    variant = "warning";
-  }
+  const { variant } = resolveStatusClass(status);
+  const displayStatus = formatStatusDisplay(status);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b last:border-0 border-slate-100">
@@ -64,9 +59,9 @@ function LinhaTipoTaxa({ tipo, status, vencimento }) {
       </span>
 
       <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-        {status && (
+        {hasRelevantStatus(status) && (
           <Chip variant={variant} className="text-xs">
-            {status}
+            {displayStatus}
           </Chip>
         )}
         {vencimento && (
@@ -82,7 +77,10 @@ function LinhaTipoTaxa({ tipo, status, vencimento }) {
   );
 }
 
-function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) {
+const getVencimentoTpi = (taxa) =>
+  taxa?.vencimento_tpi ?? taxa?.vencimentoTpi ?? taxa?.tpi_vencimento ?? taxa?.vencimento;
+
+function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, handleCopy }) {
   const [viewMode, setViewMode] = useState("empresas");
   const [selectedTipo, setSelectedTipo] = useState("__ALL__");
 
@@ -196,13 +194,9 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {taxasVisiveis.map((taxa, index) => {
-                const vencimentoTpi =
-                  taxa.vencimento_tpi ??
-                  taxa.vencimentoTpi ??
-                  taxa.tpi_vencimento ??
-                  taxa.vencimento;
+                const vencimentoTpi = getVencimentoTpi(taxa);
 
                 return (
                   <div
@@ -214,8 +208,16 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
                         <h3 className="text-sm font-semibold text-slate-900">
                           {taxa.empresa || "—"}
                         </h3>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
+                          {taxa.cnpj && handleCopy && (
+                            <CopyableIdentifier
+                              label="CNPJ"
+                              value={taxa.cnpj}
+                              onCopy={handleCopy}
+                            />
+                          )}
+                        </div>
                         <div className="flex flex-wrap gap-1.5 text-xs">
-                          {taxa.cnpj && <Chip className="text-[11px]">CNPJ: {taxa.cnpj}</Chip>}
                           {taxa.municipio && (
                             <Chip className="text-[11px]">Município: {taxa.municipio}</Chip>
                           )}
@@ -329,6 +331,7 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
                           <TableRow>
                             <TableHead>Empresa</TableHead>
                             <TableHead>Status</TableHead>
+                            {tipo.key === "tpi" && <TableHead>Vencimento</TableHead>}
                             <TableHead>Status geral</TableHead>
                             <TableHead>Município</TableHead>
                           </TableRow>
@@ -340,6 +343,11 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
                               <TableCell>
                                 <StatusBadge status={taxa?.[tipo.key]} />
                               </TableCell>
+                              {tipo.key === "tpi" && (
+                                <TableCell className="text-xs text-slate-700">
+                                  {formatVencimentoCurto(getVencimentoTpi(taxa)) || "—"}
+                                </TableCell>
+                              )}
                               <TableCell>
                                 <StatusBadge status={taxa?.status_geral} />
                               </TableCell>
