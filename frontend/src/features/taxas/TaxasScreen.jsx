@@ -197,49 +197,57 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
             </Card>
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
-              {taxasVisiveis.map((taxa, index) => (
-                <div
-                  key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}
-                  className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 lg:p-5"
-                >
-                  <div className="flex items-start justify-between gap-3 mb-3">
-                    <div className="space-y-1">
-                      <h3 className="text-sm font-semibold text-slate-900">
-                        {taxa.empresa || "—"}
-                      </h3>
-                      <div className="flex flex-wrap gap-1.5 text-xs">
-                        {taxa.cnpj && <Chip className="text-[11px]">CNPJ: {taxa.cnpj}</Chip>}
-                        {taxa.municipio && (
-                          <Chip className="text-[11px]">Município: {taxa.municipio}</Chip>
-                        )}
-                        {taxa.data_envio && (
-                          <Chip className="text-[11px]">Último envio: {taxa.data_envio}</Chip>
-                        )}
-                      </div>
-                    </div>
-                    {taxa.status_geral && (
-                      <StatusBadge status={taxa.status_geral} />
-                    )}
-                  </div>
+              {taxasVisiveis.map((taxa, index) => {
+                const vencimentoTpi =
+                  taxa.vencimento_tpi ??
+                  taxa.vencimentoTpi ??
+                  taxa.tpi_vencimento ??
+                  taxa.vencimento;
 
-                  <div className="mt-1">
-                    <LinhaTipoTaxa
-                      tipo="TPI"
-                      status={taxa.tpi}
-                      vencimento={taxa.vencimento_tpi}
-                    />
-                    <LinhaTipoTaxa tipo="PUBLICIDADE" status={taxa.publicidade} />
-                    <LinhaTipoTaxa
-                      tipo="LOCALIZAÇÃO/INSTALAÇÃO"
-                      status={taxa.localizacao_instalacao}
-                    />
-                    <LinhaTipoTaxa tipo="BOMBEIROS" status={taxa.bombeiros} />
-                    <LinhaTipoTaxa tipo="FUNCIONAMENTO" status={taxa.func} />
-                    <LinhaTipoTaxa tipo="SANITÁRIA" status={taxa.sanitaria} />
-                    <LinhaTipoTaxa tipo="ÁREA PÚBLICA" status={taxa.area_publica} />
+                return (
+                  <div
+                    key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}
+                    className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 lg:p-5"
+                  >
+                    <div className="flex items-start justify-between gap-3 mb-3">
+                      <div className="space-y-1">
+                        <h3 className="text-sm font-semibold text-slate-900">
+                          {taxa.empresa || "—"}
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5 text-xs">
+                          {taxa.cnpj && <Chip className="text-[11px]">CNPJ: {taxa.cnpj}</Chip>}
+                          {taxa.municipio && (
+                            <Chip className="text-[11px]">Município: {taxa.municipio}</Chip>
+                          )}
+                          {taxa.data_envio && (
+                            <Chip className="text-[11px]">Último envio: {taxa.data_envio}</Chip>
+                          )}
+                        </div>
+                      </div>
+                      {taxa.status_geral && (
+                        <StatusBadge status={taxa.status_geral} />
+                      )}
+                    </div>
+
+                    <div className="mt-1">
+                      <LinhaTipoTaxa
+                        tipo="TPI"
+                        status={taxa.tpi}
+                        vencimento={vencimentoTpi}
+                      />
+                      <LinhaTipoTaxa tipo="PUBLICIDADE" status={taxa.publicidade} />
+                      <LinhaTipoTaxa
+                        tipo="LOCALIZAÇÃO/INSTALAÇÃO"
+                        status={taxa.localizacao_instalacao}
+                      />
+                      <LinhaTipoTaxa tipo="BOMBEIROS" status={taxa.bombeiros} />
+                      <LinhaTipoTaxa tipo="FUNCIONAMENTO" status={taxa.func} />
+                      <LinhaTipoTaxa tipo="SANITÁRIA" status={taxa.sanitaria} />
+                      <LinhaTipoTaxa tipo="ÁREA PÚBLICA" status={taxa.area_publica} />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </>
