@@ -236,7 +236,7 @@ export default function HeaderMenuPro({
         </div>
 
         {/* Linha 2: navegação + filtros */}
-        <div className="pb-3 -mt-1">
+        <div className="pb-0.5 -mt-1">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-y-2 lg:gap-y-1.5 gap-x-1">
             <Tabs
               value={tab}

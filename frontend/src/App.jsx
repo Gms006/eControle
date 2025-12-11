@@ -600,7 +600,7 @@ function AppContent() {
         modoFoco={modoFoco}
         onModoFocoChange={setModoFoco}
       />
-      <main className="pt-20 px-4 pb-8 lg:px-8">
+      <main className="pt-14 px-4 pb-6 lg:px-8">
         <div className="mx-auto max-w-[1400px] space-y-4">
           {loading ? (
             <div className="p-6 text-center">Carregando dados...</div>
@@ -640,7 +640,12 @@ function AppContent() {
               </TabsContent>
 
               <TabsContent value="licencas" className="mt-4">
-                <LicencasScreen licencas={licencas} filteredLicencas={filteredLicencas} modoFoco={modoFoco} />
+                <LicencasScreen
+                  licencas={licencas}
+                  filteredLicencas={filteredLicencas}
+                  modoFoco={modoFoco}
+                  handleCopy={handleCopy}
+                />
               </TabsContent>
 
               <TabsContent value="taxas" className="mt-4">
