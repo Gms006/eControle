@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InlineBadge from "@/components/InlineBadge";
@@ -16,6 +17,7 @@ import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants
 import { hasRelevantStatus, isAlertStatus } from "@/lib/status";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
 import { Receipt, FileCheck2, BriefcaseBusiness } from "lucide-react";
+import { Chip } from "@/components/Chip";
 
 const TAXA_ICON_COMPONENTS = {
   tpi: Receipt,
@@ -27,6 +29,61 @@ const TAXA_ICON_COLORS = {
   tpi: "bg-indigo-100 text-indigo-700",
   taxa_funcionamento: "bg-blue-100 text-blue-700",
   taxa_publicidade: "bg-amber-100 text-amber-700",
+};
+
+function LinhaTipoTaxa({ tipo, status }) {
+  const normalized = String(status || "").toLowerCase();
+
+  let variant = "neutral";
+
+  if (normalized.startsWith("em aberto")) {
+    variant = "danger";
+  } else if (normalized === "pago") {
+    variant = "success";
+  } else if (normalized === "isento" || normalized === "sem status") {
+    variant = "neutral";
+  } else if (normalized.includes("alerta")) {
+    variant = "warning";
+  }
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b last:border-0 border-slate-100">
+      <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {tipo}
+      </span>
+
+      {status && (
+        <Chip variant={variant} className="text-xs">
+          {status}
+        </Chip>
+      )}
+    </div>
+  );
+}
+
+const formatTpiStatus = (status) => {
+  if (!status) return status;
+
+  const text = String(status).trim();
+  if (!text) return status;
+
+  const asDate = dayjs(text, ["DD/MM/YYYY", "YYYY-MM-DD", "YYYY/MM/DD", "DD/MM"], true);
+  if (asDate.isValid()) {
+    return asDate.format("DD/MM");
+  }
+
+  const datePatterns = [/(\d{4}-\d{2}-\d{2})/, /(\d{2}\/\d{2}\/\d{4})/];
+  for (const pattern of datePatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const parsed = dayjs(match[1]);
+      if (parsed.isValid()) {
+        return text.replace(match[1], parsed.format("DD/MM"));
+      }
+    }
+  }
+
+  return status;
 };
 
 function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) {
@@ -145,49 +202,43 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
           ) : (
             <div className="grid gap-3 lg:grid-cols-2">
               {taxasVisiveis.map((taxa, index) => (
-                <Card
+                <div
                   key={`${taxa.empresa_id ?? taxa.empresa}-${index}`}
-                  className="shadow-sm overflow-hidden border border-white/60"
+                  className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 lg:p-5"
                 >
-                  <CardContent className="p-4 space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-2 min-w-0">
-                        <h3 className="text-base font-semibold leading-tight text-slate-800 truncate">
-                          {taxa.empresa || "—"}
-                        </h3>
-                        <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-                          {taxa.cnpj && (
-                            <InlineBadge variant="outline" className="bg-white">
-                              CNPJ: {taxa.cnpj}
-                            </InlineBadge>
-                          )}
-                          {taxa.municipio && (
-                            <InlineBadge variant="outline" className="bg-white">
-                              Município: {taxa.municipio}
-                            </InlineBadge>
-                          )}
-                          {taxa.data_envio && (
-                            <InlineBadge variant="outline" className="bg-white">
-                              Último envio: {taxa.data_envio}
-                            </InlineBadge>
-                          )}
-                        </div>
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="space-y-1">
+                      <h3 className="text-sm font-semibold text-slate-900">
+                        {taxa.empresa || "—"}
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {taxa.cnpj && <Chip className="text-[11px]">CNPJ: {taxa.cnpj}</Chip>}
+                        {taxa.municipio && (
+                          <Chip className="text-[11px]">Município: {taxa.municipio}</Chip>
+                        )}
+                        {taxa.data_envio && (
+                          <Chip className="text-[11px]">Último envio: {taxa.data_envio}</Chip>
+                        )}
                       </div>
+                    </div>
+                    {taxa.status_geral && (
                       <StatusBadge status={taxa.status_geral} />
-                    </div>
+                    )}
+                  </div>
 
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      {taxaTipos.map(({ key, label }) => (
-                        <div key={key} className="space-y-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {label}
-                          </p>
-                          <StatusBadge status={taxa?.[key]} />
-                        </div>
-                      ))}
-                    </div>
-                  </CardContent>
-                </Card>
+                  <div className="mt-1">
+                    <LinhaTipoTaxa tipo="TPI" status={formatTpiStatus(taxa.tpi)} />
+                    <LinhaTipoTaxa tipo="PUBLICIDADE" status={taxa.publicidade} />
+                    <LinhaTipoTaxa
+                      tipo="LOCALIZAÇÃO/INSTALAÇÃO"
+                      status={taxa.localizacao_instalacao}
+                    />
+                    <LinhaTipoTaxa tipo="BOMBEIROS" status={taxa.bombeiros} />
+                    <LinhaTipoTaxa tipo="FUNCIONAMENTO" status={taxa.func} />
+                    <LinhaTipoTaxa tipo="SANITÁRIA" status={taxa.sanitaria} />
+                    <LinhaTipoTaxa tipo="ÁREA PÚBLICA" status={taxa.area_publica} />
+                  </div>
+                </div>
               ))}
             </div>
           )}
