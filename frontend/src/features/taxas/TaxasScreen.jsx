@@ -33,7 +33,11 @@ const TAXA_ICON_COMPONENTS = {
 const TAXA_ICON_COLORS = {
   tpi: "bg-indigo-100 text-indigo-700",
   taxa_funcionamento: "bg-blue-100 text-blue-700",
-  taxa_publicidade: "bg-amber-100 text-amber-700",
+  taxa_publicidade: "bg-fuchsia-100 text-fuchsia-700",
+  taxa_sanitaria: "bg-sky-100 text-sky-700",
+  bombeiros: "bg-red-100 text-red-700",
+  localizacao_instalacao: "bg-green-100 text-green-700",
+  area_publica: "bg-yellow-100 text-yellow-700",
 };
 
 function formatVencimentoCurto(value) {
