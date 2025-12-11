@@ -14,6 +14,20 @@ import {
 } from "@/components/ui/table";
 import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants";
 import { hasRelevantStatus, isAlertStatus } from "@/lib/status";
+import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
+import { Receipt, FileCheck2, BriefcaseBusiness } from "lucide-react";
+
+const TAXA_ICON_COMPONENTS = {
+  tpi: Receipt,
+  taxa_funcionamento: FileCheck2,
+  taxa_publicidade: BriefcaseBusiness,
+};
+
+const TAXA_ICON_COLORS = {
+  tpi: "bg-indigo-100 text-indigo-700",
+  taxa_funcionamento: "bg-blue-100 text-blue-700",
+  taxa_publicidade: "bg-amber-100 text-amber-700",
+};
 
 function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) {
   const [viewMode, setViewMode] = useState("empresas");
@@ -181,32 +195,25 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
       ) : (
         <div className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {taxaTipoStats.map((tipo) => (
-              <Card key={tipo.key} className="shadow-sm">
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex items-center justify-between text-sm text-slate-500">
-                    <span className="font-semibold text-slate-700">{tipo.label}</span>
-                    <InlineBadge className="bg-red-100 text-red-700 border-red-200">
-                      Alertas {tipo.alertas}
-                    </InlineBadge>
-                  </div>
-                  <div className="text-2xl font-semibold text-slate-800">
-                    {tipo.total}
-                  </div>
-                  <div className="flex flex-wrap gap-2 text-xs">
-                    <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                      OK {tipo.ok}
-                    </InlineBadge>
-                    <InlineBadge className="bg-red-100 text-red-700 border-red-200">
-                      Alertas {tipo.alertas}
-                    </InlineBadge>
-                    <InlineBadge className="bg-slate-100 text-slate-700 border-slate-200">
-                      Sem status {tipo.semStatus}
-                    </InlineBadge>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+            {taxaTipoStats.map((tipo) => {
+              const IconComponent = TAXA_ICON_COMPONENTS[tipo.key] || Receipt;
+              const colorClasses = TAXA_ICON_COLORS[tipo.key] || "bg-slate-100 text-slate-700";
+
+              return (
+                <ResumoTipoCardTaxa
+                  key={tipo.key}
+                  tipo={tipo.label}
+                  total={tipo.total}
+                  icon={IconComponent}
+                  corClasse={colorClasses}
+                  stats={{
+                    ok: tipo.ok,
+                    alerta: tipo.alertas,
+                    semStatus: tipo.semStatus,
+                  }}
+                />
+              );
+            })}
           </div>
 
           <div className="flex flex-wrap gap-2">
