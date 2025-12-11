@@ -30,7 +30,19 @@ const TAXA_ICON_COLORS = {
   taxa_publicidade: "bg-amber-100 text-amber-700",
 };
 
-function LinhaTipoTaxa({ tipo, status }) {
+function formatVencimentoCurto(value) {
+  if (!value) return "";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) {
+    // fallback: se não for uma data válida, retorna o valor original
+    return value;
+  }
+  const dia = String(d.getDate()).padStart(2, "0");
+  const mes = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dia}/${mes}`;
+}
+
+function LinhaTipoTaxa({ tipo, status, vencimento }) {
   const normalized = String(status || "").toLowerCase();
 
   let variant = "neutral";
@@ -51,11 +63,21 @@ function LinhaTipoTaxa({ tipo, status }) {
         {tipo}
       </span>
 
-      {status && (
-        <Chip variant={variant} className="text-xs">
-          {status}
-        </Chip>
-      )}
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        {status && (
+          <Chip variant={variant} className="text-xs">
+            {status}
+          </Chip>
+        )}
+        {vencimento && (
+          <>
+            <span className="text-slate-400">Vencimento:</span>
+            <span className="font-medium text-slate-700">
+              {formatVencimentoCurto(vencimento)}
+            </span>
+          </>
+        )}
+      </div>
     </div>
   );
 }
@@ -201,7 +223,11 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
                   </div>
 
                   <div className="mt-1">
-                    <LinhaTipoTaxa tipo="TPI" status={taxa.tpi} />
+                    <LinhaTipoTaxa
+                      tipo="TPI"
+                      status={taxa.tpi}
+                      vencimento={taxa.vencimento_tpi}
+                    />
                     <LinhaTipoTaxa tipo="PUBLICIDADE" status={taxa.publicidade} />
                     <LinhaTipoTaxa
                       tipo="LOCALIZAÇÃO/INSTALAÇÃO"
