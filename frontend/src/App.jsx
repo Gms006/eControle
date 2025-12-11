@@ -251,11 +251,34 @@ function AppContent() {
         const empresasNormalizadas = Array.isArray(emp)
           ? emp.map((item) => enhanceEmpresa(item))
           : [];
+
+        const caepfEmpresaIds = new Set(
+          empresasNormalizadas
+            .map((empresa) => {
+              const porteKey = normalizeTextLower(empresa?.porte ?? "");
+              if (porteKey === "caepf") {
+                return extractEmpresaId(empresa);
+              }
+              return undefined;
+            })
+            .filter((id) => id !== undefined),
+        );
+
+        const excludeCaepf = (entity) => {
+          const empresaId = extractEmpresaId(entity);
+          if (empresaId === undefined) return true;
+          return !caepfEmpresaIds.has(empresaId);
+        };
+
         const licencasNormalizadas = Array.isArray(lic)
-          ? lic.map((item) => normalizeEmpresaRelacionada(item))
+          ? lic
+              .map((item) => normalizeEmpresaRelacionada(item))
+              .filter(excludeCaepf)
           : [];
         const taxasNormalizadas = Array.isArray(tax)
-          ? tax.map((item) => normalizeEmpresaRelacionada(item))
+          ? tax
+              .map((item) => normalizeEmpresaRelacionada(item))
+              .filter(excludeCaepf)
           : [];
         const processosComEmpresa = Array.isArray(proc)
           ? proc.map((item) => normalizeEmpresaRelacionada(item))
