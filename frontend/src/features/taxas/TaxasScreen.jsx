@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InlineBadge from "@/components/InlineBadge";
@@ -59,6 +60,31 @@ function LinhaTipoTaxa({ tipo, status }) {
     </div>
   );
 }
+
+const formatTpiStatus = (status) => {
+  if (!status) return status;
+
+  const text = String(status).trim();
+  if (!text) return status;
+
+  const asDate = dayjs(text, ["DD/MM/YYYY", "YYYY-MM-DD", "YYYY/MM/DD", "DD/MM"], true);
+  if (asDate.isValid()) {
+    return asDate.format("DD/MM");
+  }
+
+  const datePatterns = [/(\d{4}-\d{2}-\d{2})/, /(\d{2}\/\d{2}\/\d{4})/];
+  for (const pattern of datePatterns) {
+    const match = text.match(pattern);
+    if (match?.[1]) {
+      const parsed = dayjs(match[1]);
+      if (parsed.isValid()) {
+        return text.replace(match[1], parsed.format("DD/MM"));
+      }
+    }
+  }
+
+  return status;
+};
 
 function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) {
   const [viewMode, setViewMode] = useState("empresas");
@@ -201,7 +227,7 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
                   </div>
 
                   <div className="mt-1">
-                    <LinhaTipoTaxa tipo="TPI" status={taxa.tpi} />
+                    <LinhaTipoTaxa tipo="TPI" status={formatTpiStatus(taxa.tpi)} />
                     <LinhaTipoTaxa tipo="PUBLICIDADE" status={taxa.publicidade} />
                     <LinhaTipoTaxa
                       tipo="LOCALIZAÇÃO/INSTALAÇÃO"
