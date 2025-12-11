@@ -38,6 +38,19 @@ const TAXA_ICON_COLORS = {
 
 function formatVencimentoCurto(value) {
   if (!value) return "";
+  if (typeof value === "string") {
+    const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (isoMatch) {
+      const [, , month, day] = isoMatch;
+      return `${day}/${month}`;
+    }
+
+    const slashMatch = value.match(/^(\d{1,2})\/(\d{1,2})(?:\/\d{2,4})?/);
+    if (slashMatch) {
+      const [, day, month] = slashMatch;
+      return `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}`;
+    }
+  }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) {
     // fallback: se não for uma data válida, retorna o valor original
@@ -123,6 +136,10 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
         case "status":
           return taxa?.[tipoKey] || "";
         case "vencimento": {
+          if (tipoKey === "tpi") {
+            const vencimentoTpi = getVencimentoTpi(taxa);
+            return vencimentoTpi ? formatVencimentoCurto(vencimentoTpi) : "";
+          }
           const vencKey = `vencimento_${tipoKey}`;
           return taxa?.[vencKey] || "";
         }
@@ -465,7 +482,9 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
                                 <StatusBadge status={taxa?.[tipo.key]} />
                               </TableCell>
                               <TableCell className="text-xs text-slate-700">
-                                {taxa[`vencimento_${tipo.key}`] ?? "—"}
+                                {tipo.key === "tpi"
+                                  ? formatVencimentoCurto(getVencimentoTpi(taxa)) || "—"
+                                  : taxa[`vencimento_${tipo.key}`] ?? "—"}
                               </TableCell>
                               <TableCell>
                                 <StatusBadge status={taxa?.status_geral} />
