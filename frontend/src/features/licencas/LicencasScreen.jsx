@@ -17,7 +17,18 @@ import StatusBadge from "@/components/StatusBadge";
 import { DEFAULT_LICENCA_TIPOS } from "@/lib/constants";
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
 import { ResumoTipoCardLicenca } from "@/components/ResumoTipoCard";
-import { Droplets, Shield, ClipboardCheck, MapPin, Trees, Settings, Clipboard } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Droplets,
+  Shield,
+  ClipboardCheck,
+  MapPin,
+  Trees,
+  Settings,
+  Clipboard,
+} from "lucide-react";
 
 const LIC_ICON_COMPONENTS = {
   SANITARIA: Droplets,
@@ -141,6 +152,12 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
   const [viewMode, setViewMode] = useState("empresas");
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
 
+  /** @typedef {"empresa" | "status" | "vencimento" | "status_geral" | "municipio"} LicencaSortColumn */
+  /** @typedef {"asc" | "desc"} LicencaSortDirection */
+  /** @typedef {{ column: LicencaSortColumn; direction: LicencaSortDirection }} LicencaSortState */
+
+  const [sortByTipoLicenca, setSortByTipoLicenca] = useState({});
+
   const licencasLista = useMemo(
     () => (Array.isArray(licencas) ? licencas : []),
     [licencas],
@@ -193,6 +210,81 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
         : filteredLicencasLista,
     [filteredLicencasLista, modoFoco],
   );
+
+  function renderValidade(lic) {
+    if (lic?.validade_br) return lic.validade_br;
+    if (lic?.validade) return dayjs(lic.validade).format("DD/MM/YYYY");
+    return "—";
+  }
+
+  function toggleSortLicenca(tipoKey, column) {
+    setSortByTipoLicenca((prev) => {
+      const current = prev[tipoKey];
+      if (current?.column === column) {
+        if (current.direction === "asc") {
+          return { ...prev, [tipoKey]: { column, direction: "desc" } };
+        }
+        if (current.direction === "desc") {
+          const clone = { ...prev };
+          delete clone[tipoKey];
+          return clone;
+        }
+      }
+      return { ...prev, [tipoKey]: { column, direction: "asc" } };
+    });
+  }
+
+  function sortRegistrosLicencaPorTipo(registros, tipoKey, sortState) {
+    const base = [...registros];
+
+    if (!sortState) {
+      return base.sort((a, b) => (a?.empresa || "").localeCompare(b?.empresa || ""));
+    }
+
+    const { column, direction } = sortState;
+
+    const getValue = (lic) => {
+      switch (column) {
+        case "empresa":
+          return lic?.empresa || "";
+        case "status":
+          return lic?.status || "";
+        case "vencimento": {
+          const value = renderValidade(lic);
+          return value === "—" ? "" : value;
+        }
+        case "status_geral":
+          return lic?.status_geral || "";
+        case "municipio":
+          return lic?.municipio || "";
+        default:
+          return "";
+      }
+    };
+
+    const sorted = base.sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+
+      if (
+        column === "vencimento" &&
+        va &&
+        vb &&
+        typeof va === "string" &&
+        typeof vb === "string"
+      ) {
+        const [da, ma] = va.split("/");
+        const [db, mb] = vb.split("/");
+        const numA = (Number(ma) || 0) * 100 + (Number(da) || 0);
+        const numB = (Number(mb) || 0) * 100 + (Number(db) || 0);
+        return numA - numB;
+      }
+
+      return String(va).localeCompare(String(vb));
+    });
+
+    return direction === "asc" ? sorted : sorted.reverse();
+  }
 
   const tiposLicencaStats = useMemo(
     () =>
@@ -259,12 +351,6 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
         : [selectedLicTipo],
     [selectedLicTipo, tiposLicenca],
   );
-
-  const renderValidade = (lic) => {
-    if (lic?.validade_br) return lic.validade_br;
-    if (lic?.validade) return dayjs(lic.validade).format("DD/MM/YYYY");
-    return "—";
-  };
 
   return (
     <div className="space-y-4">
@@ -465,10 +551,25 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
                 const display =
                   DISPLAY_BY_NORMALIZED[tipoNormalized] || tipoInfo?.display || tipoNormalized;
 
-                const registros = licencasVisiveis
+                const registrosBase = licencasVisiveis
                   .filter((lic) => normalizeTipoLicenca(lic?.tipo) === tipoNormalized)
-                  .filter((lic) => hasRelevantStatus(lic.status))
-                  .sort((a, b) => (a?.empresa || "").localeCompare(b?.empresa || ""));
+                  .filter((lic) => hasRelevantStatus(lic.status));
+
+                const registros = sortRegistrosLicencaPorTipo(
+                  registrosBase,
+                  tipoNormalized,
+                  sortByTipoLicenca[tipoNormalized],
+                );
+
+                const columns = [
+                  { id: "empresa", label: "Empresa" },
+                  { id: "status", label: "Status" },
+                  { id: "vencimento", label: "Vencimento" },
+                  { id: "status_geral", label: "Status geral" },
+                  { id: "municipio", label: "Município" },
+                ];
+
+                const currentSort = sortByTipoLicenca[tipoNormalized];
 
                 const IconComponent = LIC_ICON_COMPONENTS[tipoNormalized] || Settings;
 
@@ -488,12 +589,29 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
                     <CardContent className="p-0">
                       <ScrollArea className="h-[500px]">
                         <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>Empresa</TableHead>
-                              <TableHead>Status</TableHead>
-                              <TableHead>Validade</TableHead>
-                              <TableHead>Observação</TableHead>
+                          <TableHeader className="sticky top-0 z-10 bg-slate-50">
+                            <TableRow className="shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+                              {columns.map((col) => {
+                                const isActive = currentSort?.column === col.id;
+                                const direction = currentSort?.direction;
+
+                                return (
+                                  <TableHead key={col.id}>
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleSortLicenca(tipoNormalized, col.id)}
+                                      className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                                    >
+                                      {col.label}
+                                      <span className="inline-flex items-center">
+                                        {!isActive && <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                                        {isActive && direction === "asc" && <ArrowUp className="h-3 w-3" />}
+                                        {isActive && direction === "desc" && <ArrowDown className="h-3 w-3" />}
+                                      </span>
+                                    </button>
+                                  </TableHead>
+                                );
+                              })}
                             </TableRow>
                           </TableHeader>
                           <TableBody>
@@ -503,15 +621,20 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
                                 <TableCell>
                                   <StatusBadge status={lic.status} />
                                 </TableCell>
-                                <TableCell>{renderValidade(lic)}</TableCell>
+                                <TableCell className="text-xs text-slate-700">
+                                  {renderValidade(lic)}
+                                </TableCell>
+                                <TableCell>
+                                  <StatusBadge status={lic.status_geral} />
+                                </TableCell>
                                 <TableCell className="text-xs text-slate-600">
-                                  {lic.status_detalhe || "—"}
+                                  {lic.municipio || "—"}
                                 </TableCell>
                               </TableRow>
                             ))}
                             {registros.length === 0 && (
                               <TableRow>
-                                <TableCell colSpan={4} className="text-sm text-slate-500">
+                                <TableCell colSpan={5} className="text-sm text-slate-500">
                                   Nenhum registro para este tipo.
                                 </TableCell>
                               </TableRow>

@@ -21,7 +21,7 @@ import {
   resolveStatusClass,
 } from "@/lib/status";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
-import { Receipt, FileCheck2, BriefcaseBusiness } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, Receipt, FileCheck2, BriefcaseBusiness } from "lucide-react";
 import { Chip } from "@/components/Chip";
 
 const TAXA_ICON_COMPONENTS = {
@@ -83,6 +83,81 @@ const getVencimentoTpi = (taxa) =>
 function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, handleCopy }) {
   const [viewMode, setViewMode] = useState("empresas");
   const [selectedTipo, setSelectedTipo] = useState("__ALL__");
+
+  /** @typedef {"empresa" | "status" | "vencimento" | "status_geral" | "municipio"} TaxaSortColumn */
+  /** @typedef {"asc" | "desc"} TaxaSortDirection */
+  /** @typedef {{ column: TaxaSortColumn; direction: TaxaSortDirection }} TaxaSortState */
+
+  const [sortByTipo, setSortByTipo] = useState({});
+
+  function toggleSort(tipoKey, column) {
+    setSortByTipo((prev) => {
+      const current = prev[tipoKey];
+      if (current?.column === column) {
+        if (current.direction === "asc") {
+          return { ...prev, [tipoKey]: { column, direction: "desc" } };
+        }
+        if (current.direction === "desc") {
+          const clone = { ...prev };
+          delete clone[tipoKey];
+          return clone;
+        }
+      }
+      return { ...prev, [tipoKey]: { column, direction: "asc" } };
+    });
+  }
+
+  function sortRegistrosPorTipo(registros, tipoKey, sortState) {
+    const base = [...registros];
+
+    if (!sortState) {
+      return base.sort((a, b) => (a?.empresa || "").localeCompare(b?.empresa || ""));
+    }
+
+    const { column, direction } = sortState;
+
+    const getValue = (taxa) => {
+      switch (column) {
+        case "empresa":
+          return taxa?.empresa || "";
+        case "status":
+          return taxa?.[tipoKey] || "";
+        case "vencimento": {
+          const vencKey = `vencimento_${tipoKey}`;
+          return taxa?.[vencKey] || "";
+        }
+        case "status_geral":
+          return taxa?.status_geral || "";
+        case "municipio":
+          return taxa?.municipio || "";
+        default:
+          return "";
+      }
+    };
+
+    const sorted = base.sort((a, b) => {
+      const va = getValue(a);
+      const vb = getValue(b);
+
+      if (
+        column === "vencimento" &&
+        va &&
+        vb &&
+        typeof va === "string" &&
+        typeof vb === "string"
+      ) {
+        const [da, ma] = va.split("/");
+        const [db, mb] = vb.split("/");
+        const numA = (Number(ma) || 0) * 100 + (Number(da) || 0);
+        const numB = (Number(mb) || 0) * 100 + (Number(db) || 0);
+        return numA - numB;
+      }
+
+      return String(va).localeCompare(String(vb));
+    });
+
+    return direction === "asc" ? sorted : sorted.reverse();
+  }
 
   // Debug
   useEffect(() => {
@@ -324,10 +399,25 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
             </Card>
           ) : (
             tiposSelecionados.map((tipo) => {
-              const registros = taxasVisiveis
+              const registrosBase = taxasVisiveis
                 .filter((taxa) => hasRelevantStatus(taxa?.[tipo.key]))
-                .filter((taxa) => (modoFoco ? isAlertStatus(taxa?.[tipo.key]) : true))
-                .sort((a, b) => (a?.empresa || "").localeCompare(b?.empresa || ""));
+                .filter((taxa) => (modoFoco ? isAlertStatus(taxa?.[tipo.key]) : true));
+
+              const registros = sortRegistrosPorTipo(
+                registrosBase,
+                tipo.key,
+                sortByTipo[tipo.key],
+              );
+
+              const columns = [
+                { id: "empresa", label: "Empresa" },
+                { id: "status", label: "Status" },
+                { id: "vencimento", label: "Vencimento" },
+                { id: "status_geral", label: "Status geral" },
+                { id: "municipio", label: "Município" },
+              ];
+
+              const currentSort = sortByTipo[tipo.key];
 
               return (
                 <Card key={tipo.key} className="shadow-sm">
@@ -342,13 +432,29 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
                   <CardContent className="p-0">
                     <ScrollArea className="h-[420px]">
                       <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead>Empresa</TableHead>
-                            <TableHead>Status</TableHead>
-                            {tipo.key === "tpi" && <TableHead>Vencimento</TableHead>}
-                            <TableHead>Status geral</TableHead>
-                            <TableHead>Município</TableHead>
+                        <TableHeader className="sticky top-0 z-10 bg-slate-50">
+                          <TableRow className="shadow-[0_1px_0_rgba(15,23,42,0.06)]">
+                            {columns.map((col) => {
+                              const isActive = currentSort?.column === col.id;
+                              const direction = currentSort?.direction;
+
+                              return (
+                                <TableHead key={col.id}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSort(tipo.key, col.id)}
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-slate-600 hover:text-slate-900"
+                                  >
+                                    {col.label}
+                                    <span className="inline-flex items-center">
+                                      {!isActive && <ArrowUpDown className="h-3 w-3 opacity-40" />}
+                                      {isActive && direction === "asc" && <ArrowUp className="h-3 w-3" />}
+                                      {isActive && direction === "desc" && <ArrowDown className="h-3 w-3" />}
+                                    </span>
+                                  </button>
+                                </TableHead>
+                              );
+                            })}
                           </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -358,11 +464,9 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
                               <TableCell>
                                 <StatusBadge status={taxa?.[tipo.key]} />
                               </TableCell>
-                              {tipo.key === "tpi" && (
-                                <TableCell className="text-xs text-slate-700">
-                                  {formatVencimentoCurto(getVencimentoTpi(taxa)) || "—"}
-                                </TableCell>
-                              )}
+                              <TableCell className="text-xs text-slate-700">
+                                {taxa[`vencimento_${tipo.key}`] ?? "—"}
+                              </TableCell>
                               <TableCell>
                                 <StatusBadge status={taxa?.status_geral} />
                               </TableCell>
@@ -373,7 +477,7 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
                           ))}
                           {registros.length === 0 && (
                             <TableRow>
-                              <TableCell colSpan={4} className="text-sm text-slate-500">
+                              <TableCell colSpan={5} className="text-sm text-slate-500">
                                 Nenhum registro para este tipo.
                               </TableCell>
                             </TableRow>
