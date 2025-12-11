@@ -425,6 +425,21 @@ export const normalizeCertificadoFromApi = (item) => {
   if (!item || typeof item !== "object") return item;
   const normalized = { ...item };
 
+  // senha
+  if (normalized.senha === undefined) {
+    const senhaCandidates = [
+      normalized.senha_certificado,
+      normalized.senha_cert,
+      normalized.password,
+    ];
+    const firstSenha = senhaCandidates.find(
+      (candidate) => typeof candidate === "string" && candidate.trim() !== "",
+    );
+    if (firstSenha !== undefined) {
+      normalized.senha = firstSenha;
+    }
+  }
+
   // id / cert_id
   const idCandidates = [item.id, item.cert_id, item.certId];
   for (const candidate of idCandidates) {

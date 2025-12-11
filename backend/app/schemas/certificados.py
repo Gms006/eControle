@@ -15,6 +15,7 @@ class CertificadoView(BaseModel):
     org_id: UUID
     empresa: Optional[str] = None
     cnpj: Optional[str] = None
+    senha: Optional[str] = None
     valido_de: Optional[date] = None
     valido_ate: Optional[date] = None
     dias_restantes: Optional[int] = None

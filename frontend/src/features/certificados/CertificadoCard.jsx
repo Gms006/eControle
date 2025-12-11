@@ -74,7 +74,13 @@ export default function CertificadoCard({ certificado }) {
   const titular = certificado?.titular ?? "";
   const validoDe = extractDateLabel(certificado?.validoDe ?? "");
   const validoAte = extractDateLabel(certificado?.validoAte ?? "");
-  const senha = certificado?.senha ?? "";
+  const senha =
+    certificado?.senha ??
+    certificado?.senha_certificado ??
+    certificado?.senhaCertificado ??
+    certificado?.senha_cert ??
+    certificado?.password ??
+    "";
   const situacao = certificado?.situacao ?? "";
   const cpfCnpj =
     certificado?.cnpj ??
