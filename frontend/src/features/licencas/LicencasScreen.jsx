@@ -3,6 +3,7 @@ import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import InlineBadge from "@/components/InlineBadge";
+import { Chip } from "@/components/Chip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Table,
@@ -103,6 +104,38 @@ const shouldHighlightStatus = (status) => {
   const key = getStatusKey(status);
   return isAlertStatus(status) || key.includes("sujeit");
 };
+
+function LinhaTipoLicenca({ tipo, status, vencimento, detalhe }) {
+  const statusVariant =
+    status === "Vencido"
+      ? "danger"
+      : status === "Sujeito"
+        ? "warning"
+        : status === "Possui"
+          ? "success"
+          : "neutral";
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-2 py-1.5 border-b last:border-0 border-slate-100">
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+          {tipo}
+        </span>
+        {status && <Chip variant={statusVariant}>{status}</Chip>}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+        {vencimento && (
+          <>
+            <span className="text-slate-400">Vencimento:</span>
+            <span className="font-medium text-slate-700">{vencimento}</span>
+          </>
+        )}
+        {detalhe && <span className="text-slate-400">{detalhe}</span>}
+      </div>
+    </div>
+  );
+}
 
 export default function LicencasScreen({ licencas, filteredLicencas, modoFoco }) {
   const [viewMode, setViewMode] = useState("empresas");
@@ -274,78 +307,77 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
           </Card>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {licencasPorEmpresa.map((grupo) => (
-              <Card key={grupo.id} className="shadow-sm">
-                <CardContent className="p-4 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="space-y-2 min-w-0">
-                      <h3 className="text-base font-semibold leading-tight text-slate-800 truncate">
+            {licencasPorEmpresa.map((grupo) => {
+              const totalLicencas = grupo.licencas?.length || 0;
+              const totalTipos = tiposLicenca.length;
+
+              const resumoPorTipo = (normalized) => {
+                const licencasDoTipo = (grupo.licencas || [])
+                  .filter((lic) => normalizeTipoLicenca(lic?.tipo) === normalized)
+                  .filter((lic) => hasRelevantStatus(lic.status));
+                const chosen =
+                  licencasDoTipo.find((lic) => shouldHighlightStatus(lic.status)) ||
+                  licencasDoTipo[0];
+
+                if (!chosen) {
+                  return { status: null, vencimento: null, detalhe: null };
+                }
+
+                return {
+                  status: chosen.status,
+                  vencimento: renderValidade(chosen),
+                  detalhe: chosen.status_detalhe,
+                };
+              };
+
+              return (
+                <div
+                  key={grupo.id}
+                  className="rounded-2xl border border-slate-100 bg-white shadow-sm p-4 lg:p-5"
+                >
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="space-y-1 min-w-0">
+                      <h3 className="text-sm font-semibold text-slate-900 truncate">
                         {grupo.empresa || "—"}
                       </h3>
-                      <div className="flex flex-wrap gap-2 text-xs text-slate-600">
-                        {grupo.cnpj && (
-                          <InlineBadge variant="outline" className="bg-white">
-                            CNPJ: {grupo.cnpj}
-                          </InlineBadge>
-                        )}
-                        {grupo.municipio && (
-                          <InlineBadge variant="outline" className="bg-white">
-                            Município: {grupo.municipio}
-                          </InlineBadge>
-                        )}
-                        <InlineBadge variant="outline" className="bg-white">
-                          Licenças: {grupo.licencas.length}
-                        </InlineBadge>
+                      <div className="flex flex-wrap gap-1.5 text-xs">
+                        {grupo.cnpj && <Chip>CNPJ: {grupo.cnpj}</Chip>}
+                        {grupo.municipio && <Chip>Município: {grupo.municipio}</Chip>}
                       </div>
+                      <p className="text-[11px] text-slate-500">
+                        {totalLicencas} licenças • {totalTipos} tipos
+                      </p>
                     </div>
-                    <InlineBadge variant="outline" className="bg-white">
-                      {tiposLicenca.length} tipos
-                    </InlineBadge>
+                    <Chip variant="neutral" className="text-[11px]">
+                      {totalTipos} tipos
+                    </Chip>
                   </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {tiposLicenca.map(({ normalized, display }) => {
-                      const licencasDoTipo = grupo.licencas
-                        .filter((lic) => normalizeTipoLicenca(lic?.tipo) === normalized)
-                        .filter((lic) => hasRelevantStatus(lic.status));
-                      const chosen =
-                        licencasDoTipo.find((lic) => shouldHighlightStatus(lic.status)) ||
-                        licencasDoTipo[0];
-
-                      return (
-                        <div key={normalized} className="space-y-1">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                            {display}
-                          </p>
-                          <div className="flex flex-col gap-0.5">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <div className="flex items-center gap-1">
-                                <StatusBadge status={chosen?.status} />
-                                {chosen?.status_detalhe && (
-                                  <span className="text-[10px] uppercase tracking-wide text-slate-600">
-                                    ({chosen.status_detalhe})
-                                  </span>
-                                )}
-                              </div>
-                              {chosen && (
-                                <span className="text-[11px] text-slate-600">
-                                  Vencimento: {renderValidade(chosen)}
-                                </span>
-                              )}
-                            </div>
-                            {chosen?.status_bruto && (
-                              <span className="text-[11px] text-slate-500">
-                                {chosen.status_bruto}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
+                  <div className="mt-1">
+                    <LinhaTipoLicenca
+                      tipo="Sanitária"
+                      {...resumoPorTipo("SANITARIA")}
+                    />
+                    <LinhaTipoLicenca
+                      tipo="Cercon"
+                      {...resumoPorTipo("CERCON")}
+                    />
+                    <LinhaTipoLicenca
+                      tipo="Funcionamento"
+                      {...resumoPorTipo("FUNCIONAMENTO")}
+                    />
+                    <LinhaTipoLicenca
+                      tipo="Uso do Solo"
+                      {...resumoPorTipo("USO_DO_SOLO")}
+                    />
+                    <LinhaTipoLicenca
+                      tipo="Ambiental"
+                      {...resumoPorTipo("AMBIENTAL")}
+                    />
                   </div>
-                </CardContent>
-              </Card>
-            ))}
+                </div>
+              );
+            })}
           </div>
         )
       ) : (
