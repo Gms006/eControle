@@ -186,13 +186,17 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery }) 
                         {taxa.empresa || "—"}
                       </h3>
                       <div className="flex flex-wrap gap-1.5 text-xs">
-                        {taxa.cnpj && <Chip>CNPJ: {taxa.cnpj}</Chip>}
+                        {taxa.cnpj && <Chip className="text-[11px]">CNPJ: {taxa.cnpj}</Chip>}
+                        {taxa.municipio && (
+                          <Chip className="text-[11px]">Município: {taxa.municipio}</Chip>
+                        )}
+                        {taxa.data_envio && (
+                          <Chip className="text-[11px]">Último envio: {taxa.data_envio}</Chip>
+                        )}
                       </div>
                     </div>
                     {taxa.status_geral && (
-                      <Chip variant="success" className="text-[11px] whitespace-nowrap">
-                        {taxa.status_geral}
-                      </Chip>
+                      <StatusBadge status={taxa.status_geral} />
                     )}
                   </div>
 
