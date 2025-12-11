@@ -72,8 +72,8 @@ export default function CertificadoCard({ certificado }) {
   }, []);
 
   const titular = certificado?.titular ?? "";
-  const validoDe = extractDateLabel(certificado?.validoDe ?? "");
-  const validoAte = extractDateLabel(certificado?.validoAte ?? "");
+  const validoDe = extractDateLabel(certificado?.validoDe ?? certificado?.valido_de ?? "");
+  const validoAte = extractDateLabel(certificado?.validoAte ?? certificado?.valido_ate ?? "");
   const senha =
     certificado?.senha ??
     certificado?.senha_certificado ??
@@ -81,6 +81,22 @@ export default function CertificadoCard({ certificado }) {
     certificado?.senha_cert ??
     certificado?.password ??
     "";
+  
+  // Debug: log da senha
+  if (import.meta.env.DEV && certificado?.id) {
+    console.log(`[CertificadoCard] ID: ${certificado.id}, Senha:`, {
+      raw_senha: certificado?.senha,
+      calculated_senha: senha,
+      all_fields: {
+        senha: certificado?.senha,
+        senha_certificado: certificado?.senha_certificado,
+        senhaCertificado: certificado?.senhaCertificado,
+        senha_cert: certificado?.senha_cert,
+        password: certificado?.password,
+      },
+    });
+  }
+  
   const situacao = certificado?.situacao ?? "";
   const cpfCnpj =
     certificado?.cnpj ??
@@ -115,7 +131,7 @@ export default function CertificadoCard({ certificado }) {
       </CardHeader>
       <CardContent className="space-y-3 text-sm text-slate-600">
         <CopyableIdentifier label="CPF/CNPJ" value={cpfCnpj} />
-        <CopyableIdentifier label="Senha" value={senha} />
+        <CopyableIdentifier label="Senha" value={senha} isPassword={true} />
         <div>
           <div className="text-xs uppercase tracking-wide text-slate-500">Prazo para vencimento</div>
           <div className="text-base font-semibold text-slate-900">{prazoLabel}</div>
