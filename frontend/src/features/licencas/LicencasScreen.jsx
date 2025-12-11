@@ -15,22 +15,23 @@ import {
 import StatusBadge from "@/components/StatusBadge";
 import { DEFAULT_LICENCA_TIPOS } from "@/lib/constants";
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
+import { ResumoTipoCardLicenca } from "@/components/ResumoTipoCard";
 import { Droplets, Shield, ClipboardCheck, MapPin, Trees, Settings } from "lucide-react";
 
-const LIC_ICONS = {
-  SANITARIA: <Droplets className="h-4 w-4" />,
-  CERCON: <Shield className="h-4 w-4" />,
-  FUNCIONAMENTO: <ClipboardCheck className="h-4 w-4" />,
-  USO_DO_SOLO: <MapPin className="h-4 w-4" />,
-  AMBIENTAL: <Trees className="h-4 w-4" />,
+const LIC_ICON_COMPONENTS = {
+  SANITARIA: Droplets,
+  CERCON: Shield,
+  FUNCIONAMENTO: ClipboardCheck,
+  USO_DO_SOLO: MapPin,
+  AMBIENTAL: Trees,
 };
 
-const LIC_COLORS = {
-  SANITARIA: "border-sky-500 text-sky-700",
-  CERCON: "border-indigo-500 text-indigo-700",
-  FUNCIONAMENTO: "border-blue-500 text-blue-700",
-  USO_DO_SOLO: "border-amber-500 text-amber-700",
-  AMBIENTAL: "border-emerald-600 text-emerald-700",
+const LIC_ICON_COLORS = {
+  SANITARIA: "bg-sky-100 text-sky-700",
+  CERCON: "bg-indigo-100 text-indigo-700",
+  FUNCIONAMENTO: "bg-blue-100 text-blue-700",
+  USO_DO_SOLO: "bg-amber-100 text-amber-700",
+  AMBIENTAL: "bg-emerald-100 text-emerald-700",
 };
 
 // Rótulos de exibição por tipo normalizado
@@ -349,42 +350,26 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
         )
       ) : (
         <>
-          <div className="grid md:grid-cols-2 gap-3 mb-3">
+          <div className="grid gap-3 md:grid-cols-2 mb-3">
             {tiposLicencaStats.map(({ normalized, display, total, venc, soon, subj, disp, poss }) => {
-              const icon = LIC_ICONS[normalized] || <Settings className="h-4 w-4" />;
-              const colorClasses = LIC_COLORS[normalized] || "border-slate-400 text-slate-700";
+              const IconComponent = LIC_ICON_COMPONENTS[normalized] || Settings;
+              const colorClasses = LIC_ICON_COLORS[normalized] || "bg-slate-100 text-slate-700";
 
               return (
-                <Card key={normalized} className="shadow-sm">
-                  <CardContent className={`p-4 rounded-xl border-l-4 ${colorClasses}`}>
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="text-xs text-slate-500">{display}</div>
-                        <div className="text-2xl font-semibold">{total}</div>
-                      </div>
-                      <div className="h-8 w-8 rounded-full bg-white/70 grid place-items-center text-slate-600">
-                        {icon}
-                      </div>
-                    </div>
-                    <div className="mt-3 flex flex-wrap gap-2 text-xs">
-                      <InlineBadge className="bg-emerald-100 text-emerald-700 border-emerald-200">
-                        Possui {poss}
-                      </InlineBadge>
-                      <InlineBadge className="bg-amber-100 text-amber-800 border-amber-200">
-                        ≤30d {soon}
-                      </InlineBadge>
-                      <InlineBadge className="bg-orange-100 text-orange-800 border-orange-200">
-                        Vencido {venc}
-                      </InlineBadge>
-                      <InlineBadge className="bg-red-100 text-red-700 border-red-200">
-                        Sujeito {subj}
-                      </InlineBadge>
-                      <InlineBadge className="bg-indigo-100 text-indigo-700 border-indigo-200">
-                        Dispensa {disp}
-                      </InlineBadge>
-                    </div>
-                  </CardContent>
-                </Card>
+                <ResumoTipoCardLicenca
+                  key={normalized}
+                  tipo={display}
+                  total={total}
+                  icon={IconComponent}
+                  corClasse={colorClasses}
+                  stats={{
+                    possui: poss,
+                    ate30d: soon,
+                    vencido: venc,
+                    sujeito: subj,
+                    dispensa: disp,
+                  }}
+                />
               );
             })}
           </div>
@@ -400,8 +385,8 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                 }
                 return normalizeTipoLicenca(lic?.tipo) === normalized;
               }).length;
-              const icon =
-                normalized === "Todos" ? null : LIC_ICONS[normalized] || <Settings className="h-4 w-4" />;
+              const IconComponent =
+                normalized === "Todos" ? null : LIC_ICON_COMPONENTS[normalized] || Settings;
 
               return (
                 <Button
@@ -411,7 +396,11 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                   onClick={() => setSelectedLicTipo(normalized)}
                   className="inline-flex items-center gap-1"
                 >
-                  {icon && <span className="opacity-80">{icon}</span>}
+                  {IconComponent && (
+                    <span className="opacity-80">
+                      <IconComponent className="h-4 w-4" />
+                    </span>
+                  )}
                   {display}
                   <span className="ml-1 text-xs opacity-70">{count}</span>
                 </Button>
@@ -437,13 +426,15 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                   .filter((lic) => hasRelevantStatus(lic.status))
                   .sort((a, b) => (a?.empresa || "").localeCompare(b?.empresa || ""));
 
-                const icon = LIC_ICONS[tipoNormalized] || <Settings className="h-4 w-4" />;
+                const IconComponent = LIC_ICON_COMPONENTS[tipoNormalized] || Settings;
 
                 return (
                   <Card key={tipoNormalized} className="shadow-sm">
                     <CardHeader className="pb-2">
                       <CardTitle className="text-base flex items-center gap-2">
-                        <span className="opacity-80">{icon}</span>
+                        <span className="opacity-80">
+                          <IconComponent className="h-4 w-4" />
+                        </span>
                         {display}
                         <InlineBadge variant="outline" className="bg-white">
                           {registros.length}
