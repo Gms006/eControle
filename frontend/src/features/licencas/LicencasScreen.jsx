@@ -17,7 +17,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { DEFAULT_LICENCA_TIPOS } from "@/lib/constants";
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
 import { ResumoTipoCardLicenca } from "@/components/ResumoTipoCard";
-import { Droplets, Shield, ClipboardCheck, MapPin, Trees, Settings } from "lucide-react";
+import { Droplets, Shield, ClipboardCheck, MapPin, Trees, Settings, Clipboard } from "lucide-react";
 
 const LIC_ICON_COMPONENTS = {
   SANITARIA: Droplets,
@@ -137,7 +137,7 @@ function LinhaTipoLicenca({ tipo, status, vencimento, detalhe }) {
   );
 }
 
-export default function LicencasScreen({ licencas, filteredLicencas, modoFoco }) {
+export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, handleCopy }) {
   const [viewMode, setViewMode] = useState("empresas");
   const [selectedLicTipo, setSelectedLicTipo] = useState("Todos");
 
@@ -341,7 +341,19 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco })
                         {grupo.empresa || "—"}
                       </h3>
                       <div className="flex flex-wrap gap-1.5 text-xs">
-                        {grupo.cnpj && <Chip>CNPJ: {grupo.cnpj}</Chip>}
+                        {grupo.cnpj && handleCopy ? (
+                          <button
+                            type="button"
+                            onClick={() => handleCopy(grupo.cnpj, `CNPJ copiado: ${grupo.cnpj}`)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-100 px-2 py-0.5 font-medium text-slate-600 transition hover:border-indigo-200 hover:bg-indigo-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-400"
+                            title="Copiar CNPJ"
+                          >
+                            <Clipboard className="h-3.5 w-3.5 opacity-70" aria-hidden />
+                            <span>CNPJ: {grupo.cnpj}</span>
+                          </button>
+                        ) : (
+                          grupo.cnpj && <Chip>CNPJ: {grupo.cnpj}</Chip>
+                        )}
                         {grupo.municipio && <Chip>Município: {grupo.municipio}</Chip>}
                       </div>
                       <p className="text-[11px] text-slate-500">
