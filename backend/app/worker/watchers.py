@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Callable
 from uuid import UUID
 
+from dotenv import load_dotenv
 from watchdog.events import FileSystemEvent, FileSystemEventHandler
 from watchdog.observers import Observer
 
@@ -186,26 +187,19 @@ def _max_events_per_minute(default: int | None = None) -> int | None:
 def _resolve_org_id(org_id: str | None) -> str:
     if org_id:
         return org_id
-    env_org = os.getenv(ORG_DEFAULT_ENV)
+    env_org = os.getenv(ORG_DEFAULT_ENV) or os.getenv("ORG_ID")
     if env_org:
         return env_org
     raise ValueError("org_id é obrigatório para iniciar watcher")
 
 
-def _start_observer(path: Path, handler_factory: Callable[[], FileSystemEventHandler]) -> None:
+def _start_observer(path: Path, handler_factory: Callable[[], FileSystemEventHandler]) -> Observer:
     handler = handler_factory()
     observer = Observer()
     observer.schedule(handler, str(path), recursive=True)
     observer.start()
     logger.info("Watcher iniciado em %s", path)
-    try:
-        while True:
-            time.sleep(1)
-    except KeyboardInterrupt:
-        logger.info("Watcher interrompido pelo usuário")
-        observer.stop()
-    finally:
-        observer.join()
+    return observer
 
 
 def start_certificados_watcher(
@@ -213,7 +207,7 @@ def start_certificados_watcher(
     certificados_root: str,
     debounce_seconds: float | None = None,
     max_events_per_minute: int | None = None,
-) -> None:
+) -> Observer:
     org_resolvido = _resolve_org_id(org_id)
     debounce = _debounce_seconds(debounce_seconds)
     rate_limit = _max_events_per_minute(max_events_per_minute)
@@ -229,7 +223,7 @@ def start_certificados_watcher(
     def factory() -> FileSystemEventHandler:
         return CertificadosHandler(org_resolvido, debounce, rate_limit)
 
-    _start_observer(path, factory)
+    return _start_observer(path, factory)
 
 
 def start_licencas_watcher(
@@ -237,7 +231,7 @@ def start_licencas_watcher(
     licencas_root: str,
     debounce_seconds: float | None = None,
     max_events_per_minute: int | None = None,
-) -> None:
+) -> Observer:
     org_resolvido = _resolve_org_id(org_id)
     debounce = _debounce_seconds(debounce_seconds)
     rate_limit = _max_events_per_minute(max_events_per_minute)
@@ -253,4 +247,64 @@ def start_licencas_watcher(
     def factory() -> FileSystemEventHandler:
         return LicencasHandler(org_resolvido, path, debounce, rate_limit)
 
-    _start_observer(path, factory)
+    return _start_observer(path, factory)
+
+
+def main() -> None:
+    """Inicia os watchers de certificados e licenças."""
+    # Carregar .env (procura a partir do diretório backend)
+    env_path = Path(__file__).resolve().parent.parent.parent / ".env"
+    load_dotenv(str(env_path))
+    
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s - %(message)s")
+    
+    # Resolver org_id
+    org_id = _resolve_org_id(None)
+    logger.info("org_id resolvido: %s", org_id)
+    
+    # Resolver caminhos para certificados
+    certificados_root = os.getenv("CERTIFICADOS_ROOT") or os.getenv("ECONTROLE_CERTIFICADOS_DIR")
+    if not certificados_root:
+        raise ValueError("CERTIFICADOS_ROOT ou ECONTROLE_CERTIFICADOS_DIR não configurado")
+    
+    # Resolver caminhos para licenças
+    licencas_root = os.getenv("LICENCAS_ROOT") or os.getenv("EMPRESAS_ROOT_DIR")
+    if not licencas_root:
+        raise ValueError("LICENCAS_ROOT ou EMPRESAS_ROOT_DIR não configurado")
+    
+    # Validar diretórios
+    cert_path = Path(certificados_root)
+    lic_path = Path(licencas_root)
+    
+    if not cert_path.exists():
+        raise ValueError(f"Diretório de certificados não existe: {certificados_root}")
+    if not lic_path.exists():
+        raise ValueError(f"Diretório de licenças não existe: {licencas_root}")
+    
+    logger.info("Iniciando watchers...")
+    logger.info("  Certificados: %s", cert_path)
+    logger.info("  Licenças: %s", lic_path)
+    
+    # Iniciar observers
+    obs_certificados = start_certificados_watcher(org_id, certificados_root)
+    obs_licencas = start_licencas_watcher(org_id, licencas_root)
+    
+    observers = [obs_certificados, obs_licencas]
+    
+    logger.info("Todos os watchers iniciados com sucesso!")
+    logger.info("Pressione Ctrl+C para encerrar.")
+    
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("Encerrando watchers...")
+        for obs in observers:
+            obs.stop()
+        for obs in observers:
+            obs.join()
+        logger.info("Watchers encerrados com sucesso!")
+
+
+if __name__ == "__main__":
+    main()

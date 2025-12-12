@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import logging
+import os
 
-from rq import Connection, Worker
+from rq import Queue, Worker
+from rq import SimpleWorker  # Windows compatibility
 
 from app.worker import jobs_certificados, jobs_licencas
 from app.worker.queue import get_queue, get_redis
@@ -25,9 +27,12 @@ def main() -> None:
             "app.worker.jobs_licencas.ingest_licencas_full",
         ],
     )
-    with Connection(redis_conn):
-        worker = Worker([queue])
-        worker.work()
+    queue = Queue("econtrole", connection=redis_conn)
+
+    # Windows: SimpleWorker (compatível com Windows)
+    worker_class = SimpleWorker if os.name == "nt" else Worker
+    worker = worker_class([queue], connection=redis_conn)
+    worker.work()
 
 
 if __name__ == "__main__":
