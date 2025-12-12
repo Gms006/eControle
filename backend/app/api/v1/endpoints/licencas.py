@@ -14,7 +14,8 @@ from app.api.v1.endpoints.utils import (
 )
 from app.deps.auth import Role, User, db_with_org, require_role
 from app.schemas.licencas import LicencaCreate, LicencaListResponse, LicencaUpdate, LicencaView
-from app.services.licencas_ingest import ingest_licencas_from_fs
+from app.worker.jobs_licencas import ingest_licencas_full
+from app.worker.queue import enqueue_unique
 from db.models_sql import Empresa, Licenca
 
 router = APIRouter(prefix="/licencas", tags=["Licenças"])
@@ -152,9 +153,14 @@ def atualizar_licenca(
 @router.post("/ingest-from-fs")
 def disparar_ingestao(
     empresa_id: int | None = Query(None, description="Limitar ingestão a uma empresa específica."),
-    db: Session = Depends(db_with_org),
     user: User = Depends(require_role(Role.ADMIN)),
-) -> dict[str, int]:
+) -> dict[str, object]:
     """Dispara a ingestão de licenças a partir do sistema de arquivos."""
 
-    return ingest_licencas_from_fs(db, user.org_id, empresa_id)
+    job_id = f"lic:ingest_full:{user.org_id}:{empresa_id or 'all'}"
+    job = enqueue_unique(
+        ingest_licencas_full,
+        job_id=job_id,
+        kwargs={"org_id": str(user.org_id), "empresa_id": empresa_id},
+    )
+    return {"queued": True, "job_id": job.id if job else job_id, "message": "Ingest de licenças enfileirado"}

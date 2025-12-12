@@ -240,6 +240,26 @@ def prune_missing_by_arquivo(org_id: str, keep_arquivos: set[str], db_session: S
     return removidos
 
 
+def ingest_certificado_arquivo(cert_path: str, org_id: str, db_session: Session) -> Certificado:
+    """Processa um único arquivo ``.pfx`` reaproveitando o pipeline existente.
+
+    Não dispara *cleanup* completo para evitar custo elevado em operações unitárias.
+    """
+
+    if not cert_path.lower().endswith(".pfx"):
+        raise ValueError(f"Arquivo não suportado para ingestão de certificado: {cert_path}")
+
+    password = _extract_password_from_filename(os.path.basename(cert_path))
+    cert_data = extract_cert_info(cert_path, password or None)
+    cert_info: Dict[str, object] = {
+        **cert_data,
+        "senha": password,
+        "org_id": org_id,
+        "path": cert_path,
+    }
+    return upsert_certificado(cert_info, db_session)
+
+
 def ingest_certificados(certificados_dir: str, org_id: str, db_session: Session) -> int:
     """Percorre o diretório informado e realiza o *upsert* dos certificados."""
 

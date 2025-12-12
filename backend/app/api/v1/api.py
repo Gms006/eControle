@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     processos,
     taxas,
     uteis,
+    worker,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -29,3 +30,4 @@ api_router.include_router(cnds.router)
 api_router.include_router(municipios.router)
 api_router.include_router(uteis.router)
 api_router.include_router(agendamentos.router)
+api_router.include_router(worker.router)
