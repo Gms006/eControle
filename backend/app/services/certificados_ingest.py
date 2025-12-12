@@ -4,12 +4,14 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 from typing import Dict, Iterable
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization.pkcs12 import (
     load_key_and_certificates,
 )
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.models.certificados import Certificado
@@ -23,7 +25,8 @@ def extract_cert_info(cert_path: str, password: str) -> Dict[str, object]:
     with open(cert_path, "rb") as cert_file:
         cert_data = cert_file.read()
 
-    _, certificate, _ = load_key_and_certificates(cert_data, password.encode("utf-8"))
+    pw = password.encode("utf-8") if password else None
+    _, certificate, _ = load_key_and_certificates(cert_data, pw)
     if certificate is None:
         raise ValueError(f"Certificado ausente no arquivo: {cert_path}")
 
@@ -45,23 +48,64 @@ def extract_cert_info(cert_path: str, password: str) -> Dict[str, object]:
 
 
 def upsert_certificado(cert_info: Dict[str, object], db_session: Session) -> Certificado:
-    """Atualiza ou insere um certificado com base no serial e ``org_id``."""
+    """
+    Atualiza ou insere um certificado.
+
+    Regra:
+      1) tenta por (org_id, serial)
+      2) se não achar por serial e houver empresa_id, substitui o certificado "ativo" da empresa
+         (mantém 1 registro por empresa, como o ingest legado via JSON)
+      3) senão, insere novo
+    """
+
+    org_id = cert_info["org_id"]
+    serial = cert_info["serial"]
+    empresa_id = cert_info.get("empresa_id")
 
     certificado = (
         db_session.query(Certificado)
         .filter(
-            Certificado.serial == cert_info["serial"],
-            Certificado.org_id == cert_info["org_id"],
+            Certificado.serial == serial,
+            Certificado.org_id == org_id,
         )
         .first()
     )
 
+    # Se não achou pelo serial e temos empresa_id, tenta substituir o certificado existente da empresa
+    if not certificado and empresa_id:
+        certificado = (
+            db_session.query(Certificado)
+            .filter(
+                Certificado.org_id == org_id,
+                Certificado.empresa_id == empresa_id,
+            )
+            .order_by(
+                Certificado.valido_ate.desc(),
+                Certificado.valido_de.desc(),
+                Certificado.id.desc(),
+            )
+            .first()
+        )
+        if certificado:
+            logger.info(
+                "Substituindo certificado por empresa (serial novo): empresa_id=%s org_id=%s serial=%s",
+                empresa_id,
+                org_id,
+                serial,
+            )
+
     if certificado:
         logger.info(
             "Atualizando certificado existente: serial=%s org_id=%s",
-            cert_info["serial"],
-            cert_info["org_id"],
+            serial,
+            org_id,
         )
+        # Atualiza TUDO (inclusive empresa_id/arquivo/caminho), para ficar idêntico ao comportamento do JSON ingest
+        certificado.org_id = org_id
+        certificado.empresa_id = empresa_id
+        certificado.arquivo = os.path.basename(cert_info["path"])
+        certificado.caminho = cert_info["path"]
+        certificado.serial = serial
         certificado.subject = cert_info["subject"]
         certificado.issuer = cert_info["issuer"]
         certificado.valido_de = cert_info["valid_from"]
@@ -71,15 +115,15 @@ def upsert_certificado(cert_info: Dict[str, object], db_session: Session) -> Cer
     else:
         logger.info(
             "Inserindo novo certificado: serial=%s org_id=%s",
-            cert_info["serial"],
-            cert_info["org_id"],
+            serial,
+            org_id,
         )
         certificado = Certificado(
-            org_id=cert_info["org_id"],
-            empresa_id=cert_info.get("empresa_id"),
+            org_id=org_id,
+            empresa_id=empresa_id,
             arquivo=os.path.basename(cert_info["path"]),
             caminho=cert_info["path"],
-            serial=cert_info["serial"],
+            serial=serial,
             sha1=cert_info["thumbprint"],
             subject=cert_info["subject"],
             issuer=cert_info["issuer"],
@@ -89,34 +133,165 @@ def upsert_certificado(cert_info: Dict[str, object], db_session: Session) -> Cer
         )
         db_session.add(certificado)
 
+    # Garante que ficou apenas 1 por empresa_id (remove duplicados antigos)
+    db_session.flush()  # garante id
+    if empresa_id and certificado.id:
+        duplicados = (
+            db_session.query(Certificado)
+            .filter(
+                Certificado.org_id == org_id,
+                Certificado.empresa_id == empresa_id,
+                Certificado.id != certificado.id,
+            )
+            .all()
+        )
+        for dup in duplicados:
+            logger.info(
+                "Removendo duplicata por empresa após upsert: empresa_id=%s org_id=%s id=%s",
+                empresa_id,
+                org_id,
+                dup.id,
+            )
+            db_session.delete(dup)
+
     db_session.commit()
     db_session.refresh(certificado)
     return certificado
 
 
-def _iter_certificados(certificados_dir: str) -> Iterable[tuple[str, str]]:
-    for root, _, files in os.walk(certificados_dir):
-        for filename in files:
-            if not filename.lower().endswith(".pfx"):
-                continue
-            password = ""
-            if "senha" in filename.lower():
-                try:
-                    password = filename.split("Senha", 1)[1].split(".pfx")[0].strip()
-                except IndexError:
-                    password = ""
-            yield os.path.join(root, filename), password
+def _iter_certificados(
+    certificados_dir: str, recursive: bool = False
+) -> Iterable[tuple[str, str]]:
+    """
+    Por padrão, lê APENAS a pasta raiz (ignora subpastas).
+    Use recursive=True para watcher no futuro.
+    """
+    if recursive:
+        for root, _, files in os.walk(certificados_dir):
+            for filename in files:
+                if not filename.lower().endswith(".pfx"):
+                    continue
+                password = _extract_password_from_filename(filename)
+                yield os.path.join(root, filename), password
+        return
+
+    # Não-recursivo (somente raiz)
+    try:
+        with os.scandir(certificados_dir) as it:
+            for entry in it:
+                if not entry.is_file():
+                    continue
+                filename = entry.name
+                if not filename.lower().endswith(".pfx"):
+                    continue
+                password = _extract_password_from_filename(filename)
+                yield entry.path, password
+    except FileNotFoundError:
+        logger.warning("Diretório de certificados não encontrado: %s", certificados_dir)
 
 
-def ingest_certificados(certificados_dir: str, org_id: str, db_session: Session) -> int:
+def _extract_password_from_filename(filename: str) -> str:
+    # aceita "Senha xxxxxx.pfx" e "senha xxxxxx.pfx"
+    m = re.search(r"senha\s*(.+?)\.pfx$", filename, flags=re.IGNORECASE)
+    return m.group(1).strip() if m else ""
+
+
+def cleanup_certificados_antigos(org_id: str, db_session: Session) -> int:
+    """Remove certificados antigos/duplicados seguindo a regra do script legado."""
+
+    removed = 0
+
+    duplicate_serials = (
+        db_session.query(Certificado.serial)
+        .filter(Certificado.org_id == org_id, Certificado.serial.isnot(None))
+        .group_by(Certificado.serial)
+        .having(func.count(Certificado.id) > 1)
+        .all()
+    )
+
+    for (serial,) in duplicate_serials:
+        certificados = (
+            db_session.query(Certificado)
+            .filter(Certificado.org_id == org_id, Certificado.serial == serial)
+            .order_by(
+                Certificado.valido_ate.desc(),
+                Certificado.valido_de.desc(),
+                Certificado.id.desc(),
+            )
+            .all()
+        )
+        for certificado in certificados[1:]:
+            logger.info(
+                "Removendo duplicata por serial: serial=%s org_id=%s id=%s",
+                serial,
+                org_id,
+                certificado.id,
+            )
+            db_session.delete(certificado)
+            removed += 1
+
+    duplicate_empresas = (
+        db_session.query(Certificado.empresa_id)
+        .filter(
+            Certificado.org_id == org_id,
+            Certificado.empresa_id.isnot(None),
+        )
+        .group_by(Certificado.empresa_id)
+        .having(func.count(Certificado.id) > 1)
+        .all()
+    )
+
+    for (empresa_id,) in duplicate_empresas:
+        certificados = (
+            db_session.query(Certificado)
+            .filter(
+                Certificado.org_id == org_id,
+                Certificado.empresa_id == empresa_id,
+            )
+            .order_by(
+                Certificado.valido_ate.desc(),
+                Certificado.valido_de.desc(),
+                Certificado.id.desc(),
+            )
+            .all()
+        )
+        for certificado in certificados[1:]:
+            logger.info(
+                "Removendo duplicata por empresa: empresa_id=%s org_id=%s id=%s",
+                empresa_id,
+                org_id,
+                certificado.id,
+            )
+            db_session.delete(certificado)
+            removed += 1
+
+    if removed:
+        db_session.commit()
+        logger.info("%s certificados antigos/duplicados removidos", removed)
+    else:
+        logger.info("Nenhum certificado duplicado identificado para limpeza")
+
+    return removed
+
+
+def ingest_certificados(
+    certificados_dir: str, org_id: str, db_session: Session, recursive: bool = False
+) -> int:
     """Percorre o diretório informado e realiza o *upsert* dos certificados."""
 
+    logger.info("Iniciando ingestão de certificados no diretório %s", certificados_dir)
+    removed = cleanup_certificados_antigos(org_id, db_session)
+
     processed = 0
-    for cert_path, password in _iter_certificados(certificados_dir):
+    failed = 0
+    for cert_path, password in _iter_certificados(
+        certificados_dir, recursive=recursive
+    ):
         try:
             cert_data = extract_cert_info(cert_path, password)
         except Exception as exc:  # noqa: BLE001
             logger.warning("Falha ao ler certificado %s: %s", cert_path, exc)
+            failed += 1
             continue
 
         cert_info: Dict[str, object] = {
@@ -128,4 +303,10 @@ def ingest_certificados(certificados_dir: str, org_id: str, db_session: Session)
         upsert_certificado(cert_info, db_session)
         processed += 1
 
+    logger.info(
+        "Ingestão finalizada. Processados: %s | Falhas: %s | Limpeza prévia: %s",
+        processed,
+        failed,
+        removed,
+    )
     return processed
