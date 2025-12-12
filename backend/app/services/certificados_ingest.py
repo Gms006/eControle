@@ -267,7 +267,93 @@ def cleanup_certificados_antigos(org_id: str, db_session: Session) -> int:
     return removed
 
 
-def ingest_certificados(certificados_dir: str, org_id: str, db_session: Session) -> int:
+def _extract_password_from_filename(filename: str) -> str:
+    # aceita "Senha xxxxxx.pfx" e "senha xxxxxx.pfx"
+    m = re.search(r"senha\s*(.+?)\.pfx$", filename, flags=re.IGNORECASE)
+    return m.group(1).strip() if m else ""
+
+
+def cleanup_certificados_antigos(org_id: str, db_session: Session) -> int:
+    """Remove certificados antigos/duplicados seguindo a regra do script legado."""
+
+    removed = 0
+
+    duplicate_serials = (
+        db_session.query(Certificado.serial)
+        .filter(Certificado.org_id == org_id, Certificado.serial.isnot(None))
+        .group_by(Certificado.serial)
+        .having(func.count(Certificado.id) > 1)
+        .all()
+    )
+
+    for (serial,) in duplicate_serials:
+        certificados = (
+            db_session.query(Certificado)
+            .filter(Certificado.org_id == org_id, Certificado.serial == serial)
+            .order_by(
+                Certificado.valido_ate.desc(),
+                Certificado.valido_de.desc(),
+                Certificado.id.desc(),
+            )
+            .all()
+        )
+        for certificado in certificados[1:]:
+            logger.info(
+                "Removendo duplicata por serial: serial=%s org_id=%s id=%s",
+                serial,
+                org_id,
+                certificado.id,
+            )
+            db_session.delete(certificado)
+            removed += 1
+
+    duplicate_empresas = (
+        db_session.query(Certificado.empresa_id)
+        .filter(
+            Certificado.org_id == org_id,
+            Certificado.empresa_id.isnot(None),
+        )
+        .group_by(Certificado.empresa_id)
+        .having(func.count(Certificado.id) > 1)
+        .all()
+    )
+
+    for (empresa_id,) in duplicate_empresas:
+        certificados = (
+            db_session.query(Certificado)
+            .filter(
+                Certificado.org_id == org_id,
+                Certificado.empresa_id == empresa_id,
+            )
+            .order_by(
+                Certificado.valido_ate.desc(),
+                Certificado.valido_de.desc(),
+                Certificado.id.desc(),
+            )
+            .all()
+        )
+        for certificado in certificados[1:]:
+            logger.info(
+                "Removendo duplicata por empresa: empresa_id=%s org_id=%s id=%s",
+                empresa_id,
+                org_id,
+                certificado.id,
+            )
+            db_session.delete(certificado)
+            removed += 1
+
+    if removed:
+        db_session.commit()
+        logger.info("%s certificados antigos/duplicados removidos", removed)
+    else:
+        logger.info("Nenhum certificado duplicado identificado para limpeza")
+
+    return removed
+
+
+def ingest_certificados(
+    certificados_dir: str, org_id: str, db_session: Session, recursive: bool = False
+) -> int:
     """Percorre o diretório informado e realiza o *upsert* dos certificados."""
 
     logger.info("Iniciando ingestão de certificados no diretório %s", certificados_dir)
