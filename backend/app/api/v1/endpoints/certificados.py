@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 from typing import Dict
 
@@ -16,6 +17,13 @@ from app.db.session import SessionLocal
 from app.deps.auth import Role, User, db_with_org, require_role
 from app.schemas.certificados import CertificadoListResponse
 from app.services.certificados_ingest import ingest_certificados
+
+
+logger = logging.getLogger(__name__)
+
+# Diretório padrão dos .pfx; pode ser sobrescrito por variável de ambiente
+CERTIFICADOS_DIR_ENV = "ECONTROLE_CERTIFICADOS_DIR"
+DEFAULT_CERTIFICADOS_DIR = r"G:\CERTIFICADOS DIGITAIS"
 
 router = APIRouter(prefix="/certificados", tags=["Certificados"])
 
@@ -54,24 +62,42 @@ def listar_certificados(
     return CertificadoListResponse(**data)
 
 
-@router.post("/ingest", status_code=202)
-def ingest_certificados_endpoint(
+@router.post("/ingest")
+def disparar_ingest_certificados(
     background_tasks: BackgroundTasks,
     current_user: User = Depends(require_role(Role.ADMIN)),
-):
-    """Agenda a ingestão de certificados diretamente do diretório padrão."""
+) -> dict:
+    """
+    Dispara a ingestão de certificados a partir do diretório configurado.
 
-    def job() -> None:
+    Usa o pipeline core de S4.1 (`app.services.certificados_ingest.ingest_certificados`),
+    fazendo upsert em `certificados` e refletindo em `v_certificados_status`.
+    """
+
+    certificados_dir = os.environ.get(CERTIFICADOS_DIR_ENV, DEFAULT_CERTIFICADOS_DIR)
+    org_id = str(current_user.org_id)
+
+    def job(dir_path: str, org_id_: str) -> None:
         db = SessionLocal()
         try:
-            cert_dir = os.getenv("CERTIFICADOS_DIR", r"G:\\CERTIFICADOS DIGITAIS")
-            ingest_certificados(cert_dir, str(current_user.org_id), db)
-            db.commit()
-        except Exception:  # noqa: BLE001
+            processed = ingest_certificados(dir_path, org_id_, db)
+            logger.info(
+                "Ingestão de certificados finalizada: org_id=%s dir=%s processed=%s",
+                org_id_,
+                dir_path,
+                processed,
+            )
+        except Exception:
+            logger.exception(
+                "Erro ao ingerir certificados: org_id=%s dir=%s", org_id_, dir_path
+            )
             db.rollback()
-            raise
         finally:
             db.close()
 
-    background_tasks.add_task(job)
-    return {"message": "Ingestão de certificados agendada"}
+    background_tasks.add_task(job, certificados_dir, org_id)
+
+    return {
+        "message": "Ingestão de certificados agendada",
+        "certificados_dir": certificados_dir,
+    }
