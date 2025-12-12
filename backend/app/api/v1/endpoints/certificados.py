@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import os
 from typing import Dict
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.utils import (
@@ -11,8 +12,10 @@ from app.api.v1.endpoints.utils import (
     paginate_query,
     resolve_sort,
 )
+from app.db.session import SessionLocal
 from app.deps.auth import Role, User, db_with_org, require_role
 from app.schemas.certificados import CertificadoListResponse
+from app.services.certificados_ingest import ingest_certificados
 
 router = APIRouter(prefix="/certificados", tags=["Certificados"])
 
@@ -49,3 +52,26 @@ def listar_certificados(
     sort_column, direction = resolve_sort(sort, ALLOWED_SORTS, "valido_ate")
     data = paginate_query(db, base_query, params, sort_column, direction, page, size)
     return CertificadoListResponse(**data)
+
+
+@router.post("/ingest", status_code=202)
+def ingest_certificados_endpoint(
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(require_role(Role.ADMIN)),
+):
+    """Agenda a ingestão de certificados diretamente do diretório padrão."""
+
+    def job() -> None:
+        db = SessionLocal()
+        try:
+            cert_dir = os.getenv("CERTIFICADOS_DIR", r"G:\\CERTIFICADOS DIGITAIS")
+            ingest_certificados(cert_dir, str(current_user.org_id), db)
+            db.commit()
+        except Exception:  # noqa: BLE001
+            db.rollback()
+            raise
+        finally:
+            db.close()
+
+    background_tasks.add_task(job)
+    return {"message": "Ingestão de certificados agendada"}
