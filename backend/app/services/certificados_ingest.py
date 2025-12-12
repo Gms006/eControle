@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization.pkcs12 import (
     load_key_and_certificates,
 )
-from sqlalchemy import func
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.certificados import Certificado
@@ -160,11 +160,11 @@ def upsert_certificado(cert_info: Dict[str, object], db_session: Session) -> Cer
 
 
 def _iter_certificados(
-    certificados_dir: str, recursive: bool = False
+    certificados_dir: str, recursive: bool = True
 ) -> Iterable[tuple[str, str]]:
     """
-    Por padrão, lê APENAS a pasta raiz (ignora subpastas).
-    Use recursive=True para watcher no futuro.
+    Percorre o diretório (recursivamente por padrão) retornando caminhos de ``.pfx``
+    e senhas extraídas do nome do arquivo.
     """
     if recursive:
         for root, _, files in os.walk(certificados_dir):
@@ -188,6 +188,70 @@ def _iter_certificados(
                 yield entry.path, password
     except FileNotFoundError:
         logger.warning("Diretório de certificados não encontrado: %s", certificados_dir)
+
+
+def _extract_password_from_filename(filename: str) -> str:
+    # aceita "Senha xxxxxx.pfx" e "senha xxxxxx.pfx"
+    m = re.search(r"senha\s*(.+?)\.pfx$", filename, flags=re.IGNORECASE)
+    return m.group(1).strip() if m else ""
+
+
+def cleanup_certificados_antigos(org_id: str, db_session: Session) -> int:
+    """Remove certificados antigos/duplicados seguindo a regra do script legado."""
+
+    remove_por_serial = text(
+        """
+        WITH ranked AS (
+          SELECT
+            id,
+            org_id,
+            serial,
+            ROW_NUMBER() OVER (
+              PARTITION BY org_id, serial
+              ORDER BY valido_ate DESC NULLS LAST, valido_de DESC NULLS LAST, id DESC
+            ) AS rn
+          FROM certificados
+          WHERE serial IS NOT NULL AND org_id = :org_id
+        )
+        DELETE FROM certificados c
+        USING ranked r
+        WHERE c.id = r.id
+          AND r.rn > 1;
+        """
+    )
+
+    remove_por_empresa = text(
+        """
+        WITH ranked AS (
+          SELECT
+            id,
+            org_id,
+            empresa_id,
+            ROW_NUMBER() OVER (
+              PARTITION BY org_id, empresa_id
+              ORDER BY valido_ate DESC NULLS LAST, valido_de DESC NULLS LAST, id DESC
+            ) AS rn
+          FROM certificados
+          WHERE empresa_id IS NOT NULL AND org_id = :org_id
+        )
+        DELETE FROM certificados c
+        USING ranked r
+        WHERE c.id = r.id
+          AND r.rn > 1;
+        """
+    )
+
+    removidos_serial = db_session.execute(remove_por_serial, {"org_id": org_id}).rowcount
+    removidos_empresa = db_session.execute(remove_por_empresa, {"org_id": org_id}).rowcount
+
+    removed = (removidos_serial or 0) + (removidos_empresa or 0)
+    if removed:
+        db_session.commit()
+        logger.info("%s certificados antigos/duplicados removidos", removed)
+    else:
+        logger.info("Nenhum certificado duplicado identificado para limpeza")
+
+    return removed
 
 
 def _extract_password_from_filename(filename: str) -> str:
@@ -284,9 +348,7 @@ def ingest_certificados(
 
     processed = 0
     failed = 0
-    for cert_path, password in _iter_certificados(
-        certificados_dir, recursive=recursive
-    ):
+    for cert_path, password in _iter_certificados(certificados_dir, recursive=True):
         try:
             cert_data = extract_cert_info(cert_path, password)
         except Exception as exc:  # noqa: BLE001
