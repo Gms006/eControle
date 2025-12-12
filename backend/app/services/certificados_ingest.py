@@ -11,7 +11,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization.pkcs12 import (
     load_key_and_certificates,
 )
-from sqlalchemy import text
+from sqlalchemy import func, text
 from sqlalchemy.orm import Session
 
 from app.models.certificados import Certificado
@@ -198,6 +198,19 @@ def _extract_password_from_filename(filename: str) -> str:
 
 def cleanup_certificados_antigos(org_id: str, db_session: Session) -> int:
     """Remove certificados antigos/duplicados seguindo a regra do script legado."""
+
+    # Apenas para log de referência (evita NameError visto em execuções legadas)
+    duplicados_previos = (
+        db_session.query(func.count())
+        .filter(Certificado.org_id == org_id, Certificado.empresa_id.isnot(None))
+        .group_by(Certificado.empresa_id)
+        .having(func.count(Certificado.id) > 1)
+    ).count()
+    if duplicados_previos:
+        logger.info(
+            "Identificados %s grupos de certificados duplicados antes da limpeza",
+            duplicados_previos,
+        )
 
     remove_por_serial = text(
         """
