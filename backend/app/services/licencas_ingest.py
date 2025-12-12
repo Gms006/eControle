@@ -18,6 +18,7 @@ from db.models_sql import Empresa, Licenca, Processo
 logger = logging.getLogger(__name__)
 
 EMPRESAS_ROOT_ENV = "EMPRESAS_ROOT_DIR"
+LICENCAS_ROOT_ENV = "LICENCAS_ROOT"
 DEFAULT_EMPRESAS_ROOT = Path(r"G:\EMPRESAS")
 LICENSE_DIR_PARTS = ["Societário", "Alvarás e Certidões"]
 
@@ -362,8 +363,21 @@ def _should_protect_status(status: str | None) -> bool:
     return value in {"*", "NÃO"}
 
 
+def resolve_empresa_id_por_dir(
+    db: Session, org_id: UUID, empresa_dir: Path
+) -> int | None:
+    """Resolve ``empresa_id`` a partir do nome da pasta normalizado."""
+
+    target = _normalize_empresa_nome(empresa_dir.name)
+    empresas_query = select(Empresa).where(Empresa.org_id == org_id)
+    for empresa in db.execute(empresas_query).scalars():
+        if _normalize_empresa_nome(empresa.empresa) == target:
+            return empresa.id
+    return None
+
+
 def ingest_licencas_from_fs(db: Session, org_id: UUID | None = None, empresa_id: int | None = None) -> dict[str, int]:
-    root_env = os.getenv(EMPRESAS_ROOT_ENV)
+    root_env = os.getenv(LICENCAS_ROOT_ENV) or os.getenv(EMPRESAS_ROOT_ENV)
     root_dir = Path(root_env) if root_env else DEFAULT_EMPRESAS_ROOT
 
     empresas_query = select(Empresa).where(Empresa.municipio.isnot(None))

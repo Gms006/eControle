@@ -4,7 +4,7 @@ import logging
 import os
 from typing import Dict
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Query
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.utils import (
@@ -13,16 +13,17 @@ from app.api.v1.endpoints.utils import (
     paginate_query,
     resolve_sort,
 )
-from app.db.session import SessionLocal
 from app.deps.auth import Role, User, db_with_org, require_role
 from app.schemas.certificados import CertificadoListResponse
-from app.services.certificados_ingest import ingest_certificados
+from app.worker.jobs_certificados import ingest_certificados_full
+from app.worker.queue import enqueue_unique
 
 
 logger = logging.getLogger(__name__)
 
 # Diretório padrão dos .pfx; pode ser sobrescrito por variável de ambiente
 CERTIFICADOS_DIR_ENV = "ECONTROLE_CERTIFICADOS_DIR"
+CERTIFICADOS_ROOT_ENV = "CERTIFICADOS_ROOT"
 DEFAULT_CERTIFICADOS_DIR = r"G:\CERTIFICADOS DIGITAIS"
 
 router = APIRouter(prefix="/certificados", tags=["Certificados"])
@@ -64,7 +65,6 @@ def listar_certificados(
 
 @router.post("/ingest")
 def disparar_ingest_certificados(
-    background_tasks: BackgroundTasks,
     current_user: User = Depends(require_role(Role.ADMIN)),
 ) -> dict:
     """
@@ -74,30 +74,21 @@ def disparar_ingest_certificados(
     fazendo upsert em `certificados` e refletindo em `v_certificados_status`.
     """
 
-    certificados_dir = os.environ.get(CERTIFICADOS_DIR_ENV, DEFAULT_CERTIFICADOS_DIR)
+    certificados_dir = os.environ.get(
+        CERTIFICADOS_ROOT_ENV, os.environ.get(CERTIFICADOS_DIR_ENV, DEFAULT_CERTIFICADOS_DIR)
+    )
     org_id = str(current_user.org_id)
+    job_id = f"cert:ingest_full:{org_id}"
 
-    def job(dir_path: str, org_id_: str) -> None:
-        db = SessionLocal()
-        try:
-            processed = ingest_certificados(dir_path, org_id_, db)
-            logger.info(
-                "Ingestão de certificados finalizada: org_id=%s dir=%s processed=%s",
-                org_id_,
-                dir_path,
-                processed,
-            )
-        except Exception:
-            logger.exception(
-                "Erro ao ingerir certificados: org_id=%s dir=%s", org_id_, dir_path
-            )
-            db.rollback()
-        finally:
-            db.close()
-
-    background_tasks.add_task(job, certificados_dir, org_id)
+    job = enqueue_unique(
+        ingest_certificados_full,
+        job_id=job_id,
+        kwargs={"org_id": org_id, "certificados_dir": certificados_dir},
+    )
 
     return {
-        "message": "Ingestão de certificados agendada",
+        "queued": True,
+        "job_id": job.id if job else job_id,
+        "message": "Ingest de certificados enfileirado",
         "certificados_dir": certificados_dir,
     }
