@@ -10,10 +10,20 @@ depends_on = None
 
 
 def upgrade():
-    with op.batch_alter_table("taxas") as batch_op:
-        batch_op.add_column(sa.Column("vencimento_tpi", sa.Date(), nullable=True))
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("taxas")}
+
+    if "vencimento_tpi" not in columns:
+        with op.batch_alter_table("taxas") as batch_op:
+            batch_op.add_column(sa.Column("vencimento_tpi", sa.Date(), nullable=True))
 
 
 def downgrade():
-    with op.batch_alter_table("taxas") as batch_op:
-        batch_op.drop_column("vencimento_tpi")
+    bind = op.get_bind()
+    inspector = sa.inspect(bind)
+    columns = {col["name"] for col in inspector.get_columns("taxas")}
+
+    if "vencimento_tpi" in columns:
+        with op.batch_alter_table("taxas") as batch_op:
+            batch_op.drop_column("vencimento_tpi")
