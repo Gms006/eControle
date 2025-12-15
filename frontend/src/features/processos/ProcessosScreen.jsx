@@ -381,145 +381,150 @@ export default function ProcessosScreen({
   return (
     <>
       <div className="mt-4 space-y-3">
-      {processosByTipo.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
-          Nenhum processo correspondente ao filtro.
-        </div>
-      ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
-          {processosByTipo.map((tipo) => {
-            const Icon = PROCESS_TYPE_ICON[tipo.key] || Settings;
-            const columns = [...baseColumns, ...resolveExtraColumns(tipo.tipoBase)];
-            const sortState = sortByTipo[tipo.key];
-            const registrosOrdenados = sortRows(tipo.registros, sortState, columns);
+        {processosByTipo.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
+            Nenhum processo correspondente ao filtro.
+          </div>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {processosByTipo.map((tipo) => {
+              const Icon = PROCESS_TYPE_ICON[tipo.key] || Settings;
+              const columns = [...baseColumns, ...resolveExtraColumns(tipo.tipoBase)];
+              const sortState = sortByTipo[tipo.key];
+              const registrosOrdenados = sortRows(tipo.registros, sortState, columns);
 
-            return (
-              <Card
-                key={tipo.key}
-                className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm"
-              >
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span>{tipo.display}</span>
-                    <InlineBadge variant="outline" className="bg-white text-slate-600">
-                      {registrosOrdenados.length}
-                    </InlineBadge>
-                  </CardTitle>
-                </CardHeader>
+              return (
+                <Card
+                  key={tipo.key}
+                  className="flex h-[560px] flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
+                  <CardHeader className="flex flex-row items-center justify-between border-b border-slate-100 px-6 py-4">
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-100 text-slate-700">
+                        <Icon className="h-4 w-4" />
+                      </span>
+                      <span>{tipo.display}</span>
+                      <InlineBadge variant="outline" className="bg-white text-slate-600">
+                        {registrosOrdenados.length}
+                      </InlineBadge>
+                    </CardTitle>
+                  </CardHeader>
 
-                <CardContent className="p-0">
-                  <ScrollArea className="max-h-[420px]">
-                    <Table>
-                      <TableHeader className="sticky top-0 z-10 bg-slate-50/90 backdrop-blur">
-                        <TableRow className="shadow-[0_1px_0_rgba(15,23,42,0.06)]">
-                          {columns.map((col) => {
-                            const isActive = sortState?.column === col.id;
-                            const direction = isActive ? sortState?.direction : undefined;
-
-                            return (
-                              <TableHead key={col.id} className="align-middle">
-                                {col.sortable ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => setSortByTipo((state) => toggleSort(state, tipo.key, col.id))}
-                                    className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition-colors hover:text-slate-900"
-                                  >
-                                    {col.label}
-                                    {renderSortIcon(isActive, direction)}
-                                  </button>
-                                ) : (
-                                  <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
-                                    {col.label}
-                                  </span>
-                                )}
-                              </TableHead>
-                            );
-                          })}
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {registrosOrdenados.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={columns.length} className="text-sm text-slate-500">
-                              Nenhum registro para este tipo.
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          registrosOrdenados.map((proc, index) => (
-                            <TableRow
-                              key={`${tipo.key}-${proc.empresa_id ?? proc.empresa}-${proc.protocolo ?? index}`}
-                              className="hover:bg-slate-50/60"
-                            >
+                  <CardContent className="flex-1 p-0">
+                    <div className="flex-1 overflow-auto px-0">
+                      <div className="w-max min-w-full">
+                        <Table className="w-max min-w-full">
+                          <TableHeader className="sticky top-0 z-10 bg-white/95 backdrop-blur border-b border-slate-200">
+                            <TableRow className="shadow-[0_1px_0_rgba(15,23,42,0.06)]">
                               {columns.map((col) => {
-                                let content = normalizeText(proc?.[col.id]).trim() || "—";
-                                const resolvedObs = resolveObsValue(proc);
-
-                                if (col.id === "empresa") {
-                                  content = renderCompany(proc, handleCopy);
-                                } else if (col.id === "protocolo") {
-                                  content = normalizeIdentifier(proc?.protocolo) || "—";
-                                } else if (col.isDate) {
-                                  content = formatProcessDate(proc?.[col.id]);
-                                } else if (col.id === "municipio") {
-                                  content = renderMunicipio(proc);
-                                } else if (col.id === "situacao" || col.isStatus) {
-                                  content = renderStatus(proc?.[col.id]);
-                                } else if (col.id === "obs") {
-                                  content = (
-                                    <button
-                                      type="button"
-                                      onClick={() => openObsDrawer(proc)}
-                                      className="inline-flex w-full max-w-xs items-start gap-2 text-left text-slate-700 transition-colors hover:text-slate-900"
-                                    >
-                                      {renderObsSnippet(resolvedObs)}
-                                    </button>
-                                  );
-                                } else if (col.id === "area_m2") {
-                                  const area = normalizeText(proc?.area_m2).trim();
-                                  content = area ? `${area} m²` : "—";
-                                } else if (col.id === "operacao") {
-                                  content = renderChip(proc?.operacao || proc?.diversosOperacaoLabel);
-                                } else if (col.id === "orgao") {
-                                  content = renderChip(proc?.orgao);
-                                } else if (col.id === "alvara") {
-                                  content = renderChip(proc?.alvara);
-                                } else if (col.id === "servico") {
-                                  content = renderChip(proc?.servico);
-                                } else if (col.id === "notificacao") {
-                                  content = renderChip(proc?.notificacao);
-                                } else if (col.id === "tpi_sync_status") {
-                                  content = renderStatus(proc?.tpi_sync_status ?? proc?.tpi);
-                                } else if (col.id === "taxa_sanitaria_sync_status") {
-                                  content = renderStatus(proc?.taxa_sanitaria_sync_status ?? proc?.taxa);
-                                } else if (col.id === "alvara_sanitario_status") {
-                                  content = renderStatus(proc?.alvara_sanitario_status);
-                                } else if (col.id === "alvara_sanitario_validade") {
-                                  content = formatProcessDate(proc?.alvara_sanitario_validade);
-                                } else if (col.id === "inscricao_imobiliaria") {
-                                  content = normalizeIdentifier(proc?.inscricao_imobiliaria) || "—";
-                                }
+                                const isActive = sortState?.column === col.id;
+                                const direction = isActive ? sortState?.direction : undefined;
 
                                 return (
-                                  <TableCell key={col.id} className="align-top text-xs text-slate-700">
-                                    {content}
-                                  </TableCell>
+                                  <TableHead
+                                    key={col.id}
+                                    className="whitespace-nowrap px-4 py-3 align-middle text-xs font-semibold uppercase tracking-wide text-slate-600"
+                                  >
+                                    {col.sortable ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => setSortByTipo((state) => toggleSort(state, tipo.key, col.id))}
+                                        className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition-colors hover:text-slate-900"
+                                      >
+                                        {col.label}
+                                        {renderSortIcon(isActive, direction)}
+                                      </button>
+                                    ) : (
+                                      <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                                        {col.label}
+                                      </span>
+                                    )}
+                                  </TableHead>
                                 );
                               })}
                             </TableRow>
-                          ))
-                        )}
-                      </TableBody>
-                    </Table>
-                  </ScrollArea>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                          </TableHeader>
+                          <TableBody>
+                            {registrosOrdenados.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={columns.length} className="text-sm text-slate-500">
+                                  Nenhum registro para este tipo.
+                                </TableCell>
+                              </TableRow>
+                            ) : (
+                              registrosOrdenados.map((proc, index) => (
+                                <TableRow
+                                  key={`${tipo.key}-${proc.empresa_id ?? proc.empresa}-${proc.protocolo ?? index}`}
+                                  className="hover:bg-slate-50/60"
+                                >
+                                  {columns.map((col) => {
+                                    let content = normalizeText(proc?.[col.id]).trim() || "—";
+                                    const resolvedObs = resolveObsValue(proc);
+
+                                    if (col.id === "empresa") {
+                                      content = renderCompany(proc, handleCopy);
+                                    } else if (col.id === "protocolo") {
+                                      content = normalizeIdentifier(proc?.protocolo) || "—";
+                                    } else if (col.isDate) {
+                                      content = formatProcessDate(proc?.[col.id]);
+                                    } else if (col.id === "municipio") {
+                                      content = renderMunicipio(proc);
+                                    } else if (col.id === "situacao" || col.isStatus) {
+                                      content = renderStatus(proc?.[col.id]);
+                                    } else if (col.id === "obs") {
+                                      content = (
+                                        <button
+                                          type="button"
+                                          onClick={() => openObsDrawer(proc)}
+                                          className="inline-flex w-full max-w-xs items-start gap-2 text-left text-slate-700 transition-colors hover:text-slate-900"
+                                        >
+                                          {renderObsSnippet(resolvedObs)}
+                                        </button>
+                                      );
+                                    } else if (col.id === "area_m2") {
+                                      const area = normalizeText(proc?.area_m2).trim();
+                                      content = area ? `${area} m²` : "—";
+                                    } else if (col.id === "operacao") {
+                                      content = renderChip(proc?.operacao || proc?.diversosOperacaoLabel);
+                                    } else if (col.id === "orgao") {
+                                      content = renderChip(proc?.orgao);
+                                    } else if (col.id === "alvara") {
+                                      content = renderChip(proc?.alvara);
+                                    } else if (col.id === "servico") {
+                                      content = renderChip(proc?.servico);
+                                    } else if (col.id === "notificacao") {
+                                      content = renderChip(proc?.notificacao);
+                                    } else if (col.id === "tpi_sync_status") {
+                                      content = renderStatus(proc?.tpi_sync_status ?? proc?.tpi);
+                                    } else if (col.id === "taxa_sanitaria_sync_status") {
+                                      content = renderStatus(proc?.taxa_sanitaria_sync_status ?? proc?.taxa);
+                                    } else if (col.id === "alvara_sanitario_status") {
+                                      content = renderStatus(proc?.alvara_sanitario_status);
+                                    } else if (col.id === "alvara_sanitario_validade") {
+                                      content = formatProcessDate(proc?.alvara_sanitario_validade);
+                                    } else if (col.id === "inscricao_imobiliaria") {
+                                      content = normalizeIdentifier(proc?.inscricao_imobiliaria) || "—";
+                                    }
+
+                                    return (
+                                      <TableCell key={col.id} className="align-top text-xs text-slate-700">
+                                        {content}
+                                      </TableCell>
+                                    );
+                                  })}
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {obsDrawer.open && obsDrawer.processo && (
