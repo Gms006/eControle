@@ -18,6 +18,7 @@ import CopyableIdentifier from "@/components/CopyableIdentifier";
 import { Mail, Phone, Clipboard, ExternalLink, File, Loader2 } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { DEFAULT_CERTIFICADO_SITUACAO } from "@/lib/certificados";
+import { cn } from "@/lib/utils";
 import {
   getStatusKey,
   hasRelevantStatus,
@@ -53,6 +54,7 @@ const resolveApiBaseUrl = () => {
 };
 
 const API_BASE_URL = resolveApiBaseUrl();
+const VIEW_MODE_KEY = "econtrole.empresas.viewMode";
 
 const ensureAbsoluteUrl = (url) => {
   if (!url) return url;
@@ -78,6 +80,23 @@ export default function EmpresasScreen({
   enqueueToast,
 }) {
   const toast = (msg) => enqueueToast?.(msg);
+
+  const [viewMode, setViewMode] = React.useState(() => {
+    if (typeof window === "undefined") {
+      return "compact";
+    }
+
+    const stored = window.localStorage.getItem(VIEW_MODE_KEY);
+    return stored === "detailed" ? "detailed" : "compact";
+  });
+
+  React.useEffect(() => {
+    if (typeof window === "undefined") {
+      return;
+    }
+
+    window.localStorage.setItem(VIEW_MODE_KEY, viewMode);
+  }, [viewMode]);
 
   const [cndCache, setCndCache] = React.useState({});
   const cndCacheRef = React.useRef(cndCache);
@@ -247,11 +266,40 @@ export default function EmpresasScreen({
 
   return (
     <>
-      <div className="flex items-center justify-between text-sm text-slate-600">
+      <div className="flex flex-wrap items-center justify-between gap-3 text-sm text-slate-600">
         <span>
           {filteredEmpresas.length} de {empresas.length} empresas exibidas
         </span>
-        {soAlertas && <Chip variant="warning">Modo alertas ativo</Chip>}
+        <div className="flex items-center gap-3">
+          {soAlertas && <Chip variant="warning">Modo alertas ativo</Chip>}
+
+          <div className="inline-flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200/60">
+            <button
+              type="button"
+              onClick={() => setViewMode("compact")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-lg transition",
+                viewMode === "compact"
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              Compacto
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode("detailed")}
+              className={cn(
+                "px-3 py-1.5 text-xs font-medium rounded-lg transition",
+                viewMode === "detailed"
+                  ? "bg-white shadow-sm text-slate-900"
+                  : "text-slate-600 hover:text-slate-900"
+              )}
+            >
+              Detalhado
+            </button>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
@@ -290,289 +338,38 @@ export default function EmpresasScreen({
           const inscricaoMunicipalRaw = empresa.inscricaoMunicipal || empresa.im || "";
           const hasValidIM = Boolean(normalizeIM(inscricaoMunicipalRaw));
           const cndEntry = cndCache[cnpjDigits] || {};
-          const cndLoading = Boolean(cndEntry.loading);
           const cndItems = Array.isArray(cndEntry.items) ? cndEntry.items : [];
           const hasCND = cndItems.length > 0;
           const caeFiles = cndItems.filter((item) =>
             item?.name?.startsWith("CAE - ")
           );
           const lastCAE = caeFiles[0];
+          const cardKey =
+            empresa.id ?? empresaId ?? rawId ?? `${empresa.empresa}-${empresa.cnpj}`;
 
           return (
-            <Card key={empresa.id} className="overflow-hidden">
-              <CardContent className="p-0 space-y-3">
-                <div className="flex items-start gap-3">
-                  <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
-                    {avatarLabel}
-                  </div>
-                  <div className="flex-1 min-w-0 p-4 pb-0">
-                    <div className="flex items-start justify-between gap-2">
-                      <div>
-                        <h3 className="text-base font-semibold leading-tight text-slate-800">
-                          {empresa.empresa}
-                        </h3>
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
-                          <CopyableIdentifier label="CNPJ" value={empresa.cnpj} onCopy={handleCopy} />
-                          <span className="text-slate-300">•</span>
-                          <CopyableIdentifier label="IE" value={empresa.ie} onCopy={handleCopy} />
-                          <span className="text-slate-300">•</span>
-                          <CopyableIdentifier label="IM" value={empresa.im} onCopy={handleCopy} />
-                          <span className="text-slate-400">• {empresa.municipio}</span>
-                        </div>
-                      </div>
-                      <StatusBadge status={empresa.situacao || "Ativa"} />
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap gap-2 text-xs text-slate-600">
-                      <Chip>Categoria: {empresa.categoria || "—"}</Chip>
-                      <Chip
-                        variant={getStatusKey(empresa.certificado).includes("valido") ? "success" : "danger"}
-                      >
-                        Certificado: {empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO}
-                      </Chip>
-                      <Chip
-                        variant={getStatusKey(empresa.debito).includes("sem debit") ? "success" : "neutral"}
-                        size={getStatusKey(empresa.debito).includes("sem debit") ? "md" : "sm"}
-                      >
-                        Débito: {empresa.debito}
-                      </Chip>
-                      {empresa.responsavelFiscal && (
-                        <Chip>Resp. fiscal: {empresa.responsavelFiscal}</Chip>
-                      )}
-                      {empresa.municipio && <Chip>Município: {empresa.municipio}</Chip>}
-                    </div>
-
-                    <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold uppercase text-slate-500">Contatos</p>
-                        <p>
-                          Telefone: <span className="font-medium">{empresa.telefone || "—"}</span>
-                        </p>
-                        <p>
-                          E-mail: <span className="font-medium">{empresa.email || "—"}</span>
-                        </p>
-                      </div>
-                      <div className="space-y-1">
-                        <p className="text-[11px] font-semibold uppercase text-slate-500">Responsáveis</p>
-                        <p>
-                          Legal: <span className="font-medium">{empresa.responsavelLegal || "—"}</span>
-                        </p>
-                        <p>
-                          CPF resp. legal: <span className="font-medium">{empresa.cpfResponsavelLegal || "—"}</span>
-                        </p>
-                        <p>
-                          Fiscal: <span className="font-medium">{empresa.responsavelFiscal || "—"}</span>
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="grid grid-cols-2 gap-3 text-xs px-4 pb-2">
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    <p className="text-[11px] uppercase text-slate-500 font-semibold">Licenças</p>
-                    <div className="mt-1 flex items-end gap-2 text-slate-800">
-                      <span className="text-2xl font-semibold">{licSummary.total}</span>
-                      <div className="space-y-0.5 text-[11px] text-slate-600">
-                        <p>Ativas: {licSummary.ativas}</p>
-                        <p>Vencendo: {licSummary.vencendo}</p>
-                        <p>Vencidas: {licSummary.vencidas}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-slate-200 bg-white p-3">
-                    <p className="text-[11px] uppercase text-slate-500 font-semibold">Processos</p>
-                    <div className="mt-1 flex items-end gap-2 text-slate-800">
-                      <span className="text-2xl font-semibold">{processosEmpresa.length}</span>
-                      <div className="space-y-0.5 text-[11px] text-slate-600">
-                        <p>Ativos: {processosAtivosEmpresa.length}</p>
-                        <p>Encerrados: {processosEmpresa.length - processosAtivosEmpresa.length}</p>
-                        <p>
-                          Taxas pend.:
-                          {taxa
-                            ? TAXA_TYPE_KEYS.filter((key) => isAlertStatus(taxa?.[key])).length
-                            : 0}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <Separator />
-
-                <div className="flex flex-wrap gap-2 px-4 pb-4">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleCopy(empresa.email, `E-mail copiado: ${empresa.email}`)}
-                    className="text-xs"
-                  >
-                    <Mail className="h-3.5 w-3.5 mr-1" /> Copiar e-mail
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() =>
-                      handleCopy(empresa.telefone, `Telefone copiado: ${empresa.telefone}`)
-                    }
-                    className="text-xs"
-                  >
-                    <Phone className="h-3.5 w-3.5 mr-1" /> Copiar telefone
-                  </Button>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" className="text-xs">
-                        <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
-                      </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent align="end" className="w-72">
-                      <DropdownMenuLabel>Ações</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItemFancy
-                        icon={ExternalLink}
-                        title={
-                          <span className="inline-flex items-center">
-                            Cartão CNPJ <MiniBadge>RFB</MiniBadge>
-                          </span>
-                        }
-                        description="Ir para site da RFB."
-                        hint={<Kbd>Ctrl</Kbd>}
-                        disabled={!hasValidCnpj}
-                        onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
-                      />
-
-                      <DropdownMenuItemFancy
-                        icon={ExternalLink}
-                        title={
-                          <span className="inline-flex items-center">
-                            CND Municipal <MiniBadge>PM</MiniBadge>
-                          </span>
-                        }
-                        description="Emitir a partir do portal da Prefeitura."
-                        hint={<Kbd>Ctrl</Kbd>}
-                        disabled={!municipioInformado || !hasValidCnpj}
-                        onClick={(event) => {
-                          const originalEvent = event?.detail?.originalEvent;
-                          const abrirPortal = Boolean(
-                            originalEvent?.ctrlKey || originalEvent?.metaKey
-                          );
-                          emitirCNDMunicipal(empresa.cnpj, empresa.municipio, abrirPortal);
-                        }}
-                      />
-
-                      <DropdownMenuItemFancy
-                        icon={ExternalLink}
-                        title={
-                          <span className="inline-flex items-center">
-                            CAE/FIC <MiniBadge>IM</MiniBadge>
-                          </span>
-                        }
-                        description="Emitir a CAE/FIC de Anápolis."
-                        hint={<Kbd>Ctrl</Kbd>}
-                        disabled={
-                          !municipioAnapolis || !hasValidIM || !hasValidCnpj
-                        }
-                        onClick={(event) => handleEmitirCAE(event, empresa)}
-                      />
-
-                      {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <DropdownMenu
-                    onOpenChange={(open) => {
-                      if (open) {
-                        ensureCNDs(empresa.cnpj);
-                      }
-                    }}
-                  >
-                    <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline" className="text-xs">
-                        <File className="h-3.5 w-3.5 mr-1" /> Certidões
-                      </Button>
-                    </DropdownMenuTrigger>
-
-                    <DropdownMenuContent align="end" className="w-72">
-                      <DropdownMenuLabel>Certidões</DropdownMenuLabel>
-                      <DropdownMenuSeparator />
-
-                      <DropdownMenuItemFancy
-                        icon={File}
-                        title="CND Municipal"
-                        description="Abrir a última CND emitida."
-                        disabled={cndLoading || !hasCND}
-                        hint={
-                          cndLoading ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
-                          ) : undefined
-                        }
-                        onClick={async () => {
-                          let lista = cndEntry.items;
-                          if (!Array.isArray(lista) || lista.length === 0) {
-                            lista = await ensureCNDs(empresa.cnpj, { force: true });
-                          }
-
-                          if (!lista || lista.length === 0) {
-                            toast?.("Nenhuma CND encontrada para esta empresa.");
-                            return;
-                          }
-
-                          const url = lista[0]?.url;
-                          if (url) {
-                            window.open(ensureAbsoluteUrl(url), "_blank", "noopener,noreferrer");
-                          } else {
-                            toast?.("Não foi possível localizar o arquivo da CND.");
-                          }
-                        }}
-                      />
-
-                      <DropdownMenuItemFancy
-                        icon={File}
-                        title="CAE (Anápolis)"
-                        description="Abrir a última CAE emitida."
-                        disabled={cndLoading || !lastCAE}
-                        hint={
-                          cndLoading ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
-                          ) : undefined
-                        }
-                        onClick={async () => {
-                          let lista = cndEntry.items;
-                          if (!Array.isArray(lista) || lista.length === 0) {
-                            lista = await ensureCNDs(empresa.cnpj, { force: true });
-                          }
-
-                          const arquivosCAE = Array.isArray(lista)
-                            ? lista.filter((item) => item?.name?.startsWith("CAE - "))
-                            : [];
-
-                          if (!arquivosCAE.length) {
-                            toast?.("Nenhuma CAE encontrada para esta empresa.");
-                            return;
-                          }
-
-                          const arquivo = arquivosCAE[0];
-                          if (arquivo?.url) {
-                            window.open(
-                              ensureAbsoluteUrl(arquivo.url),
-                              "_blank",
-                              "noopener,noreferrer"
-                            );
-                          } else {
-                            toast?.("Não foi possível localizar o arquivo da CAE.");
-                          }
-                        }}
-                      />
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardContent>
-            </Card>
+            <EmpresaCard
+              key={cardKey}
+              avatarLabel={avatarLabel}
+              cndEntry={cndEntry}
+              empresa={empresa}
+              ensureCNDs={ensureCNDs}
+              emitirCNDMunicipal={emitirCNDMunicipal}
+              handleCopy={handleCopy}
+              handleEmitirCAE={handleEmitirCAE}
+              hasCND={hasCND}
+              hasValidCnpj={hasValidCnpj}
+              hasValidIM={hasValidIM}
+              lastCAE={lastCAE}
+              licSummary={licSummary}
+              municipioAnapolis={municipioAnapolis}
+              municipioInformado={municipioInformado}
+              processosAtivosEmpresa={processosAtivosEmpresa}
+              processosEmpresa={processosEmpresa}
+              taxa={taxa}
+              toast={toast}
+              viewMode={viewMode}
+            />
           );
         })}
 
@@ -585,5 +382,405 @@ export default function EmpresasScreen({
         )}
       </div>
     </>
+  );
+}
+
+function EmpresaCard({
+  avatarLabel,
+  cndEntry,
+  empresa,
+  emitirCNDMunicipal,
+  ensureCNDs,
+  handleCopy,
+  handleEmitirCAE,
+  hasCND,
+  hasValidCnpj,
+  hasValidIM,
+  lastCAE,
+  licSummary,
+  municipioAnapolis,
+  municipioInformado,
+  processosAtivosEmpresa,
+  processosEmpresa,
+  taxa,
+  toast,
+  viewMode,
+}) {
+  const isCompact = viewMode === "compact";
+  const cndLoading = Boolean(cndEntry?.loading);
+
+  const contactItems = [];
+  if (empresa.telefone) contactItems.push({ label: "Telefone", value: empresa.telefone });
+  if (empresa.email) contactItems.push({ label: "E-mail", value: empresa.email });
+
+  const responsavelItems = [];
+  if (empresa.responsavelLegal)
+    responsavelItems.push({ label: "Legal", value: empresa.responsavelLegal });
+  if (empresa.cpfResponsavelLegal)
+    responsavelItems.push({ label: "CPF resp. legal", value: empresa.cpfResponsavelLegal });
+  if (empresa.responsavelFiscal)
+    responsavelItems.push({ label: "Fiscal", value: empresa.responsavelFiscal });
+
+  const showContacts = viewMode === "detailed" && contactItems.length > 0;
+  const showResponsaveis = viewMode === "detailed" && responsavelItems.length > 0;
+
+  return (
+    <Card className="overflow-hidden bg-white rounded-2xl border border-slate-200/60 shadow-sm transition hover:shadow-md">
+      <CardContent className={cn("p-0", isCompact ? "space-y-2" : "space-y-3")}>
+        <div className={cn("flex items-start", isCompact ? "gap-2" : "gap-3")}>
+          <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
+            {avatarLabel}
+          </div>
+          <div className={cn("flex-1 min-w-0 p-4", isCompact ? "pb-0" : "pb-1")}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-base font-semibold leading-tight text-slate-800">{empresa.empresa}</h3>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+                  <CopyableIdentifier label="CNPJ" value={empresa.cnpj} onCopy={handleCopy} />
+                  <span className="text-slate-300">•</span>
+                  <CopyableIdentifier label="IE" value={empresa.ie} onCopy={handleCopy} />
+                  <span className="text-slate-300">•</span>
+                  <CopyableIdentifier label="IM" value={empresa.im} onCopy={handleCopy} />
+                  <span className="text-slate-400">• {empresa.municipio}</span>
+                </div>
+              </div>
+              <StatusBadge status={empresa.situacao || "Ativa"} />
+            </div>
+
+            <div
+              className={cn(
+                "mt-2 flex flex-wrap text-xs text-slate-600",
+                isCompact ? "gap-1.5" : "gap-2"
+              )}
+            >
+              <Chip>Categoria: {empresa.categoria || "—"}</Chip>
+              <Chip
+                variant={getStatusKey(empresa.certificado).includes("valido") ? "success" : "danger"}
+              >
+                Certificado: {empresa.certificado || DEFAULT_CERTIFICADO_SITUACAO}
+              </Chip>
+              <Chip
+                variant={getStatusKey(empresa.debito).includes("sem debit") ? "success" : "neutral"}
+                size={getStatusKey(empresa.debito).includes("sem debit") ? "md" : "sm"}
+              >
+                Débito: {empresa.debito}
+              </Chip>
+              {empresa.responsavelFiscal && <Chip>Resp. fiscal: {empresa.responsavelFiscal}</Chip>}
+              {empresa.municipio && <Chip>Município: {empresa.municipio}</Chip>}
+            </div>
+
+            {(showContacts || showResponsaveis) && (
+              <div className="mt-3 grid gap-2 text-xs text-slate-700 sm:grid-cols-2">
+                {showContacts && (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase text-slate-500">Contatos</p>
+                    {contactItems.map((item) => (
+                      <p key={item.label}>
+                        {item.label}: <span className="font-medium">{item.value}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+                {showResponsaveis && (
+                  <div className="space-y-1">
+                    <p className="text-[11px] font-semibold uppercase text-slate-500">Responsáveis</p>
+                    {responsavelItems.map((item) => (
+                      <p key={item.label}>
+                        {item.label}: <span className="font-medium">{item.value}</span>
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        <div
+          className={cn(
+            "grid grid-cols-2 text-xs", 
+            isCompact ? "gap-2 px-4 pb-2" : "gap-3 px-4 pb-3"
+          )}
+        >
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <p className="text-[11px] uppercase text-slate-500 font-semibold">Licenças</p>
+            <div className="mt-1 flex items-end gap-2 text-slate-800">
+              <span className="text-2xl font-semibold">{licSummary.total}</span>
+              <div className="space-y-0.5 text-[11px] text-slate-600">
+                <p>Ativas: {licSummary.ativas}</p>
+                <p>Vencendo: {licSummary.vencendo}</p>
+                <p>Vencidas: {licSummary.vencidas}</p>
+              </div>
+            </div>
+          </div>
+          <div className="rounded-xl border border-slate-200 bg-white p-3">
+            <p className="text-[11px] uppercase text-slate-500 font-semibold">Processos</p>
+            <div className="mt-1 flex items-end gap-2 text-slate-800">
+              <span className="text-2xl font-semibold">{processosEmpresa.length}</span>
+              <div className="space-y-0.5 text-[11px] text-slate-600">
+                <p>Ativos: {processosAtivosEmpresa.length}</p>
+                <p>Encerrados: {processosEmpresa.length - processosAtivosEmpresa.length}</p>
+                <p>
+                  Taxas pend.:
+                  {taxa ? TAXA_TYPE_KEYS.filter((key) => isAlertStatus(taxa?.[key])).length : 0}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div
+          className={cn("flex flex-wrap gap-2 px-4", isCompact ? "pb-4 pt-1" : "pb-4 pt-2")}
+        >
+          {isCompact ? (
+            <>
+              {empresa.email && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleCopy(empresa.email, `E-mail copiado: ${empresa.email}`)}
+                  className="text-xs"
+                >
+                  <Mail className="h-3.5 w-3.5 mr-1" /> Copiar e-mail
+                </Button>
+              )}
+              {empresa.telefone && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() =>
+                    handleCopy(empresa.telefone, `Telefone copiado: ${empresa.telefone}`)
+                  }
+                  className="text-xs"
+                >
+                  <Phone className="h-3.5 w-3.5 mr-1" /> Copiar telefone
+                </Button>
+              )}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="text-xs">
+                    <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItemFancy
+                    icon={ExternalLink}
+                    title={
+                      <span className="inline-flex items-center">
+                        Cartão CNPJ <MiniBadge>RFB</MiniBadge>
+                      </span>
+                    }
+                    description="Ir para site da RFB."
+                    hint={<Kbd>Ctrl</Kbd>}
+                    disabled={!hasValidCnpj}
+                    onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
+                  />
+
+                  <DropdownMenuItemFancy
+                    icon={ExternalLink}
+                    title={
+                      <span className="inline-flex items-center">
+                        CND Municipal <MiniBadge>PM</MiniBadge>
+                      </span>
+                    }
+                    description="Emitir a partir do portal da Prefeitura."
+                    hint={<Kbd>Ctrl</Kbd>}
+                    disabled={!municipioInformado || !hasValidCnpj}
+                    onClick={(event) => {
+                      const originalEvent = event?.detail?.originalEvent;
+                      const abrirPortal = Boolean(originalEvent?.ctrlKey || originalEvent?.metaKey);
+                      emitirCNDMunicipal(empresa.cnpj, empresa.municipio, abrirPortal);
+                    }}
+                  />
+
+                  <DropdownMenuItemFancy
+                    icon={ExternalLink}
+                    title={
+                      <span className="inline-flex items-center">
+                        CAE/FIC <MiniBadge>IM</MiniBadge>
+                      </span>
+                    }
+                    description="Emitir a CAE/FIC de Anápolis."
+                    hint={<Kbd>Ctrl</Kbd>}
+                    disabled={!municipioAnapolis || !hasValidIM || !hasValidCnpj}
+                    onClick={(event) => handleEmitirCAE(event, empresa)}
+                  />
+
+                  {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleCopy(empresa.email, `E-mail copiado: ${empresa.email}`)}
+                className="text-xs"
+              >
+                <Mail className="h-3.5 w-3.5 mr-1" /> Copiar e-mail
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleCopy(empresa.telefone, `Telefone copiado: ${empresa.telefone}`)}
+                className="text-xs"
+              >
+                <Phone className="h-3.5 w-3.5 mr-1" /> Copiar telefone
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" className="text-xs">
+                    <Clipboard className="h-3.5 w-3.5 mr-1" /> Ações rápidas
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Ações</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItemFancy
+                    icon={ExternalLink}
+                    title={
+                      <span className="inline-flex items-center">
+                        Cartão CNPJ <MiniBadge>RFB</MiniBadge>
+                      </span>
+                    }
+                    description="Ir para site da RFB."
+                    hint={<Kbd>Ctrl</Kbd>}
+                    disabled={!hasValidCnpj}
+                    onClick={() => openCartaoCNPJ(empresa.cnpj, toast)}
+                  />
+
+                  <DropdownMenuItemFancy
+                    icon={ExternalLink}
+                    title={
+                      <span className="inline-flex items-center">
+                        CND Municipal <MiniBadge>PM</MiniBadge>
+                      </span>
+                    }
+                    description="Emitir a partir do portal da Prefeitura."
+                    hint={<Kbd>Ctrl</Kbd>}
+                    disabled={!municipioInformado || !hasValidCnpj}
+                    onClick={(event) => {
+                      const originalEvent = event?.detail?.originalEvent;
+                      const abrirPortal = Boolean(originalEvent?.ctrlKey || originalEvent?.metaKey);
+                      emitirCNDMunicipal(empresa.cnpj, empresa.municipio, abrirPortal);
+                    }}
+                  />
+
+                  <DropdownMenuItemFancy
+                    icon={ExternalLink}
+                    title={
+                      <span className="inline-flex items-center">
+                        CAE/FIC <MiniBadge>IM</MiniBadge>
+                      </span>
+                    }
+                    description="Emitir a CAE/FIC de Anápolis."
+                    hint={<Kbd>Ctrl</Kbd>}
+                    disabled={!municipioAnapolis || !hasValidIM || !hasValidCnpj}
+                    onClick={(event) => handleEmitirCAE(event, empresa)}
+                  />
+
+                  {/* próximos itens: CND Goiânia, CND Megasoft/Centi etc. */}
+                </DropdownMenuContent>
+              </DropdownMenu>
+
+              <DropdownMenu
+                onOpenChange={(open) => {
+                  if (open) {
+                    ensureCNDs(empresa.cnpj);
+                  }
+                }}
+              >
+                <DropdownMenuTrigger asChild>
+                  <Button size="sm" variant="outline" className="text-xs">
+                    <File className="h-3.5 w-3.5 mr-1" /> Certidões
+                  </Button>
+                </DropdownMenuTrigger>
+
+                <DropdownMenuContent align="end" className="w-72">
+                  <DropdownMenuLabel>Certidões</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuItemFancy
+                    icon={File}
+                    title="CND Municipal"
+                    description="Abrir a última CND emitida."
+                    disabled={cndLoading || !hasCND}
+                    hint={
+                      cndLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                      ) : undefined
+                    }
+                    onClick={async () => {
+                      let lista = cndEntry?.items;
+                      if (!Array.isArray(lista) || lista.length === 0) {
+                        lista = await ensureCNDs(empresa.cnpj, { force: true });
+                      }
+
+                      if (!lista || lista.length === 0) {
+                        toast?.("Nenhuma CND encontrada para esta empresa.");
+                        return;
+                      }
+
+                      const url = lista[0]?.url;
+                      if (url) {
+                        window.open(ensureAbsoluteUrl(url), "_blank", "noopener,noreferrer");
+                      } else {
+                        toast?.("Não foi possível localizar o arquivo da CND.");
+                      }
+                    }}
+                  />
+
+                  <DropdownMenuItemFancy
+                    icon={File}
+                    title="CAE (Anápolis)"
+                    description="Abrir a última CAE emitida."
+                    disabled={cndLoading || !lastCAE}
+                    hint={
+                      cndLoading ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-slate-400" />
+                      ) : undefined
+                    }
+                    onClick={async () => {
+                      let lista = cndEntry?.items;
+                      if (!Array.isArray(lista) || lista.length === 0) {
+                        lista = await ensureCNDs(empresa.cnpj, { force: true });
+                      }
+
+                      const arquivosCAE = Array.isArray(lista)
+                        ? lista.filter((item) => item?.name?.startsWith("CAE - "))
+                        : [];
+
+                      if (!arquivosCAE.length) {
+                        toast?.("Nenhuma CAE encontrada para esta empresa.");
+                        return;
+                      }
+
+                      const arquivo = arquivosCAE[0];
+                      if (arquivo?.url) {
+                        window.open(ensureAbsoluteUrl(arquivo.url), "_blank", "noopener,noreferrer");
+                      } else {
+                        toast?.("Não foi possível localizar o arquivo da CAE.");
+                      }
+                    }}
+                  />
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
