@@ -14,7 +14,15 @@ from app.api.v1.endpoints.utils import (
 )
 from app.core.config import settings
 from app.deps.auth import Role, User, db_with_org, require_role
-from app.schemas.processos import ProcessoCreate, ProcessoListResponse, ProcessoUpdate, ProcessoView
+from app.schemas.processos import (
+    ProcessoCreate,
+    ProcessoEnumsResponse,
+    ProcessoListResponse,
+    ProcessoObsHistoryItem,
+    ProcessoObsUpdate,
+    ProcessoUpdate,
+    ProcessoView,
+)
 from db.models_sql import Empresa, Processo
 
 router = APIRouter(prefix="/processos", tags=["Processos"])
@@ -35,6 +43,59 @@ VALID_ALVARAS = set(settings.get_enum_values("alvaras_funcionamento"))
 VALID_SERVICOS = set(settings.get_enum_values("servicos_sanitarios"))
 VALID_NOTIFICACOES = set(settings.get_enum_values("notificacoes_sanitarias"))
 
+ENUMS_RESPONSE = ProcessoEnumsResponse(
+    situacao_processo_enum=[
+        "AGUARD DOCTO",
+        "AGUARD PAGTO",
+        "EM ANÁLISE",
+        "PENDENTE",
+        "INDEFERIDO",
+        "CONCLUÍDO",
+        "LICENCIADO",
+        "NOTIFICAÇÃO",
+        "AGUARD VISTORIA",
+        "AGUARD REGULARIZAÇÃO",
+        "AGUARD LIBERAÇÃO",
+        "IR NA VISA",
+    ],
+    operacao_diversos_enum=[
+        "ALTERAÇÃO",
+        "INSCRIÇÃO",
+        "BAIXA",
+        "CANCEL DE TRIBUTOS",
+        "RESTITUIÇÃO",
+        "RETIFICAÇÃO",
+    ],
+    orgao_diversos_enum=[
+        "PREFEITURA",
+        "ANP",
+        "RFB",
+        "CARTÓRIO 2º TABELIONATO",
+    ],
+    alvara_funcionamento_enum=[
+        "CONDICIONADO",
+        "PROVISÓRIO",
+        "DEFINITIVO",
+    ],
+    servico_sanitario_enum=[
+        "1º ALVARÁ",
+        "RENOVAÇÃO",
+        "ATUALIZAÇÃO",
+    ],
+    notificacao_sanitaria_enum=[
+        "-",
+        "POSSUI PENDÊNCIAS",
+        "SEM PENDÊNCIAS",
+        "RESOLVIDAS",
+        "PEGAR ORIGINAL",
+    ],
+)
+
+
+@router.get("/enums", response_model=ProcessoEnumsResponse)
+def listar_enums(_: User = Depends(require_role(Role.VIEWER))) -> ProcessoEnumsResponse:
+    return ENUMS_RESPONSE
+
 
 def _fetch_processo_view(db: Session, processo_id: int) -> ProcessoView:
     query = text("SELECT * FROM v_processos_resumo WHERE processo_id = :processo_id")
@@ -42,6 +103,13 @@ def _fetch_processo_view(db: Session, processo_id: int) -> ProcessoView:
     if not row:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado")
     return ProcessoView(**row)
+
+
+def _get_processo_for_org(db: Session, processo_id: int, user: User) -> Processo:
+    processo = db.get(Processo, processo_id)
+    if not processo or str(processo.org_id) != user.org_id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Processo não encontrado")
+    return processo
 
 
 def _validate_optional(value: str | None, accepted: set[str]) -> str | None:
@@ -142,6 +210,42 @@ def atualizar_processo(
 
     for field, value in data.items():
         setattr(processo, field, value)
+    processo.updated_by = user.id
+    db.add(processo)
+    db.commit()
+    return _fetch_processo_view(db, processo.id)
+
+
+@router.get("/{processo_id}/obs-history", response_model=list[ProcessoObsHistoryItem])
+def listar_obs_history(
+    processo_id: int,
+    db: Session = Depends(db_with_org),
+    user: User = Depends(require_role(Role.VIEWER)),
+) -> list[ProcessoObsHistoryItem]:
+    _get_processo_for_org(db, processo_id, user)
+    rows = db.execute(
+        text(
+            """
+            SELECT id, org_id, processo_id, changed_at, changed_by, old_obs, new_obs
+            FROM processos_obs_history
+            WHERE org_id = :org_id AND processo_id = :processo_id
+            ORDER BY changed_at DESC
+            """
+        ),
+        {"org_id": user.org_id, "processo_id": processo_id},
+    ).mappings().all()
+    return [ProcessoObsHistoryItem(**row) for row in rows]
+
+
+@router.patch("/{processo_id}/obs", response_model=ProcessoView)
+def atualizar_obs(
+    processo_id: int,
+    payload: ProcessoObsUpdate,
+    db: Session = Depends(db_with_org),
+    user: User = Depends(require_role(Role.ADMIN)),
+) -> ProcessoView:
+    processo = _get_processo_for_org(db, processo_id, user)
+    processo.obs = payload.obs
     processo.updated_by = user.id
     db.add(processo)
     db.commit()
