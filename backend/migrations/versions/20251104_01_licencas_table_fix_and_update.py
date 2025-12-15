@@ -19,6 +19,7 @@ def upgrade():
     """Aplica normalizações de tipos, cria licenca_tipos e adiciona tipo_codigo."""
 
     conn = op.get_bind()
+    inspector = sa.inspect(conn)
 
     # 1) NORMALIZAÇÃO DOS TEXTOS EM licencas.tipo
     conn.execute(
@@ -88,36 +89,40 @@ def upgrade():
         )
     )
 
-    # 3) CRIAÇÃO DA TABELA licenca_tipos
-    op.create_table(
-        "licenca_tipos",
-        sa.Column("codigo", sa.Text(), primary_key=True),
-        sa.Column("nome", sa.Text(), nullable=False),
-        sa.Column("descricao", sa.Text(), nullable=True),
-        sa.Column("ativo", sa.Boolean(), nullable=False, server_default=sa.text("true")),
-    )
+    # 3) CRIAÇÃO DA TABELA licenca_tipos (idempotente)
+    licenca_tipos_exists = inspector.has_table("licenca_tipos")
+    if not licenca_tipos_exists:
+        op.create_table(
+            "licenca_tipos",
+            sa.Column("codigo", sa.Text(), primary_key=True),
+            sa.Column("nome", sa.Text(), nullable=False),
+            sa.Column("descricao", sa.Text(), nullable=True),
+            sa.Column("ativo", sa.Boolean(), nullable=False, server_default=sa.text("true")),
+        )
 
-    licenca_tipos_table = sa.table(
-        "licenca_tipos",
-        sa.column("codigo", sa.Text()),
-        sa.column("nome", sa.Text()),
-        sa.column("descricao", sa.Text()),
-        sa.column("ativo", sa.Boolean()),
-    )
+        licenca_tipos_table = sa.table(
+            "licenca_tipos",
+            sa.column("codigo", sa.Text()),
+            sa.column("nome", sa.Text()),
+            sa.column("descricao", sa.Text()),
+            sa.column("ativo", sa.Boolean()),
+        )
 
-    op.bulk_insert(
-        licenca_tipos_table,
-        [
-            {"codigo": "ALF", "nome": "ALVARÁ FUNCIONAMENTO", "descricao": None, "ativo": True},
-            {"codigo": "AVS", "nome": "ALVARÁ VIG SANITÁRIA", "descricao": None, "ativo": True},
-            {"codigo": "AMB", "nome": "LICENÇA AMBIENTAL", "descricao": None, "ativo": True},
-            {"codigo": "CUSOLO", "nome": "CERTIDÃO USO DO SOLO", "descricao": None, "ativo": True},
-            {"codigo": "CERCON", "nome": "ALVARÁ BOMBEIROS", "descricao": None, "ativo": True},
-        ],
-    )
+        op.bulk_insert(
+            licenca_tipos_table,
+            [
+                {"codigo": "ALF", "nome": "ALVARÁ FUNCIONAMENTO", "descricao": None, "ativo": True},
+                {"codigo": "AVS", "nome": "ALVARÁ VIG SANITÁRIA", "descricao": None, "ativo": True},
+                {"codigo": "AMB", "nome": "LICENÇA AMBIENTAL", "descricao": None, "ativo": True},
+                {"codigo": "CUSOLO", "nome": "CERTIDÃO USO DO SOLO", "descricao": None, "ativo": True},
+                {"codigo": "CERCON", "nome": "ALVARÁ BOMBEIROS", "descricao": None, "ativo": True},
+            ],
+        )
 
-    # 4) ADICIONA COLUNA tipo_codigo EM licencas
-    op.add_column("licencas", sa.Column("tipo_codigo", sa.Text(), nullable=True))
+    # 4) ADICIONA COLUNA tipo_codigo EM licencas (idempotente)
+    licencas_columns = {col["name"] for col in inspector.get_columns("licencas")}
+    if "tipo_codigo" not in licencas_columns:
+        op.add_column("licencas", sa.Column("tipo_codigo", sa.Text(), nullable=True))
 
     conn.execute(
         sa.text(
@@ -135,14 +140,16 @@ def upgrade():
         )
     )
 
-    # 5) CRIA CONSTRAINT DE FK licencas.tipo_codigo -> licenca_tipos.codigo
-    op.create_foreign_key(
-        "licencas_tipo_codigo_fkey",
-        source_table="licencas",
-        referent_table="licenca_tipos",
-        local_cols=["tipo_codigo"],
-        remote_cols=["codigo"],
-    )
+    # 5) CRIA CONSTRAINT DE FK licencas.tipo_codigo -> licenca_tipos.codigo (idempotente)
+    fk_names = {fk["name"] for fk in inspector.get_foreign_keys("licencas")}
+    if "licencas_tipo_codigo_fkey" not in fk_names:
+        op.create_foreign_key(
+            "licencas_tipo_codigo_fkey",
+            source_table="licencas",
+            referent_table="licenca_tipos",
+            local_cols=["tipo_codigo"],
+            remote_cols=["codigo"],
+        )
 
 
 def downgrade():
