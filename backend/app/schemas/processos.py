@@ -1,12 +1,33 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Optional
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.schemas.common import PaginatedResponse
+
+
+class ProcessoEnumsResponse(BaseModel):
+    situacao_processo_enum: list[str]
+    operacao_diversos_enum: list[str]
+    orgao_diversos_enum: list[str]
+    alvara_funcionamento_enum: list[str]
+    servico_sanitario_enum: list[str]
+    notificacao_sanitaria_enum: list[str]
+
+
+class ProcessoObsHistoryItem(BaseModel):
+    id: int
+    org_id: UUID
+    processo_id: int
+    changed_at: datetime
+    changed_by: UUID | None = None
+    old_obs: str | None = None
+    new_obs: str | None = None
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProcessoView(BaseModel):
@@ -75,5 +96,11 @@ class ProcessoUpdate(BaseModel):
     taxa: Optional[str] = None
     notificacao: Optional[str] = None
     data_val: Optional[date] = None
+
+    model_config = ConfigDict(extra="forbid")
+
+
+class ProcessoObsUpdate(BaseModel):
+    obs: Optional[str] = Field(...)
 
     model_config = ConfigDict(extra="forbid")
