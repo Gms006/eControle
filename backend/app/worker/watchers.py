@@ -15,6 +15,7 @@ from watchdog.observers import Observer
 
 from app.db.session import SessionLocal
 from app.services.licencas_ingest import resolve_empresa_id_por_dir
+from app.worker import jobs_certificados
 from app.worker.jobs_certificados import processar_certificado_por_arquivo
 from app.worker.jobs_licencas import reprocessar_licencas_por_empresa
 from app.worker.queue import enqueue_unique
@@ -56,21 +57,43 @@ class DebouncedHandler(FileSystemEventHandler):
 
 
 class CertificadosHandler(DebouncedHandler):
-    def __init__(self, org_id: str, debounce_seconds: float, max_events_per_minute: int | None):
+    def __init__(self, org_id: str, debounce_seconds: float, max_events_per_minute: int | None, certificados_root: str):
         super().__init__(debounce_seconds, max_events_per_minute)
         self.org_id = org_id
+        self.certificados_root = Path(certificados_root)
 
     def on_created(self, event: FileSystemEvent) -> None:  # noqa: D401
-        self._handle_event(event)
+        self._handle_created(event)
 
     def on_modified(self, event: FileSystemEvent) -> None:  # noqa: D401
-        self._handle_event(event)
+        self._handle_created(event)
 
-    def _handle_event(self, event: FileSystemEvent) -> None:
+    def on_deleted(self, event: FileSystemEvent) -> None:  # noqa: D401
+        self._handle_deleted(event)
+
+    def on_moved(self, event: FileSystemEvent) -> None:  # noqa: D401
+        self._handle_moved(event)
+
+    def _is_in_root(self, path: str) -> bool:
+        """Verifica se o arquivo está na raiz (sem subpastas)."""
+        try:
+            relative = Path(path).resolve().relative_to(self.certificados_root.resolve())
+            # Se tem partes, significa que está em subpasta
+            return len(relative.parts) == 1
+        except ValueError:
+            return False
+
+    def _handle_created(self, event: FileSystemEvent) -> None:
         if event.is_directory:
             return
         if not event.src_path.lower().endswith(".pfx"):
             return
+        
+        # Apenas processar se estiver na raiz
+        if not self._is_in_root(event.src_path):
+            logger.debug("Certificado em subpasta ignorado: %s", event.src_path)
+            return
+        
         path_norm = os.path.normpath(event.src_path)
         key = path_norm.lower()
         if self._should_skip(key):
@@ -83,6 +106,69 @@ class CertificadosHandler(DebouncedHandler):
             job_id=job_id,
             kwargs={"org_id": self.org_id, "caminho_arquivo": path_norm},
         )
+
+    def _handle_deleted(self, event: FileSystemEvent) -> None:
+        if event.is_directory:
+            return
+        if not event.src_path.lower().endswith(".pfx"):
+            return
+        
+        # Apenas processar se estava na raiz
+        if not self._is_in_root(event.src_path):
+            logger.debug("Deletado em subpasta ignorado: %s", event.src_path)
+            return
+        
+        path_norm = os.path.normpath(event.src_path)
+        key = path_norm.lower()
+        if self._should_skip(key):
+            return
+
+        job_id = f"cert_del:{self.org_id}:{sha1(key.encode()).hexdigest()}"
+        logger.info("Evento de deleção de certificado detectado: %s", path_norm)
+        enqueue_unique(
+            jobs_certificados.remover_certificado_por_caminho,
+            job_id=job_id,
+            kwargs={"org_id": self.org_id, "caminho_arquivo": path_norm},
+        )
+
+    def _handle_moved(self, event: FileSystemEvent) -> None:
+        if event.is_directory:
+            return
+        if not event.src_path.lower().endswith(".pfx"):
+            return
+        
+        path_norm = os.path.normpath(event.src_path)
+        dest_path = os.path.normpath(event.dest_path) if hasattr(event, 'dest_path') else None
+        
+        src_in_root = self._is_in_root(event.src_path)
+        dest_in_root = self._is_in_root(dest_path) if dest_path else False
+        
+        # Se saiu da raiz → remover
+        if src_in_root and not dest_in_root:
+            key = path_norm.lower()
+            if self._should_skip(key):
+                return
+            
+            job_id = f"cert_del:{self.org_id}:{sha1(key.encode()).hexdigest()}"
+            logger.info("Certificado movido para fora da raiz, enfileirando delete: %s -> %s", path_norm, dest_path)
+            enqueue_unique(
+                jobs_certificados.remover_certificado_por_caminho,
+                job_id=job_id,
+                kwargs={"org_id": self.org_id, "caminho_arquivo": path_norm},
+            )
+        # Se entrou na raiz → processar
+        elif not src_in_root and dest_in_root:
+            key = dest_path.lower()
+            if self._should_skip(key):
+                return
+            
+            job_id = f"cert:{self.org_id}:{sha1(key.encode()).hexdigest()}"
+            logger.info("Certificado movido para raiz, enfileirando processamento: %s -> %s", path_norm, dest_path)
+            enqueue_unique(
+                processar_certificado_por_arquivo,
+                job_id=job_id,
+                kwargs={"org_id": self.org_id, "caminho_arquivo": dest_path},
+            )
 
 
 class LicencasHandler(DebouncedHandler):
@@ -213,7 +299,7 @@ def start_certificados_watcher(
     rate_limit = _max_events_per_minute(max_events_per_minute)
     path = Path(certificados_root)
     logger.info(
-        "Watcher de certificados configurado: org_id=%s root=%s debounce=%ss rate_limit=%s",
+        "Watcher de certificados configurado: org_id=%s root=%s debounce=%ss rate_limit=%s (sem recursão)",
         org_resolvido,
         path,
         debounce,
@@ -221,9 +307,15 @@ def start_certificados_watcher(
     )
 
     def factory() -> FileSystemEventHandler:
-        return CertificadosHandler(org_resolvido, debounce, rate_limit)
+        return CertificadosHandler(org_resolvido, debounce, rate_limit, certificados_root)
 
-    return _start_observer(path, factory)
+    # Monitorar apenas a raiz (recursive=False)
+    handler = factory()
+    observer = Observer()
+    observer.schedule(handler, str(path), recursive=False)
+    observer.start()
+    logger.info("Watcher de certificados iniciado em %s (sem recursão)", path)
+    return observer
 
 
 def start_licencas_watcher(

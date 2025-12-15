@@ -4,7 +4,10 @@ import logging
 import os
 from pathlib import Path
 
+from sqlalchemy import delete
+
 from app.db.session import SessionLocal
+from app.models.certificados import Certificado
 from app.services.certificados_ingest import (
     ingest_certificado_arquivo,
     ingest_certificados,
@@ -52,7 +55,31 @@ def ingest_certificados_full(org_id: str, certificados_dir: str | None = None) -
         return {"processed": processed, "dir": dir_path}
 
 
+def remover_certificado_por_caminho(org_id: str, caminho_arquivo: str) -> dict[str, object]:
+    """Remove certificado do DB quando arquivo é deletado/movido para fora da raiz."""
+    logger.info("Removendo certificado: org_id=%s arquivo=%s", org_id, caminho_arquivo)
+    caminho_normalizado = str(Path(caminho_arquivo))
+    
+    with SessionLocal() as db:
+        # Procurar certificado pela organizacao e caminho
+        query = delete(Certificado).where(
+            (Certificado.org_id == org_id) & (Certificado.caminho == caminho_normalizado)
+        )
+        result = db.execute(query)
+        db.commit()
+        
+        deleted_count = result.rowcount
+        logger.info(
+            "Certificado removido: org_id=%s arquivo=%s deleted_count=%s",
+            org_id,
+            caminho_normalizado,
+            deleted_count,
+        )
+        return {"deleted_count": deleted_count, "caminho": caminho_normalizado}
+
+
 __all__ = [
     "processar_certificado_por_arquivo",
     "ingest_certificados_full",
+    "remover_certificado_por_caminho",
 ]
