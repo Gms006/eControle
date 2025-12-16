@@ -118,6 +118,28 @@ export const resolveStatusClass = (status) => {
   const key = removeDiacritics(trimmed.toLowerCase());
   const normalizedKey = key.replace(/\s+/g, " ").trim();
 
+  const palette = {
+    "aguard docto": { variant: "warning" },
+    "aguard pagto": { variant: "danger" },
+    "em analise": { variant: "warning" },
+    pendente: { variant: "neutral" },
+    indeferido: { variant: "danger", className: "bg-rose-100 text-rose-800 border-rose-200" },
+    concluido: { variant: "success" },
+    licenciado: { variant: "success" },
+    notificacao: { variant: "warning" },
+    "aguard vistoria": { variant: "warning" },
+    "aguard regularizacao": { variant: "danger" },
+    "aguard liberacao": { variant: "warning" },
+    "ir na visa": {
+      variant: "outline",
+      className: "border-blue-200 bg-blue-50 text-blue-700",
+    },
+  };
+
+  if (palette[normalizedKey]) {
+    return palette[normalizedKey];
+  }
+
   if (trimmed.includes("/")) {
     return { variant: "warning" };
   }
