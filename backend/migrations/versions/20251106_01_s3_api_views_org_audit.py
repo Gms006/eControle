@@ -161,7 +161,7 @@ def _create_views() -> None:
             p.situacao,
             p.status_padrao,
             p.prazo,
-            p.obs,
+            p.obs AS obs,
             p.operacao::text AS operacao,
             p.orgao::text AS orgao,
             p.alvara::text AS alvara,

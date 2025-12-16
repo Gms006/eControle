@@ -1,9 +1,9 @@
-"""Ensure processos view exposes enum columns"""
+"""Refresh processos view to expose obs explicitly"""
 
 from alembic import op
 
-revision = "20251220_00_processos_view_alias"
-down_revision = "20251216_00_merge_heads"
+revision = "20251227_00_processos_view_obs_alias"
+down_revision = "20251220_00_processos_view_alias"
 branch_labels = None
 depends_on = None
 
