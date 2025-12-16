@@ -42,6 +42,15 @@ class ProcessoView(BaseModel):
     situacao: str
     status_padrao: Optional[str] = None
     prazo: Optional[date] = None
+    obs: Optional[str] = None
+    operacao: Optional[str] = None
+    orgao: Optional[str] = None
+    alvara: Optional[str] = None
+    area_m2: Optional[float] = None
+    projeto: Optional[str] = None
+    inscricao_imobiliaria: Optional[str] = None
+    servico: Optional[str] = None
+    notificacao: Optional[str] = None
     status_cor: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True)
@@ -63,6 +72,8 @@ class ProcessoBase(BaseModel):
     operacao: Optional[str] = None
     orgao: Optional[str] = None
     alvara: Optional[str] = None
+    area_m2: Optional[float] = None
+    projeto: Optional[str] = None
     municipio: Optional[str] = None
     tpi: Optional[str] = None
     inscricao_imobiliaria: Optional[str] = None
@@ -89,6 +100,8 @@ class ProcessoUpdate(BaseModel):
     operacao: Optional[str] = None
     orgao: Optional[str] = None
     alvara: Optional[str] = None
+    area_m2: Optional[float] = None
+    projeto: Optional[str] = None
     municipio: Optional[str] = None
     tpi: Optional[str] = None
     inscricao_imobiliaria: Optional[str] = None
