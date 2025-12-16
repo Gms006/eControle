@@ -360,6 +360,7 @@ function AppContent() {
         const empresaId = extractEmpresaId(proc);
         const empresa = empresaId !== undefined ? empresasById.get(empresaId) : undefined;
         const empresaMunicipio = normalizeText(empresa?.municipio).trim();
+        const taxa = empresaId !== undefined ? taxasByEmpresa.get(empresaId) : undefined;
         const statusCandidates = [proc.status, proc.status_padrao, proc.situacao];
         const resolvedStatus = statusCandidates.find((value) => normalizeIdentifier(value));
         const tipoNormalizado = normalizeProcessType(proc);
@@ -384,9 +385,13 @@ function AppContent() {
           municipio: resolvedMunicipio,
           municipio_exibicao: resolvedMunicipioExibicao,
           status: resolvedStatus ?? proc.status ?? proc.status_padrao ?? proc.situacao,
+          tpi_sync_status: tipoBase === "Bombeiros" ? taxa?.tpi : undefined,
+          taxa_sanitaria_sync_status: tipoBase?.toLowerCase().includes("sanit")
+            ? taxa?.sanitaria
+            : undefined,
         };
       }),
-    [empresasById, processos],
+    [empresasById, processos, taxasByEmpresa],
   );
 
   const processosByEmpresa = useMemo(() => {
@@ -695,6 +700,7 @@ function AppContent() {
                 <ProcessosScreen
                   processosNormalizados={processosNormalizados}
                   modoFoco={modoFoco}
+                  soAlertas={somenteAlertas}
                   matchesMunicipioFilter={matchesMunicipioFilter}
                   matchesQuery={matchesQuery}
                   handleCopy={handleCopy}

@@ -39,6 +39,7 @@ const PROCESS_TYPE_DISPLAY = {
   DIVERSOS: "Diversos",
   USO_DO_SOLO: "Uso do Solo",
   SANITARIO: "Sanitário",
+  ALVARA_SANITARIO: "Alvará Sanitário",
 };
 
 const PROCESS_TYPE_ICON = {
@@ -47,6 +48,7 @@ const PROCESS_TYPE_ICON = {
   DIVERSOS: Settings,
   USO_DO_SOLO: MapPin,
   SANITARIO: Settings,
+  ALVARA_SANITARIO: Settings,
 };
 
 const normalizeTipoKey = (tipoBase) =>
@@ -61,6 +63,7 @@ const badgeBase =
 const tipoBadge = {
   SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
   "ALVARA SANITARIO": `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
+  ALVARA_SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
   CERCON: `${badgeBase} bg-amber-50 text-amber-700 ring-amber-200`,
   DIVERSOS: `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`,
   FUNCIONAMENTO: `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
@@ -86,6 +89,14 @@ const baseColumns = [
   { id: "obs", label: "OBS" },
 ];
 
+const sanitarioColumns = [
+  { id: "servico", label: "Serviço" },
+  { id: "notificacao", label: "Notificação" },
+  { id: "taxa_sanitaria_sync_status", label: "Taxa", isStatus: true },
+  { id: "alvara_sanitario_validade", label: "Validade", isDate: true },
+  { id: "alvara_sanitario_status", label: "Status validade", isStatus: true },
+];
+
 const extraColumnsByTipo = {
   DIVERSOS: [
     { id: "operacao", label: "Operação" },
@@ -98,13 +109,8 @@ const extraColumnsByTipo = {
     { id: "tpi_sync_status", label: "TPI", isStatus: true },
   ],
   USO_DO_SOLO: [{ id: "inscricao_imobiliaria", label: "Inscrição imobiliária" }],
-  SANITARIO: [
-    { id: "servico", label: "Serviço" },
-    { id: "taxa_sanitaria_sync_status", label: "Taxa", isStatus: true },
-    { id: "notificacao", label: "Notificação" },
-    { id: "alvara_sanitario_validade", label: "Validade", isDate: true },
-    { id: "alvara_sanitario_status", label: "Status validade", isStatus: true },
-  ],
+  SANITARIO: sanitarioColumns,
+  ALVARA_SANITARIO: sanitarioColumns,
 };
 
 const SORT_OPTIONS = [
@@ -227,6 +233,7 @@ const resolveTipoFromProcess = (proc) => {
 export default function ProcessosScreen({
   processosNormalizados,
   modoFoco,
+  soAlertas,
   matchesMunicipioFilter,
   matchesQuery,
   handleCopy,
@@ -294,9 +301,14 @@ export default function ProcessosScreen({
 
       const matchesFoco = modoFoco ? isProcessStatusActiveOrPending(proc.status) : true;
 
-      return matchesMunicipio && matchesBusca && matchesFoco;
+      const statusKey = removeDiacritics(normalizeText(proc?.situacao || proc?.status).toLowerCase());
+      const blockedByAlertMode =
+        soAlertas &&
+        ["pendente", "concluido", "licenciado"].some((keyword) => statusKey.includes(keyword));
+
+      return matchesMunicipio && matchesBusca && matchesFoco && !blockedByAlertMode;
     });
-  }, [matchesMunicipioFilter, matchesQuery, modoFoco, processosNormalizados]);
+  }, [matchesMunicipioFilter, matchesQuery, modoFoco, processosNormalizados, soAlertas]);
 
   const fetchObsHistory = useCallback(async (processoId) => {
     setLoadingHistory(true);
@@ -778,7 +790,12 @@ export default function ProcessosScreen({
                 });
               }
 
-              if (proc?.tipoBase === "Sanitário" || proc?.tipoKey === "SANITARIO") {
+              if (
+                proc?.tipoBase === "Sanitário" ||
+                proc?.tipoBase === "Alvará Sanitário" ||
+                proc?.tipoKey === "SANITARIO" ||
+                proc?.tipoKey === "ALVARA_SANITARIO"
+              ) {
                 specificFields.push({
                   key: "taxa_sanitaria_sync_status",
                   label: "Taxa",
