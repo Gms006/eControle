@@ -23,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 import { formatProcessDate, getDiversosOperacaoLabel, getProcessBaseType, normalizeProcessType } from "@/lib/process";
-import { normalizeIdentifier, normalizeText } from "@/lib/text";
+import { normalizeIdentifier, normalizeText, removeDiacritics } from "@/lib/text";
 import { maskCNPJ } from "@/lib/format";
 import { isProcessStatusActiveOrPending } from "@/lib/status";
 import { fetchJson } from "@/lib/api";
@@ -46,7 +46,7 @@ const PROCESS_TYPE_ICON = {
 };
 
 const normalizeTipoKey = (tipoBase) =>
-  normalizeText(tipoBase ?? "")
+  removeDiacritics(normalizeText(tipoBase ?? ""))
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_");
@@ -208,6 +208,16 @@ const renderChip = (value) => {
       {text}
     </Chip>
   );
+};
+
+const getProcessKey = (proc, index) => {
+  const tipoKey = proc?.tipoKey || normalizeTipoKey(proc?.tipo);
+  const parts = [proc?.id, proc?.protocolo, proc?.cnpj, proc?.empresa]
+    .map((value) => normalizeText(value).trim())
+    .filter(Boolean);
+
+  const suffix = parts.length > 0 ? parts.join("-") : String(index);
+  return [tipoKey, suffix].filter(Boolean).join("-");
 };
 
 const getTipoDisplay = (tipoBase) => {
@@ -610,7 +620,7 @@ export default function ProcessosScreen({
                     const maskedCnpj = maskCNPJ(proc?.cnpj);
                     return (
                       <TableRow
-                        key={`${proc.tipoKey}-${proc.protocolo ?? proc.empresa ?? index}`}
+                        key={getProcessKey(proc, index)}
                         className="border-b border-slate-100 hover:bg-slate-50/60"
                       >
                         {tableColumns.map((column) => {
@@ -803,7 +813,7 @@ export default function ProcessosScreen({
 
               return (
                 <Card
-                  key={`${proc.tipoKey}-${proc.protocolo ?? proc.empresa ?? index}`}
+                  key={getProcessKey(proc, index)}
                   className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm transition hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
