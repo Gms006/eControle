@@ -11,11 +11,7 @@ import {
 } from "@/components/ui/table";
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
-import { Chip } from "@/components/Chip";
 import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
   Clock,
   Clipboard,
   FileText,
