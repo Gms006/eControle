@@ -227,6 +227,7 @@ const resolveTipoFromProcess = (proc) => {
 export default function ProcessosScreen({
   processosNormalizados,
   modoFoco,
+  soAlertas,
   matchesMunicipioFilter,
   matchesQuery,
   handleCopy,
@@ -294,9 +295,14 @@ export default function ProcessosScreen({
 
       const matchesFoco = modoFoco ? isProcessStatusActiveOrPending(proc.status) : true;
 
-      return matchesMunicipio && matchesBusca && matchesFoco;
+      const statusKey = removeDiacritics(normalizeText(proc?.situacao || proc?.status).toLowerCase());
+      const blockedByAlertMode =
+        soAlertas &&
+        ["pendente", "concluido", "licenciado"].some((keyword) => statusKey.includes(keyword));
+
+      return matchesMunicipio && matchesBusca && matchesFoco && !blockedByAlertMode;
     });
-  }, [matchesMunicipioFilter, matchesQuery, modoFoco, processosNormalizados]);
+  }, [matchesMunicipioFilter, matchesQuery, modoFoco, processosNormalizados, soAlertas]);
 
   const fetchObsHistory = useCallback(async (processoId) => {
     setLoadingHistory(true);
