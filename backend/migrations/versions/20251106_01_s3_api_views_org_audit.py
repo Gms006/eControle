@@ -161,14 +161,14 @@ def _create_views() -> None:
             p.situacao,
             p.status_padrao,
             p.prazo,
-            p.operacao,
-            p.orgao,
-            p.alvara,
+            p.operacao::text,
+            p.orgao::text,
+            p.alvara::text,
             p.area_m2,
             p.projeto,
             p.inscricao_imobiliaria,
-            p.servico,
-            p.notificacao,
+            p.servico::text,
+            p.notificacao::text,
             CASE
                 WHEN LOWER(COALESCE(p.status_padrao, p.situacao::text)) LIKE '%conclu%'
                      OR LOWER(COALESCE(p.status_padrao, p.situacao::text)) LIKE '%licenc%'
