@@ -1,6 +1,14 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import {
@@ -42,11 +50,44 @@ const normalizeTipoKey = (tipoBase) =>
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_");
 
+const baseColumns = [
+  { id: "empresa", label: "Empresa" },
+  { id: "protocolo", label: "Protocolo" },
+  { id: "data_solicitacao", label: "Data solicitação", isDate: true },
+  { id: "municipio", label: "Município" },
+  { id: "situacao", label: "Situação", isStatus: true },
+  { id: "obs", label: "OBS" },
+];
+
+const extraColumnsByTipo = {
+  DIVERSOS: [
+    { id: "operacao", label: "Operação" },
+    { id: "orgao", label: "Órgão" },
+  ],
+  FUNCIONAMENTO: [{ id: "alvara", label: "Alvará" }],
+  BOMBEIROS: [
+    { id: "area_m2", label: "Área (m²)" },
+    { id: "projeto", label: "Projeto" },
+    { id: "tpi_sync_status", label: "TPI", isStatus: true },
+  ],
+  USO_DO_SOLO: [{ id: "inscricao_imobiliaria", label: "Inscrição imobiliária" }],
+  SANITARIO: [
+    { id: "servico", label: "Serviço" },
+    { id: "taxa_sanitaria_sync_status", label: "Taxa", isStatus: true },
+    { id: "notificacao", label: "Notificação" },
+    { id: "alvara_sanitario_validade", label: "Validade", isDate: true },
+    { id: "alvara_sanitario_status", label: "Status validade", isStatus: true },
+  ],
+};
+
 const SORT_OPTIONS = [
-  { value: "data_solicitacao", label: "Data solicitação", defaultDir: "desc" },
+  { value: "data_solicitacao", label: "Data solicitação", defaultDir: "desc", isDate: true },
   { value: "empresa", label: "Empresa", defaultDir: "asc" },
   { value: "situacao", label: "Situação", defaultDir: "asc" },
 ];
+
+const DEFAULT_SORT = SORT_OPTIONS[0];
+const SECONDARY_SORT = SORT_OPTIONS[1];
 
 const extractDateValue = (value) => {
   const normalized = normalizeText(value).trim();
@@ -57,37 +98,26 @@ const extractDateValue = (value) => {
   return fallback.isValid() ? fallback.valueOf() : null;
 };
 
-const compareProcessos = (a, b, field, direction) => {
+const compareProcessos = (a, b, field, direction, meta = {}) => {
   const dir = direction === "desc" ? -1 : 1;
 
-  if (field === "data_solicitacao") {
-    const aValue = extractDateValue(a?.data_solicitacao);
-    const bValue = extractDateValue(b?.data_solicitacao);
+  if (meta.isDate) {
+    const aValue = extractDateValue(a?.[field]);
+    const bValue = extractDateValue(b?.[field]);
     if (aValue === null && bValue === null) return 0;
     if (aValue === null) return 1;
     if (bValue === null) return -1;
     return (aValue - bValue) * dir;
   }
 
-  if (field === "empresa") {
-    const aEmpresa = normalizeText(a?.empresa).trim();
-    const bEmpresa = normalizeText(b?.empresa).trim();
-    if (!aEmpresa && !bEmpresa) return 0;
-    if (!aEmpresa) return 1;
-    if (!bEmpresa) return -1;
-    return aEmpresa.localeCompare(bEmpresa) * dir;
-  }
+  const aText = normalizeText(a?.[field] ?? "").trim();
+  const bText = normalizeText(b?.[field] ?? "").trim();
 
-  if (field === "situacao") {
-    const aSituacao = normalizeText(a?.situacao ?? a?.status ?? "").trim();
-    const bSituacao = normalizeText(b?.situacao ?? b?.status ?? "").trim();
-    if (!aSituacao && !bSituacao) return 0;
-    if (!aSituacao) return 1;
-    if (!bSituacao) return -1;
-    return aSituacao.localeCompare(bSituacao) * dir;
-  }
+  if (!aText && !bText) return 0;
+  if (!aText) return 1;
+  if (!bText) return -1;
 
-  return 0;
+  return aText.localeCompare(bText, "pt-BR", { sensitivity: "base" }) * dir;
 };
 
 const formatDateTime = (value) => {
@@ -120,6 +150,28 @@ const formatMunicipio = (proc) => {
   return municipio;
 };
 
+const renderObsSnippet = (value) => {
+  const text = normalizeText(value).trim();
+  if (!text) return "—";
+  const snippet = text.length > 80 ? `${text.slice(0, 77)}…` : text;
+  return (
+    <div className="inline-flex items-center gap-2 text-xs text-slate-600" title={text}>
+      <FileText className="h-3.5 w-3.5 text-slate-400" />
+      <span className="line-clamp-1 text-left leading-snug">{snippet}</span>
+    </div>
+  );
+};
+
+const renderChip = (value) => {
+  const text = normalizeText(value).trim();
+  if (!text) return "—";
+  return (
+    <Chip variant="neutral" className="border-slate-200 bg-slate-100 text-[11px] text-slate-700">
+      {text}
+    </Chip>
+  );
+};
+
 const getTipoDisplay = (tipoBase) => {
   const key = normalizeTipoKey(tipoBase);
   return PROCESS_TYPE_DISPLAY[key] ?? tipoBase ?? "Processo";
@@ -142,8 +194,12 @@ export default function ProcessosScreen({
   matchesQuery,
   handleCopy,
 }) {
-  const [sortField, setSortField] = useState(SORT_OPTIONS[0].value);
-  const [sortDir, setSortDir] = useState(SORT_OPTIONS[0].defaultDir);
+  const [viewMode, setViewMode] = useState(() => {
+    if (typeof window === "undefined") return "cards";
+    return localStorage.getItem("processos.viewMode") || "cards";
+  });
+  const [sortField, setSortField] = useState(DEFAULT_SORT.value);
+  const [sortDir, setSortDir] = useState(DEFAULT_SORT.defaultDir);
   const [selectedTipo, setSelectedTipo] = useState("TODOS");
   const [expandedObs, setExpandedObs] = useState({});
   const [obsDrawer, setObsDrawer] = useState({ open: false, processo: null });
@@ -153,6 +209,12 @@ export default function ProcessosScreen({
   const [savingObs, setSavingObs] = useState(false);
   const [obsOverrides, setObsOverrides] = useState({});
   const [historyError, setHistoryError] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("processos.viewMode", viewMode);
+    }
+  }, [viewMode]);
 
   const processosVisiveis = useMemo(() => {
     return processosNormalizados.filter((proc) => {
@@ -282,6 +344,23 @@ export default function ProcessosScreen({
     ];
   }, [processosEnriquecidos]);
 
+  const { tableColumns, columnMetaMap } = useMemo(() => {
+    const extras = selectedTipo === "TODOS" ? [] : extraColumnsByTipo[selectedTipo] ?? [];
+    const tipoCol = selectedTipo === "TODOS" ? [{ id: "tipoDisplay", label: "Tipo" }] : [];
+    const columns = [...tipoCol, ...baseColumns, ...extras];
+
+    const map = columns.reduce((acc, column) => {
+      acc[column.id] = column;
+      return acc;
+    }, {});
+
+    SORT_OPTIONS.forEach((option) => {
+      map[option.value] = { ...map[option.value], ...option };
+    });
+
+    return { tableColumns: columns, columnMetaMap: map };
+  }, [selectedTipo]);
+
   const processosOrdenados = useMemo(() => {
     const filtered =
       selectedTipo === "TODOS"
@@ -289,25 +368,73 @@ export default function ProcessosScreen({
         : processosEnriquecidos.filter((proc) => proc.tipoKey === selectedTipo);
 
     const comparator = (a, b) => {
-      const primary = compareProcessos(a, b, sortField, sortDir);
+      const primary = compareProcessos(
+        a,
+        b,
+        sortField,
+        sortDir,
+        columnMetaMap[sortField] ?? {},
+      );
       if (primary !== 0) return primary;
-      return compareProcessos(a, b, "data_solicitacao", "desc");
+
+      const defaultMeta = columnMetaMap[DEFAULT_SORT.value] ?? DEFAULT_SORT;
+      const fallbackDefault = compareProcessos(
+        a,
+        b,
+        DEFAULT_SORT.value,
+        DEFAULT_SORT.defaultDir,
+        defaultMeta,
+      );
+      if (fallbackDefault !== 0) return fallbackDefault;
+
+      const secondaryMeta = columnMetaMap[SECONDARY_SORT.value] ?? SECONDARY_SORT;
+      return compareProcessos(
+        a,
+        b,
+        SECONDARY_SORT.value,
+        SECONDARY_SORT.defaultDir,
+        secondaryMeta,
+      );
     };
 
     return [...filtered].sort(comparator);
-  }, [processosEnriquecidos, selectedTipo, sortDir, sortField]);
+  }, [columnMetaMap, processosEnriquecidos, selectedTipo, sortDir, sortField]);
 
-  const handleSortClick = (field) => {
-    setSortField((current) => {
-      if (current === field) {
-        setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-        return current;
+  const resolveDefaultSortDir = useCallback(
+    (field) => SORT_OPTIONS.find((option) => option.value === field)?.defaultDir ?? "asc",
+    [],
+  );
+
+  const handleSortClick = (field, preferDefaultFirst = false) => {
+    const defaultDir = resolveDefaultSortDir(field);
+
+    if (sortField === field) {
+      if (
+        field === DEFAULT_SORT.value &&
+        sortDir === DEFAULT_SORT.defaultDir &&
+        !preferDefaultFirst
+      ) {
+        setSortDir("asc");
+        return;
       }
 
-      const defaultDirection = SORT_OPTIONS.find((option) => option.value === field)?.defaultDir ?? "asc";
-      setSortDir(defaultDirection);
-      return field;
-    });
+      if (sortDir === "asc") {
+        setSortDir("desc");
+        return;
+      }
+
+      if (sortDir === "desc") {
+        setSortField(DEFAULT_SORT.value);
+        setSortDir(DEFAULT_SORT.defaultDir);
+        return;
+      }
+
+      setSortDir("asc");
+      return;
+    }
+
+    setSortField(field);
+    setSortDir(preferDefaultFirst ? defaultDir : "asc");
   };
 
   const toggleObsExpanded = (key) => {
@@ -318,30 +445,56 @@ export default function ProcessosScreen({
     <>
       <div className="space-y-4">
         <div className="rounded-2xl border border-slate-200 bg-white/80 p-3 shadow-sm">
-          <div className="flex flex-wrap items-center gap-2">
-            {tiposDisponiveis.map((tipo) => {
-              const isActive = selectedTipo === tipo.key;
-              const Icon = PROCESS_TYPE_ICON[tipo.key] || Settings;
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-2">
+              {tiposDisponiveis.map((tipo) => {
+                const isActive = selectedTipo === tipo.key;
+                const Icon = PROCESS_TYPE_ICON[tipo.key] || Settings;
 
-              return (
-                <button
-                  key={tipo.key}
-                  type="button"
-                  onClick={() => setSelectedTipo(tipo.key)}
-                  className={cn(
-                    "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
-                    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                    isActive && "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm",
-                  )}
-                >
-                  <Icon className="h-4 w-4 text-slate-500" />
-                  <span>{tipo.display}</span>
-                  <InlineBadge variant="outline" className="bg-white text-slate-600">
-                    {tipo.count}
-                  </InlineBadge>
-                </button>
-              );
-            })}
+                return (
+                  <button
+                    key={tipo.key}
+                    type="button"
+                    onClick={() => setSelectedTipo(tipo.key)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
+                      "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                      isActive && "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm",
+                    )}
+                  >
+                    <Icon className="h-4 w-4 text-slate-500" />
+                    <span>{tipo.display}</span>
+                    <InlineBadge variant="outline" className="bg-white text-slate-600">
+                      {tipo.count}
+                    </InlineBadge>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="inline-flex items-center gap-1 rounded-xl border border-slate-200 bg-white/70 p-1">
+              {[
+                { key: "cards", label: "Cards" },
+                { key: "table", label: "Tabela" },
+              ].map((option) => {
+                const isActive = viewMode === option.key;
+                return (
+                  <button
+                    key={option.key}
+                    type="button"
+                    onClick={() => setViewMode(option.key)}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-sm font-medium transition",
+                      isActive
+                        ? "bg-white text-slate-900 shadow-sm"
+                        : "text-slate-600 hover:text-slate-800",
+                    )}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -357,7 +510,7 @@ export default function ProcessosScreen({
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => handleSortClick(option.value)}
+                    onClick={() => handleSortClick(option.value, true)}
                     className={cn(
                       "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
                       "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
@@ -373,9 +526,136 @@ export default function ProcessosScreen({
           </div>
         </div>
 
+
         {processosOrdenados.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
             Nenhum processo correspondente ao filtro.
+          </div>
+        ) : viewMode === "table" ? (
+          <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
+            <div className="max-h-[calc(100vh-280px)] overflow-auto overflow-x-auto">
+              <Table className="min-w-[1080px]">
+                <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur">
+                  <TableRow>
+                    {tableColumns.map((column) => {
+                      const isActive = sortField === column.id;
+                      const icon = !isActive ? (
+                        <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
+                      ) : sortDir === "asc" ? (
+                        <ArrowUp className="h-3.5 w-3.5 text-indigo-500" />
+                      ) : (
+                        <ArrowDown className="h-3.5 w-3.5 text-indigo-500" />
+                      );
+
+                      return (
+                        <TableHead
+                          key={column.id}
+                          className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600"
+                        >
+                          <button
+                            type="button"
+                            onClick={() => handleSortClick(column.id)}
+                            className="flex w-full items-center gap-2 text-left text-slate-700 transition hover:text-slate-900"
+                          >
+                            <span className="cursor-pointer select-none">{column.label}</span>
+                            {icon}
+                          </button>
+                        </TableHead>
+                      );
+                    })}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {processosOrdenados.map((proc, index) => {
+                    const municipio = formatMunicipio(proc);
+                    const obsValue = resolveObsValue(proc);
+                    return (
+                      <TableRow
+                        key={`${proc.tipoKey}-${proc.protocolo ?? proc.empresa ?? index}`}
+                        className="border-b border-slate-100 hover:bg-slate-50/60"
+                      >
+                        {tableColumns.map((column) => {
+                          let content = normalizeText(proc?.[column.id]).trim() || "—";
+
+                          if (column.id === "tipoDisplay") {
+                            content = proc.tipoDisplay;
+                          } else if (column.id === "empresa") {
+                            content = (
+                              <div className="space-y-0.5">
+                                <p className="text-sm font-semibold leading-tight text-slate-800">
+                                  {proc?.empresa || "—"}
+                                </p>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const value = normalizeIdentifier(proc?.cnpj);
+                                    if (value) handleCopy(value, `CNPJ copiado: ${value}`);
+                                  }}
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 transition hover:text-indigo-800"
+                                >
+                                  {normalizeIdentifier(proc?.cnpj) || "—"}
+                                  <Clipboard className="h-3 w-3" aria-hidden="true" />
+                                </button>
+                              </div>
+                            );
+                          } else if (column.id === "protocolo") {
+                            content = normalizeIdentifier(proc?.protocolo) || "—";
+                          } else if (column.isDate) {
+                            content = formatProcessDate(proc?.[column.id]);
+                          } else if (column.id === "municipio") {
+                            content = municipio || "—";
+                          } else if (column.id === "situacao" || column.isStatus) {
+                            content = renderStatus(proc?.[column.id]);
+                          } else if (column.id === "obs") {
+                            content = (
+                              <button
+                                type="button"
+                                onClick={() => openObsDrawer(proc)}
+                                className="inline-flex w-full max-w-xs items-start gap-2 text-left text-slate-700 transition-colors hover:text-slate-900"
+                              >
+                                {renderObsSnippet(obsValue)}
+                              </button>
+                            );
+                          } else if (column.id === "area_m2") {
+                            const area = normalizeText(proc?.area_m2).trim();
+                            content = area ? `${area} m²` : "—";
+                          } else if (column.id === "operacao") {
+                            content = renderChip(proc?.operacao || proc?.diversosOperacaoLabel);
+                          } else if (column.id === "orgao") {
+                            content = renderChip(proc?.orgao);
+                          } else if (column.id === "alvara") {
+                            content = renderChip(proc?.alvara);
+                          } else if (column.id === "servico") {
+                            content = renderChip(proc?.servico);
+                          } else if (column.id === "notificacao") {
+                            content = renderChip(proc?.notificacao);
+                          } else if (column.id === "tpi_sync_status") {
+                            content = renderStatus(proc?.tpi_sync_status ?? proc?.tpi);
+                          } else if (column.id === "taxa_sanitaria_sync_status") {
+                            content = renderStatus(proc?.taxa_sanitaria_sync_status ?? proc?.taxa);
+                          } else if (column.id === "alvara_sanitario_status") {
+                            content = renderStatus(proc?.alvara_sanitario_status);
+                          } else if (column.id === "alvara_sanitario_validade") {
+                            content = formatProcessDate(proc?.alvara_sanitario_validade);
+                          } else if (column.id === "inscricao_imobiliaria") {
+                            content = normalizeIdentifier(proc?.inscricao_imobiliaria) || "—";
+                          }
+
+                          return (
+                            <TableCell
+                              key={column.id}
+                              className="min-w-[140px] align-top px-4 py-3 text-xs text-slate-700"
+                            >
+                              {content}
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
           </div>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -601,8 +881,8 @@ export default function ProcessosScreen({
                             </div>
                           </div>
                         ) : (
-                          <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
-                            <FileText className="h-4 w-4 text-slate-400" /> Nenhuma observação
+                          <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed border-slate-200 bg-white/80 px-3 py-2">
+                            <span className="text-sm text-slate-500">Nenhuma observação.</span>
                             <button
                               type="button"
                               onClick={() => openObsDrawer(proc)}
@@ -627,7 +907,6 @@ export default function ProcessosScreen({
           </div>
         )}
       </div>
-
       {obsDrawer.open && obsDrawer.processo && (
         <div className="fixed inset-0 z-50 flex">
           <button
