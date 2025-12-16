@@ -358,6 +358,8 @@ function AppContent() {
     () =>
       processos.map((proc) => {
         const empresaId = extractEmpresaId(proc);
+        const empresa = empresaId !== undefined ? empresasById.get(empresaId) : undefined;
+        const empresaMunicipio = normalizeText(empresa?.municipio).trim();
         const statusCandidates = [proc.status, proc.status_padrao, proc.situacao];
         const resolvedStatus = statusCandidates.find((value) => normalizeIdentifier(value));
         const tipoNormalizado = normalizeProcessType(proc);
@@ -366,6 +368,12 @@ function AppContent() {
           tipoBase === PROCESS_DIVERSOS_LABEL
             ? buildDiversosOperacaoKey(proc.operacao)
             : undefined;
+        const municipioProcesso = normalizeText(proc?.municipio).trim();
+        const municipioExibicaoProcesso = normalizeText(proc?.municipio_exibicao).trim();
+        const resolvedMunicipio =
+          municipioProcesso || municipioExibicaoProcesso || empresaMunicipio || undefined;
+        const resolvedMunicipioExibicao =
+          municipioExibicaoProcesso || municipioProcesso || empresaMunicipio || undefined;
         return {
           ...proc,
           empresaId,
@@ -373,10 +381,12 @@ function AppContent() {
           tipoNormalizado,
           tipoBase,
           diversosOperacaoKey,
+          municipio: resolvedMunicipio,
+          municipio_exibicao: resolvedMunicipioExibicao,
           status: resolvedStatus ?? proc.status ?? proc.status_padrao ?? proc.situacao,
         };
       }),
-    [processos],
+    [empresasById, processos],
   );
 
   const processosByEmpresa = useMemo(() => {
