@@ -42,6 +42,7 @@ class ProcessoView(BaseModel):
     situacao: str
     status_padrao: Optional[str] = None
     prazo: Optional[date] = None
+    obs: Optional[str] = None
     operacao: Optional[str] = None
     orgao: Optional[str] = None
     alvara: Optional[str] = None
