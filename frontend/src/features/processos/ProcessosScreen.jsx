@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { formatProcessDate, getDiversosOperacaoLabel, getProcessBaseType, normalizeProcessType } from "@/lib/process";
 import { normalizeIdentifier, normalizeText } from "@/lib/text";
+import { maskCNPJ } from "@/lib/format";
 import { isProcessStatusActiveOrPending } from "@/lib/status";
 import { fetchJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -49,6 +50,43 @@ const normalizeTipoKey = (tipoBase) =>
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_");
+
+const badgeBase =
+  "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset";
+
+const tipoBadge = {
+  SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
+  "ALVARA SANITARIO": `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
+  CERCON: `${badgeBase} bg-amber-50 text-amber-700 ring-amber-200`,
+  DIVERSOS: `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`,
+  FUNCIONAMENTO: `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
+  "LICENCA AMBIENTAL": `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
+  AMBIENTAL: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
+  "USO DO SOLO": `${badgeBase} bg-orange-50 text-orange-700 ring-orange-200`,
+};
+
+const situacaoBadge = {
+  CONCLUIDO: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
+  LICENCIADO: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
+  INDEFERIDO: `${badgeBase} bg-rose-50 text-rose-700 ring-rose-200`,
+  "EM ANALISE": `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
+  PENDENTE: `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  "AGUARD DOCTO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  "AGUARD PAGTO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  "AGUARD VISTORIA": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  "AGUARD REGULARIZACAO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  "AGUARD LIBERACAO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  "IR NA VISA": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
+  NOTIFICACAO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
+};
+
+function normKey(s) {
+  return String(s ?? "")
+    .trim()
+    .toUpperCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
 
 const baseColumns = [
   { id: "empresa", label: "Empresa" },
@@ -569,6 +607,7 @@ export default function ProcessosScreen({
                   {processosOrdenados.map((proc, index) => {
                     const municipio = formatMunicipio(proc);
                     const obsValue = resolveObsValue(proc);
+                    const maskedCnpj = maskCNPJ(proc?.cnpj);
                     return (
                       <TableRow
                         key={`${proc.tipoKey}-${proc.protocolo ?? proc.empresa ?? index}`}
@@ -588,12 +627,12 @@ export default function ProcessosScreen({
                                 <button
                                   type="button"
                                   onClick={() => {
-                                    const value = normalizeIdentifier(proc?.cnpj);
-                                    if (value) handleCopy(value, `CNPJ copiado: ${value}`);
+                                    const value = maskCNPJ(proc?.cnpj);
+                                    if (value && value !== "—") handleCopy(value, `CNPJ copiado: ${value}`);
                                   }}
                                   className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 transition hover:text-indigo-800"
                                 >
-                                  {normalizeIdentifier(proc?.cnpj) || "—"}
+                                  {maskedCnpj || "—"}
                                   <Clipboard className="h-3 w-3" aria-hidden="true" />
                                 </button>
                               </div>
@@ -666,6 +705,11 @@ export default function ProcessosScreen({
               const isObsExpanded = !!expandedObs[obsKey];
               const hasLongObs = obsText.length > 140;
               const municipio = formatMunicipio(proc);
+              const tipoKey = normKey(proc?.tipo);
+              const tipoCls = tipoBadge[tipoKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
+              const sitKey = normKey(proc?.situacao || proc?.status);
+              const sitCls = situacaoBadge[sitKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
+              const maskedCnpj = maskCNPJ(proc?.cnpj);
 
               const specificFields = [];
 
@@ -765,55 +809,27 @@ export default function ProcessosScreen({
                   <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <InfoPill>
+                        <span className={tipoCls}>
                           <Icon className="h-4 w-4 text-slate-500" />
                           {proc.tipoDisplay}
-                        </InfoPill>
-                        {renderStatus(proc?.situacao || proc?.status)}
+                        </span>
+                        <span className={sitCls}>{proc?.situacao || proc?.status || "Situação"}</span>
                       </div>
                       <p className="text-base font-semibold leading-tight text-slate-900">
                         {proc?.empresa || "—"}
                       </p>
-                      <div className="flex flex-wrap items-center gap-2 text-[12px] text-slate-600">
-                        <InfoPill>
-                          Protocolo
-                          {normalizeIdentifier(proc?.protocolo) || "—"}
-                          {proc?.protocolo && (
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const value = normalizeIdentifier(proc?.protocolo);
-                                if (value) handleCopy(value, `Protocolo copiado: ${value}`);
-                              }}
-                              className="ml-1 text-slate-500 transition hover:text-slate-700"
-                            >
-                              <Clipboard className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </InfoPill>
-                        <InfoPill>
-                          <Clock className="h-3.5 w-3.5 text-slate-500" />
-                          {formatProcessDate(proc?.data_solicitacao)}
-                        </InfoPill>
-                        {municipio && (
-                          <InfoPill>
-                            <MapPin className="h-3.5 w-3.5 text-slate-500" />
-                            {municipio}
-                          </InfoPill>
-                        )}
-                      </div>
                     </div>
                     <div className="flex flex-col items-end gap-2 text-right">
-                      {normalizeIdentifier(proc?.cnpj) && (
+                      {maskedCnpj && maskedCnpj !== "—" && (
                         <button
                           type="button"
                           onClick={() => {
-                            const value = normalizeIdentifier(proc?.cnpj);
-                            if (value) handleCopy(value, `CNPJ copiado: ${value}`);
+                            const value = maskCNPJ(proc?.cnpj);
+                            if (value && value !== "—") handleCopy(value, `CNPJ copiado: ${value}`);
                           }}
                           className="text-[12px] font-semibold text-indigo-600 transition hover:text-indigo-800"
                         >
-                          {normalizeIdentifier(proc?.cnpj)}
+                          {maskedCnpj}
                         </button>
                       )}
                       {normalizeText(proc?.prazo).trim() && (
@@ -848,7 +864,23 @@ export default function ProcessosScreen({
 
                       <InfoItem label="Município">{municipio || "—"}</InfoItem>
 
-                      <InfoItem label="Situação">{renderStatus(proc?.situacao || proc?.status)}</InfoItem>
+                      <InfoItem label="CNPJ">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{maskedCnpj || "—"}</span>
+                          {maskedCnpj && maskedCnpj !== "—" && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const value = maskCNPJ(proc?.cnpj);
+                                if (value && value !== "—") handleCopy(value, `CNPJ copiado: ${value}`);
+                              }}
+                              className="text-slate-500 transition hover:text-slate-700"
+                            >
+                              <Clipboard className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </InfoItem>
 
                       <InfoItem label="OBS" className="md:col-span-2">
                         {obsText ? (
