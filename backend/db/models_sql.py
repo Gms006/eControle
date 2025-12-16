@@ -15,6 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Numeric,
     String,
     Text,
     UniqueConstraint,
@@ -175,6 +176,8 @@ class Processo(Base):
     operacao = Column(pg_enum("operacoes_diversos"), nullable=True)
     orgao = Column(pg_enum("orgaos_diversos"), nullable=True)
     alvara = Column(pg_enum("alvaras_funcionamento"), nullable=True)
+    area_m2 = Column(Numeric(12, 2))
+    projeto = Column(String(120))
     municipio = Column(String(120))
     tpi = Column(String(120))
     inscricao_imobiliaria = Column(String(120))
