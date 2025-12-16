@@ -1,6 +1,7 @@
 import React from "react";
 
-const baseChip = "inline-flex items-center gap-1 border text-xs font-medium rounded-lg";
+const baseChip =
+  "inline-flex items-center justify-center gap-1 border text-xs font-medium rounded-lg text-center";
 
 const chipSizeClasses = {
   sm: "px-2 py-0.5",
