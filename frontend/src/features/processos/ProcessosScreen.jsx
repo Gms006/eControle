@@ -12,6 +12,9 @@ import {
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Clock,
   Clipboard,
   FileText,
@@ -63,21 +66,6 @@ const tipoBadge = {
   "LICENCA AMBIENTAL": `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
   AMBIENTAL: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
   "USO DO SOLO": `${badgeBase} bg-orange-50 text-orange-700 ring-orange-200`,
-};
-
-const situacaoBadge = {
-  CONCLUIDO: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
-  LICENCIADO: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
-  INDEFERIDO: `${badgeBase} bg-rose-50 text-rose-700 ring-rose-200`,
-  "EM ANALISE": `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
-  PENDENTE: `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  "AGUARD DOCTO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  "AGUARD PAGTO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  "AGUARD VISTORIA": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  "AGUARD REGULARIZACAO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  "AGUARD LIBERACAO": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  "IR NA VISA": `${badgeBase} bg-amber-50 text-amber-800 ring-amber-200`,
-  NOTIFICACAO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
 };
 
 function normKey(s) {
@@ -717,8 +705,6 @@ export default function ProcessosScreen({
               const municipio = formatMunicipio(proc);
               const tipoKey = normKey(proc?.tipo);
               const tipoCls = tipoBadge[tipoKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
-              const sitKey = normKey(proc?.situacao || proc?.status);
-              const sitCls = situacaoBadge[sitKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
               const maskedCnpj = maskCNPJ(proc?.cnpj);
 
               const specificFields = [];
@@ -823,7 +809,7 @@ export default function ProcessosScreen({
                           <Icon className="h-4 w-4 text-slate-500" />
                           {proc.tipoDisplay}
                         </span>
-                        <span className={sitCls}>{proc?.situacao || proc?.status || "Situação"}</span>
+                        <StatusBadge status={proc?.situacao || proc?.status || "Situação"} />
                       </div>
                       <p className="text-base font-semibold leading-tight text-slate-900">
                         {proc?.empresa || "—"}
@@ -852,7 +838,7 @@ export default function ProcessosScreen({
                     <div className="grid gap-3 md:grid-cols-2">
                       <InfoItem label="Protocolo">
                         <div className="flex items-center gap-2">
-                          <span className="font-semibold text-slate-800">
+                          <span className="text-sm font-semibold text-slate-800">
                             {normalizeIdentifier(proc?.protocolo) || "—"}
                           </span>
                           {proc?.protocolo && (
