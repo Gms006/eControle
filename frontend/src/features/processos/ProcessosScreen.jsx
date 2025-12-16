@@ -12,6 +12,9 @@ import {
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Clock,
   Clipboard,
   FileText,
