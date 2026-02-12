@@ -1,0 +1,31 @@
+diff --git a/README.md b/README.md
+index 1111111..2222222 100644
+--- a/README.md
++++ b/README.md
+@@ -1,119 +1,141 @@
+ # eControle v2 (Rebuild)
+ 
+ Portal interno da Neto Contabilidade para acompanhamento de **empresas, licenças/certidões, taxas e processos**,
+ com integrações com:
+ - **CertHub** (certificados digitais) — eControle exibe um **espelho (read-only)** em cards e redireciona ações operacionais para o CertHub.
+ - **Scribere** (notas/snippets) — eControle exibe apenas exports selecionados no Scribere (read-only).
+@@
+ ## Rodar local (Docker-first)
+ 
+ ### 1) Subir infraestrutura (Postgres + Redis)
+ ```bash
+ docker compose -f infra/docker-compose.yml up -d
+-````
++```
+ 
+ ### 2) Subir Backend (API)
+ 
+ ```bash
+-docker compose -f infra/docker-compose.yml up -d
+-# (se você tiver docker-compose também para o backend, use o comando do backend aqui)
+-# no mínimo:
+-# - rodar migrations
+-# - subir uvicorn em 8020
++cd backend
++python -m pip install -r requirements.txt
++uvicorn main:app --reload --host 0.0.0.0 --port 8020

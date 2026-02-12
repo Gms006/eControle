@@ -3,7 +3,22 @@
 Padrão inspirado no CertHub: monorepo com backend modular e front isolado.
 
 ## Tree (alto nível)
+### S1 (mínimo real)
+> Estrutura mínima para subir infra (Postgres/Redis) + API com healthchecks.
 
+```
+eControle/
+├─ backend/
+│  ├─ main.py
+│  └─ requirements.txt
+├─ infra/
+│  └─ docker-compose.yml
+├─ .env.example
+├─ .gitignore
+└─ README.md
+```
+
+### Alvo (S2+ / padrão CertHub)
 ```
 eControle/
 ├─ backend/

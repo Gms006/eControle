@@ -1,22 +1,42 @@
 # Plano de Desenvolvimento — eControle v2 (Rebuild)
 
-## S0 — Kickoff e congelamento do baseline
+## S0 — Kickoff e Baseline (Concluído)
 
 **Objetivo:** travar o que significa “voltar até o ponto onde paramos” e evitar escopo infinito.
 
-**Entregas**
+**Checklist — Entregáveis localizados (✅)**
 
-* Lista do “ponto alvo” (telas que existiam, features mínimas, endpoints críticos).
-* Inventário do que será reaproveitado do front v1 (pastas/features/componentes).
-* Documento `docs/BASELINE_V1.md` com:
+✅ `docs/BASELINE_V1.md`  
+✅ `docs/REUSE_FRONTEND_MAP.md`  
+✅ `docs/INTEGRATION_CONTRACTS.md`  
+✅ `docs/RISKS_AND_DECISIONS_S0.md`
 
-  * rotas de front existentes
-  * domínios existentes (Empresas/Licenças/Taxas/Processos/Alertas)
-  * comportamento atual esperado
+**Links/paths esperados para o S0**
 
-**Aceite**
+* `docs/BASELINE_V1.md`
+* `docs/REUSE_FRONTEND_MAP.md`
+* `docs/INTEGRATION_CONTRACTS.md`
+* `docs/RISKS_AND_DECISIONS_S0.md`
+* `docs/S0_CHECKLIST.md`
 
-* “Ponto alvo” definido e versionado.
+**Resumo (S0)**
+
+* Ponto alvo de paridade (v1): abas, fluxos e endpoints mapeados no baseline v1 para orientar a volta ao mesmo comportamento.
+* Reuso do frontend: mapa de reuso aponta reaproveitamento amplo com mudanças mínimas para auth, baseURL e abas integradas.
+* Decisões travadas: Docker-first, portas fixas, auth/RBAC no padrão CertHub, Certificados read-only e Uteis via exports.
+* Contratos de integração CertHub/Scribere: mirror read-only no eControle, deep link configurável e exports de notes/snippets.
+* Riscos e mitigação: riscos de auth/CORS, espelho stale e segurança de exports, com mitigação documentada.
+* CertHub deep link: base e path configuráveis com fallback quando não suportado.
+* Scribere: read-only e filtragem por escopo `private`/`org` com sanitização no render.
+* Painel do eControle manterá lista de certificados vencidos/próximos usando mirror local do CertHub; notificações serão disparadas por jobs no worker com log anti-duplicação.
+
+## S0 Checklist
+
+✅ Baseline definido e revisado
+✅ Mapa de reuse do front completo
+✅ Contratos de integracao definidos
+✅ Contrato Scribere = notes/snippets (sem file_url)
+✅ Decisoes e riscos documentados
 
 ---
 
@@ -43,6 +63,31 @@
 
 * `docker compose up -d` sobe Postgres e Redis.
 * Backend sobe em 8020 e responde `/healthz`.
+
+**Como validar (comandos)**
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -c "select 1;"
+docker compose -f infra/docker-compose.yml exec -T redis redis-cli ping
+
+cd backend
+python -m pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8020
+```
+
+Testar:
+
+```bash
+curl http://localhost:8020/healthz
+curl http://localhost:8020/api/v1/worker/health
+```
+
+**Rollback**
+
+```bash
+docker compose -f infra/docker-compose.yml down -v
+git restore .
 
 ---
 
@@ -186,7 +231,39 @@
 
 * Read-model local (mirror) no eControle:
 
-  * `certhub_certificates_mirror`
+  * `certhub_certificates_mirror` deve conter no mínimo:
+
+  * `org_id`
+  * `certhub_cert_id` (nullable) **e/ou** `sha1_fingerprint` (preferido)
+  * `subject`, `cnpj` (se existir no subject/metadata)
+  * `not_before`, `not_after`
+  * `status` (OK/VENCENDO/VENCIDO) *(opcional, pode calcular)*
+  * `last_seen_at` *(se disponível)*
+  * `devices_count` *(se disponível)*
+  * `synced_at`
+
+* **Controle de sincronização**
+
+* tabela `integrations_sync_state` (ou equivalente) contendo:
+
+  * `org_id`
+  * `integration = 'certhub'`
+  * `last_synced_at`
+  * `last_sync_status` (ok/stale/error)
+  * `last_sync_error` (nullable)
+
+* **Endpoints (painel + mirror)**
+
+* `POST /api/v1/integracoes/certhub/sync` (dispara sync e atualiza `sync_state`)
+* `GET /api/v1/certificados` (lista do espelho com filtros)
+* **NOVO: `GET /api/v1/dashboard/certificados-alertas?days=30&critical=7`**
+
+  * retorna:
+
+    * `expired[]` (days_to_expire < 0)
+    * `critical[]` (0..critical)
+    * `upcoming[]` (0..days)
+    * `last_synced_at`
   * `certhub_devices_mirror` (opcional)
   * `certhub_jobs_mirror` (opcional)
 * Sync:
@@ -196,8 +273,20 @@
 
 **Frontend**
 
-* Aba “Certificados” em cards (como CertHub)
-* Botão **Instalar** abre CertHub (deep link)
+* Aba Certificados em **cards** (espelhado do CertHub)
+* Botão “Instalar” = **deep link para o CertHub** (`CERTHUB_BASE_URL + CERTHUB_CERTS_PATH?install=<fingerprint|id>`)
+* **Painel/Dashboard:** manter tabela “Vencidos / Próximos do vencimento” consumindo `GET /dashboard/certificados-alertas`
+
+### Critérios de aceite do S8
+
+* Painel exibe:
+
+  * vencidos
+  * vencendo em **≤7 dias**
+  * vencendo em **≤30 dias** (config)
+  * “Última sync”
+* Aba Certificados funciona **sem o CertHub online** (dados do espelho + timestamp)
+* Instalar sempre redireciona para o CertHub (sem operação local)
 
 **Aceite**
 
@@ -247,11 +336,73 @@
   * sync CertHub/Scribere
   * automações CND/CAE (se mantidas)
 * Observabilidade e logs
+* **Tabelas de regras e log (anti-spam)**
 
-**Aceite**
+* `certificate_notification_rules`
 
-* Worker sobe via docker
-* Jobs reportam status e logs
+  * `org_id`
+  * `enabled` (bool)
+  * `threshold_days` (int) — ex.: 30, 15, 7, 1, 0
+  * `channels` (json/array: `email`, `whatsapp`, `in_app`)
+  * `recipients` (json/array; emails/telefones)
+  * `created_at`, `updated_at`
+
+* `certificate_notification_log`
+
+  * `org_id`
+  * `certificate_ref` (fingerprint ou certhub_cert_id)
+  * `threshold_days`
+  * `channel`
+  * `sent_at`
+  * `payload_hash` (opcional)
+  * índice único recomendado:
+
+    * (`org_id`, `certificate_ref`, `threshold_days`, `channel`, `date(sent_at)`) *(para evitar repetir no mesmo dia)*
+
+* **Job de notificação**
+
+* Job: `certificates_renewal_notify`
+
+  * roda **diariamente** (ou 6/6h em dev)
+  * busca certificados no mirror
+  * calcula `days_to_expire`
+  * para cada regra ativa:
+
+    * seleciona os certificados que batem no threshold
+    * checa `notification_log` antes de enviar
+    * envia e registra
+
+* **Canais (mínimo no v1 do sistema)**
+
+* Implementar **e-mail primeiro**
+* WhatsApp e in-app ficam “pluggable” (stubs/pendentes)
+
+* **Config/Env**
+
+* `CERT_NOTIFY_DEFAULT_THRESHOLDS=30,7,0` (opcional)
+* `CERT_NOTIFY_EMAIL_FROM=...`
+* `CERT_NOTIFY_EMAIL_PROVIDER=...` (smtp/sendgrid)
+* `CERTHUB_BASE_URL` para link no corpo do e-mail
+
+* **Observabilidade**
+
+* logs por execução:
+
+  * quantos certificados avaliados
+  * quantos enviados
+  * por threshold/canal
+
+### Critérios de aceite do S10
+
+* Job roda no Docker (worker) e registra execução
+* Não envia duplicado (log impede)
+* Template do e-mail inclui:
+
+  * Empresa
+  * Data de vencimento
+  * Dias restantes
+  * Botão/link “Abrir no CertHub” (deep link)
+* Regras por org funcionando (pelo menos seed default)
 
 ---
 
@@ -266,9 +417,23 @@
 * Índices e extensões necessárias (ex.: unaccent) se fizer sentido
 * Ajuste de CORS/cookies/dev
 
-**Aceite**
+### Melhorias de UX do Painel de Certificados
+
+* filtros rápidos no painel:
+
+  * “Somente críticos (≤7)”
+  * “Somente vencidos”
+* configuração por org (UI simples):
+
+  * editar thresholds (30/15/7/1/0)
+  * editar destinatários
+* “silenciar por X dias” (opcional)
+
+### Critérios de aceite do S11
 
 * Check de paridade: lista de telas/fluxos do baseline OK
+* Usuário admin consegue ajustar thresholds/recipients (ou via seed/env no mínimo)
+* Painel com filtros rápidos e paginação se necessário
 
 ---
 

@@ -34,14 +34,15 @@ docker compose -f infra/docker-compose.yml up -d
 ### 2) Subir Backend (API)
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d
-# (se você tiver docker-compose também para o backend, use o comando do backend aqui)
-# no mínimo:
-# - rodar migrations
-# - subir uvicorn em 8020
+cd backend
+python -m pip install -r requirements.txt
+uvicorn main:app --reload --host 0.0.0.0 --port 8020
 ```
 
-> Se o backend for rodado via docker-compose no futuro (recomendado), este README será atualizado com o serviço `api`.
+Testar healthchecks:
+bash +curl http://localhost:8020/healthz +curl http://localhost:8020/api/v1/worker/health +
+
+> Se o backend for rodado via docker-compose no futuro (recomendado), este README será atualizado com o serviço api.
 
 ### 3) Subir Frontend
 
