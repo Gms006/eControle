@@ -13,7 +13,8 @@ com correções de arquitetura/organização e mudanças combinadas:
 - Certificados = espelho do CertHub + “Instalar → abre CertHub”
 - Úteis = exports do Scribere (notas/snippets) + “Abrir Scribere”
 - Ingest inicial via **JSON** (não planilha)
-
+**Status atual**: S1 (build mínimo) — Infra (Postgres/Redis) + API com healthchecks funcionando.  
+Veja [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md) para roadmap completo e [ESTRUTURA_REPO.md](ESTRUTURA_REPO.md) para evolução da estrutura.
 ---
 
 ## Portas (sem conflito com CertHub)
@@ -56,8 +57,9 @@ npm run dev
 
 ## Arquitetura (alto nível)
 
-* `backend/` — FastAPI (padrão CertHub): `app/core`, `app/api/v1`, `app/db`, `app/models`, `app/schemas`, `app/services`, `app/workers`
-* `frontend/` — React/Vite (reaproveita v1 ao máximo)
+* `backend/` — FastAPI (padrão CertHub): estrutura expandível com `app/core`, `app/api/v1`, `app/db`, `app/models`, `app/schemas`, `app/services`, `app/workers`
+  - Em S1: `main.py` com healthchecks (inicia estrutura modular)
+* `frontend/` — React/Vite (reaproveita v1 ao máximo) - adicionada em S2+
 * `infra/` — docker-compose (Postgres + Redis)
 * `docs/` — baseline do v1, contratos de integração, riscos/decisões e checklist
 

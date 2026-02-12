@@ -1,6 +1,7 @@
 # Plano de Desenvolvimento — eControle v2 (Rebuild)
 
 ## S0 — Kickoff e Baseline (Concluído)
+**Status:** ✅ Concluído em 2026-02-11
 
 **Objetivo:** travar o que significa “voltar até o ponto onde paramos” e evitar escopo infinito.
 
@@ -41,6 +42,7 @@
 ---
 
 ## S1 — Repo v2 no padrão CertHub + Infra Docker (sem conflitos de porta)
+**Status:** ✅ Concluído em 2026-02-12
 
 **Objetivo:** criar o esqueleto limpo e reproduzível (DX).
 
@@ -61,19 +63,53 @@
 
 **Aceite**
 
-* `docker compose up -d` sobe Postgres e Redis.
-* Backend sobe em 8020 e responde `/healthz`.
+diff --git a/PLANO_DESENVOLVIMENTO.md b/PLANO_DESENVOLVIMENTO.md
+--- a/PLANO_DESENVOLVIMENTO.md
++++ b/PLANO_DESENVOLVIMENTO.md
+@@
+ ## S1 — Repo v2 no padrão CertHub + Infra Docker (sem conflitos de porta)
+ 
++**Status:** ✅ Concluído em 2026-02-12
++
+ **Objetivo:** criar o esqueleto limpo e reproduzível (DX).
+ 
+@@
+ **Aceite**
+ 
+* Infra sobindo via Docker Compose com containers `healthy`.
+* Postgres do eControle exposto em **5434:5432** (evita conflito com CertHub em 5433).
+* Redis do eControle exposto em **6381:6379** (CertHub usa 6379).
+* Backend sobe em **8020** e responde:
+  - `GET /healthz` => 200
+  - `GET /api/v1/worker/health` => 200
+ 
+**Evidências (execução local em 2026-02-12)**
 
-**Como validar (comandos)**
+```text
+econtrole-postgres   Up (healthy)   0.0.0.0:5434->5432/tcp
+econtrole-redis      Up (healthy)   0.0.0.0:6381->6379/tcp
+certhub-postgres     Up             127.0.0.1:5433->5432/tcp
+certhub-redis        Up (healthy)   127.0.0.1:6379->6379/tcp
 
+psql -U postgres -c "select 1;"  => 1 row
+redis-cli ping => PONG
+GET /healthz => 200 {"status":"ok"}
+GET /api/v1/worker/health => 200 {"status":"ok","worker":"stub"}
+```
+
+**Comandos de validação**
 ```bash
 docker compose -f infra/docker-compose.yml up -d
 docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -c "select 1;"
 docker compose -f infra/docker-compose.yml exec -T redis redis-cli ping
 
 cd backend
-python -m pip install -r requirements.txt
 uvicorn main:app --reload --host 0.0.0.0 --port 8020
+```
+
+**Rollback (infra)**
+```bash
+docker compose -f infra/docker-compose.yml down -v
 ```
 
 Testar:
@@ -82,13 +118,6 @@ Testar:
 curl http://localhost:8020/healthz
 curl http://localhost:8020/api/v1/worker/health
 ```
-
-**Rollback**
-
-```bash
-docker compose -f infra/docker-compose.yml down -v
-git restore .
-
 ---
 
 ## S2 — Core Backend (padrão CertHub): config/logs/db/alembic/test harness
