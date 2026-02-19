@@ -13,7 +13,7 @@ com correções de arquitetura/organização e mudanças combinadas:
 - Certificados = espelho do CertHub + “Instalar → abre CertHub”
 - Úteis = exports do Scribere (notas/snippets) + “Abrir Scribere”
 - Ingest inicial via **JSON** (não planilha)
-**Status atual**: S1 (build mínimo) — Infra (Postgres/Redis) + API com healthchecks funcionando.  
+**Status atual**: S5 (companies) — primeira entidade org-scoped com CRUD, filtros e testes de isolamento.  
 Veja [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md) para roadmap completo e [ESTRUTURA_REPO.md](ESTRUTURA_REPO.md) para evolução da estrutura.
 ---
 
@@ -21,9 +21,80 @@ Veja [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md) para roadmap completo 
 - Frontend (Vite): **5174**
 - API (FastAPI): **8020**
 - Redis (host → container): **6381 → 6379**
-- Postgres (host → container): **5433 → 5432**
+- Postgres (host → container): **5434 → 5432**
+
+## Configuração (env)
+O backend monta `DATABASE_URL` automaticamente a partir de:
+`POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`.
+Se precisar sobrescrever, defina essas variáveis no `.env` (na raiz) ou em `backend/.env`.
+
+### Auth (S3)
+- `SECRET_KEY` (obrigatório fora de `ENV=dev`)
+- `ACCESS_TOKEN_EXPIRE_MINUTES` (default 60)
+- `REFRESH_TOKEN_EXPIRE_DAYS` (default 14)
+- `SEED_ENABLED` (default true em dev)
+- `SEED_ORG_NAME` (default "Neto Contabilidade")
+- `MASTER_EMAIL` (default "admin@example.com")
+- `MASTER_PASSWORD` (default "admin123")
+- `MASTER_ROLES` (default "DEV,ADMIN")
 
 ---
+
+## Org Context (S4)
+Requests autenticadas podem enviar **header opcional** `X-Org-Id` ou `X-Org-Slug`.
+Por enquanto o usuário pertence a **uma única org**:
+- Se o header for omitido, usa `user.org_id`.
+- Se o header for enviado e não bater com a org do usuário, retorna **403**.
+
+Endpoints novos:
+- `GET /api/v1/orgs/current`
+- `GET /api/v1/orgs/list` (ADMIN/DEV)
+
+## Companies (S5)
+CRUD básico com isolamento por `org_id` (filtro obrigatório) e RBAC:
+- `POST /api/v1/companies` (ADMIN/DEV)
+- `GET /api/v1/companies` (ADMIN/DEV/VIEW)
+- `GET /api/v1/companies/{id}` (ADMIN/DEV/VIEW)
+- `PATCH /api/v1/companies/{id}` (ADMIN/DEV)
+
+Exemplos PowerShell (Invoke-RestMethod):
+```powershell
+$baseUrl = "http://localhost:8020"
+$token = (Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/auth/login" -Body (@{
+  email = "admin@example.com"
+  password = "admin123"
+} | ConvertTo-Json) -ContentType "application/json").access_token
+
+# Create
+$company = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/companies" -Headers @{
+  Authorization = "Bearer $token"
+} -Body (@{
+  cnpj = "12.345.678/0001-90"
+  razao_social = "Empresa Alpha"
+  nome_fantasia = "Alpha"
+  municipio = "Sao Paulo"
+  uf = "SP"
+} | ConvertTo-Json) -ContentType "application/json"
+$company.id
+
+# List (filtros opcionais: cnpj, razao_social, is_active, limit, offset)
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/companies?razao_social=Alpha" -Headers @{
+  Authorization = "Bearer $token"
+}
+
+# Get by id
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/companies/$($company.id)" -Headers @{
+  Authorization = "Bearer $token"
+}
+
+# Patch (update / delete lógico com is_active=false)
+Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" -Headers @{
+  Authorization = "Bearer $token"
+} -Body (@{
+  razao_social = "Empresa Alpha Atualizada"
+  is_active = $false
+} | ConvertTo-Json) -ContentType "application/json"
+```
 
 ## Rodar local (Docker-first)
 
@@ -35,13 +106,47 @@ docker compose -f infra/docker-compose.yml up -d
 ### 2) Subir Backend (API)
 
 ```bash
-cd backend
 python -m pip install -r requirements.txt
+cd backend
 uvicorn main:app --reload --host 0.0.0.0 --port 8020
 ```
 
 Testar healthchecks:
-bash +curl http://localhost:8020/healthz +curl http://localhost:8020/api/v1/worker/health +
+```bash
+curl http://localhost:8020/healthz
+curl http://localhost:8020/api/v1/worker/health
+```
+
+Testar auth (S3):
+```bash
+curl -X POST http://localhost:8020/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin123"}'
+
+curl http://localhost:8020/api/v1/auth/me \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+
+curl -X POST http://localhost:8020/api/v1/auth/refresh \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<REFRESH_TOKEN>"}'
+
+curl -X POST http://localhost:8020/api/v1/auth/logout \
+  -H "Content-Type: application/json" \
+  -d '{"refresh_token":"<REFRESH_TOKEN>"}'
+```
+
+Testar org context (S4):
+```bash
+curl http://localhost:8020/api/v1/orgs/current \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+
+curl http://localhost:8020/api/v1/orgs/current \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "X-Org-Id: <ORG_ID>"
+
+curl http://localhost:8020/api/v1/orgs/list \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
 
 > Se o backend for rodado via docker-compose no futuro (recomendado), este README será atualizado com o serviço api.
 

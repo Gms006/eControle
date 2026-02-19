@@ -122,6 +122,8 @@ curl http://localhost:8020/api/v1/worker/health
 
 ## S2 — Core Backend (padrão CertHub): config/logs/db/alembic/test harness
 
+**Status:** ✅ Concluído em 2026-02-18
+
 **Objetivo:** base sólida para não virar “frankenstein”.
 
 **Entregas**
@@ -137,9 +139,20 @@ curl http://localhost:8020/api/v1/worker/health
 * `alembic upgrade head` OK
 * `pytest` OK (mesmo que só smoke)
 
+**Validação (local)**
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+cd backend
+alembic upgrade head
+pytest -q
+```
+
 ---
 
 ## S3 — Auth + RBAC central (eControle independente do CertHub)
+
+**Status:** ✅ Concluído em 2026-02-18
 
 **Objetivo:** eControle ser “portal principal” sem depender do CertHub estar online.
 
@@ -165,25 +178,78 @@ curl http://localhost:8020/api/v1/worker/health
 * Login real funcionando no eControle (sem token mint manual)
 * Rotas protegidas e RBAC aplicado
 
+**Validação (local)**
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+cd backend
+alembic upgrade head
+pytest -q
+```
+
+```bash
+curl -X POST http://localhost:8020/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin123"}'
+
+# Copie o access_token para testar /me
+curl http://localhost:8020/api/v1/auth/me \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
+
 ---
 
 ## S4 — Multi-tenant e “org context” (compatível com v1)
+
+**Status:** ✅ Concluído em 2026-02-19
 
 **Objetivo:** manter o que já era bom no eControle (org_id, uniques, filtros).
 
 **Entregas**
 
-* `org_id` obrigatório em entidades do domínio
-* filtros por org em queries
-* constraints/índices por org onde necessário
+* Org context obrigatório para operações de negócio
+* Header opcional `X-Org-Id`/`X-Org-Slug` validado contra `user.org_id`
+* `GET /api/v1/orgs/current` (auth)
+* `GET /api/v1/orgs/list` (ADMIN/DEV)
+* Migration incremental de org (slug unique + updated_at)
 
 **Aceite**
 
-* Dois orgs não enxergam dados um do outro (teste automatizado básico)
+* `/api/v1/orgs/current` retorna org do usuário autenticado
+* Header `X-Org-Id` divergente retorna **403**
+* RBAC continua funcionando
+* `alembic upgrade head` OK
+* `pytest -q` OK
+
+**Validação (local)**
+
+```bash
+cd backend
+alembic upgrade head
+pytest -q
+```
+
+```bash
+curl -X POST http://localhost:8020/api/v1/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"admin123"}'
+
+curl http://localhost:8020/api/v1/orgs/current \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+
+curl http://localhost:8020/api/v1/orgs/current \
+  -H "Authorization: Bearer <ACCESS_TOKEN>" \
+  -H "X-Org-Id: <ORG_ID_INVALIDO>"
+
+curl http://localhost:8020/api/v1/orgs/list \
+  -H "Authorization: Bearer <ACCESS_TOKEN>"
+```
 
 ---
 
 ## S5 — Domínio Core (API) no mínimo para “voltar onde parou”
+
+**Status:** ✅ Concluído em 2026-02-19
 
 **Objetivo:** reimplantar o coração do eControle com estabilidade.
 
@@ -201,6 +267,56 @@ curl http://localhost:8020/api/v1/worker/health
 **Aceite**
 
 * Front (mesmo antigo) consegue listar e operar o core sem gambiarra
+
+**Validação (local)**
+
+```bash
+docker compose -f infra/docker-compose.yml up -d
+cd backend
+alembic upgrade head
+alembic current
+alembic heads
+cd ..
+pytest -q
+```
+
+**Smoke (PowerShell)**
+
+```powershell
+$baseUrl = "http://localhost:8020"
+$token = (Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/auth/login" -Body (@{
+  email = "admin@example.com"
+  password = "admin123"
+} | ConvertTo-Json) -ContentType "application/json").access_token
+
+# Create
+$company = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/companies" -Headers @{
+  Authorization = "Bearer $token"
+} -Body (@{
+  cnpj = "12.345.678/0001-90"
+  razao_social = "Empresa Alpha"
+  nome_fantasia = "Alpha"
+  municipio = "Sao Paulo"
+  uf = "SP"
+} | ConvertTo-Json) -ContentType "application/json"
+
+# List (filtro por razao_social)
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/companies?razao_social=Alpha" -Headers @{
+  Authorization = "Bearer $token"
+}
+
+# Get by id
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/companies/$($company.id)" -Headers @{
+  Authorization = "Bearer $token"
+}
+
+# Patch (delete lógico)
+Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" -Headers @{
+  Authorization = "Bearer $token"
+} -Body (@{
+  is_active = $false
+} | ConvertTo-Json) -ContentType "application/json"
+```
 
 ---
 

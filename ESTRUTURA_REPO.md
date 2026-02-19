@@ -3,15 +3,65 @@
 Padrão inspirado no CertHub: monorepo com backend modular e front isolado.
 
 ## Tree (alto nível)
-### S1 (mínimo real — ATUAL)
-> Estrutura mínima para subir infra (Postgres/Redis) + API com healthchecks.
+### S5 (companies — ATUAL)
+> Primeira entidade org-scoped (companies) com CRUD, filtros e testes de isolamento.
 
 ```
 eControle/
 ├─ backend/
-│  ├─ main.py
-│  ├─ __pycache__/
-│  └─ (estrutura app/ será expandida)
+│  ├─ app/
+│  │  ├─ __init__.py
+│  │  ├─ api/
+│  │  │  ├─ __init__.py
+│  │  │  └─ v1/
+│  │  │     ├─ __init__.py
+│  │  │     ├─ api.py
+│  │  │     └─ endpoints/
+│  │  │        ├─ __init__.py
+│  │  │        ├─ auth.py
+│  │  │        ├─ companies.py
+│  │  │        └─ orgs.py
+│  │  ├─ core/
+│  │  │  ├─ config.py
+│  │  │  ├─ logging.py
+│  │  │  ├─ org_context.py
+│  │  │  ├─ security.py
+│  │  │  └─ audit.py
+│  │  ├─ db/
+│  │  │  ├─ base.py
+│  │  │  └─ session.py
+│  │  ├─ models/
+│  │  │  ├─ __init__.py
+│  │  │  ├─ company.py
+│  │  │  ├─ org.py
+│  │  │  ├─ refresh_token.py
+│  │  │  ├─ role.py
+│  │  │  └─ user.py
+│  │  └─ schemas/
+│  │     ├─ __init__.py
+│  │     ├─ auth.py
+│  │     ├─ company.py
+│  │     ├─ org.py
+│  │     ├─ token.py
+│  │     └─ user.py
+│  ├─ alembic/
+│  │  ├─ env.py
+│  │  ├─ script.py.mako
+│  │  └─ versions/
+│  │     ├─ 20260218_0001_create_orgs.py
+│  │     ├─ 20260218_0002_auth_tables.py
+│  │     ├─ 20260218_0003_orgs_slug_updated_at.py
+│  │     └─ 20260219_0004_create_companies.py
+│  ├─ alembic.ini
+│  ├─ tests/
+│  │  ├─ conftest.py
+│  │  ├─ test_auth_login_me.py
+│  │  ├─ test_auth_rbac.py
+│  │  ├─ test_auth_refresh_logout.py
+│  │  ├─ test_companies_crud.py
+│  │  ├─ test_org_context.py
+│  │  └─ test_health.py
+│  └─ main.py
 ├─ infra/
 │  └─ docker-compose.yml
 ├─ docs/
