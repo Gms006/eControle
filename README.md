@@ -96,6 +96,84 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" 
 } | ConvertTo-Json) -ContentType "application/json"
 ```
 
+## Primeiro boot (dev)
+
+**Fluxo recomendado para zerar o banco e deixar o projeto pronto:**
+
+```bash
+# 1) Subir infraestrutura
+docker compose -f infra/docker-compose.yml up -d
+
+# 2) Instalar dependências
+python -m pip install -r requirements.txt
+cd backend
+
+# 3) Executar migrations (zera + cria schema limpo)
+python -m alembic upgrade head
+
+# 4) Seed automático (usuário master)
+# Certifique-se de ter no .env:
+#   SEED_ENABLED=true
+#   MASTER_EMAIL=cadastro@netocontabilidade.com.br
+#   MASTER_PASSWORD=Dev@12345
+#   MASTER_ROLES=DEV,ADMIN
+
+# 5) Iniciar backend
+uvicorn main:app --reload --host 0.0.0.0 --port 8020
+
+# 6) Em outro terminal, subir frontend
+cd frontend
+npm install
+npm run dev
+```
+
+### Login e Teste de Endpoints (PowerShell 5.1)
+
+> **Prefira `Invoke-RestMethod` ao curl** — melhor integração com dados JSON/PowerShell.
+
+```powershell
+$baseUrl = "http://localhost:8020"
+
+# Login com usuário master
+$login = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/auth/login" `
+  -ContentType "application/json" `
+  -Body (@{
+    email = "cadastro@netocontabilidade.com.br"
+    password = "Dev@12345"
+  } | ConvertTo-Json -Compress)
+
+$token = $login.access_token
+
+# Teste admin ping (ADMIN/DEV)
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/auth/admin/ping" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+# Listar usuários da org
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/admin/users?limit=50" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+# Criar novo usuário
+$newUser = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/admin/users" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -Body (@{
+    email = "user@netocontabilidade.com.br"
+    password = "Temp@54321"
+    roles = @("VIEW")
+  } | ConvertTo-Json -Compress)
+
+# Atualizar usuário (roles e status)
+Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -Body (@{
+    roles = @("DEV", "ADMIN")
+    is_active = $true
+  } | ConvertTo-Json -Compress)
+```
+
+---
+
 ## Rodar local (Docker-first)
 
 ### 1) Subir infraestrutura (Postgres + Redis)

@@ -18,6 +18,7 @@ eControle/
 │  │  │     ├─ api.py
 │  │  │     └─ endpoints/
 │  │  │        ├─ __init__.py
+│  │  │        ├─ admin_users.py
 │  │  │        ├─ auth.py
 │  │  │        ├─ companies.py
 │  │  │        └─ orgs.py
@@ -39,6 +40,7 @@ eControle/
 │  │  │  └─ user.py
 │  │  └─ schemas/
 │  │     ├─ __init__.py
+│  │     ├─ admin_users.py
 │  │     ├─ auth.py
 │  │     ├─ company.py
 │  │     ├─ org.py

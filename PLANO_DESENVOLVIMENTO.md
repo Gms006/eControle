@@ -322,22 +322,83 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" 
 
 ## S6 — Frontend reaproveitado (migração mínima)
 
-**Objetivo:** reaproveitar “principalmente frontend”, ajustando só base URL, auth e abas integradas.
+**Status:** ✅ Frontend scaffold + auth entregues
+
+**Objetivo:** reaproveitar "principalmente frontend", ajustando só base URL, auth e abas integradas.
 
 **Entregas**
 
-* Front v1 reaproveitado (features/telas)
-* Ajuste de:
+✅ Front v1 reaproveitado (features/telas)
+✅ Login endpoint real funcionando (/api/v1/auth/login)
+✅ Ajuste de:
 
   * porta 5174
   * API base para 8020 (ou proxy)
   * fluxo de login (agora real)
-* AppShell coerente (padrão CertHub se quiser, mas sem refazer UI inteira)
+✅ AppShell coerente (padrão CertHub se quiser, mas sem refazer UI inteira)
 
 **Aceite**
 
-* Tela inicial e navegação funcionando
-* Login e sessão funcionando
+✅ Tela inicial e navegação funcionando
+✅ Login e sessão funcionando
+✅ Frontend consegue fazer login e abrir painel (/painel)
+
+---
+
+## S6.1 — Admin Users API (create/list/update com RBAC)
+
+**Status:** ✅ Entregue em 2026-02-23
+
+**Objetivo:** gerenciar usuários da org via API com segurança e auditoria.
+
+**Entregas**
+
+✅ `POST /api/v1/admin/users` (criar usuário)
+✅ `GET /api/v1/admin/users` (listar usuários da org com filtros)
+✅ `PATCH /api/v1/admin/users/{user_id}` (atualizar roles e status)
+✅ Guard: impede que admin desative a si mesmo
+✅ RBAC: apenas ADMIN/DEV podem gerenciar usuários
+✅ Isolamento: listabilidade e update apenas de usuários da mesma org
+
+**Endpoints**
+
+```powershell
+$baseUrl = "http://localhost:8020"
+$token = (Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/auth/login" -Body (@{
+  email = "cadastro@netocontabilidade.com.br"
+  password = "Dev@12345"
+} | ConvertTo-Json) -ContentType "application/json").access_token
+
+# Listar usuários da org
+Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/admin/users?limit=50" `
+  -Headers @{ Authorization = "Bearer $token" }
+
+# Criar novo usuário
+$newUser = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/admin/users" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -Body (@{
+    email = "user@netocontabilidade.com.br"
+    password = "Temp@54321"
+    roles = @("VIEW")
+  } | ConvertTo-Json -Compress)
+
+# Atualizar roles
+Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)" `
+  -Headers @{ Authorization = "Bearer $token" } `
+  -ContentType "application/json" `
+  -Body (@{
+    roles = @("DEV", "ADMIN")
+    is_active = $true
+  } | ConvertTo-Json -Compress)
+```
+
+**Aceite**
+
+✅ Admin endpoints aparecem no Swagger/OpenAPI
+✅ Create/List/Patch usuários funciona com token DEV/ADMIN
+✅ Usuários ficam vinculados à mesma org_id do caller
+✅ Admin não consegue desativar a si mesmo (retorna 400)
 
 ---
 
