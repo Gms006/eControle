@@ -97,7 +97,12 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title=settings.PROJECT_NAME, version="0.1.0", lifespan=lifespan)
+app = FastAPI(
+    title=settings.PROJECT_NAME,
+    version="0.1.0",
+    lifespan=lifespan,
+    redoc_url=None,  # desabilita o /redoc padrão do FastAPI (que aponta para redoc@next)
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -115,10 +120,10 @@ if static_dir.exists():
 # Custom ReDoc endpoint with self-hosted assets
 # Check if assets are locally available, otherwise use CDN
 redoc_assets_dir = Path(__file__).parent / "app" / "static" / "redoc"
-redoc_standalone_exists = (redoc_assets_dir / "redoc.standalone.js").exists()
 
 @app.get("/redoc", response_class=HTMLResponse)
 async def redoc_html():
+    redoc_standalone_exists = (redoc_assets_dir / "redoc.standalone.js").exists()
     if redoc_standalone_exists:
         # Use locally hosted assets
         script_src = "/static/redoc/redoc.standalone.js"
