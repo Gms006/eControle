@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
-from app.services.ingest.utils import normalize_digits, normalize_cnpj
+from app.services.ingest.utils import normalize_digits, normalize_cnpj, repair_mojibake_utf8, sanitize_text_tree
 
 
 _ISENTO_MARKERS = {"-", "8"}
@@ -12,7 +12,7 @@ _ISENTO_MARKERS = {"-", "8"}
 def _null_if_isento(value: str | None) -> str | None:
     if value is None:
         return None
-    v = str(value).strip()
+    v = repair_mojibake_utf8(str(value)).strip()
     if v in _ISENTO_MARKERS:
         return None
     return v
@@ -32,7 +32,7 @@ def upsert_company_profiles(db: Session, org_id: str, items: list[dict]) -> tupl
             continue
 
         payload = {
-            "external_id": item.get("external_id"),
+            "external_id": repair_mojibake_utf8(item.get("external_id")),
             "porte": _null_if_isento(item.get("porte")),
             "status_empresa": _null_if_isento(item.get("status_empresa")),
             "categoria": _null_if_isento(item.get("categoria")),
@@ -47,7 +47,7 @@ def upsert_company_profiles(db: Session, org_id: str, items: list[dict]) -> tupl
             "telefone": normalize_digits(item.get("telefone") or "") or None,
             "email": _null_if_isento(item.get("email")),
             "responsavel_fiscal": _null_if_isento(item.get("responsavel_fiscal")),
-            "raw": item.get("raw"),
+            "raw": sanitize_text_tree(item.get("raw")),
         }
 
         existing = (

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
-from app.services.ingest.utils import normalize_cnpj, null_if_marker
+from app.services.ingest.utils import normalize_cnpj, null_if_marker, sanitize_text_tree
 
 
 def upsert_licences(db: Session, org_id: str, items: list[dict]) -> tuple[int, int, int]:
@@ -30,7 +30,7 @@ def upsert_licences(db: Session, org_id: str, items: list[dict]) -> tuple[int, i
             "alvara_funcionamento": null_if_marker(item.get("alvara_funcionamento")),
             "licenca_ambiental": null_if_marker(item.get("licenca_ambiental")),
             "certidao_uso_solo": null_if_marker(item.get("certidao_uso_solo")),
-            "raw": item.get("raw"),
+            "raw": sanitize_text_tree(item.get("raw")),
         }
 
         existing = (
@@ -47,4 +47,3 @@ def upsert_licences(db: Session, org_id: str, items: list[dict]) -> tuple[int, i
             inserted += 1
 
     return inserted, updated, skipped
-

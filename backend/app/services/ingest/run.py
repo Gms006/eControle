@@ -38,6 +38,9 @@ def run_ingest_companies(
     db.flush()  # ensures ingest_run.id is available before commit
 
     c_ins, c_upd = upsert_companies(db, org_id, companies)
+    # Important: ensure inserted companies are flushed before dependent upserts
+    # (profiles/licences/taxes/processes query companies by cnpj to resolve company_id)
+    db.flush()
     p_ins, p_upd = upsert_company_profiles(db, org_id, companies)
     l_ins, l_upd, l_skip = upsert_licences(db, org_id, licences)
     t_ins, t_upd, t_skip = upsert_taxes(db, org_id, taxes)

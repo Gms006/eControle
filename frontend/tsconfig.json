@@ -11,10 +11,21 @@
     "noEmit": true,
     "jsx": "react-jsx",
     "strict": true,
-    "types": [],
+    "allowJs": true,
+    "checkJs": false,
+    "types": ["vite/client"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@/components/*": ["src/components/*"],
+      "@/pages/*": ["src/pages/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/api/*": ["src/api/*"],
+      "@/services/*": ["src/services/*"],
+      "@/providers/*": ["src/providers/*"],
+      "@/styles/*": ["src/styles/*"],
+      "@/types/*": ["src/types/*"]
     }
   },
   "include": ["src"]

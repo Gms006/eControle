@@ -1,32 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Building2,
-  FileText,
-  LayoutDashboard,
-  Receipt,
-  Settings,
-} from "lucide-react";
-import HeaderMenuPro from "../components/HeaderMenuPro";
+import { BellRing, Database, Filter } from "lucide-react";
+import Sidebar from "@/components/layout/Sidebar";
+import Topbar from "@/components/layout/Topbar";
+import PageTitle from "@/components/layout/PageTitle";
 import PainelScreen from "./PainelScreen";
 import EmpresasScreen from "./EmpresasScreen";
 import LicencasScreen from "./LicencasScreen";
 import TaxasScreen from "./TaxasScreen";
 import ProcessosScreen from "./ProcessosScreen";
+import CertificadosScreen from "./CertificadosScreen";
 import { useAuth } from "../hooks/useAuth";
 import { fetchJson } from "../lib/api";
 import { TAB_BACKGROUNDS } from "../lib/constants";
+import { APP_NAV_ITEMS, TAB_TITLES, type AppTabKey } from "@/lib/theme";
 import { normalizeText, removeDiacritics } from "../lib/text";
 import { getStatusKey, isAlertStatus, isProcessStatusActiveOrPending } from "../lib/status";
 import { listarEmpresas } from "../services/empresas";
 import { listarGruposKPIs } from "../services/kpis";
-
-const NAV_ITEMS = [
-  { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: Building2 },
-  { key: "licencas", label: "Licenças", icon: FileText },
-  { key: "taxas", label: "Taxas", icon: Receipt },
-  { key: "processos", label: "Processos", icon: Settings },
-];
 
 const SEARCH_FIELDS = [
   { key: "all", label: "Tudo" },
@@ -78,9 +68,10 @@ const renderEmptyState = (title: string, message: string) => (
 
 export default function MainApp() {
   const { logout } = useAuth();
-  const [tab, setTab] = useState(() => {
+  const [tab, setTab] = useState<AppTabKey>(() => {
     if (typeof window === "undefined") return "painel";
-    return window.localStorage.getItem("econtrole.tab") || "painel";
+    const stored = window.localStorage.getItem("econtrole.tab");
+    return APP_NAV_ITEMS.some((item) => item.key === stored) ? (stored as AppTabKey) : "painel";
   });
   const [query, setQuery] = useState("");
   const [searchField, setSearchField] = useState("all");
@@ -96,11 +87,6 @@ export default function MainApp() {
   const [kpis, setKpis] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [notFound, setNotFound] = useState<Record<string, boolean>>({
-    licencas: false,
-    taxas: false,
-    processos: false,
-  });
 
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
 
@@ -111,9 +97,9 @@ export default function MainApp() {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.altKey && /^[1-5]$/.test(event.key)) {
+      if (event.altKey && /^\d$/.test(event.key)) {
         const index = Number(event.key) - 1;
-        const target = NAV_ITEMS[index]?.key;
+        const target = APP_NAV_ITEMS[index]?.key;
         if (target) {
           event.preventDefault();
           setTab(target);
@@ -153,25 +139,13 @@ export default function MainApp() {
         if (!active) return;
 
         const nextErrors: Record<string, string> = {};
-        const nextNotFound: Record<string, boolean> = {
-          licencas: false,
-          taxas: false,
-          processos: false,
-        };
-
         const handleCollection = (
           result: PromiseSettledResult<any>,
           setter: (items: any[]) => void,
-          key?: keyof typeof nextNotFound,
+          key?: string,
         ) => {
           if (result.status === "fulfilled") {
-            const payload = result.value;
-            if (key && payload?.__notFound) {
-              nextNotFound[key] = true;
-              setter([]);
-              return;
-            }
-            setter(normalizeItems(payload));
+            setter(normalizeItems(result.value));
           } else {
             const message = result.reason?.message || "Falha ao carregar dados.";
             if (key) {
@@ -185,7 +159,7 @@ export default function MainApp() {
         handleCollection(licencasResponse, setLicencas, "licencas");
         handleCollection(taxasResponse, setTaxas, "taxas");
         handleCollection(processosResponse, setProcessos, "processos");
-        handleCollection(certificadosResponse, setCertificados);
+        handleCollection(certificadosResponse, setCertificados, "certificados");
 
         if (kpisResponse.status === "fulfilled") {
           setKpis(kpisResponse.value || {});
@@ -195,7 +169,6 @@ export default function MainApp() {
         }
 
         setErrors(nextErrors);
-        setNotFound(nextNotFound);
       } finally {
         if (active) setLoading(false);
       }
@@ -425,142 +398,175 @@ export default function MainApp() {
   );
 
   const backgroundClass = TAB_BACKGROUNDS[tab as keyof typeof TAB_BACKGROUNDS] || "bg-slate-50";
+  const pageMeta = TAB_TITLES[tab];
+  const activeNav = APP_NAV_ITEMS.find((item) => item.key === tab);
+  const pageChips = [
+    { label: activeNav?.label || "Tela", variant: "info" as const },
+    ...(somenteAlertas ? [{ label: "Somente alertas", variant: "warn" as const }] : []),
+    ...(modoFoco ? [{ label: "Modo foco", variant: "ok" as const }] : []),
+  ];
 
   return (
-    <div className={`min-h-screen ${backgroundClass}`}>
-      <HeaderMenuPro
-        tab={tab}
-        onTabChange={setTab}
-        navItems={NAV_ITEMS}
-        query={query}
-        onQueryChange={setQuery}
-        searchField={searchField}
-        onSearchFieldChange={setSearchField}
-        searchFieldOptions={SEARCH_FIELDS}
-        municipio={municipio}
-        municipios={municipios}
-        onMunicipioChange={setMunicipio}
-        somenteAlertas={somenteAlertas}
-        onSomenteAlertasChange={setSomenteAlertas}
-        modoFoco={modoFoco}
-        onModoFocoChange={setModoFoco}
-      />
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50">
+      <div className="flex min-h-screen">
+        <Sidebar
+          items={APP_NAV_ITEMS}
+          activeTab={tab}
+          onTabChange={setTab}
+          onLogout={() => void logout()}
+        />
 
-      <main className="mx-auto max-w-[1400px] px-4 py-6">
-        <div className="flex items-center justify-between pb-4">
-          <div className="text-xs uppercase tracking-wide text-slate-500">
-            Portal eControle • S6
-          </div>
-          <button
-            type="button"
-            className="rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-600 hover:border-slate-300 hover:text-slate-800"
-            onClick={() => void logout()}
-          >
-            Sair
-          </button>
-        </div>
-
-        {loading && (
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
-            Carregando dados...
-          </div>
-        )}
-
-        {!loading && tab === "painel" && (
-          <PainelScreen
+        <div className="flex min-w-0 flex-1 flex-col">
+          <Topbar
+            items={APP_NAV_ITEMS}
+            activeTab={tab}
+            onTabChange={setTab}
             query={query}
+            onQueryChange={setQuery}
+            searchField={searchField}
+            onSearchFieldChange={setSearchField}
+            searchFieldOptions={SEARCH_FIELDS}
             municipio={municipio}
-            soAlertas={somenteAlertas}
-            kpis={kpis}
-            empresas={empresas}
-            licencas={licencas}
-            taxas={taxas}
-            certificados={certificados}
-            filteredLicencas={filteredLicencas}
-            processosNormalizados={processosNormalizados}
-            filterEmpresas={filterEmpresas}
-            companyHasAlert={companyHasAlert}
-            licencasByEmpresa={licencasByEmpresa}
-            extractEmpresaId={extractEmpresaId}
+            municipios={municipios}
+            onMunicipioChange={setMunicipio}
+            somenteAlertas={somenteAlertas}
+            onSomenteAlertasChange={setSomenteAlertas}
+            modoFoco={modoFoco}
+            onModoFocoChange={setModoFoco}
+            onLogout={() => void logout()}
           />
-        )}
 
-        {!loading && tab === "empresas" && (
-          <EmpresasScreen
-            filteredEmpresas={filteredEmpresas}
-            empresas={empresas}
-            soAlertas={somenteAlertas}
-            extractEmpresaId={extractEmpresaId}
-            licencasByEmpresa={licencasByEmpresa}
-            taxasByEmpresa={taxasByEmpresa}
-            processosByEmpresa={processosByEmpresa}
-            handleCopy={handleCopy}
-            enqueueToast={enqueueToast}
-          />
-        )}
-
-        {!loading && tab === "licencas" && (
-          <>
-            {notFound.licencas &&
-              renderEmptyState(
-                "Em breve",
-                "Licenças ainda não foram publicadas no backend desta stage.",
-              )}
-            {!notFound.licencas && (
-              <LicencasScreen
-                licencas={licencas}
-                filteredLicencas={filteredLicencas}
-                modoFoco={modoFoco}
-                handleCopy={handleCopy}
+          <main className={`min-w-0 flex-1 ${backgroundClass}`}>
+            <div className="mx-auto max-w-[1500px] px-4 py-4 lg:px-6 lg:py-5">
+              <PageTitle
+                title={pageMeta.title}
+                subtitle={pageMeta.subtitle}
+                chips={pageChips}
+                right={
+                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
+                      <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <Database className="h-3.5 w-3.5" /> Dados
+                      </div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        {empresas.length}/{licencas.length}/{taxas.length}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
+                      <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <Filter className="h-3.5 w-3.5" /> Filtros
+                      </div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        {municipio === "Todos" ? "Todos" : municipio}
+                      </div>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
+                      <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                        <BellRing className="h-3.5 w-3.5" /> Alertas
+                      </div>
+                      <div className="text-sm font-semibold text-slate-900">
+                        {somenteAlertas ? "Filtrados" : "Todos"}
+                      </div>
+                    </div>
+                  </div>
+                }
               />
-            )}
-            {errors.licencas &&
-              renderEmptyState("Erro ao carregar licenças", errors.licencas)}
-          </>
-        )}
 
-        {!loading && tab === "taxas" && (
-          <>
-            {notFound.taxas &&
-              renderEmptyState(
-                "Em breve",
-                "Taxas ainda não foram publicadas no backend desta stage.",
+              {loading && (
+                <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-panel">
+                  Carregando dados do backend...
+                </div>
               )}
-            {!notFound.taxas && (
-              <TaxasScreen
-                taxas={taxas}
-                modoFoco={modoFoco}
-                matchesMunicipioFilter={matchesMunicipioFilter}
-                matchesQuery={matchesQuery}
-                handleCopy={handleCopy}
-              />
-            )}
-            {errors.taxas && renderEmptyState("Erro ao carregar taxas", errors.taxas)}
-          </>
-        )}
 
-        {!loading && tab === "processos" && (
-          <>
-            {notFound.processos &&
-              renderEmptyState(
-                "Em breve",
-                "Processos ainda não foram publicados no backend desta stage.",
+              {!loading && tab === "painel" && (
+                <PainelScreen
+                  query={query}
+                  municipio={municipio}
+                  soAlertas={somenteAlertas}
+                  kpis={kpis}
+                  empresas={empresas}
+                  licencas={licencas}
+                  taxas={taxas}
+                  certificados={certificados}
+                  filteredLicencas={filteredLicencas}
+                  processosNormalizados={processosNormalizados}
+                  filterEmpresas={filterEmpresas}
+                  companyHasAlert={companyHasAlert}
+                  licencasByEmpresa={licencasByEmpresa}
+                  extractEmpresaId={extractEmpresaId}
+                />
               )}
-            {!notFound.processos && (
-              <ProcessosScreen
-                processosNormalizados={processosNormalizados}
-                modoFoco={modoFoco}
-                soAlertas={somenteAlertas}
-                matchesMunicipioFilter={matchesMunicipioFilter}
-                matchesQuery={matchesQuery}
-                handleCopy={handleCopy}
-              />
-            )}
-            {errors.processos &&
-              renderEmptyState("Erro ao carregar processos", errors.processos)}
-          </>
-        )}
-      </main>
+
+              {!loading && tab === "empresas" && (
+                <EmpresasScreen
+                  filteredEmpresas={filteredEmpresas}
+                  empresas={empresas}
+                  soAlertas={somenteAlertas}
+                  extractEmpresaId={extractEmpresaId}
+                  licencasByEmpresa={licencasByEmpresa}
+                  taxasByEmpresa={taxasByEmpresa}
+                  processosByEmpresa={processosByEmpresa}
+                  handleCopy={handleCopy}
+                  enqueueToast={enqueueToast}
+                />
+              )}
+
+              {!loading && tab === "certificados" && (
+                <>
+                  <CertificadosScreen
+                    certificados={certificados}
+                    modoFoco={modoFoco}
+                    matchesMunicipioFilter={matchesMunicipioFilter}
+                    matchesQuery={matchesQuery}
+                    handleCopy={handleCopy}
+                  />
+                  {errors.certificados &&
+                    renderEmptyState("Erro ao carregar certificados", errors.certificados)}
+                </>
+              )}
+
+              {!loading && tab === "licencas" && (
+                <>
+                  <LicencasScreen
+                    licencas={licencas}
+                    filteredLicencas={filteredLicencas}
+                    modoFoco={modoFoco}
+                    handleCopy={handleCopy}
+                  />
+                  {errors.licencas && renderEmptyState("Erro ao carregar licenças", errors.licencas)}
+                </>
+              )}
+
+              {!loading && tab === "taxas" && (
+                <>
+                  <TaxasScreen
+                    taxas={taxas}
+                    modoFoco={modoFoco}
+                    matchesMunicipioFilter={matchesMunicipioFilter}
+                    matchesQuery={matchesQuery}
+                    handleCopy={handleCopy}
+                  />
+                  {errors.taxas && renderEmptyState("Erro ao carregar taxas", errors.taxas)}
+                </>
+              )}
+
+              {!loading && tab === "processos" && (
+                <>
+                  <ProcessosScreen
+                    processosNormalizados={processosNormalizados}
+                    modoFoco={modoFoco}
+                    soAlertas={somenteAlertas}
+                    matchesMunicipioFilter={matchesMunicipioFilter}
+                    matchesQuery={matchesQuery}
+                    handleCopy={handleCopy}
+                  />
+                  {errors.processos && renderEmptyState("Erro ao carregar processos", errors.processos)}
+                </>
+              )}
+            </div>
+          </main>
+        </div>
+      </div>
 
       {toasts.length > 0 && (
         <div className="fixed bottom-4 right-4 z-50 space-y-2">

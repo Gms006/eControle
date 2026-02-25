@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, event
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.pool import StaticPool
 from sqlalchemy.orm import sessionmaker
@@ -26,6 +26,27 @@ if settings.DATABASE_URL.startswith("sqlite"):
         engine_kwargs["poolclass"] = StaticPool
 
 engine = create_engine(settings.DATABASE_URL, connect_args=connect_args, **engine_kwargs)
+
+
+@event.listens_for(engine, "connect")
+def _force_utf8_client_encoding(dbapi_connection, connection_record):  # pragma: no cover
+    """Force UTF-8 on every DB connection (important on Windows ingest flows)."""
+    try:
+        # psycopg2 connection API
+        if hasattr(dbapi_connection, "set_client_encoding"):
+            dbapi_connection.set_client_encoding("UTF8")
+    except Exception:
+        pass
+
+    try:
+        # Fallback via SQL for drivers that expose a cursor but not the helper method
+        cursor = dbapi_connection.cursor()
+        try:
+            cursor.execute("SET client_encoding TO 'UTF8'")
+        finally:
+            cursor.close()
+    except Exception:
+        pass
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 

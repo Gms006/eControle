@@ -19,6 +19,22 @@ class CompanyIngestItem(BaseModel):
     municipio: Optional[str] = None
     uf: Optional[str] = None
     is_active: Optional[bool] = True
+
+    # --- Profile fields (stored in company_profiles) ---
+    porte: Optional[str] = None
+    status_empresa: Optional[str] = None
+    categoria: Optional[str] = None
+    inscricao_estadual: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+    situacao: Optional[str] = None
+    debito_prefeitura: Optional[str] = None
+    certificado_digital: Optional[str] = None
+    observacoes: Optional[str] = None
+    proprietario_principal: Optional[str] = None
+    cpf: Optional[str] = None
+    telefone: Optional[str] = None
+    email: Optional[str] = None
+    responsavel_fiscal: Optional[str] = None
     raw: Optional[dict] = None
 
 

@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.company import Company
 from app.models.company_tax import CompanyTax
-from app.services.ingest.utils import normalize_cnpj, null_if_marker
+from app.services.ingest.utils import normalize_cnpj, null_if_marker, sanitize_text_tree
 
 
 def upsert_taxes(db: Session, org_id: str, items: list[dict]) -> tuple[int, int, int]:
@@ -36,7 +36,7 @@ def upsert_taxes(db: Session, org_id: str, items: list[dict]) -> tuple[int, int,
             "tpi": null_if_marker(item.get("tpi")),
             "vencimento_tpi": null_if_marker(item.get("vencimento_tpi")),
             "status_taxas": null_if_marker(item.get("status_taxas")),
-            "raw": item.get("raw"),
+            "raw": sanitize_text_tree(item.get("raw")),
         }
 
         existing = pending_by_company_id.get(str(company.id))

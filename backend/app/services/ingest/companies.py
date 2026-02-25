@@ -3,7 +3,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.company import Company
-from app.services.ingest.utils import normalize_cnpj
+from app.services.ingest.utils import normalize_cnpj, repair_mojibake_utf8
 
 
 def upsert_companies(db: Session, org_id: str, items: list[dict]) -> tuple[int, int]:
@@ -19,7 +19,7 @@ def upsert_companies(db: Session, org_id: str, items: list[dict]) -> tuple[int, 
         if not cnpj:
             continue
 
-        razao_social = item.get("razao_social") or item.get("empresa")
+        razao_social = repair_mojibake_utf8(item.get("razao_social") or item.get("empresa"))
         if not razao_social:
             # minimum domain requirement for companies
             continue
@@ -27,9 +27,9 @@ def upsert_companies(db: Session, org_id: str, items: list[dict]) -> tuple[int, 
         payload = {
             "cnpj": cnpj,
             "razao_social": razao_social,
-            "nome_fantasia": item.get("nome_fantasia"),
-            "municipio": item.get("municipio"),
-            "uf": item.get("uf"),
+            "nome_fantasia": repair_mojibake_utf8(item.get("nome_fantasia")),
+            "municipio": repair_mojibake_utf8(item.get("municipio")),
+            "uf": repair_mojibake_utf8(item.get("uf")),
         }
 
         if "is_active" in item and item["is_active"] is not None:
