@@ -70,6 +70,7 @@ export default function Login() {
                       <Mail className="h-4 w-4" />
                     </span>
                     <input
+                      data-testid="login-email"
                       className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 text-sm text-slate-700 placeholder:text-slate-400"
                       type="email"
                       placeholder="maria.clara@netocontabilidade.com.br"
@@ -86,6 +87,7 @@ export default function Login() {
                       <Lock className="h-4 w-4" />
                     </span>
                     <input
+                      data-testid="login-password"
                       className="h-11 w-full rounded-2xl border border-slate-200 bg-white pl-9 pr-11 text-sm text-slate-700 placeholder:text-slate-400"
                       type={showPassword ? "text" : "password"}
                       placeholder="Senha segura"
@@ -114,6 +116,7 @@ export default function Login() {
                   </Link>
                 </div>
                 <button
+                  data-testid="login-submit"
                   className="h-11 w-full rounded-2xl bg-[#0e2659] text-sm font-semibold text-white transition hover:bg-[#0e2659]/90"
                   type="submit"
                   disabled={loading}

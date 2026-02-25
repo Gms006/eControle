@@ -1,0 +1,4573 @@
+{
+  "source": {
+    "type": "spreadsheet_export",
+    "name": "LICENCAS - NETO CONTABILIDADE 2025",
+    "version": "v1-to-v2-json",
+    "generated_at": "2026-02-24T20:13:01Z"
+  },
+  "org": {
+    "slug": "neto-contabilidade"
+  },
+  "licences": [
+    {
+      "cnpj": "02179356000160",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "1 Igreja Presbiteriana Renovada De Anapolis",
+        "CNPJ": "02.179.356/0001-60",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "33000604000197",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "33.000.604 Jose Aparecido Vaz",
+        "CNPJ": "33.000.604/0001-97",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "37870004000130",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 23/05/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Vencido. Val 08/02/2024",
+      "raw": {
+        "EMPRESA": "37.870.004 Joilton De Oliveira Rezende",
+        "CNPJ": "37.870.004/0001-30",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 23/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Vencido. Val 08/02/2024"
+      }
+    },
+    {
+      "cnpj": "46149398000123",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "3TB Producoes Artisticas LTDA",
+        "CNPJ": "46.149.398/0001-23",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "47426394000108",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "47.426.394 Valquiria Machado",
+        "CNPJ": "47.426.394/0001-08",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "29413500000137",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Aguard Vistoria",
+      "cercon": "Possui. Val 19/08/2026",
+      "alvara_funcionamento": "Vencido. Val 08/03/2023",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 21/09/2024",
+      "raw": {
+        "EMPRESA": "A A De Matos Resende - Supermercado Santo Antonio",
+        "CNPJ": "29.413.500/0001-37",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Aguard Vistoria",
+        "CERCON": "Possui. Val 19/08/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 08/03/2023",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 21/09/2024"
+      }
+    },
+    {
+      "cnpj": "06936057000183",
+      "municipio": "PIRENÓPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "A C Melo LTDA",
+        "CNPJ": "06.936.057/0001-83",
+        "MUNICÍPIO": "Pirenópolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "37097323000155",
+      "municipio": "GOIANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Vencido. Val 17/04/2025",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "A K Store LTDA",
+        "CNPJ": "37.097.323/0001-55",
+        "MUNICÍPIO": "Goianápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Vencido. Val 17/04/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "24415962000170",
+      "municipio": "GOIÂNIA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "A S Oliveira Engenharia LTDA",
+        "CNPJ": "24.415.962/0001-70",
+        "MUNICÍPIO": "Goiânia",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "35067703000111",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 29/09/2023",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 01/08/2025",
+      "raw": {
+        "EMPRESA": "A2 Solucoes E Participacoes LTDA",
+        "CNPJ": "35.067.703/0001-11",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 29/09/2023",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 01/08/2025"
+      }
+    },
+    {
+      "cnpj": "19163109000178",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "AC Soares Consultoria E Desenvolvimento Empresarial LTDA",
+        "CNPJ": "19.163.109/0001-78",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "54131050000137",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Acartonapolis Prestadora De Servicos LTDA",
+        "CNPJ": "54.131.050/0001-37",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "22633997000150",
+      "municipio": "GOIÂNIA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Adahyl Chaveiro Advogados Associados",
+        "CNPJ": "22.633.997/0001-50",
+        "MUNICÍPIO": "Goiânia",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "57031933000163",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "AFISA - Associacao Dos Fiscais Sanitarios Do Muncipio De Anapolis",
+        "CNPJ": "57.031.933/0001-63",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "37365154000197",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 24/07/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 01/09/2022",
+      "raw": {
+        "EMPRESA": "Agrocerrado Rural Projetos LTDA",
+        "CNPJ": "37.365.154/0001-97",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 24/07/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 01/09/2022"
+      }
+    },
+    {
+      "cnpj": "64713920000130",
+      "municipio": "CORIBE - BA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Agropecuaria Fazenda Nossa Senhora Da Penha LTDA",
+        "CNPJ": "64.713.920/0001-30",
+        "MUNICÍPIO": "Coribe - BA",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "51037239000177",
+      "municipio": "VILA PROPÍCIO (ZONA RURAL)",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Agropecuaria Fazendas Renascer LTDA",
+        "CNPJ": "51.037.239/0001-77",
+        "MUNICÍPIO": "Vila Propício (zona rural)",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "15749561000165",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Agropecuaria Ita LTDA",
+        "CNPJ": "15.749.561/0001-65",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "01958717000103",
+      "municipio": "GOIÂNIA",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 24/06/2023",
+      "raw": {
+        "EMPRESA": "Agua Nina Industria De Bebidas LTDA",
+        "CNPJ": "01.958.717/0001-03",
+        "MUNICÍPIO": "Goiânia",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 24/06/2023"
+      }
+    },
+    {
+      "cnpj": "38277516000150",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Alessandro Andrade Sociedade Individual De Advocacia",
+        "CNPJ": "38.277.516/0001-50",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "24630866000144",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Alessandro Fidelis De Oliveira 69281556120",
+        "CNPJ": "24.630.866/0001-44",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "22801319000159",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 05/08/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Possui. Val 28/05/2028",
+      "certidao_uso_solo": "Possui. Val 05/08/2026",
+      "raw": {
+        "EMPRESA": "Ana Pedras LTDA",
+        "CNPJ": "22.801.319/0001-59",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 05/08/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Possui. Val 28/05/2028",
+        "CERTIDÃO USO SOLO": "Possui. Val 05/08/2026"
+      }
+    },
+    {
+      "cnpj": "57492145000174",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "*",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 12/08/2026",
+      "raw": {
+        "EMPRESA": "Anapedras Experience LTDA",
+        "CNPJ": "57.492.145/0001-74",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "*",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 12/08/2026"
+      }
+    },
+    {
+      "cnpj": "33562384000195",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Anhanguera Pastagem Comercio LTDA",
+        "CNPJ": "33.562.384/0001-95",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "46559074000163",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Vencido. Val 03/12/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 24/05/2023",
+      "raw": {
+        "EMPRESA": "API Safe Consultoria E Servicos LTDA",
+        "CNPJ": "46.559.074/0001-63",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 03/12/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 24/05/2023"
+      }
+    },
+    {
+      "cnpj": "51154071000180",
+      "municipio": "URUANA",
+      "alvara_vig_sanitaria": "Vencido. Val 31/12/2025",
+      "cercon": "Possui. Val 16/10/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "Dispensa. Val 11/10/2024",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Arriel Gas LTDA",
+        "CNPJ": "51.154.071/0001-80",
+        "MUNICÍPIO": "Uruana",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 31/12/2025",
+        "CERCON": "Possui. Val 16/10/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "Dispensa. Val 11/10/2024",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52568182000103",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "ATM Empreendimentos LTDA",
+        "CNPJ": "52.568.182/0001-03",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "07044715000195",
+      "municipio": "GAMELEIRA DE GOIÁS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Auto Mecanica Enzo Marques LTDA",
+        "CNPJ": "07.044.715/0001-95",
+        "MUNICÍPIO": "Gameleira de Goiás",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "63325683000177",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Avlis LTDA",
+        "CNPJ": "63.325.683/0001-77",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "20835879000107",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 02/08/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Vencido. Val 24/10/2025",
+      "raw": {
+        "EMPRESA": "B. N. Servicos Empresariais LTDA",
+        "CNPJ": "20.835.879/0001-07",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 02/08/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Vencido. Val 24/10/2025"
+      }
+    },
+    {
+      "cnpj": "46990144000133",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 15/07/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Babi Kids Loja Infantil LTDA",
+        "CNPJ": "46.990.144/0001-33",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 15/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "02770477000181",
+      "municipio": "TRINDADE",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Barros E Mendes LTDA",
+        "CNPJ": "02.770.477/0001-81",
+        "MUNICÍPIO": "Trindade",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "41492247000150",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "BDA Comercio E Intermediacao De Veiculos LTDA",
+        "CNPJ": "41.492.247/0001-50",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "64785870000104",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "BM Solucoes Autonomas LTDA",
+        "CNPJ": "64.785.870/0001-04",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "53379706000172",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Aguard Regularização",
+      "cercon": "Possui. Val 29/01/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Buteco Pinguim LTDA",
+        "CNPJ": "53.379.706/0001-72",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Aguard Regularização",
+        "CERCON": "Possui. Val 29/01/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "11955213000193",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 23/08/2021",
+      "cercon": "Possui. Val 27/06/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 25/01/2022",
+      "raw": {
+        "EMPRESA": "Cairo Cezar Fernandes & Cia LTDA",
+        "CNPJ": "11.955.213/0001-93",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 23/08/2021",
+        "CERCON": "Possui. Val 27/06/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 25/01/2022"
+      }
+    },
+    {
+      "cnpj": "61730676000125",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "*",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Caju Servicos LTDA",
+        "CNPJ": "61.730.676/0001-25",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "*",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "03820707000132",
+      "municipio": "ABADIA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 01/10/2025",
+      "alvara_funcionamento": "Possui. Val 31/12/2025",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Definitiva",
+      "raw": {
+        "EMPRESA": "Cartorio De Tabelionato De Notas E Anexos",
+        "CNPJ": "03.820.707/0001-32",
+        "MUNICÍPIO": "Abadia",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 01/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Possui. Val 31/12/2025",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Definitiva"
+      }
+    },
+    {
+      "cnpj": "33649574000144",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 27/05/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 01/08/2024",
+      "raw": {
+        "EMPRESA": "Carvalho, Moreira & Sandre Advogados Associados",
+        "CNPJ": "33.649.574/0001-44",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 27/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 01/08/2024"
+      }
+    },
+    {
+      "cnpj": "19449535000172",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Centro Comercial Mariah LTDA",
+        "CNPJ": "19.449.535/0001-72",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "05889499000153",
+      "municipio": "NERÓPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Possui. Val 22/07/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2023",
+      "licenca_ambiental": "Dispensa. Val 03/02/2026",
+      "certidao_uso_solo": "Possui. Val 23/01/2027",
+      "raw": {
+        "EMPRESA": "Centro Oeste Gas II LTDA",
+        "CNPJ": "05.889.499/0001-53",
+        "MUNICÍPIO": "Nerópolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Possui. Val 22/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2023",
+        "LICENÇA AMBIENTAL": "Dispensa. Val 03/02/2026",
+        "CERTIDÃO USO SOLO": "Possui. Val 23/01/2027"
+      }
+    },
+    {
+      "cnpj": "35863681000104",
+      "municipio": "NERÓPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 11/12/2025",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "Dispensa. Val 24/01/2027",
+      "certidao_uso_solo": "Vencido. Val 26/06/2022",
+      "raw": {
+        "EMPRESA": "Centro Oeste Gas III LTDA",
+        "CNPJ": "35.863.681/0001-04",
+        "MUNICÍPIO": "Nerópolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 11/12/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "Dispensa. Val 24/01/2027",
+        "CERTIDÃO USO SOLO": "Vencido. Val 26/06/2022"
+      }
+    },
+    {
+      "cnpj": "00353416000193",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 19/09/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Possui. Val 22/08/2026",
+      "certidao_uso_solo": "Vencido. Val 27/08/2025",
+      "raw": {
+        "EMPRESA": "Ceramica Cenabra LTDA",
+        "CNPJ": "00.353.416/0001-93",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 19/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Possui. Val 22/08/2026",
+        "CERTIDÃO USO SOLO": "Vencido. Val 27/08/2025"
+      }
+    },
+    {
+      "cnpj": "19255194000102",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 30/10/2025",
+      "cercon": "Possui. Val 14/10/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Clinica Odontologica Dente Certo LTDA",
+        "CNPJ": "19.255.194/0001-02",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 30/10/2025",
+        "CERCON": "Possui. Val 14/10/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "01706965000167",
+      "municipio": "PIRENÓPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 16/04/2026",
+      "cercon": "Possui. Val 15/04/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Coepi - Comunidade Educacional De Pirenopolis",
+        "CNPJ": "01.706.965/0001-67",
+        "MUNICÍPIO": "Pirenópolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 16/04/2026",
+        "CERCON": "Possui. Val 15/04/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "51756909000105",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Coimmar Comercio LTDA",
+        "CNPJ": "51.756.909/0001-05",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "50178203000140",
+      "municipio": "ABADIÂNIA",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Comercial Morais LTDA",
+        "CNPJ": "50.178.203/0001-40",
+        "MUNICÍPIO": "Abadiânia",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "35087534000181",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 09/10/2019",
+      "raw": {
+        "EMPRESA": "Comercial Moreira Flex LTDA",
+        "CNPJ": "35.087.534/0001-81",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 09/10/2019"
+      }
+    },
+    {
+      "cnpj": "58921505000179",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Construtora Longhi LTDA",
+        "CNPJ": "58.921.505/0001-79",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "39379724000123",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 30/05/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 07/04/2023",
+      "raw": {
+        "EMPRESA": "Cordas Montibeller LTDA",
+        "CNPJ": "39.379.724/0001-23",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 30/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 07/04/2023"
+      }
+    },
+    {
+      "cnpj": "31676210000128",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 21/01/2022",
+      "raw": {
+        "EMPRESA": "Corpo & Saude Firflex Colchoaria LTDA",
+        "CNPJ": "31.676.210/0001-28",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 21/01/2022"
+      }
+    },
+    {
+      "cnpj": "53975225000120",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Croche Moraes LTDA",
+        "CNPJ": "53.975.225/0001-20",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "13307495000148",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 19/09/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 21/10/2026",
+      "raw": {
+        "EMPRESA": "D F Servicos LTDA",
+        "CNPJ": "13.307.495/0001-48",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 19/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 21/10/2026"
+      }
+    },
+    {
+      "cnpj": "52839335000100",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "D Lore Midia LTDA",
+        "CNPJ": "52.839.335/0001-00",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52239048000150",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "D&V Pecas e Acessorios Automotivos LTDA",
+        "CNPJ": "52.239.048/0001-50",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "57448775000141",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Danpecas Refrigeracao LTDA",
+        "CNPJ": "57.448.775/0001-41",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "10366216000129",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 04/09/2025",
+      "cercon": "Vencido. Val 23/08/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 17/09/2020",
+      "raw": {
+        "EMPRESA": "Disk Cerveja Pinguim LTDA",
+        "CNPJ": "10.366.216/0001-29",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 04/09/2025",
+        "CERCON": "Vencido. Val 23/08/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 17/09/2020"
+      }
+    },
+    {
+      "cnpj": "09004842000196",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "Doce Tentacao Confeitaria LTDA",
+        "CNPJ": "09.004.842/0001-96",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "33854350000174",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Dom Careca Pizzaria E Hamburgueira LTDA",
+        "CNPJ": "33.854.350/0001-74",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "24742881000184",
+      "municipio": "GOIANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 26/03/2026",
+      "cercon": "Possui. Val 03/07/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2025",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Drogaria Atual LTDA",
+        "CNPJ": "24.742.881/0001-84",
+        "MUNICÍPIO": "Goianápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 26/03/2026",
+        "CERCON": "Possui. Val 03/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2025",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "02997350000108",
+      "municipio": "ALEXÂNIA",
+      "alvara_vig_sanitaria": "Possui. Val 04/04/2026",
+      "cercon": "Possui. Val 24/05/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2025",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Drogaria Ferreira E Jesus LTDA",
+        "CNPJ": "02.997.350/0001-08",
+        "MUNICÍPIO": "Alexânia",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 04/04/2026",
+        "CERCON": "Possui. Val 24/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2025",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "13043546000171",
+      "municipio": "SILVÂNIA",
+      "alvara_vig_sanitaria": "Possui. Val 11/04/2026",
+      "cercon": "Possui. Val 26/09/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Possui. Val 27/10/2026",
+      "certidao_uso_solo": "Vencido. Val 13/06/2023",
+      "raw": {
+        "EMPRESA": "Drogarias Nacional Jundiai LTDA",
+        "CNPJ": "13.043.546/0001-71",
+        "MUNICÍPIO": "Silvânia",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 11/04/2026",
+        "CERCON": "Possui. Val 26/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Possui. Val 27/10/2026",
+        "CERTIDÃO USO SOLO": "Vencido. Val 13/06/2023"
+      }
+    },
+    {
+      "cnpj": "31500145000185",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 18/12/2025",
+      "cercon": "Possui. Val 30/05/2026",
+      "alvara_funcionamento": "Possui. Val 18/09/2026",
+      "licenca_ambiental": "Possui. Val 19/05/2029",
+      "certidao_uso_solo": "Possui. Val 21/05/2026",
+      "raw": {
+        "EMPRESA": "Drogarias Nacional LTDA",
+        "CNPJ": "31.500.145/0001-85",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 18/12/2025",
+        "CERCON": "Possui. Val 30/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Possui. Val 18/09/2026",
+        "LICENÇA AMBIENTAL": "Possui. Val 19/05/2029",
+        "CERTIDÃO USO SOLO": "Possui. Val 21/05/2026"
+      }
+    },
+    {
+      "cnpj": "07956060000121",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 18/12/2025",
+      "cercon": "Possui. Val 22/05/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Drogarias Nacional Pedro Ludovico LTDA",
+        "CNPJ": "07.956.060/0001-21",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 18/12/2025",
+        "CERCON": "Possui. Val 22/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "26145315000110",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 03/04/2026",
+      "cercon": "Possui. Val 20/05/2026",
+      "alvara_funcionamento": "Vencido. Val 19/06/2025",
+      "licenca_ambiental": "Possui. Val 15/04/2026",
+      "certidao_uso_solo": "Possui. Val 15/08/2026",
+      "raw": {
+        "EMPRESA": "Drogarias Ultrapopular Jaiara LTDA",
+        "CNPJ": "26.145.315/0001-10",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 03/04/2026",
+        "CERCON": "Possui. Val 20/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 19/06/2025",
+        "LICENÇA AMBIENTAL": "Possui. Val 15/04/2026",
+        "CERTIDÃO USO SOLO": "Possui. Val 15/08/2026"
+      }
+    },
+    {
+      "cnpj": "32533383000150",
+      "municipio": "GOIANÉSIA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 05/04/2024",
+      "alvara_funcionamento": "Vencido. Val 31/12/2023",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "DRR Aulas Online LTDA",
+        "CNPJ": "32.533.383/0001-50",
+        "MUNICÍPIO": "Goianésia",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 05/04/2024",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2023",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "62430189000100",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "EAR Premium LTDA",
+        "CNPJ": "62.430.189/0001-00",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "48443136000100",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 17/07/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 09/08/2025",
+      "raw": {
+        "EMPRESA": "Eduardo Premium LTDA",
+        "CNPJ": "48.443.136/0001-00",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 17/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 09/08/2025"
+      }
+    },
+    {
+      "cnpj": "34919927000141",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 14/07/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 09/08/2025",
+      "raw": {
+        "EMPRESA": "Eduardo Veiculos LTDA",
+        "CNPJ": "34.919.927/0001-41",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 14/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 09/08/2025"
+      }
+    },
+    {
+      "cnpj": "54385238000101",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "*",
+      "alvara_funcionamento": "Possui",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 12/08/2026",
+      "raw": {
+        "EMPRESA": "Eleganza Revest LTDA",
+        "CNPJ": "54.385.238/0001-01",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "*",
+        "ALVARÁ FUNCIONAMENTO": "Possui",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 12/08/2026"
+      }
+    },
+    {
+      "cnpj": "51897178000118",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 08/01/2025",
+      "cercon": "Possui. Val 11/11/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Elevare Clinic LTDA",
+        "CNPJ": "51.897.178/0001-18",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 08/01/2025",
+        "CERCON": "Possui. Val 11/11/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "32126649000140",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Ello Engenharia E Servicos LTDA",
+        "CNPJ": "32.126.649/0001-40",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "03778907000174",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 07/11/2025",
+      "cercon": "Possui. Val 13/11/2026",
+      "alvara_funcionamento": "Vencido. Val 25/01/2023",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 18/08/2024",
+      "raw": {
+        "EMPRESA": "Embalagens Moura LTDA",
+        "CNPJ": "03.778.907/0001-74",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 07/11/2025",
+        "CERCON": "Possui. Val 13/11/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 25/01/2023",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 18/08/2024"
+      }
+    },
+    {
+      "cnpj": "54812567000191",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Emporio Restaurante Bica Da Agua LTDA",
+        "CNPJ": "54.812.567/0001-91",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "61544100000173",
+      "municipio": "GAMELEIRA DE GOIÁS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Emporio Rota do Lago LTDA",
+        "CNPJ": "61.544.100/0001-73",
+        "MUNICÍPIO": "Gameleira de Goiás",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52432412000102",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Envase Industria De Bebidas LTDA",
+        "CNPJ": "52.432.412/0001-02",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "55517525000190",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Eripubli LTDA",
+        "CNPJ": "55.517.525/0001-90",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "50523444000180",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "F B Cesar LTDA",
+        "CNPJ": "50.523.444/0001-80",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "30832593000113",
+      "municipio": "ALEXÂNIA",
+      "alvara_vig_sanitaria": "Vencido. Val 27/08/2025",
+      "cercon": "Possui. Val 03/09/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2025",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Faccial Odontologia Especializada LTDA",
+        "CNPJ": "30.832.593/0001-13",
+        "MUNICÍPIO": "Alexânia",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 27/08/2025",
+        "CERCON": "Possui. Val 03/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2025",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "13475865000156",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 20/05/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Possui. Val 20/05/2026",
+      "raw": {
+        "EMPRESA": "Fantasias.com LTDA",
+        "CNPJ": "13.475.865/0001-56",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 20/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Possui. Val 20/05/2026"
+      }
+    },
+    {
+      "cnpj": "27243364000159",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 04/09/2025",
+      "cercon": "Vencido. Val 05/07/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 02/03/2024",
+      "raw": {
+        "EMPRESA": "FCGomes Servicos Medicos LTDA",
+        "CNPJ": "27.243.364/0001-59",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 04/09/2025",
+        "CERCON": "Vencido. Val 05/07/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 02/03/2024"
+      }
+    },
+    {
+      "cnpj": "14535676000194",
+      "municipio": "NERÓPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Fonseca & Alves Representacoes LTDA",
+        "CNPJ": "14.535.676/0001-94",
+        "MUNICÍPIO": "Nerópolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "21101502000189",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 13/08/2025",
+      "cercon": "Possui. Val 04/07/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Possui. Val 27/06/2028",
+      "certidao_uso_solo": "Vencido. Val 07/05/2025",
+      "raw": {
+        "EMPRESA": "Formosa Panificacao LTDA",
+        "CNPJ": "21.101.502/0001-89",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 13/08/2025",
+        "CERCON": "Possui. Val 04/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Possui. Val 27/06/2028",
+        "CERTIDÃO USO SOLO": "Vencido. Val 07/05/2025"
+      }
+    },
+    {
+      "cnpj": "46934850000168",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 14/06/2023",
+      "raw": {
+        "EMPRESA": "Formosa Prestacao De Servicos LTDA",
+        "CNPJ": "46.934.850/0001-68",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 14/06/2023"
+      }
+    },
+    {
+      "cnpj": "11219154000195",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Vencido. Val 16/02/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 18/04/2024",
+      "raw": {
+        "EMPRESA": "Foscria Nutricao Animal LTDA",
+        "CNPJ": "11.219.154/0001-95",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 16/02/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 18/04/2024"
+      }
+    },
+    {
+      "cnpj": "24739277000107",
+      "municipio": "PIRENÓPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 27/02/2025",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Freitas & Nascimento LTDA",
+        "CNPJ": "24.739.277/0001-07",
+        "MUNICÍPIO": "Pirenópolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 27/02/2025",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "17504870000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Possui. Val 25/11/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 23/07/2021",
+      "raw": {
+        "EMPRESA": "G F Medeiros Transportes",
+        "CNPJ": "17.504.870/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Possui. Val 25/11/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 23/07/2021"
+      }
+    },
+    {
+      "cnpj": "25448061000147",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 15/12/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Vencido. Val 29/08/2025",
+      "raw": {
+        "EMPRESA": "Gesso Honorio LTDA",
+        "CNPJ": "25.448.061/0001-47",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 15/12/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Vencido. Val 29/08/2025"
+      }
+    },
+    {
+      "cnpj": "08821047000128",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Gestare Et Educare Assessoria E Gestao LTDA",
+        "CNPJ": "08.821.047/0001-28",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "55741687000108",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 29/05/2026",
+      "alvara_funcionamento": "Aguard Docto",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 29/05/2026",
+      "raw": {
+        "EMPRESA": "GH Sistemas Construtivos LTDA",
+        "CNPJ": "55.741.687/0001-08",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 29/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Aguard Docto",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 29/05/2026"
+      }
+    },
+    {
+      "cnpj": "55741687000299",
+      "municipio": "CATALÃO",
+      "alvara_vig_sanitaria": "Vencido. Val 31/12/2025",
+      "cercon": "Possui. Val 30/05/2026",
+      "alvara_funcionamento": "Vencido. Val 21/09/2025",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 06/06/2030",
+      "raw": {
+        "EMPRESA": "GH Sistemas Construtivos LTDA - Filial",
+        "CNPJ": "55.741.687/0002-99",
+        "MUNICÍPIO": "Catalão",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 31/12/2025",
+        "CERCON": "Possui. Val 30/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 21/09/2025",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 06/06/2030"
+      }
+    },
+    {
+      "cnpj": "63501671000156",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "GJX Comercio e Importacao LTDA",
+        "CNPJ": "63.501.671/0001-56",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "58764857000168",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 14/02/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Possui. Val 30/01/2026",
+      "raw": {
+        "EMPRESA": "GM Falcao Confeccoes LTDA",
+        "CNPJ": "58.764.857/0001-68",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 14/02/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Possui. Val 30/01/2026"
+      }
+    },
+    {
+      "cnpj": "46757883000180",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Vencido. Val 18/12/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Gondim E Gondim LTDA",
+        "CNPJ": "46.757.883/0001-80",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 18/12/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "34324600000127",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 10/08/2023",
+      "alvara_funcionamento": "Vencido. Val 10/07/2021",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 25/07/2023",
+      "raw": {
+        "EMPRESA": "Graan Alimentos LTDA",
+        "CNPJ": "34.324.600/0001-27",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 10/08/2023",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 10/07/2021",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 25/07/2023"
+      }
+    },
+    {
+      "cnpj": "49763344000141",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 10/04/2024",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 13/04/2024",
+      "raw": {
+        "EMPRESA": "Graan Comercial LTDA",
+        "CNPJ": "49.763.344/0001-41",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 10/04/2024",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 13/04/2024"
+      }
+    },
+    {
+      "cnpj": "10608734000101",
+      "municipio": "VALPARAÍSO DE GOIÁS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Notificação",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Green Ambiental LTDA",
+        "CNPJ": "10.608.734/0001-01",
+        "MUNICÍPIO": "Valparaíso de Goiás",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Notificação",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "10608734000292",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 01/08/2024",
+      "cercon": "Vencido. Val 03/07/2025",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 12/09/2024",
+      "raw": {
+        "EMPRESA": "Green Ambiental LTDA - Filial",
+        "CNPJ": "10.608.734/0002-92",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 01/08/2024",
+        "CERCON": "Vencido. Val 03/07/2025",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 12/09/2024"
+      }
+    },
+    {
+      "cnpj": "10608734000373",
+      "municipio": "RIO BRANCO - AC",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Green Ambiental LTDA - Filial",
+        "CNPJ": "10.608.734/0003-73",
+        "MUNICÍPIO": "Rio Branco - AC",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "04240555000161",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 02/12/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 14/07/2021",
+      "raw": {
+        "EMPRESA": "Gsetti Tecnologia LTDA",
+        "CNPJ": "04.240.555/0001-61",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 02/12/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 14/07/2021"
+      }
+    },
+    {
+      "cnpj": "47974051000188",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 15/10/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 04/07/2024",
+      "raw": {
+        "EMPRESA": "GSM Manutencao Industrial LTDA",
+        "CNPJ": "47.974.051/0001-88",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 15/10/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 04/07/2024"
+      }
+    },
+    {
+      "cnpj": "04874425000180",
+      "municipio": "PIRENÓPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Guaimbe Espacoe Movimento Criativo",
+        "CNPJ": "04.874.425/0001-80",
+        "MUNICÍPIO": "Pirenópolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "09443871000154",
+      "municipio": "NIQUELÂNDIA",
+      "alvara_vig_sanitaria": "Vencido. Val 31/12/2023",
+      "cercon": "Possui. Val 25/04/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "H S L Gas LTDA",
+        "CNPJ": "09.443.871/0001-54",
+        "MUNICÍPIO": "Niquelândia",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 31/12/2023",
+        "CERCON": "Possui. Val 25/04/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "14751414000167",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 04/09/2025",
+      "cercon": "Vencido. Val 27/08/2025",
+      "alvara_funcionamento": "Vencido. Val 14/12/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 01/12/2022",
+      "raw": {
+        "EMPRESA": "Hermes Carrijo Coelho",
+        "CNPJ": "14.751.414/0001-67",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 04/09/2025",
+        "CERCON": "Vencido. Val 27/08/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 14/12/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 01/12/2022"
+      }
+    },
+    {
+      "cnpj": "52222994000194",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "HGP-Pharma Consultoria LTDA",
+        "CNPJ": "52.222.994/0001-94",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "40043594000132",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 22/01/2022",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "HM2 Incorporacao Imobiliaria LTDA",
+        "CNPJ": "40.043.594/0001-32",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 22/01/2022",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "08714427000163",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "HST Representacoes LTDA",
+        "CNPJ": "08.714.427/0001-63",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "40691811000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Vencido. Val 25/08/2022",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 26/08/2022",
+      "raw": {
+        "EMPRESA": "HubJet Transportes LTDA",
+        "CNPJ": "40.691.811/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Vencido. Val 25/08/2022",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 26/08/2022"
+      }
+    },
+    {
+      "cnpj": "07936104000151",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "HZ Comunicacao E Planejamento LTDA",
+        "CNPJ": "07.936.104/0001-51",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "49357720000106",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "I F De Jesus LTDA",
+        "CNPJ": "49.357.720/0001-06",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "50302692000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 20/07/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Vencido. Val 05/08/2025",
+      "raw": {
+        "EMPRESA": "Imperobra Impermeabilizantes LTDA",
+        "CNPJ": "50.302.692/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 20/07/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Vencido. Val 05/08/2025"
+      }
+    },
+    {
+      "cnpj": "00769423000170",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 03/06/2026",
+      "cercon": "Possui. Val 18/06/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 14/05/2026",
+      "raw": {
+        "EMPRESA": "Industria e Comercio de Carnes Otto LTDA",
+        "CNPJ": "00.769.423/0001-70",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 03/06/2026",
+        "CERCON": "Possui. Val 18/06/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 14/05/2026"
+      }
+    },
+    {
+      "cnpj": "57983433000121",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Innovation Producoes Artisticas LTDA",
+        "CNPJ": "57.983.433/0001-21",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "31284081000122",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Aguard Vistoria",
+      "cercon": "Possui. Val 18/09/2026",
+      "alvara_funcionamento": "Vencido. Val 11/12/2025",
+      "licenca_ambiental": "Possui. Val 17/09/2026",
+      "certidao_uso_solo": "Vencido. Val 02/09/2025",
+      "raw": {
+        "EMPRESA": "Instituto Gean LTDA",
+        "CNPJ": "31.284.081/0001-22",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Aguard Vistoria",
+        "CERCON": "Possui. Val 18/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 11/12/2025",
+        "LICENÇA AMBIENTAL": "Possui. Val 17/09/2026",
+        "CERTIDÃO USO SOLO": "Vencido. Val 02/09/2025"
+      }
+    },
+    {
+      "cnpj": "21550795000181",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 01/05/2026",
+      "alvara_funcionamento": "Aguard Docto",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 30/04/2026",
+      "raw": {
+        "EMPRESA": "J S Vieira LTDA",
+        "CNPJ": "21.550.795/0001-81",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 01/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Aguard Docto",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 30/04/2026"
+      }
+    },
+    {
+      "cnpj": "04829039000177",
+      "municipio": "CERES",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "JB Comercial LTDA",
+        "CNPJ": "04.829.039/0001-77",
+        "MUNICÍPIO": "Ceres",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "13144387000100",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "JC Estofados LTDA",
+        "CNPJ": "13.144.387/0001-00",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "50596981000150",
+      "municipio": "JARAGUÁ",
+      "alvara_vig_sanitaria": "Vencido. Val 31/12/2024",
+      "cercon": "Possui. Val 18/07/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "JCS Comercial De Gas LTDA",
+        "CNPJ": "50.596.981/0001-50",
+        "MUNICÍPIO": "Jaraguá",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 31/12/2024",
+        "CERCON": "Possui. Val 18/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "63379261000184",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "JS Medicamentos LTDA",
+        "CNPJ": "63.379.261/0001-84",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "46758047000110",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 07/02/2024",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "KAG Agropecuaria LTDA",
+        "CNPJ": "46.758.047/0001-10",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 07/02/2024",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "15634840000183",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 27/03/2024",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Kelly Lemos Adorno 88046451134",
+        "CNPJ": "15.634.840/0001-83",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 27/03/2024",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "34938827000162",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Kza.u Arquitetura E Engenharia Integrada LTDA",
+        "CNPJ": "34.938.827/0001-62",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "03530737000104",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 01/10/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "L L Da Silva Oliveira & Cia LTDA",
+        "CNPJ": "03.530.737/0001-04",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 01/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "03530737000295",
+      "municipio": "NERÓPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "L L Da Silva Oliveira & Cia LTDA - Filial",
+        "CNPJ": "03.530.737/0002-95",
+        "MUNICÍPIO": "Nerópolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "46038083000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Aguard Vistoria",
+      "cercon": "Possui. Val 03/10/2026",
+      "alvara_funcionamento": "Vencido. Val 17/10/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 13/03/2023",
+      "raw": {
+        "EMPRESA": "La Trattoria Di Lana LTDA",
+        "CNPJ": "46.038.083/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Aguard Vistoria",
+        "CERCON": "Possui. Val 03/10/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 17/10/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 13/03/2023"
+      }
+    },
+    {
+      "cnpj": "52507478000106",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "LB Servicos De Fonoaudiologia LTDA",
+        "CNPJ": "52.507.478/0001-06",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "13781288000120",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 08/11/2026",
+      "alvara_funcionamento": "Vencido. Val 30/03/2019",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 25/06/2021",
+      "raw": {
+        "EMPRESA": "LC Distribuidora De Cimentos LTDA",
+        "CNPJ": "13.781.288/0001-20",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 08/11/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 30/03/2019",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 25/06/2021"
+      }
+    },
+    {
+      "cnpj": "31420247000190",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 30/09/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Leandro Sardinha De Lisboa Sociedade Individual De Advocacia",
+        "CNPJ": "31.420.247/0001-90",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 30/09/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "02776664000172",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Vencido. Val 23/07/2022",
+      "certidao_uso_solo": "Vencido. Val 24/09/2021",
+      "raw": {
+        "EMPRESA": "Ledra & Ledra LTDA",
+        "CNPJ": "02.776.664/0001-72",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Vencido. Val 23/07/2022",
+        "CERTIDÃO USO SOLO": "Vencido. Val 24/09/2021"
+      }
+    },
+    {
+      "cnpj": "47680967000125",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "Vencido. Val 27/02/2023",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Ledra Locacoes e Servicos LTDA",
+        "CNPJ": "47.680.967/0001-25",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 27/02/2023",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "05589400000106",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 21/02/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 23/04/2026",
+      "raw": {
+        "EMPRESA": "Lemos E Oliveira Construcao E Montagem Industrial LTDA",
+        "CNPJ": "05.589.400/0001-06",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 21/02/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 23/04/2026"
+      }
+    },
+    {
+      "cnpj": "42810759000180",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Vencido. Val 16/02/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 19/07/2021",
+      "raw": {
+        "EMPRESA": "Livia M Longhi Carisio",
+        "CNPJ": "42.810.759/0001-80",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 16/02/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 19/07/2021"
+      }
+    },
+    {
+      "cnpj": "03163171000120",
+      "municipio": "RUBIATABA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 19/07/2024",
+      "alvara_funcionamento": "Vencido. Val 31/12/2025",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Ll Da Silva & Cia. Ltda.",
+        "CNPJ": "03.163.171/0001-20",
+        "MUNICÍPIO": "Rubiataba",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 19/07/2024",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2025",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "03163171000634",
+      "municipio": "ITAPACI",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 05/09/2025",
+      "alvara_funcionamento": "Vencido. Val 05/09/2025",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Ll Da Silva & Cia. Ltda. - Filial",
+        "CNPJ": "03.163.171/0006-34",
+        "MUNICÍPIO": "Itapaci",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 05/09/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 05/09/2025",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "03163171000804",
+      "municipio": "URUAÇU",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 23/01/2025",
+      "alvara_funcionamento": "Vencido. Val 11/08/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Ll Da Silva & Cia. Ltda. - Filial",
+        "CNPJ": "03.163.171/0008-04",
+        "MUNICÍPIO": "Uruaçu",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 23/01/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 11/08/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "42427749000160",
+      "municipio": "CUIABÁ - MT",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Loc E Log Locacoes E Logistica LTDA",
+        "CNPJ": "42.427.749/0001-60",
+        "MUNICÍPIO": "Cuiabá - MT",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "46343502000116",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "Vencido. Val 15/11/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 16/01/2024",
+      "raw": {
+        "EMPRESA": "Loc E Log Transportes LTDA",
+        "CNPJ": "46.343.502/0001-16",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 15/11/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 16/01/2024"
+      }
+    },
+    {
+      "cnpj": "17873265000105",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 05/10/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Loterica Pedrinho Porto Rico - Jaiara LTDA",
+        "CNPJ": "17.873.265/0001-05",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 05/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "49775697000161",
+      "municipio": "CARMO DO RIO VERDE",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Vencido. Val 02/10/2025",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "M G Gracia Leite LTDA",
+        "CNPJ": "49.775.697/0001-61",
+        "MUNICÍPIO": "Carmo do Rio Verde",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Vencido. Val 02/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "09075184000123",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 05/07/2026",
+      "cercon": "Possui. Val 10/11/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Possui. Val 01/09/2027",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "M.A. Galdeano & Cia LTDA",
+        "CNPJ": "09.075.184/0001-23",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 05/07/2026",
+        "CERCON": "Possui. Val 10/11/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Possui. Val 01/09/2027",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "62525534000199",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "M3JS Administradora LTDA",
+        "CNPJ": "62.525.534/0001-99",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "32918426000115",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 19/05/2024",
+      "raw": {
+        "EMPRESA": "Maquinas Por Perto LTDA",
+        "CNPJ": "32.918.426/0001-15",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 19/05/2024"
+      }
+    },
+    {
+      "cnpj": "52586943000141",
+      "municipio": "GOIANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 31/03/2025",
+      "cercon": "Vencido. Val 05/07/2025",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Marietta Bar E Restaurante LTDA",
+        "CNPJ": "52.586.943/0001-41",
+        "MUNICÍPIO": "Goianápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 31/03/2025",
+        "CERCON": "Vencido. Val 05/07/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "04836577000199",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 02/10/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Marmoraria Vitoria LTDA",
+        "CNPJ": "04.836.577/0001-99",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 02/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "18467652000104",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 01/10/2025",
+      "alvara_funcionamento": "Vencido. Val 26/08/2021",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 12/08/2022",
+      "raw": {
+        "EMPRESA": "Master Ar Condicionado LTDA",
+        "CNPJ": "18.467.652/0001-04",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 01/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 26/08/2021",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 12/08/2022"
+      }
+    },
+    {
+      "cnpj": "02551753000110",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Master Construcoes LTDA",
+        "CNPJ": "02.551.753/0001-10",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "34589805000134",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 28/08/2026",
+      "cercon": "Possui. Val 22/08/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 24/06/2022",
+      "raw": {
+        "EMPRESA": "Mastologia Caetano LTDA",
+        "CNPJ": "34.589.805/0001-34",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 28/08/2026",
+        "CERCON": "Possui. Val 22/08/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 24/06/2022"
+      }
+    },
+    {
+      "cnpj": "64034264000149",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Maxima Participacoes e Investimentos LTDA",
+        "CNPJ": "64.034.264/0001-49",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "49327466000195",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "MB Consultoria Ambiental LTDA",
+        "CNPJ": "49.327.466/0001-95",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "15709517000121",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Megaton Servicos LTDA",
+        "CNPJ": "15.709.517/0001-21",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "55750096000105",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Mercadi.in Mercados Autonomos LTDA",
+        "CNPJ": "55.750.096/0001-05",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "00544901000144",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 13/09/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Mercantil Distribuidora De Alimentos LTDA",
+        "CNPJ": "00.544.901/0001-44",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 13/09/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "15120838000196",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 30/06/2023",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Mercatop Distribuidora LTDA",
+        "CNPJ": "15.120.838/0001-96",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 30/06/2023",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "15491548000159",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 03/06/2026",
+      "cercon": "Possui. Val 30/05/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Vencido. Val 07/08/2022",
+      "certidao_uso_solo": "Vencido. Val 19/08/2022",
+      "raw": {
+        "EMPRESA": "Mix Gas Comercial LTDA",
+        "CNPJ": "15.491.548/0001-59",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 03/06/2026",
+        "CERCON": "Possui. Val 30/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Vencido. Val 07/08/2022",
+        "CERTIDÃO USO SOLO": "Vencido. Val 19/08/2022"
+      }
+    },
+    {
+      "cnpj": "25064589000112",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 29/11/2024",
+      "cercon": "Vencido. Val 15/05/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 16/05/2025",
+      "raw": {
+        "EMPRESA": "Montserrat Comercio E Servicos LTDA",
+        "CNPJ": "25.064.589/0001-12",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 29/11/2024",
+        "CERCON": "Vencido. Val 15/05/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 16/05/2025"
+      }
+    },
+    {
+      "cnpj": "38135574000140",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 15/07/2026",
+      "alvara_funcionamento": "Vencido. Val 17/08/2022",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 02/02/2023",
+      "raw": {
+        "EMPRESA": "Moussa Construtora LTDA",
+        "CNPJ": "38.135.574/0001-40",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 15/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 17/08/2022",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 02/02/2023"
+      }
+    },
+    {
+      "cnpj": "02673851000120",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 17/10/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Multipecas Refrigeracao E Eletrodomesticos LTDA",
+        "CNPJ": "02.673.851/0001-20",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 17/10/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "45983155000123",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 03/06/2026",
+      "cercon": "Possui. Val 11/06/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 31/03/2023",
+      "raw": {
+        "EMPRESA": "Nado Livre LTDA",
+        "CNPJ": "45.983.155/0001-23",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 03/06/2026",
+        "CERCON": "Possui. Val 11/06/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 31/03/2023"
+      }
+    },
+    {
+      "cnpj": "01275433170",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Nagilla Andrade de Miranda",
+        "CNPJ": "012.754.331-70",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "11657077000155",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Nelia Carvalho De Souza",
+        "CNPJ": "11.657.077/0001-55",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "11760778000115",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 06/06/2025",
+      "cercon": "Possui. Val 11/11/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Nelson Xavier Da Silva Santos",
+        "CNPJ": "11.760.778/0001-15",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 06/06/2025",
+        "CERCON": "Possui. Val 11/11/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "07872563000119",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 17/05/2026",
+      "alvara_funcionamento": "Vencido. Val 26/04/2023",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 04/10/2023",
+      "raw": {
+        "EMPRESA": "Neto Contabilidade LTDA",
+        "CNPJ": "07.872.563/0001-19",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 17/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 26/04/2023",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 04/10/2023"
+      }
+    },
+    {
+      "cnpj": "46901200000116",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 27/06/2023",
+      "raw": {
+        "EMPRESA": "Nobel Locacoes E Servicos LTDA",
+        "CNPJ": "46.901.200/0001-16",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 27/06/2023"
+      }
+    },
+    {
+      "cnpj": "45683176000123",
+      "municipio": "MOZARLÂNDIA",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Possui. Val 27/06/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Nunes Gas LTDA",
+        "CNPJ": "45.683.176/0001-23",
+        "MUNICÍPIO": "Mozarlândia",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Possui. Val 27/06/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "06303814000181",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 28/06/2022",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Paloma Exports Importadora E Exportadora LTDA",
+        "CNPJ": "06.303.814/0001-81",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 28/06/2022",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "46484292000186",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 05/08/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 08/08/2025",
+      "raw": {
+        "EMPRESA": "Pedra Firme Importacao E Distribuicao LTDA",
+        "CNPJ": "46.484.292/0001-86",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 05/08/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 08/08/2025"
+      }
+    },
+    {
+      "cnpj": "49640086000106",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 31/08/2026",
+      "cercon": "Vencido. Val 03/06/2025",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Pinguim Atacado De Bebidas LTDA",
+        "CNPJ": "49.640.086/0001-06",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 31/08/2026",
+        "CERCON": "Vencido. Val 03/06/2025",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "57981613000174",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Pirenopolis Veiculos LTDA",
+        "CNPJ": "57.981.613/0001-74",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "20722205000198",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 24/09/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 17/08/2024",
+      "raw": {
+        "EMPRESA": "Plie Studio De Danca LTDA",
+        "CNPJ": "20.722.205/0001-98",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 24/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 17/08/2024"
+      }
+    },
+    {
+      "cnpj": "15090553000150",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Possui",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Polisbuild Empreendimentos LTDA",
+        "CNPJ": "15.090.553/0001-50",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Possui",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "14638098000111",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Polo Servicos De Transportes LTDA",
+        "CNPJ": "14.638.098/0001-11",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "23595186000174",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 18/07/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Vencido. Val 10/05/2023",
+      "certidao_uso_solo": "Vencido. Val 18/08/2024",
+      "raw": {
+        "EMPRESA": "Premier Fogos LTDA",
+        "CNPJ": "23.595.186/0001-74",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 18/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Vencido. Val 10/05/2023",
+        "CERTIDÃO USO SOLO": "Vencido. Val 18/08/2024"
+      }
+    },
+    {
+      "cnpj": "63309522000190",
+      "municipio": "GOIÂNIA",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Premier FX LTDA",
+        "CNPJ": "63.309.522/0001-90",
+        "MUNICÍPIO": "Goiânia",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "28604318000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 08/08/2023",
+      "raw": {
+        "EMPRESA": "Promidia Digital LTDA",
+        "CNPJ": "28.604.318/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 08/08/2023"
+      }
+    },
+    {
+      "cnpj": "13962189000145",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 10/01/2027",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Promove Produtora LTDA",
+        "CNPJ": "13.962.189/0001-45",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 10/01/2027",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "10501937000102",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Qi Livre LTDA",
+        "CNPJ": "10.501.937/0001-02",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "51747254000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 23/02/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 04/05/2026",
+      "raw": {
+        "EMPRESA": "Qualiend Inspecoes LTDA",
+        "CNPJ": "51.747.254/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 23/02/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 04/05/2026"
+      }
+    },
+    {
+      "cnpj": "51302648000153",
+      "municipio": "RIALMA",
+      "alvara_vig_sanitaria": "Vencido. Val 31/03/2025",
+      "cercon": "Vencido. Val 26/09/2025",
+      "alvara_funcionamento": "Vencido. Val 31/12/2025",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 24/07/2024",
+      "raw": {
+        "EMPRESA": "R C Dos Santos LTDA",
+        "CNPJ": "51.302.648/0001-53",
+        "MUNICÍPIO": "Rialma",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 31/03/2025",
+        "CERCON": "Vencido. Val 26/09/2025",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2025",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 24/07/2024"
+      }
+    },
+    {
+      "cnpj": "26909655000170",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "R. Carvalho Assessoria LTDA",
+        "CNPJ": "26.909.655/0001-70",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "18775013000106",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 23/01/2027",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 08/06/2022",
+      "raw": {
+        "EMPRESA": "Radial Consignacoes LTDA",
+        "CNPJ": "18.775.013/0001-06",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 23/01/2027",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 08/06/2022"
+      }
+    },
+    {
+      "cnpj": "34058026000102",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 05/08/2022",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 20/08/2026",
+      "raw": {
+        "EMPRESA": "Radial Veiculos LTDA",
+        "CNPJ": "34.058.026/0001-02",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 05/08/2022",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 20/08/2026"
+      }
+    },
+    {
+      "cnpj": "24783367000197",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 18/04/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Radio Chao Goiano FM LTDA",
+        "CNPJ": "24.783.367/0001-97",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 18/04/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "01738210000144",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 18/04/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 20/05/2023",
+      "raw": {
+        "EMPRESA": "Radio Manchester De Anapolis LTDA",
+        "CNPJ": "01.738.210/0001-44",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 18/04/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 20/05/2023"
+      }
+    },
+    {
+      "cnpj": "01481795000160",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Rapido Goias LTDA",
+        "CNPJ": "01.481.795/0001-60",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "23444738000143",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 26/02/2024",
+      "cercon": "Possui. Val 04/02/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 22/01/2026",
+      "raw": {
+        "EMPRESA": "Reabilitaface Servicos Odontologicos LTDA",
+        "CNPJ": "23.444.738/0001-43",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 26/02/2024",
+        "CERCON": "Possui. Val 04/02/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 22/01/2026"
+      }
+    },
+    {
+      "cnpj": "35114102000112",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Rezende Empreendimentos LTDA",
+        "CNPJ": "35.114.102/0001-12",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52528243000109",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "RFC Empreendimentos LTDA",
+        "CNPJ": "52.528.243/0001-09",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "55463767000149",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 12/02/2023",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 20/01/2023",
+      "raw": {
+        "EMPRESA": "Rhema Moveis Planejados LTDA",
+        "CNPJ": "55.463.767/0001-49",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 12/02/2023",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 20/01/2023"
+      }
+    },
+    {
+      "cnpj": "12410870000118",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 23/07/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 17/01/2024",
+      "raw": {
+        "EMPRESA": "Ribeiro Cursos De Idiomas LTDA",
+        "CNPJ": "12.410.870/0001-18",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 23/07/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 17/01/2024"
+      }
+    },
+    {
+      "cnpj": "64015418000155",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "RLM Participacoes e Investimentos LTDA",
+        "CNPJ": "64.015.418/0001-55",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "23677415000108",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Rogerio A Dias & Cia LTDA",
+        "CNPJ": "23.677.415/0001-08",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "58696180000178",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "S J Prestacao De Servicos LTDA",
+        "CNPJ": "58.696.180/0001-78",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "09257381000163",
+      "municipio": "NERÓPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "S.J.M. - Maquinas LTDA",
+        "CNPJ": "09.257.381/0001-63",
+        "MUNICÍPIO": "Nerópolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "10800711000102",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Salles Representacao LTDA",
+        "CNPJ": "10.800.711/0001-02",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "17922625000103",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 29/06/2021",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Santana Construcoes E Servicos LTDA",
+        "CNPJ": "17.922.625/0001-03",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 29/06/2021",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "47807956000163",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Vencido. Val 24/09/2025",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Santo Sal Hamburgueria, Steak E Pankeka LTDA",
+        "CNPJ": "47.807.956/0001-63",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Vencido. Val 24/09/2025",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "25237578000197",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 04/09/2025",
+      "cercon": "Vencido. Val 26/09/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Sao Caetano Servicos Medicos LTDA",
+        "CNPJ": "25.237.578/0001-97",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 04/09/2025",
+        "CERCON": "Vencido. Val 26/09/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "24418174000137",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Search Of Comercial LTDA",
+        "CNPJ": "24.418.174/0001-37",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "05230120000107",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 03/06/2026",
+      "cercon": "Possui. Val 30/05/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Siaura & Silva LTDA",
+        "CNPJ": "05.230.120/0001-07",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 03/06/2026",
+        "CERCON": "Possui. Val 30/05/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "35157649000103",
+      "municipio": "BELO HORIZONTE - MG",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Silva Tiburcio Sociedade Individual De Advocacia",
+        "CNPJ": "35.157.649/0001-03",
+        "MUNICÍPIO": "Belo Horizonte - MG",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "07246086000186",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Silveira & Canedo LTDA",
+        "CNPJ": "07.246.086/0001-86",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "07246086000267",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "Sujeito",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Silveira & Canedo LTDA - Filial",
+        "CNPJ": "07.246.086/0002-67",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "Sujeito",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "58909382000150",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Simples Consultoria E Gestao LTDA",
+        "CNPJ": "58.909.382/0001-50",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "60575906000166",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "So Eletrofunk LTDA",
+        "CNPJ": "60.575.906/0001-66",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "58002293000126",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Soares De Azevedo Construcoes LTDA",
+        "CNPJ": "58.002.293/0001-26",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "01051994000138",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Sociedade Crista Ortodoxa Beneficente De Anapolis",
+        "CNPJ": "01.051.994/0001-38",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "15592526000185",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Sol Construcoes E Transportes LTDA",
+        "CNPJ": "15.592.526/0001-85",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52729432000131",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui",
+      "cercon": "Possui. Val 19/08/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 21/09/2024",
+      "raw": {
+        "EMPRESA": "Sorveteria Santo Antonio LTDA",
+        "CNPJ": "52.729.432/0001-31",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui",
+        "CERCON": "Possui. Val 19/08/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 21/09/2024"
+      }
+    },
+    {
+      "cnpj": "63839497000156",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Sujeito",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Supermercado Bessa LTDA",
+        "CNPJ": "63.839.497/0001-56",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Sujeito",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "13987777000133",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "TCX Business LTDA",
+        "CNPJ": "13.987.777/0001-33",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "11048846000118",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 21/08/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 08/10/2021",
+      "raw": {
+        "EMPRESA": "Teresinha Imoveis LTDA",
+        "CNPJ": "11.048.846/0001-18",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 21/08/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 08/10/2021"
+      }
+    },
+    {
+      "cnpj": "50916012000139",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "THG Prestacao De Servicos LTDA",
+        "CNPJ": "50.916.012/0001-39",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52531259000162",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Tiger Adesivos LTDA",
+        "CNPJ": "52.531.259/0001-62",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "49798461000140",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Tinazo Agronegocios LTDA",
+        "CNPJ": "49.798.461/0001-40",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "30635357000107",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Ir Na Visa",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Toribas Restaurante LTDA",
+        "CNPJ": "30.635.357/0001-07",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Ir Na Visa",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "36286717000199",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 07/01/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 23/01/2024",
+      "raw": {
+        "EMPRESA": "Torneadora Anapolis LTDA",
+        "CNPJ": "36.286.717/0001-99",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 07/01/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 23/01/2024"
+      }
+    },
+    {
+      "cnpj": "10259622000192",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Torneadora Fermax LTDA",
+        "CNPJ": "10.259.622/0001-92",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "55842617000146",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Tostes Engenharia LTDA",
+        "CNPJ": "55.842.617/0001-46",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "61411499000114",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "NÃO",
+      "raw": {
+        "EMPRESA": "TR Comercio e Servicos LTDA",
+        "CNPJ": "61.411.499/0001-14",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "NÃO"
+      }
+    },
+    {
+      "cnpj": "07939334000174",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui. Val 03/06/2026",
+      "cercon": "Possui. Val 22/09/2026",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "Possui. Val 30/11/2026",
+      "certidao_uso_solo": "Vencido. Val 14/03/2025",
+      "raw": {
+        "EMPRESA": "Tradicao Comercio E Servicos LTDA",
+        "CNPJ": "07.939.334/0001-74",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 03/06/2026",
+        "CERCON": "Possui. Val 22/09/2026",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "Possui. Val 30/11/2026",
+        "CERTIDÃO USO SOLO": "Vencido. Val 14/03/2025"
+      }
+    },
+    {
+      "cnpj": "07304043000100",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 22/07/2022",
+      "alvara_funcionamento": "Vencido. Val 23/10/2021",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Trance Construcoes LTDA",
+        "CNPJ": "07.304.043/0001-00",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 22/07/2022",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 23/10/2021",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "50937414000110",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Trasporto LTDA",
+        "CNPJ": "50.937.414/0001-10",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "05897072000105",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Vencido. Val 14/10/2025",
+      "cercon": "Vencido. Val 24/04/2025",
+      "alvara_funcionamento": "Definitivo",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 02/05/2024",
+      "raw": {
+        "EMPRESA": "Tristao & Silva LTDA",
+        "CNPJ": "05.897.072/0001-05",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Vencido. Val 14/10/2025",
+        "CERCON": "Vencido. Val 24/04/2025",
+        "ALVARÁ FUNCIONAMENTO": "Definitivo",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 02/05/2024"
+      }
+    },
+    {
+      "cnpj": "46510176000194",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "NÃO",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "TW Saude Mental LTDA",
+        "CNPJ": "46.510.176/0001-94",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "NÃO",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "11324995000162",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 20/11/2025",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Valdivino Pereira Da Silva O Goiano",
+        "CNPJ": "11.324.995/0001-62",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 20/11/2025",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "10480328000106",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Via Interiores Moveis LTDA",
+        "CNPJ": "10.480.328/0001-06",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "30597276000160",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Via Solar Comercio E Servicos LTDA",
+        "CNPJ": "30.597.276/0001-60",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "46691352000131",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Vencido. Val 18/01/2024",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Villa B Roupas E Acessorios LTDA",
+        "CNPJ": "46.691.352/0001-31",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Vencido. Val 18/01/2024",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "05076134000100",
+      "municipio": "CORUMBÁ",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Vitoria Agropecuaria E Empreendimentos Imobiliarios LTDA",
+        "CNPJ": "05.076.134/0001-00",
+        "MUNICÍPIO": "Corumbá",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "00272583000100",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Possui. Val 15/07/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Vitoria Comercio LTDA",
+        "CNPJ": "00.272.583/0001-00",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Possui. Val 15/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "59888270000123",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "VP Prestacao De Servicos LTDA",
+        "CNPJ": "59.888.270/0001-23",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "27160744000120",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "VPS Metalurgica Industrial LTDA",
+        "CNPJ": "27.160.744/0001-20",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "02696221000171",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "W J De Andrade",
+        "CNPJ": "02.696.221/0001-71",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "35438325000135",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "Waphi Empreendimentos LTDA",
+        "CNPJ": "35.438.325/0001-35",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "52570038000101",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 13/09/2024",
+      "raw": {
+        "EMPRESA": "Welington Cardoso Sociedade Individual De Advocacia",
+        "CNPJ": "52.570.038/0001-01",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 13/09/2024"
+      }
+    },
+    {
+      "cnpj": "09212704000100",
+      "municipio": "SILVÂNIA",
+      "alvara_vig_sanitaria": "Possui. Val 12/02/2026",
+      "cercon": "Possui. Val 06/02/2026",
+      "alvara_funcionamento": "Vencido. Val 31/12/2024",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "WV Posto De Lavagem LTDA",
+        "CNPJ": "09.212.704/0001-00",
+        "MUNICÍPIO": "Silvânia",
+        "ALVARÁ VIG SANITÁRIA": "Possui. Val 12/02/2026",
+        "CERCON": "Possui. Val 06/02/2026",
+        "ALVARÁ FUNCIONAMENTO": "Vencido. Val 31/12/2024",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "18608090000163",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Aguard Vistoria",
+      "cercon": "Possui",
+      "alvara_funcionamento": "Possui",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "WVM Energia E Eventos LTDA",
+        "CNPJ": "18.608.090/0001-63",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Aguard Vistoria",
+        "CERCON": "Possui",
+        "ALVARÁ FUNCIONAMENTO": "Possui",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    },
+    {
+      "cnpj": "18608090000244",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Possui",
+      "cercon": "Possui",
+      "alvara_funcionamento": "Possui",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Em Análise",
+      "raw": {
+        "EMPRESA": "WVM Energia E Eventos LTDA - Filial",
+        "CNPJ": "18.608.090/0002-44",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Possui",
+        "CERCON": "Possui",
+        "ALVARÁ FUNCIONAMENTO": "Possui",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Em Análise"
+      }
+    },
+    {
+      "cnpj": "42160692000185",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "Aguard Regularização",
+      "cercon": "Possui. Val 15/07/2026",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Possui. Val 17/11/2026",
+      "raw": {
+        "EMPRESA": "Zion Dental Clinic LTDA",
+        "CNPJ": "42.160.692/0001-85",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "Aguard Regularização",
+        "CERCON": "Possui. Val 15/07/2026",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Possui. Val 17/11/2026"
+      }
+    },
+    {
+      "cnpj": "04894667000136",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "NÃO",
+      "alvara_funcionamento": "NÃO",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Vencido. Val 06/07/2024",
+      "raw": {
+        "EMPRESA": "Zoo Fos Transportes LTDA",
+        "CNPJ": "04.894.667/0001-36",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "NÃO",
+        "ALVARÁ FUNCIONAMENTO": "NÃO",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Vencido. Val 06/07/2024"
+      }
+    }
+  ]
+}

@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/main.tsx","./src/api/client.ts","./src/hooks/useauth.tsx","./src/lib/quicklinks.ts","./src/pages/mainapp.tsx","./src/pages/auth/login.tsx","./src/pages/auth/resetpassword.tsx","./src/pages/auth/setpassword.tsx"],"errors":true,"version":"5.9.3"}

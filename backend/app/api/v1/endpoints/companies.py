@@ -55,7 +55,7 @@ def list_companies(
     cnpj: str | None = Query(default=None),
     razao_social: str | None = Query(default=None),
     is_active: bool | None = Query(default=None),
-    limit: int = Query(default=50, ge=1, le=200),
+    limit: int = Query(default=1000, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
 ) -> list[CompanyOut]:
     query = db.query(Company).filter(Company.org_id == org.id)

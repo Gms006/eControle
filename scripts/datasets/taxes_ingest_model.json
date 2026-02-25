@@ -1,0 +1,40 @@
+{
+  "source": {
+    "type": "spreadsheet_export",
+    "name": "TAXAS - NETO CONTABILIDADE 2025",
+    "version": "v1-to-v2-json",
+    "generated_at": "2026-02-24T00:00:00Z"
+  },
+  "org": { "slug": "neto-contabilidade" },
+  "taxes": [
+    {
+      "cnpj": "33562384000195",
+      "data_envio": "",
+      "taxa_funcionamento": "Em aberto desde 2020",
+      "taxa_publicidade": "*",
+      "taxa_vig_sanitaria": "*",
+      "iss": "*",
+      "taxa_localiz_instalacao": "*",
+      "taxa_ocup_area_publica": "*",
+      "taxa_bombeiros": "*",
+      "tpi": "*",
+      "vencimento_tpi": "-",
+      "status_taxas": "Irregular",
+      "raw": {
+        "EMPRESA": "Anhanguera Pastagem Comercio LTDA",
+        "CNPJ": "33.562.384/0001-95",
+        "DATA ENVIO": "",
+        "TAXA FUNCIONAMENTO": "Em aberto desde 2020",
+        "TAXA PUBLICIDADE": "*",
+        "TAXA VIG SANITÁRIA": "*",
+        "ISS": "*",
+        "TAXA LOCALIZ INSTALAÇÃO": "*",
+        "TAXA OCUP ÁREA PÚBLICA": "*",
+        "TAXA BOMBEIROS": "*",
+        "TPI": "*",
+        "VENCIMENTO TPI": "-",
+        "status_taxas": "Irregular"
+      }
+    }
+  ]
+}

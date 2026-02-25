@@ -13,7 +13,7 @@ com correções de arquitetura/organização e mudanças combinadas:
 - Certificados = espelho do CertHub + “Instalar → abre CertHub”
 - Úteis = exports do Scribere (notas/snippets) + “Abrir Scribere”
 - Ingest inicial via **JSON** (não planilha)
-**Status atual**: S5 (companies) — primeira entidade org-scoped com CRUD, filtros e testes de isolamento.  
+**Status atual**: S7 (ingest JSON) — ingest com tracking (`ingest_runs`), idempotência e endpoints DEV-only (agregado + por dataset).  
 Veja [PLANO_DESENVOLVIMENTO.md](PLANO_DESENVOLVIMENTO.md) para roadmap completo e [ESTRUTURA_REPO.md](ESTRUTURA_REPO.md) para evolução da estrutura.
 ---
 
@@ -37,6 +37,43 @@ Se precisar sobrescrever, defina essas variáveis no `.env` (na raiz) ou em `bac
 - `MASTER_EMAIL` (default "admin@example.com")
 - `MASTER_PASSWORD` (default "admin123")
 - `MASTER_ROLES` (default "DEV,ADMIN")
+
+### UTF-8 (Windows)
+Para evitar problemas de encoding (acentos) durante ingest/execuções administrativas:
+```powershell
+chcp 65001
+$OutputEncoding = [Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+```
+
+### S7 - Ingest JSON (DEV-only)
+```powershell
+docker compose -f infra/docker-compose.yml up -d
+cd backend
+alembic upgrade head
+pytest -q
+cd ..
+
+$env:ECONTROLE_EMAIL="seu_email"
+$env:ECONTROLE_PASSWORD="sua_senha"
+.\scripts\s7_validate_ingest.ps1
+```
+
+Endpoints S7 (estado atual):
+- `POST /api/v1/ingest/run` (agregado: companies + profiles + datasets relacionados no envelope)
+- `POST /api/v1/ingest/licences` (ingest separado)
+- `POST /api/v1/ingest/taxes` (ingest separado)
+- `POST /api/v1/ingest/processes` (ingest separado)
+
+Observações:
+- Todas as rotas de ingest exigem papel `DEV`.
+- O script `scripts/s7_validate_ingest.ps1` valida o fluxo agregado (`/api/v1/ingest/run`) e a idempotência (2 execuções).
+- O tracking de execuções fica em `ingest_runs` (`dataset`, `source_hash`, `stats`, `status`).
+
+### E2E
+```powershell
+# Roda: migrations + pytest rápido + E2E da API (HTTP real)
+.\scripts\e2e_run.ps1 -Email "seu_email" -Password "sua_senha"
+```
 
 ---
 
@@ -286,3 +323,50 @@ npm run dev
 ## Licença
 
 Uso interno (Neto Contabilidade).
+
+---
+
+## E2E Full (API + Portal)
+
+Fluxo automatizado para validar infra, backend (HTTP real) e portal (Playwright) no Windows PowerShell:
+
+* `scripts\e2e_run_full.ps1`
+
+### Pré-requisitos
+
+* Docker Desktop em execução
+* Python 3.10 (preferencialmente `.venv`) com dependências do backend instaladas
+* Node 18+ com dependências do `frontend` instaladas
+* Playwright instalado no frontend (`npm install` e `npx playwright install chromium`)
+
+### Variáveis de ambiente (obrigatórias para credenciais)
+
+```powershell
+$env:ECONTROLE_EMAIL = "dev@example.com"
+$env:ECONTROLE_PASSWORD = "dev123"
+```
+
+### Variáveis de ambiente (opcionais)
+
+```powershell
+$env:ECONTROLE_E2E_API_BASE_URL = "http://127.0.0.1:8020"
+$env:ECONTROLE_E2E_PORTAL_BASE_URL = "http://127.0.0.1:5174"
+```
+
+### Execução
+
+```powershell
+.\scripts\e2e_run_full.ps1
+```
+
+### O que o script faz
+
+* `chcp 65001` + UTF-8
+* `docker compose up -d` em `infra/docker-compose.yml` (Postgres/Redis)
+* `alembic upgrade head` (backend)
+* `pytest -q` (backend)
+* sobe `uvicorn main:app` na porta `8020` e aguarda `/healthz`
+* roda `pytest -m e2e` em `tests_e2e/api`
+* sobe portal (`vite`) e aguarda `/login`
+* roda Playwright (`frontend/tests_e2e/portal`)
+* encerra `uvicorn` e portal no `finally`

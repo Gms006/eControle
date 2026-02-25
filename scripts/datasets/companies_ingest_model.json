@@ -1,0 +1,24 @@
+{
+  "source": {
+    "type": "spreadsheet_export",
+    "name": "LISTA EMPRESAS - NETO CONTABILIDADE 2025",
+    "version": "v1-to-v2-json",
+    "generated_at": "2026-02-23T18:00:00Z"
+  },
+  "org": { "slug": "neto-contabilidade" },
+  "companies": [
+    {
+      "external_id": "123",
+      "empresa": "Torneadora Fermax LTDA",
+      "cnpj": "10.259.622/0001-92",
+      "municipio": "Anápolis",
+      "uf": "GO",
+      "is_active": true,
+      "raw": {
+        "EMPRESA": "Torneadora Fermax LTDA",
+        "CNPJ": "10.259.622/0001-92",
+        "MUNICÍPIO": "Anápolis"
+      }
+    }
+  ]
+}

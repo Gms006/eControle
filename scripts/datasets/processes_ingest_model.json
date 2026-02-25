@@ -1,0 +1,74 @@
+{
+  "source": {
+    "type": "spreadsheet_export",
+    "name": "PROCESSOS - NETO CONTABILIDADE 2025",
+    "version": "v1-to-v2-json",
+    "generated_at": "2026-02-24T00:00:00Z"
+  },
+  "org": { "slug": "neto-contabilidade" },
+  "processes": [
+    {
+      "cnpj": "62525534000199",
+      "process_type": "DIVERSOS",
+      "protocolo": "01123.00002502/2026-61",
+      "municipio": "ANÁPOLIS",
+      "orgao": "PREFEITURA",
+      "operacao": "CANCEL DE TRIBUTOS",
+      "data_solicitacao": "03/01/2026",
+      "situacao": "EM ANÁLISE",
+      "obs": "Cancelamento taxa VISA",
+      "extra": {},
+      "raw": {
+        "EMPRESA": "M3JS Administradora LTDA",
+        "CNPJ": "62.525.534/0001-99",
+        "PROTOCOLO": "01123.00002502/2026-61",
+        "OPERAÇÃO": "CANCEL DE TRIBUTOS",
+        "ÓRGÃO": "PREFEITURA",
+        "DATA SOLICITAÇÃO": "03/01/2026",
+        "SITUAÇÃO": "EM ANÁLISE",
+        "OBS": "Cancelamento taxa VISA"
+      }
+    },
+    {
+      "cnpj": "51154071000180",
+      "process_type": "CERCON",
+      "protocolo": "160469/25",
+      "municipio": "ANÁPOLIS",
+      "data_solicitacao": "13/10/2025",
+      "situacao": "CONCLUIDO",
+      "obs": "Vencimento - 16/10/2026",
+      "extra": {
+        "area_m2": "166,39",
+        "projeto": "125460/23",
+        "tpi": "-"
+      }
+    },
+    {
+      "cnpj": "22801319000159",
+      "process_type": "USO_SOLO",
+      "protocolo": "000000159/2026",
+      "municipio": "ANÁPOLIS",
+      "data_solicitacao": "06/01/2026",
+      "situacao": "AGUARD PAGTO",
+      "obs": "Protocolo anterior: 000021589/2025 de 05/08/2025",
+      "extra": {
+        "inscricao_imobiliaria": "401.092.0133.001"
+      }
+    },
+    {
+      "cnpj": "90234332115",
+      "process_type": "ALVARA_SANITARIO",
+      "protocolo": "20253830",
+      "municipio": "ANÁPOLIS",
+      "data_solicitacao": "04/06/2025",
+      "situacao": "AGUARD VISTORIA",
+      "obs": "Novo protocolo feito, notificação foi perdida",
+      "extra": {
+        "servico": "1º ALVARÁ",
+        "taxa": "0/2",
+        "notificacao": "-",
+        "data_val": "-"
+      }
+    }
+  ]
+}

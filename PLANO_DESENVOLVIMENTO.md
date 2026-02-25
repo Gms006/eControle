@@ -322,7 +322,7 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" 
 
 ## S6 — Frontend reaproveitado (migração mínima)
 
-**Status:** ✅ Frontend scaffold + auth entregues
+**Status:** ✅ Concluído em 2026-02-23
 
 **Objetivo:** reaproveitar "principalmente frontend", ajustando só base URL, auth e abas integradas.
 
@@ -342,6 +342,7 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" 
 ✅ Tela inicial e navegação funcionando
 ✅ Login e sessão funcionando
 ✅ Frontend consegue fazer login e abrir painel (/painel)
+✅ AppShell ativo com abas Painel/Empresas/Licenças/Taxas/Processos
 
 ---
 
@@ -404,28 +405,66 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)
 
 ## S7 — Ingest inicial por JSON (substitui planilha/ETL antigo)
 
-**Objetivo:** popular o sistema sem depender de Excel e preservando idempotência.
+**Status:** ✅ Concluído em 2026-02-24 (evoluído com endpoints separados por dataset em 2026-02-25)
 
-**Entregas**
+**Objetivo:** popular o sistema via JSON (sem Excel) com idempotência, tracking de execução e suporte a ingest incremental por dataset.
 
-* Contratos `schemas/ingest/*.py`
-* Runner:
+### Estado atual (S7)
+- Ingest JSON DEV-only com rota agregada: `POST /api/v1/ingest/run`
+- Endpoints separados por dataset no mesmo `ingest.py`:
+  - `POST /api/v1/ingest/licences`
+  - `POST /api/v1/ingest/taxes`
+  - `POST /api/v1/ingest/processes`
+- Schemas de envelope por dataset em `backend/app/schemas/ingest/envelopes.py`
+- Tracking por execução em `ingest_runs` (dataset, source metadata, source_hash, stats, status)
+- UTF-8 hardening para Windows (scripts PowerShell + payload UTF-8)
 
-  * `POST /api/v1/ingest/run` (dev) ou comando `python -m ingest`
-* Upserts idempotentes com tracking:
+### Entregáveis (implementados)
+- Contratos `backend/app/schemas/ingest/*.py` (incluindo envelopes por dataset)
+- Serviços de ingest/upsert em `backend/app/services/ingest/`
+  - `companies.py`, `company_profiles.py`, `licences.py`, `taxes.py`, `processes.py`
+  - `run.py` (ingest agregado de companies + anexos)
+- Tabelas/migrations:
+  - `ingest_runs`
+  - `company_profiles`
+  - `company_licences`, `company_taxes`, `company_processes`
+- Scripts/testes de validação S7 (`scripts/s7_validate_ingest.ps1`, `backend/tests/test_ingest_s7*.py`)
 
-  * `source_file`, `source_hash`, `ingested_at`
-* Datasets iniciais:
+### Requisitos atendidos
+- Idempotência por org/dataset (upserts)
+- Tracking por execução em `ingest_runs` com `source_hash` e `stats`
+- Endpoint DEV-only protegido por RBAC (`DEV`)
+- Hardening UTF-8 (Windows):
+  - `chcp 65001` nos scripts
+  - leitura/envio JSON em UTF-8 no PowerShell
 
-  * `empresas.json`
-  * `licencas.json`
-  * `taxas.json`
-  * `processos.json`
+### Validação (PowerShell - fluxo atual)
+```powershell
+docker compose -f infra/docker-compose.yml up -d
+cd backend
+alembic upgrade head
+pytest -q
+cd ..
 
-**Aceite**
+# Ingest (script oficial atual valida a rota agregada /ingest/run)
+$env:ECONTROLE_EMAIL="cadastro@netocontabilidade.com.br"
+$env:ECONTROLE_PASSWORD="Dev@12345"
+.\scripts\s7_validate_ingest.ps1
 
-* Rodar ingest duas vezes não duplica dados
-* Log/audit de ingest OK
+# Tracking (últimos runs)
+docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -d econtrole -c @"
+select id, dataset, status, stats, source_hash, created_at
+from ingest_runs
+order by created_at desc
+limit 10;
+"@
+```
+
+### Aceite (estado atual)
+- ✅ Rodar ingest agregado duas vezes não duplica dados (idempotência confirmada)
+- ✅ Tracking de ingest (`ingest_runs`) persistido
+- ✅ Ingest por dataset disponível para `licences`, `taxes` e `processes`
+- ✅ UTF-8 end-to-end validado no fluxo PowerShell/Windows
 
 ---
 
@@ -666,3 +705,39 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)
 
 * Smoke tests passam
 * Documentação mínima para manutenção
+
+---
+
+## Validação E2E (S7)
+
+Objetivo: consolidar uma validação E2E sustentável para a stage S7 (ingest + portal), rodando junto com os testes existentes.
+
+### Escopo mínimo da validação
+
+* Infra via Docker Compose (`postgres` + `redis`)
+* API FastAPI com `uvicorn` real e HTTP real (`/healthz`, login e ingest)
+* Portal React/Vite com navegador real (Playwright)
+
+### Cenários E2E S7
+
+* API (`pytest -m e2e`)
+  * login (`/api/v1/auth/login` + `/api/v1/auth/me`)
+  * ingest principal (`POST /api/v1/ingest/run`) com idempotência (2 execuções)
+  * ingest separado (`/ingest/licences`, `/ingest/taxes`, `/ingest/processes`)
+* Portal (Playwright)
+  * login no `/login`
+  * navegação para aba `Empresas`
+  * validação de carregamento da listagem (smoke)
+
+### Runner único (Windows PowerShell)
+
+* Script oficial: `scripts\e2e_run_full.ps1`
+* Uso de env vars:
+  * `ECONTROLE_EMAIL`, `ECONTROLE_PASSWORD`
+  * `ECONTROLE_E2E_API_BASE_URL`, `ECONTROLE_E2E_PORTAL_BASE_URL`
+
+### Evolução por stages (próximos passos)
+
+* S8+: aumentar cobertura Playwright (Licenças, Taxas, Processos)
+* S8+: cenários negativos/permissão (RBAC DEV/ADMIN/VIEW)
+* S9+: fixtures/versionamento de datasets E2E por stage

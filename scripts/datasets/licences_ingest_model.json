@@ -1,0 +1,30 @@
+{
+  "source": {
+    "type": "spreadsheet_export",
+    "name": "LICENCAS - NETO CONTABILIDADE 2025",
+    "version": "v1-to-v2-json",
+    "generated_at": "2026-02-24T00:00:00Z"
+  },
+  "org": { "slug": "neto-contabilidade" },
+  "licences": [
+    {
+      "cnpj": "02179356000160",
+      "municipio": "ANÁPOLIS",
+      "alvara_vig_sanitaria": "*",
+      "cercon": "Sujeito",
+      "alvara_funcionamento": "Sujeito",
+      "licenca_ambiental": "*",
+      "certidao_uso_solo": "Sujeito",
+      "raw": {
+        "EMPRESA": "1 Igreja Presbiteriana Renovada De Anapolis",
+        "CNPJ": "02.179.356/0001-60",
+        "MUNICÍPIO": "Anápolis",
+        "ALVARÁ VIG SANITÁRIA": "*",
+        "CERCON": "Sujeito",
+        "ALVARÁ FUNCIONAMENTO": "Sujeito",
+        "LICENÇA AMBIENTAL": "*",
+        "CERTIDÃO USO SOLO": "Sujeito"
+      }
+    }
+  ]
+}

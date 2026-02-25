@@ -1,0 +1,70 @@
+EMPRESA	CNPJ	PROTOCOLO	DATA SOLICITAÇÃO	SERVIÇO	TAXA	NOTIFICAÇÃO	SITUAÇÃO	DATA VAL	OBS
+A A De Matos Resende - Supermercado Santo Antonio	29.413.500/0001-37	20253382	28/07/2025	1º ALVARÁ	0/3	-	AGUARD VISTORIA		
+A C Melo LTDA	06.936.057/0001-83				*				
+A K Store LTDA	37.097.323/0001-55				*				
+Arriel Gas LTDA	51.154.071/0001-80				*			31/12/2025	
+Buteco Pinguim LTDA	53.379.706/0001-72		-	RENOVAÇÃO	0/3	POSSUI PENDÊNCIAS	AGUARD REGULARIZAÇÃO	07/11/2025	
+Cairo Cezar Fernandes & Cia LTDA	11.955.213/0001-93				*				
+Centro Oeste Gas II LTDA	05.889.499/0001-53				*				
+Clinica Odontologica Dente Certo LTDA	19.255.194/0001-02				0/3			30/10/2025	
+Coepi - Comunidade Educacional De Pirenopolis	01.706.965/0001-67				*				
+Disk Cerveja Pinguim LTDA	10.366.216/0001-29			RENOVAÇÃO	0/3	-	AGUARD VISTORIA	04/09/2025	
+Dom Careca Pizzaria E Hamburgueira LTDA	33.854.350/0001-74				0/3				
+Drogaria Atual LTDA	24.742.881/0001-84				*			31/03/2025	
+Drogaria Ferreira E Jesus LTDA	02.997.350/0001-08	-	-		*	-	LICENCIADO	04/04/2026	Francielly solicita
+Drogarias Nacional Jundiai LTDA	13.043.546/0001-71	-	-		*	-	LICENCIADO	11/04/2026	Francielly solicita
+Drogarias Nacional LTDA	31.500.145/0001-85	-	-		0/3	-	LICENCIADO	18/12/2025	Francielly solicita
+Drogarias Nacional Pedro Ludovico LTDA	07.956.060/0001-21	-	-		0/3	-	LICENCIADO	18/12/2025	Francielly solicita
+Drogarias Ultrapopular Jaiara LTDA	26.145.315/0001-10	-	-		0/3	-	LICENCIADO	03/04/2026	Francielly solicita
+Elevare Clinic LTDA	51.897.178/0001-18	20253396	28/07/2025	1º ALVARÁ	Em aberto	-	AGUARD VISTORIA		
+Embalagens Moura LTDA	03.778.907/0001-74			RENOVAÇÃO	0/3		PENDENTE	07/11/2025	
+Emporio Restaurante Bica Da Agua LTDA	54.812.567/0001-91				0/3				
+Envase Industria De Bebidas LTDA	52.432.412/0001-02				*				
+Fabiana Patricia Alves LTDA	04.829.039/0001-77				*				
+Faccial Odontologia Especializada LTDA	30.832.593/0001-13	289454	27/08/2025	RENOVAÇÃO	Em aberto		AGUARD VISTORIA	21/08/2025	
+FCGomes Servicos Medicos LTDA	27.243.364/0001-59				Em aberto			04/09/2025	
+Formosa Panificacao LTDA	21.101.502/0001-89	20254823	26/06/2025	RENOVAÇÃO	0/3	-	AGUARD VISTORIA	13/08/2025	Nutricionista da própria empresa já solicitou
+G F Medeiros Transportes	17.504.870/0001-09				0/2				
+GH Sistemas Construtivos LTDA - Filial	55.741.687/0002-99	GOP2504649662	27/06/2025	1º ALVARÁ	*	-	LICENCIADO	31/12/2025	
+Gondim E Gondim LTDA	46.757.883/0001-80				0/3				
+Green Ambiental LTDA	10.608.734/0001-01				*				
+Green Ambiental LTDA - Filial	10.608.734/0002-92	20253380	28/07/2025	RENOVAÇÃO	0/3	POSSUI PENDÊNCIAS	AGUARD VISTORIA	01/08/2024	
+Green Ambiental LTDA - Filial	10.608.734/0003-73				*				
+H S L Gas LTDA	09.443.871/0001-54				*			31/12/2023	
+Hermes Carrijo Coelho	14.751.414/0001-67				Em aberto			04/09/2025	
+HubJet Transportes LTDA	40.691.811/0001-09				0/2				
+I F De Jesus LTDA	49.357.720/0001-06				Em aberto				
+Industria e Comercio de Carnes Otto LTDA 	00.769.423/0001-70	20244756	08/11/2024	RENOVAÇÃO	0/2 (emitido)	RESOLVIDAS	LICENCIADO	03/06/2026	Taxa e comprovante
+Instituto Gean LTDA	31.284.081/0001-22	20253821	29/08/2025	RENOVAÇÃO	0/3	-	AGUARD VISTORIA	04/04/2025	
+JCS Comercial De Gas LTDA	50.596.981/0001-50				*			31/12/2025	
+La Trattoria Di Lana LTDA	46.038.083/0001-09	20253822	29/08/2025	1º ALVARÁ	0/2	-	AGUARD VISTORIA		Notificação, taxa e comprovante
+LB Servicos De Fonoaudiologia LTDA	52.507.478/0001-06				Pago				
+Livia M Longhi Carisio	42.810.759/0001-80				Em aberto			06/06/2025	
+M G Gracia Leite LTDA	49.775.697/0001-61				*				
+M.A. Galdeano & Cia LTDA	09.075.184/0001-23			1º ALVARÁ	Em aberto	-	LICENCIADO	08/01/2025	
+Marco Antonio Galdeano	778.983.541-68	20243805	05/09/2024	1º ALVARÁ	0/2	-	LICENCIADO		Notificação, taxa e comprovante
+Marietta Bar E Restaurante LTDA	52.586.943/0001-41				#N/D			31/03/2025	
+Mastologia Caetano LTDA	34.589.805/0001-34				Em aberto	-	LICENCIADO	06/06/2025	
+Mercadi.in Mercados Autonomos LTDA	55.750.096/0001-05				Em aberto				
+Mix Gas Comercial LTDA	15.491.548/0001-59		04/06/2025	RENOVAÇÃO	Em aberto	-	LICENCIADO	03/06/2026	
+Montserrat Comercio E Servicos LTDA	25.064.589/0001-12	20253376	28/07/2025	1º ALVARÁ	Em aberto	-	AGUARD VISTORIA	29/11/2024	Aguardando contratarem empresa de dedetização
+Nado Livre LTDA	45.983.155/0001-23		04/06/2025	RENOVAÇÃO	0/3		LICENCIADO	03/06/2026	
+Nelson Xavier Da Silva Santos	11.760.778/0001-15				Em aberto			06/06/2025	
+Nunes Gas LTDA	45.683.176/0001-23				*				
+Pinguim Atacado De Bebidas LTDA	49.640.086/0001-06		04/06/2025	RENOVAÇÃO	Em aberto	SEM PENDÊNCIAS	LICENCIADO	06/06/2025	
+R C Dos Santos LTDA	51.302.648/0001-53				*			31/03/2025	
+Reabilitaface Servicos Odontologicos LTDA	23.444.738/0001-43	20252529	04/06/2025	1º ALVARÁ	Em aberto	POSSUI PENDÊNCIAS	AGUARD REGULARIZAÇÃO		
+Rogerio de Alencastro Costa	902.343.321-15	20253830	04/06/2025	1º ALVARÁ	0/2	-	AGUARD VISTORIA	-	Novo protocolo feito, notificação foi perdida
+Santo Sal Hamburgueria, Steak E Pankeka LTDA	47.807.956/0001-63				Pago				
+Sao Caetano Servicos Medicos LTDA	25.237.578/0001-97				Em aberto			04/09/2025	
+Siaura & Silva LTDA	05.230.120/0001-07		04/06/2025	RENOVAÇÃO	Em aberto		LICENCIADO	03/06/2026	
+Soares De Azevedo Construcoes LTDA	58.002.293/0001-26				2025 e 2026 em aberto				
+Sorveteria Santo Antonio LTDA	52.729.432/0001-31		28/07/2025	1º ALVARÁ	Em aberto		LICENCIADO	28/07/2026	
+Toribas Restaurante LTDA	30.635.357/0001-07			1º ALVARÁ	2024 até 2025 em aberto	RESOLVIDAS	IR NA VISA		Taxa e comprovante. Taxas 2024 em aberto
+Tradicao Comercio E Servicos LTDA	07.939.334/0001-74	20252532	04/06/2025	RENOVAÇÃO	0/3	-	LICENCIADO	15/04/2025	Taxa e comprovante
+Tristao & Silva LTDA	05.897.072/0001-05			RENOVAÇÃO	0/3		PENDENTE	14/10/2025	
+Vivian Seabra de Vasconcelos Galdeano	714.514.981-87			RENOVAÇÃO	Pago	-	LICENCIADO	05/07/2026	
+WV Posto De Lavagem LTDA	09.212.704/0001-00				*			12/02/2026	
+WVM Energia E Eventos LTDA	18.608.090/0001-63	20252560	05/06/2025	RENOVAÇÃO	0/3	-	AGUARD VISTORIA	06/06/2025	
+WVM Energia E Eventos LTDA	18.608.090/0002-44		05/06/2025	RENOVAÇÃO	0/3	-	LICENCIADO	05/06/2026	
+Zion Dental Clinic LTDA	42.160.692/0001-85	20253378	28/07/2025	1º ALVARÁ	Em aberto	POSSUI PENDÊNCIAS	AGUARD REGULARIZAÇÃO		
