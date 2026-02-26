@@ -5,7 +5,8 @@ export function Card({ className, ...props }) {
   return (
     <section
       className={cn(
-        "bg-white rounded-2xl shadow-soft border border-slate-100 p-4 lg:p-5",
+        // Card wrapper SEM padding (padrão shadcn / CertHub)
+        "bg-white rounded-2xl shadow-soft border border-slate-100",
         className,
       )}
       {...props}

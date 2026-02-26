@@ -401,6 +401,70 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)
 ✅ Usuários ficam vinculados à mesma org_id do caller
 ✅ Admin não consegue desativar a si mesmo (retorna 400)
 
+## S6.2 — Operação no Portal (CRUD UI: Empresas/Processos/Licenças/Taxas) 
+
+**Objetivo:** tornar o eControle operacional no dia a dia, permitindo criação e edição via interface (com validação, UX padrão CertHub e permissões).
+
+### Entregas
+1) **Header “Novo +”**
+   - Ações: **Nova Empresa**, **Novo Processo**.
+
+2) **Empresas — Create/Edit**
+   - Form com máscaras: CNPJ, CPF, telefone.
+   - Botões “Não possui” para IM/IE (preenche `-`).
+   - Flags:
+     - **MEI** → quando Sim, preencher taxas como **Isento**.
+     - **Endereço Fiscal/Holding** → prefixar `Fiscal -` em Categoria.
+   - Botão **Importar** (ReceitaWS) ao completar CNPJ:
+     - preenche razão social (normalizada), porte e município.
+   - Persistir em `companies` + `company_profiles`.
+   - Opções adicionais na criação:
+     - **Adicionar Licenças** (`company_licences`) com defaults:
+       - assinalado → `Sujeito`
+       - não assinalado → `Isento`
+       - “Não necessita” → todas `Não`
+     - **Adicionar Taxas** (`company_taxes`) com defaults:
+       - assinalado → `em_aberto`
+       - não assinalado → `Isento`
+       - **TPI** exige vencimento `dd/mm`.
+
+3) **Processos — Create/Edit**
+   - Seleção de empresa (search/select) que preenche automaticamente CNPJ, ID e Município.
+   - Campos padrão: Protocolo, Data Solicitação, Situação, Observação.
+   - Campos condicionais por tipo:
+     - Diversos: Operação, Órgão
+     - Funcionamento: Alvará
+     - Bombeiro/CERCON: Área (m²), Projeto Aprovado (com “Não possui” e “Não precisa”)
+     - Uso do Solo: Inscrição Imobiliária
+     - Sanitário: Serviço, Notificação
+
+4) **Edição em cards**
+   - Botão **Editar** nos cards de Empresas e Processos.
+   - Taxas: tornar funcional o “Editar envio”.
+   - Processos: tornar funcional “Editar OBS” + histórico de alterações.
+
+5) **UX e Regras**
+   - Toasts de sucesso/erro
+   - Loading states
+   - Validações mínimas (campos obrigatórios, datas, enums)
+   - RBAC no front (VIEW: read-only; ADMIN/DEV: CRUD)
+
+### Critérios de aceite
+- Usuário ADMIN/DEV consegue criar/editar Empresa e Processo no DB pelo front.
+- VIEW não vê botões de criação/edição e não consegue acionar rotas.
+- “Importar ReceitaWS” preenche campos no form (quando habilitado).
+- Criação de empresa opcionalmente cria licenças/taxas com os defaults definidos.
+- OBS em Processos mantém histórico de edições visível.
+
+### Validação (mínima)
+- E2E Playwright:
+  - Login
+  - Criar empresa
+  - Editar empresa
+  - Criar processo
+  - Editar OBS e verificar histórico
+  - Garantir que VIEW não tem acesso a botões/actions
+
 ---
 
 ## S7 — Ingest inicial por JSON (substitui planilha/ETL antigo)

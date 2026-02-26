@@ -19,12 +19,12 @@ export default function CompanyAvatar({
   seed?: string | number;
   className?: string;
 }) {
+  // Marca institucional (navy): #0e2659
+  // Mantém variação sutil (opcional) via seed -> 2 tons próximos
   const palette = [
-    "from-sky-500 to-blue-600",
-    "from-indigo-500 to-blue-700",
-    "from-emerald-500 to-teal-600",
-    "from-amber-500 to-orange-600",
-    "from-rose-500 to-pink-600",
+    "from-[#0e2659] to-[#163a7a]",
+    "from-[#0e2659] to-[#1b438b]",
+    "from-[#0e2659] to-[#12346f]",
   ];
   const hash = String(seed ?? name ?? "")
     .split("")

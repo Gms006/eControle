@@ -568,12 +568,18 @@ function TaxasScreen({ taxas, modoFoco, matchesMunicipioFilter, matchesQuery, ha
               return (
                 <Card key={tipo.key} className="shadow-sm">
                   <CardHeader className="pb-2">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      {tipo.label}
-                      <InlineBadge variant="outline" className="bg-white">
-                        {registros.length}
-                      </InlineBadge>
-                    </CardTitle>
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="text-base flex items-center gap-2">
+                        {tipo.label}
+                        <InlineBadge variant="outline" className="bg-white">
+                          {registros.length}
+                        </InlineBadge>
+                      </CardTitle>
+
+                      <span className="hidden sm:inline-flex items-center rounded-full border bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                        Ordenar por: Vencimento • Empresa • Status geral
+                      </span>
+                    </div>
                   </CardHeader>
                   <CardContent className="p-0">
                     <ScrollArea className="h-[420px]">

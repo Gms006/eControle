@@ -47,6 +47,23 @@ export const formatCpfCnpj = (value) => {
   return digits;
 };
 
+export const formatPhoneBr = (value) => {
+  const digits = normalizeDocumentDigits(value);
+  if (!digits) return undefined;
+
+  // 10 dígitos: (62) 3333-4444
+  if (digits.length === 10) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+  }
+
+  // 11 dígitos: (62) 9 3333-4444
+  if (digits.length === 11) {
+    return `(${digits.slice(0, 2)}) ${digits.slice(2, 3)} ${digits.slice(3, 7)}-${digits.slice(7, 11)}`;
+  }
+
+  return digits;
+};
+
 export const buildNormalizedSearchKey = (value) => {
   const normalized = removeDiacritics(normalizeTextLower(value));
   const sanitized = normalized.replace(NON_ALPHANUMERIC_REGEX, "");

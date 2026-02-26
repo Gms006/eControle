@@ -13,6 +13,7 @@ import {
   Kbd,
 } from "@/components/ui/dropdown-menu";
 import { Chip } from "@/components/Chip";
+import CompanyAvatar from "@/components/common/CompanyAvatar";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import { Mail, Phone, Clipboard, ExternalLink, File, Loader2 } from "lucide-react";
@@ -32,6 +33,7 @@ import {
   onlyDigits,
   normalizeIM,
 } from "@/lib/quickLinks";
+import { formatCpf, formatPhoneBr } from "@/lib/text";
 
 const resolveApiBaseUrl = () => {
   const fromEnv = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -332,10 +334,6 @@ export default function EmpresasScreen({
           );
           const rawId =
             empresa.empresa_id ?? empresa.empresaId ?? empresa.id ?? extractEmpresaId(empresa);
-          const avatarLabel =
-            rawId !== undefined && rawId !== null && `${rawId}`.toString().trim() !== ""
-              ? `${rawId}`
-              : "?";
 
           const cnpjDigits = onlyDigits(empresa.cnpj || "");
           const hasValidCnpj = cnpjDigits.length === 14;
@@ -356,7 +354,6 @@ export default function EmpresasScreen({
           return (
             <EmpresaCard
               key={cardKey}
-              avatarLabel={avatarLabel}
               cndEntry={cndEntry}
               empresa={empresa}
               ensureCNDs={ensureCNDs}
@@ -392,7 +389,6 @@ export default function EmpresasScreen({
 }
 
 function EmpresaCard({
-  avatarLabel,
   cndEntry,
   empresa,
   emitirCNDMunicipal,
@@ -437,8 +433,12 @@ function EmpresaCard({
     >
       <CardContent className={cn("p-0", isCompact ? "space-y-2" : "space-y-3")}>
         <div className={cn("flex items-start", isCompact ? "gap-2" : "gap-3")}>
-          <div className="h-12 w-12 rounded-xl bg-indigo-100 text-indigo-700 font-semibold grid place-items-center">
-            {avatarLabel}
+          <div className="p-4 pb-0">
+            <CompanyAvatar
+              name={empresa.empresa}
+              seed={empresa.id ?? empresa.empresa_id ?? empresa.empresaId ?? empresa.cnpj}
+              className="h-12 w-12 rounded-2xl text-sm"
+            />
           </div>
           <div className={cn("flex-1 min-w-0 p-4", isCompact ? "pb-0" : "pb-1")}>
             <div className="flex items-start justify-between gap-2">

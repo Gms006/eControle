@@ -576,16 +576,22 @@ export default function LicencasScreen({ licencas, filteredLicencas, modoFoco, h
                 return (
                   <Card key={tipoNormalized} className="shadow-sm">
                     <CardHeader className="pb-2">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        <span className="opacity-80">
-                          <IconComponent className="h-4 w-4" />
-                        </span>
-                        {display}
-                        <InlineBadge variant="outline" className="bg-white">
-                          {registros.length}
-                        </InlineBadge>
-                      </CardTitle>
-                    </CardHeader>
+                  <div className="flex items-center justify-between gap-3">
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <span className="opacity-80">
+                        <IconComponent className="h-4 w-4" />
+                      </span>
+                      {display}
+                      <InlineBadge variant="outline" className="bg-white">
+                        {registros.length}
+                      </InlineBadge>
+                    </CardTitle>
+
+                    <span className="hidden sm:inline-flex items-center rounded-full border bg-slate-50 px-3 py-1 text-xs text-slate-600">
+                      Ordenar por: Vencimento • Empresa • Status
+                    </span>
+                  </div>
+                </CardHeader>
                     <CardContent className="p-0">
                       <ScrollArea className="h-[500px]">
                         <Table>

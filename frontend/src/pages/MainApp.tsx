@@ -37,6 +37,211 @@ const normalizeItems = (payload: any) => {
   return [];
 };
 
+const normalizeCnpjDigits = (value: any) => String(value ?? "").replace(/\D/g, "");
+
+const hasValue = (value: any) =>
+  value !== undefined && value !== null && String(value).trim() !== "";
+
+const getEmpresaKey = (item: any) => {
+  const candidate =
+    item?.empresa_id ??
+    item?.empresaId ??
+    item?.company_id ??
+    item?.companyId ??
+    item?.id;
+  if (candidate === undefined || candidate === null) return undefined;
+  const key = String(candidate).trim();
+  return key || undefined;
+};
+
+const normalizeEmpresaRecord = (empresa: any) => {
+  const empresaId = getEmpresaKey(empresa);
+  const empresaNome =
+    empresa?.empresa ??
+    empresa?.razao_social ??
+    empresa?.razaoSocial ??
+    empresa?.nome_fantasia ??
+    empresa?.nomeFantasia ??
+    "—";
+
+  return {
+    ...empresa,
+    ...(empresaId ? { empresa_id: empresaId } : {}),
+    empresa: empresaNome,
+    razao_social: empresa?.razao_social ?? empresa?.empresa ?? empresa?.razaoSocial ?? empresaNome,
+    nome_fantasia: empresa?.nome_fantasia ?? empresa?.nomeFantasia ?? undefined,
+    ie: empresa?.ie ?? empresa?.inscricao_estadual ?? empresa?.inscricaoEstadual,
+    im:
+      empresa?.im ??
+      empresa?.inscricao_municipal ??
+      empresa?.inscricaoMunicipal,
+    inscricaoMunicipal:
+      empresa?.inscricaoMunicipal ?? empresa?.inscricao_municipal ?? empresa?.im,
+    inscricaoEstadual:
+      empresa?.inscricaoEstadual ?? empresa?.inscricao_estadual ?? empresa?.ie,
+    situacao: empresa?.situacao ?? empresa?.status_empresa,
+    debito: empresa?.debito ?? empresa?.debito_prefeitura,
+    certificado: empresa?.certificado ?? empresa?.certificado_digital,
+    responsavelFiscal: empresa?.responsavelFiscal ?? empresa?.responsavel_fiscal,
+    responsavelLegal: empresa?.responsavelLegal ?? empresa?.proprietario_principal,
+    cpfResponsavelLegal: empresa?.cpfResponsavelLegal ?? empresa?.cpf,
+  };
+};
+
+const buildCompanyIndex = (empresas: any[]) => {
+  const byId = new Map<string, any>();
+  const byCnpj = new Map<string, any>();
+
+  empresas.forEach((empresa) => {
+    const normalized = normalizeEmpresaRecord(empresa);
+    const key = getEmpresaKey(normalized);
+    if (key) {
+      byId.set(key, normalized);
+    }
+
+    const cnpjDigits = normalizeCnpjDigits(normalized?.cnpj);
+    if (cnpjDigits) {
+      byCnpj.set(cnpjDigits, normalized);
+    }
+  });
+
+  return { byId, byCnpj };
+};
+
+const getCompanyFromIndexes = (item: any, indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
+  const key = getEmpresaKey(item);
+  if (key && indexes.byId.has(key)) {
+    return indexes.byId.get(key);
+  }
+  const cnpjDigits = normalizeCnpjDigits(item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa);
+  if (cnpjDigits && indexes.byCnpj.has(cnpjDigits)) {
+    return indexes.byCnpj.get(cnpjDigits);
+  }
+  return undefined;
+};
+
+const enrichWithCompany = (
+  item: any,
+  indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
+) => {
+  const company = getCompanyFromIndexes(item, indexes);
+  const empresaId = getEmpresaKey(item) ?? getEmpresaKey(company);
+
+  return {
+    ...item,
+    ...(empresaId ? { empresa_id: empresaId, company_id: item?.company_id ?? empresaId } : {}),
+    empresa:
+      item?.empresa ??
+      item?.razao_social ??
+      item?.razaoSocial ??
+      company?.empresa ??
+      company?.razao_social,
+    cnpj: item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? company?.cnpj,
+    municipio: item?.municipio ?? company?.municipio,
+  };
+};
+
+const adaptTaxasRecords = (taxas: any[], indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) =>
+  taxas.map((taxa) => {
+    const enriched = enrichWithCompany(taxa, indexes);
+    return {
+      ...enriched,
+      func: taxa?.func ?? taxa?.taxa_funcionamento,
+      publicidade: taxa?.publicidade ?? taxa?.taxa_publicidade,
+      sanitaria: taxa?.sanitaria ?? taxa?.taxa_vig_sanitaria,
+      localizacao_instalacao:
+        taxa?.localizacao_instalacao ?? taxa?.taxa_localiz_instalacao,
+      area_publica: taxa?.area_publica ?? taxa?.taxa_ocup_area_publica,
+      bombeiros: taxa?.bombeiros ?? taxa?.taxa_bombeiros,
+      status_geral: taxa?.status_geral ?? taxa?.status_taxas,
+    };
+  });
+
+const LICENSE_FIELD_MAP = [
+  { field: "alvara_vig_sanitaria", tipo: "Sanitária" },
+  { field: "cercon", tipo: "CERCON" },
+  { field: "alvara_funcionamento", tipo: "Funcionamento" },
+  { field: "certidao_uso_solo", tipo: "Uso do Solo" },
+  { field: "licenca_ambiental", tipo: "Ambiental" },
+];
+
+const adaptLicencasRecords = (
+  licencas: any[],
+  indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
+) => {
+  const expanded: any[] = [];
+
+  licencas.forEach((lic) => {
+    const enriched = enrichWithCompany(lic, indexes);
+
+    // Formato legado (1 linha por licença) -> apenas enriquece aliases
+    if (hasValue(lic?.tipo) || hasValue(lic?.status) || hasValue(lic?.validade)) {
+      expanded.push({
+        ...enriched,
+        status_geral: lic?.status_geral ?? lic?.statusGeral,
+      });
+      return;
+    }
+
+    // Formato novo (1 linha agregada por empresa) -> expande para formato legado
+    LICENSE_FIELD_MAP.forEach(({ field, tipo }) => {
+      const status = lic?.[field];
+      if (!hasValue(status)) return;
+
+      expanded.push({
+        ...enriched,
+        id: `${lic?.id ?? enriched?.empresa_id ?? "lic"}:${field}`,
+        tipo,
+        status,
+        status_geral: lic?.status_geral ?? lic?.statusGeral ?? null,
+        validade:
+          lic?.[`validade_${field}`] ??
+          lic?.raw?.[`validade_${field}`] ??
+          lic?.raw?.[`${field}_validade`] ??
+          null,
+        validade_br:
+          lic?.[`validade_${field}_br`] ??
+          lic?.raw?.[`validade_${field}_br`] ??
+          null,
+        status_detalhe: lic?.raw?.[`${field}_detalhe`] ?? null,
+      });
+    });
+  });
+
+  return expanded;
+};
+
+const adaptProcessosRecords = (
+  processos: any[],
+  indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
+) =>
+  processos.map((proc) => {
+    const raw = proc?.raw && typeof proc.raw === "object" ? proc.raw : {};
+    const extra = proc?.extra && typeof proc.extra === "object" ? proc.extra : {};
+    const enriched = enrichWithCompany({ ...raw, ...extra, ...proc }, indexes);
+
+    return {
+      ...raw,
+      ...extra,
+      ...proc,
+      ...enriched,
+      tipo:
+        proc?.tipo ??
+        proc?.tipo_processo ??
+        proc?.tipoProcesso ??
+        proc?.process_type ??
+        raw?.tipo ??
+        raw?.process_type,
+      status:
+        proc?.status ??
+        proc?.situacao ??
+        proc?.status_padrao ??
+        raw?.status ??
+        raw?.situacao,
+      situacao: proc?.situacao ?? raw?.situacao ?? raw?.status,
+    };
+  });
+
 const normalizeProcesso = (proc: any) => ({
   ...proc,
   empresa:
@@ -48,6 +253,8 @@ const normalizeProcesso = (proc: any) => ({
     proc?.razao ??
     proc?.nome ??
     "—",
+  empresa_id: proc?.empresa_id ?? proc?.empresaId ?? proc?.company_id ?? proc?.companyId,
+  company_id: proc?.company_id ?? proc?.companyId ?? proc?.empresa_id ?? proc?.empresaId,
   cnpj: proc?.cnpj ?? proc?.cnpj_empresa ?? proc?.cnpjEmpresa,
   municipio:
     proc?.municipio ??
@@ -57,7 +264,7 @@ const normalizeProcesso = (proc: any) => ({
     proc?.municipioNome,
   situacao: proc?.situacao ?? proc?.status ?? proc?.status_padrao,
   status: proc?.status ?? proc?.situacao ?? proc?.status_padrao,
-  tipo: proc?.tipo ?? proc?.tipo_processo ?? proc?.tipoProcesso,
+  tipo: proc?.tipo ?? proc?.tipo_processo ?? proc?.tipoProcesso ?? proc?.process_type,
 });
 
 const renderEmptyState = (title: string, message: string) => (
@@ -140,27 +347,31 @@ export default function MainApp() {
         if (!active) return;
 
         const nextErrors: Record<string, string> = {};
-        const handleCollection = (
-          result: PromiseSettledResult<any>,
-          setter: (items: any[]) => void,
-          key?: string,
-        ) => {
+        const readCollection = (result: PromiseSettledResult<any>, key?: string) => {
           if (result.status === "fulfilled") {
-            setter(normalizeItems(result.value));
-          } else {
-            const message = result.reason?.message || "Falha ao carregar dados.";
-            if (key) {
-              nextErrors[key] = message;
-            }
-            setter([]);
+            return normalizeItems(result.value);
           }
+          const message = result.reason?.message || "Falha ao carregar dados.";
+          if (key) {
+            nextErrors[key] = message;
+          }
+          return [];
         };
 
-        handleCollection(empresasResponse, setEmpresas);
-        handleCollection(licencasResponse, setLicencas, "licencas");
-        handleCollection(taxasResponse, setTaxas, "taxas");
-        handleCollection(processosResponse, setProcessos, "processos");
-        handleCollection(certificadosResponse, setCertificados, "certificados");
+        const empresasRaw = readCollection(empresasResponse, "empresas");
+        const empresasNormalized = empresasRaw.map(normalizeEmpresaRecord);
+        const companyIndexes = buildCompanyIndex(empresasNormalized);
+
+        const licencasRaw = readCollection(licencasResponse, "licencas");
+        const taxasRaw = readCollection(taxasResponse, "taxas");
+        const processosRaw = readCollection(processosResponse, "processos");
+        const certificadosRaw = readCollection(certificadosResponse, "certificados");
+
+        setEmpresas(empresasNormalized);
+        setLicencas(adaptLicencasRecords(licencasRaw, companyIndexes));
+        setTaxas(adaptTaxasRecords(taxasRaw, companyIndexes));
+        setProcessos(adaptProcessosRecords(processosRaw, companyIndexes));
+        setCertificados(certificadosRaw);
 
         if (kpisResponse.status === "fulfilled") {
           setKpis(kpisResponse.value || {});
@@ -202,10 +413,11 @@ export default function MainApp() {
   );
 
   const extractEmpresaId = useCallback((empresa: any) => {
-    const idCandidate = empresa?.empresa_id ?? empresa?.empresaId ?? empresa?.id;
+    const idCandidate =
+      empresa?.empresa_id ?? empresa?.empresaId ?? empresa?.company_id ?? empresa?.companyId ?? empresa?.id;
     if (idCandidate === undefined || idCandidate === null) return undefined;
-    const parsed = Number(idCandidate);
-    return Number.isFinite(parsed) ? parsed : undefined;
+    const normalized = String(idCandidate).trim();
+    return normalized || undefined;
   }, []);
 
   const municipios = useMemo(() => {
@@ -320,7 +532,7 @@ export default function MainApp() {
   );
 
   const licencasByEmpresa = useMemo(() => {
-    const map = new Map<number, any[]>();
+    const map = new Map<string, any[]>();
     licencas.forEach((lic) => {
       const empresaId = extractEmpresaId(lic);
       if (empresaId === undefined) return;
@@ -332,7 +544,7 @@ export default function MainApp() {
   }, [licencas, extractEmpresaId]);
 
   const taxasByEmpresa = useMemo(() => {
-    const map = new Map<number, any>();
+    const map = new Map<string, any>();
     taxas.forEach((taxa) => {
       const empresaId = extractEmpresaId(taxa);
       if (empresaId === undefined) return;
@@ -342,7 +554,7 @@ export default function MainApp() {
   }, [taxas, extractEmpresaId]);
 
   const processosByEmpresa = useMemo(() => {
-    const map = new Map<number, any[]>();
+    const map = new Map<string, any[]>();
     processosNormalizados.forEach((proc) => {
       const empresaId = extractEmpresaId(proc);
       if (empresaId === undefined) return;
@@ -408,8 +620,8 @@ export default function MainApp() {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50">
-      <div className="flex min-h-screen">
+    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50">
+      <div className="flex h-screen">
         <Sidebar
           items={APP_NAV_ITEMS}
           activeTab={tab}
@@ -437,8 +649,8 @@ export default function MainApp() {
             onLogout={() => void logout()}
           />
 
-          <main className={`min-w-0 flex-1 ${backgroundClass}`}>
-            <div className="mx-auto max-w-[1500px] px-4 py-4 lg:px-6 lg:py-5">
+          <div className={`min-w-0 flex-1 min-h-0 overflow-y-auto ${backgroundClass}`}>
+            <main className="mx-auto max-w-[1500px] px-4 py-4 lg:px-6 lg:py-5">
               <PageTitle
                 title={pageMeta.title}
                 subtitle={pageMeta.subtitle}
@@ -453,6 +665,7 @@ export default function MainApp() {
                         {empresas.length}/{licencas.length}/{taxas.length}
                       </div>
                     </div>
+
                     <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
                       <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <Filter className="h-3.5 w-3.5" /> Filtros
@@ -461,6 +674,7 @@ export default function MainApp() {
                         {municipio === "Todos" ? "Todos" : municipio}
                       </div>
                     </div>
+
                     <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
                       <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <BellRing className="h-3.5 w-3.5" /> Alertas
@@ -472,6 +686,8 @@ export default function MainApp() {
                   </div>
                 }
               />
+
+              {/* TODO: o conteúdo da aba vem aqui embaixo (tabelas, cards etc) */}
 
               {loading && (
                 <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-panel">
@@ -571,7 +787,7 @@ export default function MainApp() {
                   </motion.div>
                 )}
 
-              {!loading && tab === "taxas" && (
+                {!loading && tab === "taxas" && (
                   <motion.div
                     key="taxas"
                     initial={{ opacity: 0, y: 8 }}
@@ -614,8 +830,8 @@ export default function MainApp() {
                   </motion.div>
                 )}
               </AnimatePresence>
-            </div>
-          </main>
+            </main>
+          </div>
         </div>
       </div>
 
