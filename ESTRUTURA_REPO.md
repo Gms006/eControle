@@ -1,10 +1,10 @@
 # Estrutura do Repositório — eControle v2 (Rebuild)
 
-Padrão inspirado no CertHub: monorepo com backend modular e front isolado.
+Padrão inspirado no CertHub: monorepo com backend modular, frontend isolado e testes E2E integrados.
 
-## Tree (alto nível)
-### S7 (ingest JSON — ATUAL)
-> Domínio core + ingest JSON com tracking (`ingest_runs`) e endpoints separados por dataset (`licences/taxes/processes`).
+## Tree (atual — S7 + E2E)
+### Detalhamento Completo
+> Domínio core + ingest JSON com tracking (`ingest_runs`) e endpoints separados por dataset (`licences/taxes/processes`). Testes E2E com Playwright e pytest para validação de fluxos completos.
 
 ```
 eControle/
@@ -24,12 +24,14 @@ eControle/
 │  │  │        ├─ ingest.py
 │  │  │        └─ orgs.py
 │  │  ├─ core/
+│  │  │  ├─ __init__.py
+│  │  │  ├─ audit.py
 │  │  │  ├─ config.py
 │  │  │  ├─ logging.py
 │  │  │  ├─ org_context.py
-│  │  │  ├─ security.py
-│  │  │  └─ audit.py
+│  │  │  └─ security.py
 │  │  ├─ db/
+│  │  │  ├─ __init__.py
 │  │  │  ├─ base.py
 │  │  │  └─ session.py
 │  │  ├─ models/
@@ -60,16 +62,18 @@ eControle/
 │  │  │  ├─ org.py
 │  │  │  ├─ token.py
 │  │  │  └─ user.py
-│  │  └─ services/
-│  │     └─ ingest/
-│  │        ├─ __init__.py
-│  │        ├─ companies.py
-│  │        ├─ company_profiles.py
-│  │        ├─ licences.py
-│  │        ├─ processes.py
-│  │        ├─ run.py
-│  │        ├─ taxes.py
-│  │        └─ utils.py
+│  │  ├─ services/
+│  │  │  ├─ __init__.py
+│  │  │  └─ ingest/
+│  │  │     ├─ __init__.py
+│  │  │     ├─ companies.py
+│  │  │     ├─ company_profiles.py
+│  │  │     ├─ licences.py
+│  │  │     ├─ processes.py
+│  │  │     ├─ run.py
+│  │  │     ├─ taxes.py
+│  │  │     └─ utils.py
+│  │  └─ static/
 │  ├─ alembic/
 │  │  ├─ env.py
 │  │  ├─ script.py.mako
@@ -81,35 +85,68 @@ eControle/
 │  │     ├─ 20260224_0005_create_ingest_runs.py
 │  │     ├─ 20260224_0006_create_company_profiles.py
 │  │     └─ 20260224_0007_create_licences_taxes_processes.py
-│  ├─ alembic.ini
 │  ├─ tests/
 │  │  ├─ conftest.py
 │  │  ├─ test_auth_login_me.py
 │  │  ├─ test_auth_rbac.py
 │  │  ├─ test_auth_refresh_logout.py
 │  │  ├─ test_companies_crud.py
+│  │  ├─ test_extra_endpoints.py
+│  │  ├─ test_health.py
 │  │  ├─ test_ingest_s7.py
 │  │  ├─ test_ingest_s7_full.py
 │  │  ├─ test_org_context.py
-│  │  └─ test_health.py
-│  └─ main.py
-├─ infra/
-│  └─ docker-compose.yml
+│  │  └─ __pycache__/
+│  ├─ alembic.ini
+│  ├─ download_redoc_assets.py
+│  ├─ main.py
+│  ├─ pytest.ini
+│  ├─ REDOC_SELFHOST.md
+│  ├─ tmp_psql.txt
+│  └─ __pycache__/
+├─ frontend/
+│  ├─ src/
+│  │  ├─ App.tsx
+│  │  ├─ main.tsx
+│  │  ├─ index.css
+│  │  ├─ api/
+│  │  ├─ components/
+│  │  ├─ hooks/
+│  │  ├─ lib/
+│  │  ├─ pages/
+│  │  ├─ providers/
+│  │  └─ services/
+│  ├─ tests_e2e/
+│  │  └─ portal/
+│  │     └─ login_empresas.smoke.spec.ts
+│  ├─ index.html
+│  ├─ package.json
+│  ├─ package-lock.json
+│  ├─ playwright.config.ts
+│  ├─ postcss.config.cjs
+│  ├─ tailwind.config.js
+│  ├─ tsconfig.json
+│  ├─ tsconfig.tsbuildinfo
+│  ├─ vite.config.ts
+│  ├─ test-results/
+│  └─ __pycache__/ (opcional)
+├─ tests_e2e/
+│  └─ api/
+│     └─ test_api_ingest_e2e.py
 ├─ docs/
 │  ├─ BASELINE_V1.md
 │  ├─ INTEGRATION_CONTRACTS.md
 │  ├─ REUSE_FRONTEND_MAP.md
-│  └─ RISKS_AND_DECISIONS_S0.md
-├─ .env
-├─ .env.example
-├─ .git/
-├─ .gitignore
-├─ .vscode/
-├─ ESTRUTURA_REPO.md
-├─ PLANO_DESENVOLVIMENTO.md
-├─ README.md
-├─ requirements.txt
-├─ patch.diff
+│  ├─ RISKS_AND_DECISIONS_S0.md
+│  ├─ S6_FRONTEND_REAPROVEITADO.md
+│  ├─ S6_INDEX.md
+│  ├─ S6_PATCHES_E_CHECKLIST.md
+│  ├─ S6_RESUMO_EXECUTIVO.md
+│  └─ ingest_jsons/
+│     ├─ empresas_v2.json
+│     ├─ licencas_v2.json
+│     ├─ processos_v2.json
+│     └─ taxas_v2.json
 ├─ scripts/
 │  ├─ datasets/
 │  │  ├─ companies_ingest_model.json
@@ -121,118 +158,133 @@ eControle/
 │  │  ├─ processes_json_creator.py
 │  │  ├─ taxes_ingest_model.json
 │  │  └─ taxes_json_creator.py
-│  ├─ e2e_run.ps1
 │  ├─ e2e_run_full.ps1
 │  └─ s7_validate_ingest.ps1
-└─ patch.diff
-```
-
-### Alvo (S2+ / padrão CertHub)
-```
-eControle/
-├─ backend/
-│  ├─ app/
-│  │  ├─ api/
-│  │  │  └─ v1/
-│  │  │     ├─ api.py
-│  │  │     └─ endpoints/
-│  │  │        ├─ auth.py
-│  │  │        ├─ empresas.py
-│  │  │        ├─ licencas.py
-│  │  │        ├─ taxas.py
-│  │  │        ├─ processos.py
-│  │  │        ├─ certificados_mirror.py
-│  │  │        ├─ utiles_exports.py
-│  │  │        ├─ integracoes_certhub.py
-│  │  │        └─ integracoes_scribere.py
-│  │  ├─ core/
-│  │  │  ├─ config.py
-│  │  │  ├─ security.py
-│  │  │  ├─ audit.py
-│  │  │  └─ logging.py
-│  │  ├─ db/
-│  │  │  ├─ session.py
-│  │  │  └─ base.py
-│  │  ├─ models/
-│  │  ├─ schemas/
-│  │  ├─ services/
-│  │  ├─ workers/
-│  │  └─ watchers/
-│  ├─ alembic/
-│  ├─ alembic.ini
-│  ├─ main.py
-│  └─ requirements.txt
-├─ frontend/
-│  ├─ src/
-│  ├─ vite.config.(js|ts)
-│  └─ package.json
 ├─ infra/
 │  └─ docker-compose.yml
-├─ docs/
-│  ├─ BASELINE_V1.md
-│  ├─ REUSE_FRONTEND_MAP.md
-│  ├─ INTEGRATION_CONTRACTS.md
-│  ├─ RISKS_AND_DECISIONS_S0.md
-│  └─ S0_CHECKLIST.md
-├─ scripts/
-├─ .gitignore
-└─ README.md
+├─ ESTRUTURA_REPO.md
+├─ PLANO_DESENVOLVIMENTO.md
+├─ README.md
+├─ requirements.txt
+├─ pytest.ini
+├─ patch.diff
+└─ node_modules/ (opcional, frontend dependencies)
 ```
+
+
+## Quick Reference
+
+| Aspecto | Localização |
+|---------|-------------|
+| **API Principal** | `backend/app/api/v1/` |
+| **Modelos** | `backend/app/models/` |
+| **Esquemas** | `backend/app/schemas/` |
+| **Lógica de Negócio** | `backend/app/services/ingest/` |
+| **Testes Backend** | `backend/tests/` |
+| **Frontend Principal** | `frontend/src/` |
+| **Componentes** | `frontend/src/components/` |
+| **Páginas** | `frontend/src/pages/` |
+| **Testes Frontend** | `frontend/tests_e2e/` |
+| **Testes E2E API** | `tests_e2e/api/` |
+| **Migrações DB** | `backend/alembic/versions/` |
+| **Documentação Técnica** | `docs/` |
+| **Scripts Utilitários** | `scripts/` |
+
 
 ## Convenções
 
 ### Backend
 - Rotas sempre em `/api/v1/*`
 - `core/` para config, segurança (JWT, cookies), auditoria e logs
-- `services/` para clients de integração (CertHub/Scribere) e regras de domínio
-- `workers/` e `watchers/` para jobs RQ e rotinas de sincronização/ingest
+- `services/` para regras de domínio, processamento de ingest e transformações
+- `models/` definem o esquema ORM SQLAlchemy
+- `schemas/` definem validação Pydantic (read/write)
+- `alembic/` controla versionamento de schema do banco
 
 ### Frontend
-- `frontend/src/pages` é a fonte de verdade para telas/abas.
-- Reaproveitar o máximo do eControle v1:
-  - componentes e páginas
-- Alterar apenas o necessário:
-  - auth (login real)
-  - baseURL/proxy
-  - abas Certificados/Úteis conforme integrações
-- AppShell em `frontend/src/pages/MainApp.tsx` renderiza:
-  - `PainelScreen.jsx`
-  - `EmpresasScreen.jsx`
-  - `LicencasScreen.jsx`
-  - `TaxasScreen.jsx`
-  - `ProcessosScreen.jsx`
+- `src/pages` contém as telas/abas principais (React/TypeScript)
+- `src/components` contém componentes reutilizáveis
+- `src/api` contém clientes HTTP e integração com backend
+- `src/hooks` contém custom hooks
+- `src/lib` contém utilitários e helpers
+- `src/providers` contém contextos React
+- `src/services` contém lógica de negócio compartilhada
+- Tooling: Vite, Tailwind CSS, TypeScript strict
 
-### Integrações
-- CertHub: espelho read-only + redirecionamento para operações
-- Scribere: exports de notas/snippets (read-only) + link para editar/configurar no Scribere
+### Testes
+- **Unit/Integration (Backend)**: `backend/tests/` com pytest
+  - Fixtures em `conftest.py`
+  - Coverage de auth, RBAC, CRUD, ingest
+- **E2E API**: `tests_e2e/api/test_api_ingest_e2e.py` com pytest HTTP real
+- **E2E Portal**: `frontend/tests_e2e/portal/` com Playwright
+  - Smoke tests de login e navegação
+  - Seletores: `data-testid="..."`
 
----
+## Integrações e Assets
 
-## Novos arquivos (E2E full)
+### Utilitários
+- `backend/download_redoc_assets.py`: Fetch do ReDoc assets para self-hosted
+- `backend/REDOC_SELFHOST.md`: Documentação self-hosted do OpenAPI
+- `scripts/datasets/*`: Geradores de dados para ingest (JSON creators)
+- `scripts/e2e_run_full.ps1`: Runner E2E completo (Docker + API + Portal)
+- `scripts/s7_validate_ingest.ps1`: Validador de ingest S7
 
-```text
-scripts/
-├─ e2e_run_full.ps1              # runner E2E completo (infra + API + portal)
-└─ .e2e-logs/                    # logs gerados em runtime (criado pelo script)
+### Documentação Técnica
+- `docs/BASELINE_V1.md`: Baseline do eControle v1
+- `docs/INTEGRATION_CONTRACTS.md`: Contratos de integração (CertHub/Scribere)
+- `docs/REUSE_FRONTEND_MAP.md`: Mapeamento de componentes reutilizáveis do v1
+- `docs/RISKS_AND_DECISIONS_S0.md`: Riscos e decisões arquiteturais
+- `docs/S6_INDEX.md`: Índice da Sprint 6
+- `docs/S6_RESUMO_EXECUTIVO.md`: Resumo executivo da Sprint 6
+- `docs/S6_PATCHES_E_CHECKLIST.md`: Patches e checklist da Sprint 6
+- `docs/S6_FRONTEND_REAPROVEITADO.md`: Detalhes de reaproveitamento frontend
 
-tests_e2e/
-└─ api/
-   └─ test_api_ingest_e2e.py     # pytest E2E HTTP real (login + ingest S7)
+## Fluxo de Dados
 
-frontend/
-├─ playwright.config.ts          # config do Playwright
-└─ tests_e2e/
-   └─ portal/
-      └─ login_empresas.smoke.spec.ts
+```
+Frontend (React/TS)
+    ↓
+    → [API Client] → HTTP GET/POST/PUT/DELETE
+    ↓
+Backend (FastAPI)
+    ↓
+    → [Rotas v1/endpoints/*]
+    ↓
+    → [Schemas] (validação Pydantic)
+    ↓
+    → [Services] (lógica de negócio)
+    ↓
+    → [Models] (ORM SQLAlchemy)
+    ↓
+    → [Database] (PostgreSQL)
 ```
 
-### Seletores E2E adicionados no portal
+## Configuração
 
-* `frontend/src/pages/auth/Login.tsx`
-  * `data-testid="login-email"`
-  * `data-testid="login-password"`
-  * `data-testid="login-submit"`
-* `frontend/src/components/HeaderMenuPro.jsx`
-  * `data-testid="nav-tab-<aba>"`
-* `frontend/src/pages/EmpresasScreen.jsx`
-  * `companies-summary`, `companies-grid`, `company-card`
+### Variáveis de Ambiente
+- `.env` e `.env.example` (não versionados, locais)
+- Backend: `app.core.config.Settings` lê do `.env`
+- Frontend: Vite injeta em tempo de build
+
+### Dependências
+- **Backend**: `requirements.txt` (pip)
+- **Frontend**: `package.json` (npm/yarn)
+- **Infra**: `docker-compose.yml` (PostgreSQL, Redis, etc.)
+
+## Quick Reference
+
+| Aspecto | Localização |
+|---------|-------------|
+| **API Principal** | `backend/app/api/v1/` |
+| **Modelos** | `backend/app/models/` |
+| **Esquemas** | `backend/app/schemas/` |
+| **Lógica de Negócio** | `backend/app/services/ingest/` |
+| **Testes Backend** | `backend/tests/` |
+| **Frontend Principal** | `frontend/src/` |
+| **Componentes** | `frontend/src/components/` |
+| **Páginas** | `frontend/src/pages/` |
+| **Testes Frontend** | `frontend/tests_e2e/` |
+| **Testes E2E API** | `tests_e2e/api/` |
+| **Migrações DB** | `backend/alembic/versions/` |
+| **Documentação Técnica** | `docs/` |
+| **Scripts Utilitários** | `scripts/` |
