@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { BellRing, Database, Filter } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
@@ -478,91 +479,141 @@ export default function MainApp() {
                 </div>
               )}
 
-              {!loading && tab === "painel" && (
-                <PainelScreen
-                  query={query}
-                  municipio={municipio}
-                  soAlertas={somenteAlertas}
-                  kpis={kpis}
-                  empresas={empresas}
-                  licencas={licencas}
-                  taxas={taxas}
-                  certificados={certificados}
-                  filteredLicencas={filteredLicencas}
-                  processosNormalizados={processosNormalizados}
-                  filterEmpresas={filterEmpresas}
-                  companyHasAlert={companyHasAlert}
-                  licencasByEmpresa={licencasByEmpresa}
-                  extractEmpresaId={extractEmpresaId}
-                />
-              )}
+              <AnimatePresence mode="wait">
+                {!loading && tab === "painel" && (
+                  <motion.div
+                    key="painel"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <PainelScreen
+                      query={query}
+                      municipio={municipio}
+                      soAlertas={somenteAlertas}
+                      kpis={kpis}
+                      empresas={empresas}
+                      licencas={licencas}
+                      taxas={taxas}
+                      certificados={certificados}
+                      filteredLicencas={filteredLicencas}
+                      processosNormalizados={processosNormalizados}
+                      filterEmpresas={filterEmpresas}
+                      companyHasAlert={companyHasAlert}
+                      licencasByEmpresa={licencasByEmpresa}
+                      extractEmpresaId={extractEmpresaId}
+                    />
+                  </motion.div>
+                )}
 
-              {!loading && tab === "empresas" && (
-                <EmpresasScreen
-                  filteredEmpresas={filteredEmpresas}
-                  empresas={empresas}
-                  soAlertas={somenteAlertas}
-                  extractEmpresaId={extractEmpresaId}
-                  licencasByEmpresa={licencasByEmpresa}
-                  taxasByEmpresa={taxasByEmpresa}
-                  processosByEmpresa={processosByEmpresa}
-                  handleCopy={handleCopy}
-                  enqueueToast={enqueueToast}
-                />
-              )}
+                {!loading && tab === "empresas" && (
+                  <motion.div
+                    key="empresas"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <EmpresasScreen
+                      filteredEmpresas={filteredEmpresas}
+                      empresas={empresas}
+                      soAlertas={somenteAlertas}
+                      extractEmpresaId={extractEmpresaId}
+                      licencasByEmpresa={licencasByEmpresa}
+                      taxasByEmpresa={taxasByEmpresa}
+                      processosByEmpresa={processosByEmpresa}
+                      handleCopy={handleCopy}
+                      enqueueToast={enqueueToast}
+                    />
+                  </motion.div>
+                )}
 
-              {!loading && tab === "certificados" && (
-                <>
-                  <CertificadosScreen
-                    certificados={certificados}
-                    modoFoco={modoFoco}
-                    matchesMunicipioFilter={matchesMunicipioFilter}
-                    matchesQuery={matchesQuery}
-                    handleCopy={handleCopy}
-                  />
-                  {errors.certificados &&
-                    renderEmptyState("Erro ao carregar certificados", errors.certificados)}
-                </>
-              )}
+                {!loading && tab === "certificados" && (
+                  <motion.div
+                    key="certificados"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <>
+                      <CertificadosScreen
+                        certificados={certificados}
+                        modoFoco={modoFoco}
+                        matchesMunicipioFilter={matchesMunicipioFilter}
+                        matchesQuery={matchesQuery}
+                        handleCopy={handleCopy}
+                      />
+                      {errors.certificados &&
+                        renderEmptyState("Erro ao carregar certificados", errors.certificados)}
+                    </>
+                  </motion.div>
+                )}
 
-              {!loading && tab === "licencas" && (
-                <>
-                  <LicencasScreen
-                    licencas={licencas}
-                    filteredLicencas={filteredLicencas}
-                    modoFoco={modoFoco}
-                    handleCopy={handleCopy}
-                  />
-                  {errors.licencas && renderEmptyState("Erro ao carregar licenças", errors.licencas)}
-                </>
-              )}
+                {!loading && tab === "licencas" && (
+                  <motion.div
+                    key="licencas"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <>
+                      <LicencasScreen
+                        licencas={licencas}
+                        filteredLicencas={filteredLicencas}
+                        modoFoco={modoFoco}
+                        handleCopy={handleCopy}
+                      />
+                      {errors.licencas && renderEmptyState("Erro ao carregar licenças", errors.licencas)}
+                    </>
+                  </motion.div>
+                )}
 
               {!loading && tab === "taxas" && (
-                <>
-                  <TaxasScreen
-                    taxas={taxas}
-                    modoFoco={modoFoco}
-                    matchesMunicipioFilter={matchesMunicipioFilter}
-                    matchesQuery={matchesQuery}
-                    handleCopy={handleCopy}
-                  />
-                  {errors.taxas && renderEmptyState("Erro ao carregar taxas", errors.taxas)}
-                </>
-              )}
+                  <motion.div
+                    key="taxas"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <>
+                      <TaxasScreen
+                        taxas={taxas}
+                        modoFoco={modoFoco}
+                        matchesMunicipioFilter={matchesMunicipioFilter}
+                        matchesQuery={matchesQuery}
+                        handleCopy={handleCopy}
+                      />
+                      {errors.taxas && renderEmptyState("Erro ao carregar taxas", errors.taxas)}
+                    </>
+                  </motion.div>
+                )}
 
-              {!loading && tab === "processos" && (
-                <>
-                  <ProcessosScreen
-                    processosNormalizados={processosNormalizados}
-                    modoFoco={modoFoco}
-                    soAlertas={somenteAlertas}
-                    matchesMunicipioFilter={matchesMunicipioFilter}
-                    matchesQuery={matchesQuery}
-                    handleCopy={handleCopy}
-                  />
-                  {errors.processos && renderEmptyState("Erro ao carregar processos", errors.processos)}
-                </>
-              )}
+                {!loading && tab === "processos" && (
+                  <motion.div
+                    key="processos"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <>
+                      <ProcessosScreen
+                        processosNormalizados={processosNormalizados}
+                        modoFoco={modoFoco}
+                        soAlertas={somenteAlertas}
+                        matchesMunicipioFilter={matchesMunicipioFilter}
+                        matchesQuery={matchesQuery}
+                        handleCopy={handleCopy}
+                      />
+                      {errors.processos && renderEmptyState("Erro ao carregar processos", errors.processos)}
+                    </>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </main>
         </div>

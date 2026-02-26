@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint, func, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -38,4 +38,12 @@ class Company(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
+    )
+    
+    # Relationship to CompanyProfile
+    profile: Mapped["CompanyProfile | None"] = relationship(
+        "CompanyProfile",
+        uselist=False,
+        foreign_keys="CompanyProfile.company_id",
+        primaryjoin="and_(Company.id==foreign(CompanyProfile.company_id), Company.org_id==foreign(CompanyProfile.org_id))",
     )

@@ -2,14 +2,16 @@ import re
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import func
 
 from app.core.org_context import get_current_org
 from app.core.security import require_roles
 from app.db.session import get_db
 from app.models.company import Company
+from app.models.company_profile import CompanyProfile
 from app.models.org import Org
-from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate
+from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate, enrich_company_with_profile
 
 router = APIRouter()
 
@@ -44,7 +46,7 @@ def create_company(
             detail="Company already exists for this org",
         )
     db.refresh(company)
-    return CompanyOut.model_validate(company)
+    return CompanyOut.model_validate(enrich_company_with_profile(company))
 
 
 @router.get("", response_model=list[CompanyOut])
@@ -58,7 +60,9 @@ def list_companies(
     limit: int = Query(default=1000, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
 ) -> list[CompanyOut]:
-    query = db.query(Company).filter(Company.org_id == org.id)
+    query = db.query(Company).filter(Company.org_id == org.id).outerjoin(
+        CompanyProfile, (Company.id == CompanyProfile.company_id) & (Company.org_id == CompanyProfile.org_id)
+    )
     if cnpj:
         query = query.filter(Company.cnpj == _normalize_cnpj(cnpj))
     if razao_social:
@@ -68,7 +72,7 @@ def list_companies(
     companies = (
         query.order_by(Company.created_at.desc()).offset(offset).limit(limit).all()
     )
-    return [CompanyOut.model_validate(company) for company in companies]
+    return [CompanyOut.model_validate(enrich_company_with_profile(company)) for company in companies]
 
 
 @router.get("/{company_id}", response_model=CompanyOut)
@@ -80,6 +84,10 @@ def get_company(
 ) -> CompanyOut:
     company = (
         db.query(Company)
+        .options(joinedload(Company.profile))
+        .outerjoin(
+            CompanyProfile, (Company.id == CompanyProfile.company_id) & (Company.org_id == CompanyProfile.org_id)
+        )
         .filter(Company.id == company_id, Company.org_id == org.id)
         .first()
     )
@@ -88,7 +96,8 @@ def get_company(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Company not found",
         )
-    return CompanyOut.model_validate(company)
+    company = enrich_company_with_profile(company)
+    return CompanyOut.model_validate(enrich_company_with_profile(company))
 
 
 @router.patch("/{company_id}", response_model=CompanyOut)
@@ -101,6 +110,9 @@ def update_company(
 ) -> CompanyOut:
     company = (
         db.query(Company)
+        .outerjoin(
+            CompanyProfile, (Company.id == CompanyProfile.company_id) & (Company.org_id == CompanyProfile.org_id)
+        )
         .filter(Company.id == company_id, Company.org_id == org.id)
         .first()
     )
@@ -125,4 +137,4 @@ def update_company(
             detail="Company already exists for this org",
         )
     db.refresh(company)
-    return CompanyOut.model_validate(company)
+    return CompanyOut.model_validate(enrich_company_with_profile(company))
