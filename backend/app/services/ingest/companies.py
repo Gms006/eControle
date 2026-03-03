@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.normalization import normalize_municipio, normalize_title_case
 from app.models.company import Company
 from app.services.ingest.utils import normalize_cnpj, repair_mojibake_utf8
 
@@ -26,9 +27,9 @@ def upsert_companies(db: Session, org_id: str, items: list[dict]) -> tuple[int, 
 
         payload = {
             "cnpj": cnpj,
-            "razao_social": razao_social,
-            "nome_fantasia": repair_mojibake_utf8(item.get("nome_fantasia")),
-            "municipio": repair_mojibake_utf8(item.get("municipio")),
+            "razao_social": normalize_title_case(razao_social) or razao_social,
+            "nome_fantasia": normalize_title_case(repair_mojibake_utf8(item.get("nome_fantasia"))),
+            "municipio": normalize_municipio(repair_mojibake_utf8(item.get("municipio"))),
             "uf": repair_mojibake_utf8(item.get("uf")),
         }
 

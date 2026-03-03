@@ -161,6 +161,43 @@ def test_admin_can_create_and_update_company(client):
     assert updated["razao_social"] == "Empresa Alpha Atualizada"
     assert updated["is_active"] is False
 
+    list_default = client.get(
+        "/api/v1/companies",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert list_default.status_code == 200
+    assert all(item["id"] != company["id"] for item in list_default.json())
+
+    list_with_inactive = client.get(
+        "/api/v1/companies?include_inactive=true",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert list_with_inactive.status_code == 200
+    assert any(item["id"] == company["id"] for item in list_with_inactive.json())
+
+
+def test_companies_municipios_distinct_normalized(client):
+    admin_token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    for cnpj, municipio in [("12.345.678/0001-70", "ANAPOLIS"), ("12.345.678/0001-71", "Anápolis")]:
+        response = client.post(
+            "/api/v1/companies",
+            headers=headers,
+            json={
+                "cnpj": cnpj,
+                "razao_social": f"Empresa {cnpj[-2:]}",
+                "municipio": municipio,
+                "uf": "GO",
+            },
+        )
+        assert response.status_code == 200
+
+    municipios = client.get("/api/v1/companies/municipios", headers=headers)
+    assert municipios.status_code == 200
+    values = municipios.json()
+    assert values.count("ANÁPOLIS") == 1
+
 
 def test_company_isolation_between_orgs(client):
     _create_company_in_other_org()

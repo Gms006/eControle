@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.normalization import normalize_generic_status, normalize_municipio
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
 from app.services.ingest.utils import normalize_cnpj, null_if_marker, sanitize_text_tree
@@ -24,12 +25,12 @@ def upsert_licences(db: Session, org_id: str, items: list[dict]) -> tuple[int, i
             continue
 
         payload = {
-            "municipio": null_if_marker(item.get("municipio")),
-            "alvara_vig_sanitaria": null_if_marker(item.get("alvara_vig_sanitaria")),
-            "cercon": null_if_marker(item.get("cercon")),
-            "alvara_funcionamento": null_if_marker(item.get("alvara_funcionamento")),
-            "licenca_ambiental": null_if_marker(item.get("licenca_ambiental")),
-            "certidao_uso_solo": null_if_marker(item.get("certidao_uso_solo")),
+            "municipio": normalize_municipio(null_if_marker(item.get("municipio"))),
+            "alvara_vig_sanitaria": normalize_generic_status(null_if_marker(item.get("alvara_vig_sanitaria")), strict=False),
+            "cercon": normalize_generic_status(null_if_marker(item.get("cercon")), strict=False),
+            "alvara_funcionamento": normalize_generic_status(null_if_marker(item.get("alvara_funcionamento")), strict=False),
+            "licenca_ambiental": normalize_generic_status(null_if_marker(item.get("licenca_ambiental")), strict=False),
+            "certidao_uso_solo": normalize_generic_status(null_if_marker(item.get("certidao_uso_solo")), strict=False),
             "raw": sanitize_text_tree(item.get("raw")),
         }
 

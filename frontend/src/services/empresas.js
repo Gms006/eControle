@@ -1,7 +1,7 @@
 import { fetchJson } from "@/lib/api";
 
 export const listarEmpresas = async (params = {}) => {
-  const { page, size, limit, offset, sort, municipio, q, porte, categoria } = params;
+  const { page, size, limit, offset, sort, municipio, q, porte, categoria, include_inactive } = params;
   const resolvedLimit = limit ?? size ?? 1000;
   const resolvedOffset =
     offset ?? (page && resolvedLimit ? Math.max(0, (Number(page) - 1) * Number(resolvedLimit)) : undefined);
@@ -14,6 +14,7 @@ export const listarEmpresas = async (params = {}) => {
       q,
       porte,
       categoria,
+      include_inactive,
     },
   });
 };

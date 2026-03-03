@@ -1,4 +1,5 @@
 import { normalizeText, normalizeTextLower, removeDiacritics } from "@/lib/text";
+import { deriveStatusFromInstallment, formatInstallment, parseInstallment } from "@/lib/installment";
 
 export const ALERT_STATUS_KEYWORDS = [
   "vencid",
@@ -61,6 +62,10 @@ export const hasRelevantStatus = (status) => {
 export const parseProgressFraction = (status) => {
   if (status === null || status === undefined) {
     return null;
+  }
+  const installment = parseInstallment(status);
+  if (installment) {
+    return { current: installment.paid, total: installment.total };
   }
   const text = normalizeText(status);
   const match = text.match(/(-?\d+(?:[.,]\d+)?)\s*\/\s*(-?\d+(?:[.,]\d+)?)/);
@@ -126,7 +131,7 @@ export const resolveStatusClass = (status) => {
     indeferido: { variant: "danger", className: "bg-rose-100 text-rose-800 border-rose-200" },
     concluido: { variant: "success" },
     licenciado: { variant: "success" },
-    notificacao: { variant: "warning" },
+    notificacao: { variant: "danger"},
     "aguard vistoria": { variant: "warning" },
     "aguard regularizacao": { variant: "danger" },
     "aguard liberacao": { variant: "warning" },
@@ -138,10 +143,6 @@ export const resolveStatusClass = (status) => {
 
   if (palette[normalizedKey]) {
     return palette[normalizedKey];
-  }
-
-  if (trimmed.includes("/")) {
-    return { variant: "warning" };
   }
 
   if (normalizedKey === "valido") {
@@ -165,7 +166,7 @@ export const resolveStatusClass = (status) => {
   }
 
   if (key.includes("possui debit")) {
-    return { variant: "danger" };
+    return { variant: "warning" };
   }
 
   if (key.includes("sem debit") || key.includes("nao possui debit")) {
@@ -173,7 +174,7 @@ export const resolveStatusClass = (status) => {
   }
 
   if (key.includes("sujeit")) {
-    return { variant: "warning" };
+    return { variant: "danger" };
   }
 
   if (key.includes("valido")) {
@@ -181,7 +182,7 @@ export const resolveStatusClass = (status) => {
   }
 
   if (key.includes("vencid")) {
-    return { variant: "danger" };
+    return { variant: "warning" };
   }
 
   if (key.includes("vencend") || key.includes("vence")) {
@@ -196,11 +197,15 @@ export const resolveStatusClass = (status) => {
     return { variant: "success" };
   }
 
+  if (key.includes("definitiv")) {
+    return { variant: "success" };
+  }
+
   if (key.includes("pago") && !key.includes("nao")) {
     return { variant: "success" };
   }
 
-  if (key.includes("em aberto") || key.includes("emaberto") || key.includes("nao pago")) {
+  if (key.includes("em aberto") || key.includes("em_aberto") || key.includes("emaberto") || key.includes("nao pago") || key.includes("nao_pago")) {
     return { variant: "danger" };
   }
 
@@ -262,6 +267,64 @@ export const formatStatusDisplay = (status) => {
 
   if (trimmed.toLowerCase() === "isento") {
     return "Isento";
+  }
+
+  const installment = parseInstallment(trimmed);
+  if (installment) {
+    const derived = deriveStatusFromInstallment(installment.paid, installment.total);
+    if (derived === "paid") {
+      return "Pago";
+    }
+    return formatInstallment(installment.paid, installment.total);
+  }
+
+  const canonicalLabels = {
+    ativo: "Ativo",
+    inativo: "Inativo",
+    isento: "Isento",
+    sujeito: "Sujeito",
+    nao_possui: "Não possui",
+    nao_exigido: "Não exigido",
+    em_aberto: "Em aberto",
+    parcelado: "Parcelado",
+    regular: "Regular",
+    irregular: "Irregular",
+    em_dia: "Em dia",
+    pago: "Pago",
+    nao_pago: "Não pago",
+    sem_debitos: "Sem débitos",
+    possui_debito: "Possui débito",
+    vencido: "Vencido",
+    valido: "Válido",
+    vence_dentro_de_7_dias: "Vence dentro de 7 dias",
+    vence_dentro_de_30_dias: "Vence dentro de 30 dias",
+    pendente: "Pendente",
+    em_analise: "Em análise",
+    em_andamento: "Em andamento",
+    aguardando_documento: "Aguardando documento",
+    aguardando_vistoria: "Aguardando vistoria",
+    aguardando_pagamento: "Aguardando pagamento",
+    aguardando_regularizacao: "Aguardando regularização",
+    aguardando_liberacao: "Aguardando liberação",
+    concluido: "Concluído",
+    licenciado: "Licenciado",
+    notificacao: "Notificação",
+    indeferido: "Indeferido",
+    cancelado: "Cancelado",
+  };
+  const lower = trimmed.toLowerCase();
+  if (canonicalLabels[lower]) {
+    return canonicalLabels[lower];
+  }
+
+  if (/^[a-z0-9_]+$/.test(lower)) {
+    return lower
+      .split("_")
+      .filter(Boolean)
+      .map((chunk, index) =>
+        index === 0 ? `${chunk.charAt(0).toUpperCase()}${chunk.slice(1)}` : chunk,
+      )
+      .join(" ");
   }
 
   return trimmed;

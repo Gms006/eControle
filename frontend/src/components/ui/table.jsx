@@ -8,7 +8,7 @@ export function Table({ className, ...props }) {
 }
 
 export function TableHeader({ className, ...props }) {
-  return <thead className={cn("[&_tr]:border-b", className)} {...props} />;
+  return <thead className={cn("[&_tr]:border-b [&_tr]:border-subtle", className)} {...props} />;
 }
 
 export function TableBody({ className, ...props }) {
@@ -18,7 +18,10 @@ export function TableBody({ className, ...props }) {
 export function TableRow({ className, ...props }) {
   return (
     <tr
-      className={cn("border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted", className)}
+      className={cn(
+        "border-b border-subtle transition hover:bg-slate-100/70 data-[state=selected]:bg-blue-50/70",
+        className,
+      )}
       {...props}
     />
   );
@@ -28,7 +31,7 @@ export function TableHead({ className, ...props }) {
   return (
     <th
       className={cn(
-        "h-10 px-4 text-left align-middle font-medium text-muted-foreground",
+        "h-10 px-4 text-left align-middle text-xs font-semibold uppercase tracking-wide text-muted",
         className
       )}
       {...props}
@@ -39,7 +42,7 @@ export function TableHead({ className, ...props }) {
 export function TableCell({ className, ...props }) {
   return (
     <td
-      className={cn("p-4 align-middle", className)}
+      className={cn("p-3 align-middle text-sm text-slate-700", className)}
       {...props}
     />
   );

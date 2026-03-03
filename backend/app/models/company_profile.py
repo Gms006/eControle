@@ -37,10 +37,11 @@ class CompanyProfile(Base):
     telefone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     email: Mapped[str | None] = mapped_column(String(512), nullable=True)
     responsavel_fiscal: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    cnaes_principal: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    cnaes_secundarios: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
     raw: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-

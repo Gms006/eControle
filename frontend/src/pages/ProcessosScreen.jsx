@@ -1,27 +1,23 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import dayjs from "dayjs";
 import { Card } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { SideDrawer } from "@/components/ui/side-drawer";
 import InlineBadge from "@/components/InlineBadge";
 import StatusBadge from "@/components/StatusBadge";
 import { Chip } from "@/components/Chip";
 import {
+  AlertTriangle,
   ArrowDown,
   ArrowUp,
   ArrowUpDown,
-  Clock,
   Clipboard,
+  Clock,
   FileText,
   MapPin,
   MoveRight,
   PanelRightClose,
+  PencilLine,
   RefreshCw,
   Settings,
   X,
@@ -32,6 +28,9 @@ import { maskCNPJ } from "@/lib/format";
 import { isProcessStatusActiveOrPending } from "@/lib/status";
 import { fetchJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { formatMunicipioDisplay } from "@/lib/normalization";
+import { getPriorityTypeFields, getTypeFields } from "@/lib/processTypeFields";
+import { getProcessUrgency, URGENCY_BUCKETS } from "@/lib/processUrgency";
 
 const PROCESS_TYPE_DISPLAY = {
   BOMBEIROS: "CERCON",
@@ -51,69 +50,19 @@ const PROCESS_TYPE_ICON = {
   ALVARA_SANITARIO: Settings,
 };
 
-const normalizeTipoKey = (tipoBase) =>
-  removeDiacritics(normalizeText(tipoBase ?? ""))
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_");
-
-const badgeBase =
-  "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset";
-
-const tipoBadge = {
-  SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
-  "ALVARA SANITARIO": `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
-  ALVARA_SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
-  CERCON: `${badgeBase} bg-amber-50 text-amber-700 ring-amber-200`,
-  DIVERSOS: `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`,
-  FUNCIONAMENTO: `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
-  "LICENCA AMBIENTAL": `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
-  AMBIENTAL: `${badgeBase} bg-emerald-50 text-emerald-700 ring-emerald-200`,
-  "USO DO SOLO": `${badgeBase} bg-orange-50 text-orange-700 ring-orange-200`,
-};
-
-function normKey(s) {
-  return String(s ?? "")
-    .trim()
-    .toUpperCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
-}
-
-const baseColumns = [
+const TABLE_COLUMNS = [
+  { id: "tipoDisplay", label: "Tipo" },
   { id: "empresa", label: "Empresa" },
   { id: "protocolo", label: "Protocolo" },
   { id: "data_solicitacao", label: "Data solicitação", isDate: true },
   { id: "municipio", label: "Município" },
   { id: "situacao", label: "Situação", isStatus: true },
+  { id: "detalhes", label: "Detalhes" },
   { id: "obs", label: "OBS" },
 ];
 
-const sanitarioColumns = [
-  { id: "servico", label: "Serviço" },
-  { id: "notificacao", label: "Notificação" },
-  { id: "taxa_sanitaria_sync_status", label: "Taxa", isStatus: true },
-  { id: "alvara_sanitario_validade", label: "Validade", isDate: true },
-  { id: "alvara_sanitario_status", label: "Status validade", isStatus: true },
-];
-
-const extraColumnsByTipo = {
-  DIVERSOS: [
-    { id: "operacao", label: "Operação" },
-    { id: "orgao", label: "Órgão" },
-  ],
-  FUNCIONAMENTO: [{ id: "alvara", label: "Alvará" }],
-  BOMBEIROS: [
-    { id: "area_m2", label: "Área (m²)" },
-    { id: "projeto", label: "Projeto" },
-    { id: "tpi_sync_status", label: "TPI", isStatus: true },
-  ],
-  USO_DO_SOLO: [{ id: "inscricao_imobiliaria", label: "Inscrição imobiliária" }],
-  SANITARIO: sanitarioColumns,
-  ALVARA_SANITARIO: sanitarioColumns,
-};
-
 const SORT_OPTIONS = [
+  { value: "urgencyScore", label: "Urgência", defaultDir: "desc", isNumber: true },
   { value: "data_solicitacao", label: "Data solicitação", defaultDir: "desc", isDate: true },
   { value: "empresa", label: "Empresa", defaultDir: "asc" },
   { value: "situacao", label: "Situação", defaultDir: "asc" },
@@ -121,6 +70,23 @@ const SORT_OPTIONS = [
 
 const DEFAULT_SORT = SORT_OPTIONS[0];
 const SECONDARY_SORT = SORT_OPTIONS[1];
+
+const normalizeTipoKey = (tipoBase) =>
+  removeDiacritics(normalizeText(tipoBase ?? ""))
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_");
+
+const badgeBase = "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset";
+
+const tipoBadge = {
+  SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
+  ALVARA_SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
+  CERCON: `${badgeBase} bg-amber-50 text-amber-700 ring-amber-200`,
+  DIVERSOS: `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`,
+  FUNCIONAMENTO: `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
+  USO_DO_SOLO: `${badgeBase} bg-orange-50 text-orange-700 ring-orange-200`,
+};
 
 const extractDateValue = (value) => {
   const normalized = normalizeText(value).trim();
@@ -133,7 +99,6 @@ const extractDateValue = (value) => {
 
 const compareProcessos = (a, b, field, direction, meta = {}) => {
   const dir = direction === "desc" ? -1 : 1;
-
   if (meta.isDate) {
     const aValue = extractDateValue(a?.[field]);
     const bValue = extractDateValue(b?.[field]);
@@ -142,14 +107,16 @@ const compareProcessos = (a, b, field, direction, meta = {}) => {
     if (bValue === null) return -1;
     return (aValue - bValue) * dir;
   }
-
+  if (meta.isNumber) {
+    const aValue = Number(a?.[field] ?? 0);
+    const bValue = Number(b?.[field] ?? 0);
+    return (aValue - bValue) * dir;
+  }
   const aText = normalizeText(a?.[field] ?? "").trim();
   const bText = normalizeText(b?.[field] ?? "").trim();
-
   if (!aText && !bText) return 0;
   if (!aText) return 1;
   if (!bText) return -1;
-
   return aText.localeCompare(bText, "pt-BR", { sensitivity: "base" }) * dir;
 };
 
@@ -159,61 +126,10 @@ const formatDateTime = (value) => {
   return parsed.format("DD/MM/YYYY HH:mm");
 };
 
-const InfoPill = ({ children }) => (
-  <span className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
-    {children}
-  </span>
-);
+const resolveProcessId = (proc) =>
+  normalizeText(proc?.id ?? proc?.process_id ?? proc?.processId ?? proc?.processo_id).trim();
 
-const InfoItem = ({ label, children, className = "" }) => (
-  <div className={cn("space-y-1 rounded-xl border border-slate-200/70 bg-slate-50/60 px-3 py-2.5", className)}>
-    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
-    <div className="text-sm text-slate-800">{children ?? "—"}</div>
-  </div>
-);
-
-const renderStatus = (value) => {
-  const text = normalizeText(value).trim();
-  if (!text) return "—";
-  return <StatusBadge status={text} />;
-};
-
-const formatMunicipio = (proc) => {
-  const municipio = normalizeText(proc?.municipio_exibicao || proc?.municipio).trim();
-  return municipio;
-};
-
-const renderObsSnippet = (value) => {
-  const text = normalizeText(value).trim();
-  if (!text) return "—";
-  const snippet = text.length > 80 ? `${text.slice(0, 77)}…` : text;
-  return (
-    <div className="inline-flex items-center gap-2 text-xs text-slate-600" title={text}>
-      <FileText className="h-3.5 w-3.5 text-slate-400" />
-      <span className="line-clamp-1 text-left leading-snug">{snippet}</span>
-    </div>
-  );
-};
-
-const renderChip = (value) => {
-  const text = normalizeText(value).trim();
-  if (!text) return "—";
-  return (
-    <Chip variant="neutral" className="border-slate-200 bg-slate-100 text-[11px] text-slate-700">
-      {text}
-    </Chip>
-  );
-};
-
-const getProcessKey = (proc, index) => {
-  const tipoKey = proc?.tipoKey || normalizeTipoKey(proc?.tipo);
-  const parts = [proc?.id, proc?.protocolo, proc?.cnpj, proc?.empresa]
-    .map((value) => normalizeText(value).trim())
-    .filter(Boolean);
-
-  const suffix = parts.length > 0 ? parts.join("-") : String(index);
-  return [tipoKey, suffix].filter(Boolean).join("-");
-};
+const formatMunicipio = (proc) => formatMunicipioDisplay(proc?.municipio_exibicao || proc?.municipio);
 
 const getTipoDisplay = (tipoBase) => {
   const key = normalizeTipoKey(tipoBase);
@@ -223,12 +139,53 @@ const getTipoDisplay = (tipoBase) => {
 const resolveTipoFromProcess = (proc) => {
   const tipoNormalizado = normalizeProcessType(proc);
   const tipoBase = getProcessBaseType(tipoNormalizado);
-  return {
-    tipoBase,
-    tipoKey: normalizeTipoKey(tipoBase),
-    tipoDisplay: getTipoDisplay(tipoBase),
-  };
+  return { tipoBase, tipoKey: normalizeTipoKey(tipoBase), tipoDisplay: getTipoDisplay(tipoBase) };
 };
+
+const getProcessKey = (proc, index) => {
+  const tipoKey = proc?.tipoKey || normalizeTipoKey(proc?.tipo);
+  const parts = [proc?.id, proc?.protocolo, proc?.cnpj, proc?.empresa]
+    .map((value) => normalizeText(value).trim())
+    .filter(Boolean);
+  const suffix = parts.length > 0 ? parts.join("-") : String(index);
+  return [tipoKey, suffix].filter(Boolean).join("-");
+};
+
+const renderStatus = (value) => {
+  const text = normalizeText(value).trim();
+  if (!text) return "—";
+  return <StatusBadge status={text} />;
+};
+
+const renderObsSnippet = (value) => {
+  const text = normalizeText(value).trim();
+  if (!text) return "—";
+  const snippet = text.length > 80 ? `${text.slice(0, 77)}...` : text;
+  return (
+    <div className="inline-flex items-center gap-2 text-xs text-slate-600" title={text}>
+      <FileText className="h-3.5 w-3.5 text-slate-400" />
+      <span className="line-clamp-1 text-left leading-snug">{snippet}</span>
+    </div>
+  );
+};
+
+const renderFieldValue = (field) => {
+  if (field.isStatus) return renderStatus(field.rawValue);
+  const text = normalizeText(field.value).trim();
+  if (!text || text === "—") return "—";
+  return (
+    <Chip variant="neutral" className="border-slate-200 bg-slate-100 text-[11px] text-slate-700">
+      {text}
+    </Chip>
+  );
+};
+
+const InfoItem = ({ label, children, className = "" }) => (
+  <div className={cn("space-y-1 rounded-xl border border-slate-200/70 bg-slate-50/60 px-3 py-2.5", className)}>
+    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
+    <div className="text-sm text-slate-800">{children ?? "—"}</div>
+  </div>
+);
 
 export default function ProcessosScreen({
   processosNormalizados,
@@ -237,6 +194,7 @@ export default function ProcessosScreen({
   matchesMunicipioFilter,
   matchesQuery,
   handleCopy,
+  panelPreset,
 }) {
   const [viewMode, setViewMode] = useState(() => {
     if (typeof window === "undefined") return "cards";
@@ -245,6 +203,8 @@ export default function ProcessosScreen({
   const [sortField, setSortField] = useState(DEFAULT_SORT.value);
   const [sortDir, setSortDir] = useState(DEFAULT_SORT.defaultDir);
   const [selectedTipo, setSelectedTipo] = useState("TODOS");
+  const [queueMode, setQueueMode] = useState("all");
+  const [selectedUrgencyBucket, setSelectedUrgencyBucket] = useState("all");
   const [expandedObs, setExpandedObs] = useState({});
   const [obsDrawer, setObsDrawer] = useState({ open: false, processo: null });
   const [obsDraft, setObsDraft] = useState("");
@@ -253,6 +213,27 @@ export default function ProcessosScreen({
   const [savingObs, setSavingObs] = useState(false);
   const [obsOverrides, setObsOverrides] = useState({});
   const [historyError, setHistoryError] = useState(null);
+  const [detailsDrawer, setDetailsDrawer] = useState({ open: false, processo: null });
+
+  useEffect(() => {
+    const preset = panelPreset?.preset;
+    if (!preset || panelPreset?.tab !== "processos") return;
+    setSelectedTipo("TODOS");
+    setQueueMode("urgent");
+    setViewMode("cards");
+    setSelectedUrgencyBucket(preset?.bucket || "all");
+    setSortField(DEFAULT_SORT.value);
+    setSortDir(DEFAULT_SORT.defaultDir);
+  }, [panelPreset]);
+
+  const openEditProcesso = useCallback((processId) => {
+    if (!processId) return;
+    window.dispatchEvent(
+      new CustomEvent("econtrole:open-process", {
+        detail: { mode: "edit", processId },
+      }),
+    );
+  }, []);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -300,7 +281,6 @@ export default function ProcessosScreen({
       );
 
       const matchesFoco = modoFoco ? isProcessStatusActiveOrPending(proc.status) : true;
-
       const statusKey = removeDiacritics(normalizeText(proc?.situacao || proc?.status).toLowerCase());
       const blockedByAlertMode =
         soAlertas &&
@@ -325,10 +305,11 @@ export default function ProcessosScreen({
 
   const openObsDrawer = useCallback(
     (processo) => {
-      if (!processo?.id) return;
+      const processId = resolveProcessId(processo);
+      if (!processId) return;
       setObsDrawer({ open: true, processo });
-      setObsDraft(obsOverrides[processo.id] ?? processo.obs ?? "");
-      fetchObsHistory(processo.id);
+      setObsDraft(obsOverrides[processId] ?? processo.obs ?? "");
+      fetchObsHistory(processId);
     },
     [fetchObsHistory, obsOverrides],
   );
@@ -340,43 +321,45 @@ export default function ProcessosScreen({
   }, []);
 
   const saveObs = useCallback(async () => {
-    if (!obsDrawer?.processo?.id) return;
+    const processId = resolveProcessId(obsDrawer?.processo);
+    if (!processId) return;
     setSavingObs(true);
     try {
-      await fetchJson(`/api/v1/processos/${obsDrawer.processo.id}/obs`, {
+      await fetchJson(`/api/v1/processos/${processId}/obs`, {
         method: "PATCH",
         body: { obs: obsDraft },
       });
-      setObsOverrides((prev) => ({ ...prev, [obsDrawer.processo.id]: obsDraft }));
-      await fetchObsHistory(obsDrawer.processo.id);
+      setObsOverrides((prev) => ({ ...prev, [processId]: obsDraft }));
+      await fetchObsHistory(processId);
     } catch (error) {
       setHistoryError(error?.message || "Erro ao salvar OBS.");
     } finally {
       setSavingObs(false);
     }
-  }, [fetchObsHistory, obsDraft, obsDrawer?.processo?.id]);
+  }, [fetchObsHistory, obsDraft, obsDrawer?.processo]);
 
   const resolveObsValue = useCallback(
-    (proc) => obsOverrides[proc?.id] ?? proc?.obs,
+    (proc) => obsOverrides[resolveProcessId(proc)] ?? proc?.obs,
     [obsOverrides],
   );
 
   const processosEnriquecidos = useMemo(() => {
     return processosVisiveis.map((proc) => {
       const { tipoBase, tipoKey, tipoDisplay } = resolveTipoFromProcess(proc);
+      const diversosOperacaoLabel = tipoBase === "Diversos" ? getDiversosOperacaoLabel(proc.operacao) : undefined;
+      const merged = { ...proc, tipoBase, tipoKey, tipoDisplay, diversosOperacaoLabel };
+      const urgency = getProcessUrgency(merged);
       return {
-        ...proc,
-        tipoBase,
-        tipoKey,
-        tipoDisplay,
-        diversosOperacaoLabel: tipoBase === "Diversos" ? getDiversosOperacaoLabel(proc.operacao) : undefined,
+        ...merged,
+        urgencyScore: urgency.score,
+        urgencyBuckets: urgency.buckets,
+        urgencyMeta: urgency,
       };
     });
   }, [processosVisiveis]);
 
   const tiposDisponiveis = useMemo(() => {
     const groups = new Map();
-
     processosEnriquecidos.forEach((proc) => {
       const entry = groups.get(proc.tipoKey) || {
         key: proc.tipoKey,
@@ -393,61 +376,57 @@ export default function ProcessosScreen({
     ];
   }, [processosEnriquecidos]);
 
-  const { tableColumns, columnMetaMap } = useMemo(() => {
-    const extras = selectedTipo === "TODOS" ? [] : extraColumnsByTipo[selectedTipo] ?? [];
-    const tipoCol = selectedTipo === "TODOS" ? [{ id: "tipoDisplay", label: "Tipo" }] : [];
-    const columns = [...tipoCol, ...baseColumns, ...extras];
+  const processosPorTipo = useMemo(
+    () =>
+      selectedTipo === "TODOS"
+        ? processosEnriquecidos
+        : processosEnriquecidos.filter((proc) => proc.tipoKey === selectedTipo),
+    [processosEnriquecidos, selectedTipo],
+  );
 
-    const map = columns.reduce((acc, column) => {
+  const urgencyCounts = useMemo(() => {
+    const counts = {
+      all: processosPorTipo.filter((proc) => proc.urgencyBuckets.length > 0).length,
+    };
+    URGENCY_BUCKETS.forEach((bucket) => {
+      if (bucket.key === "all") return;
+      counts[bucket.key] = processosPorTipo.filter((proc) =>
+        proc.urgencyBuckets.includes(bucket.key),
+      ).length;
+    });
+    return counts;
+  }, [processosPorTipo]);
+
+  const processosFiltradosQueue = useMemo(() => {
+    if (queueMode !== "urgent") return processosPorTipo;
+    const urgentOnly = processosPorTipo.filter((proc) => proc.urgencyBuckets.length > 0);
+    if (selectedUrgencyBucket === "all") return urgentOnly;
+    return urgentOnly.filter((proc) => proc.urgencyBuckets.includes(selectedUrgencyBucket));
+  }, [processosPorTipo, queueMode, selectedUrgencyBucket]);
+
+  const columnMetaMap = useMemo(() => {
+    return TABLE_COLUMNS.reduce((acc, column) => {
       acc[column.id] = column;
       return acc;
     }, {});
-
-    SORT_OPTIONS.forEach((option) => {
-      map[option.value] = { ...map[option.value], ...option };
-    });
-
-    return { tableColumns: columns, columnMetaMap: map };
-  }, [selectedTipo]);
+  }, []);
 
   const processosOrdenados = useMemo(() => {
-    const filtered =
-      selectedTipo === "TODOS"
-        ? processosEnriquecidos
-        : processosEnriquecidos.filter((proc) => proc.tipoKey === selectedTipo);
-
     const comparator = (a, b) => {
-      const primary = compareProcessos(
-        a,
-        b,
-        sortField,
-        sortDir,
-        columnMetaMap[sortField] ?? {},
-      );
+      const meta = SORT_OPTIONS.find((option) => option.value === sortField) || columnMetaMap[sortField] || {};
+      const primary = compareProcessos(a, b, sortField, sortDir, meta);
       if (primary !== 0) return primary;
 
-      const defaultMeta = columnMetaMap[DEFAULT_SORT.value] ?? DEFAULT_SORT;
-      const fallbackDefault = compareProcessos(
-        a,
-        b,
-        DEFAULT_SORT.value,
-        DEFAULT_SORT.defaultDir,
-        defaultMeta,
-      );
-      if (fallbackDefault !== 0) return fallbackDefault;
+      const byUrgency = compareProcessos(a, b, DEFAULT_SORT.value, DEFAULT_SORT.defaultDir, DEFAULT_SORT);
+      if (byUrgency !== 0) return byUrgency;
 
-      const secondaryMeta = columnMetaMap[SECONDARY_SORT.value] ?? SECONDARY_SORT;
-      return compareProcessos(
-        a,
-        b,
-        SECONDARY_SORT.value,
-        SECONDARY_SORT.defaultDir,
-        secondaryMeta,
-      );
+      const byDate = compareProcessos(a, b, SECONDARY_SORT.value, SECONDARY_SORT.defaultDir, SECONDARY_SORT);
+      if (byDate !== 0) return byDate;
+
+      return compareProcessos(a, b, "empresa", "asc");
     };
-
-    return [...filtered].sort(comparator);
-  }, [columnMetaMap, processosEnriquecidos, selectedTipo, sortDir, sortField]);
+    return [...processosFiltradosQueue].sort(comparator);
+  }, [columnMetaMap, processosFiltradosQueue, sortDir, sortField]);
 
   const resolveDefaultSortDir = useCallback(
     (field) => SORT_OPTIONS.find((option) => option.value === field)?.defaultDir ?? "asc",
@@ -456,32 +435,19 @@ export default function ProcessosScreen({
 
   const handleSortClick = (field, preferDefaultFirst = false) => {
     const defaultDir = resolveDefaultSortDir(field);
-
     if (sortField === field) {
-      if (
-        field === DEFAULT_SORT.value &&
-        sortDir === DEFAULT_SORT.defaultDir &&
-        !preferDefaultFirst
-      ) {
-        setSortDir("asc");
-        return;
-      }
-
       if (sortDir === "asc") {
         setSortDir("desc");
         return;
       }
-
       if (sortDir === "desc") {
         setSortField(DEFAULT_SORT.value);
         setSortDir(DEFAULT_SORT.defaultDir);
         return;
       }
-
       setSortDir("asc");
       return;
     }
-
     setSortField(field);
     setSortDir(preferDefaultFirst ? defaultDir : "asc");
   };
@@ -489,6 +455,15 @@ export default function ProcessosScreen({
   const toggleObsExpanded = (key) => {
     setExpandedObs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
+
+  const openDetailsDrawer = useCallback((processo) => {
+    setDetailsDrawer({ open: true, processo });
+  }, []);
+
+  const detailsFields = useMemo(
+    () => (detailsDrawer.processo ? getTypeFields(detailsDrawer.processo) : []),
+    [detailsDrawer.processo],
+  );
 
   return (
     <>
@@ -499,7 +474,6 @@ export default function ProcessosScreen({
               {tiposDisponiveis.map((tipo) => {
                 const isActive = selectedTipo === tipo.key;
                 const Icon = PROCESS_TYPE_ICON[tipo.key] || Settings;
-
                 return (
                   <button
                     key={tipo.key}
@@ -508,7 +482,7 @@ export default function ProcessosScreen({
                     className={cn(
                       "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
                       "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                      isActive && "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm",
+                      isActive && "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm",
                     )}
                   >
                     <Icon className="h-4 w-4 text-slate-500" />
@@ -534,9 +508,7 @@ export default function ProcessosScreen({
                     onClick={() => setViewMode(option.key)}
                     className={cn(
                       "rounded-lg px-3 py-1.5 text-sm font-medium transition",
-                      isActive
-                        ? "bg-white text-slate-900 shadow-sm"
-                        : "text-slate-600 hover:text-slate-800",
+                      isActive ? "bg-white text-slate-900 shadow-sm" : "text-slate-600 hover:text-slate-800",
                     )}
                   >
                     {option.label}
@@ -548,13 +520,75 @@ export default function ProcessosScreen({
 
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Ordenar por
+              Fila operacional
             </span>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setQueueMode("all");
+                  setSelectedUrgencyBucket("all");
+                }}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
+                  queueMode === "all"
+                    ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                )}
+              >
+                Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => setQueueMode("urgent")}
+                className={cn(
+                  "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
+                  queueMode === "urgent"
+                    ? "border-amber-200 bg-amber-50 text-amber-800"
+                    : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                )}
+              >
+                <AlertTriangle className="h-4 w-4" />
+                Urgentes
+                <InlineBadge variant="outline" className="bg-white text-slate-600">
+                  {urgencyCounts.all || 0}
+                </InlineBadge>
+              </button>
+            </div>
+          </div>
+
+          {queueMode === "urgent" && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {URGENCY_BUCKETS.map((bucket) => {
+                const isActive = selectedUrgencyBucket === bucket.key;
+                return (
+                  <button
+                    key={bucket.key}
+                    type="button"
+                    onClick={() => setSelectedUrgencyBucket(bucket.key)}
+                    className={cn(
+                      "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-semibold transition",
+                      isActive
+                        ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy"
+                        : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                    )}
+                  >
+                    <span>{bucket.label}</span>
+                    <InlineBadge variant="outline" className="bg-white text-slate-600">
+                      {bucket.key === "all" ? urgencyCounts.all || 0 : urgencyCounts[bucket.key] || 0}
+                    </InlineBadge>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
             <div className="flex flex-wrap items-center gap-2">
               {SORT_OPTIONS.map((option) => {
                 const isActive = sortField === option.value;
                 const directionSymbol = isActive ? (sortDir === "asc" ? "↑" : "↓") : null;
-
                 return (
                   <button
                     key={option.value}
@@ -563,7 +597,7 @@ export default function ProcessosScreen({
                     className={cn(
                       "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
                       "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                      isActive && "border-indigo-200 bg-indigo-50 text-indigo-700 shadow-sm",
+                      isActive && "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm",
                     )}
                   >
                     <span>{option.label}</span>
@@ -575,7 +609,6 @@ export default function ProcessosScreen({
           </div>
         </div>
 
-
         {processosOrdenados.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-500">
             Nenhum processo correspondente ao filtro.
@@ -583,32 +616,36 @@ export default function ProcessosScreen({
         ) : viewMode === "table" ? (
           <div className="overflow-hidden rounded-2xl border border-slate-200/70 bg-white shadow-sm">
             <div className="max-h-[calc(100vh-280px)] overflow-auto overflow-x-auto">
-              <Table className="min-w-[1080px]">
+              <Table className="min-w-[1180px]">
                 <TableHeader className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50/95 backdrop-blur">
                   <TableRow>
-                    {tableColumns.map((column) => {
+                    {TABLE_COLUMNS.map((column) => {
+                      const isSortable = column.id !== "detalhes" && column.id !== "obs";
                       const isActive = sortField === column.id;
                       const icon = !isActive ? (
                         <ArrowUpDown className="h-3.5 w-3.5 text-slate-400" />
                       ) : sortDir === "asc" ? (
-                        <ArrowUp className="h-3.5 w-3.5 text-indigo-500" />
+                        <ArrowUp className="h-3.5 w-3.5 text-brand-navy" />
                       ) : (
-                        <ArrowDown className="h-3.5 w-3.5 text-indigo-500" />
+                        <ArrowDown className="h-3.5 w-3.5 text-brand-navy" />
                       );
-
                       return (
                         <TableHead
                           key={column.id}
                           className="whitespace-nowrap px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600"
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleSortClick(column.id)}
-                            className="flex w-full items-center gap-2 text-left text-slate-700 transition hover:text-slate-900"
-                          >
-                            <span className="cursor-pointer select-none">{column.label}</span>
-                            {icon}
-                          </button>
+                          {isSortable ? (
+                            <button
+                              type="button"
+                              onClick={() => handleSortClick(column.id)}
+                              className="flex w-full items-center gap-2 text-left text-slate-700 transition hover:text-slate-900"
+                            >
+                              <span className="cursor-pointer select-none">{column.label}</span>
+                              {icon}
+                            </button>
+                          ) : (
+                            <span>{column.label}</span>
+                          )}
                         </TableHead>
                       );
                     })}
@@ -619,14 +656,14 @@ export default function ProcessosScreen({
                     const municipio = formatMunicipio(proc);
                     const obsValue = resolveObsValue(proc);
                     const maskedCnpj = maskCNPJ(proc?.cnpj);
+                    const detailChips = getPriorityTypeFields(proc, 3);
                     return (
                       <TableRow
                         key={getProcessKey(proc, index)}
                         className="border-b border-slate-100 hover:bg-slate-50/60"
                       >
-                        {tableColumns.map((column) => {
+                        {TABLE_COLUMNS.map((column) => {
                           let content = normalizeText(proc?.[column.id]).trim() || "—";
-
                           if (column.id === "tipoDisplay") {
                             content = proc.tipoDisplay;
                           } else if (column.id === "empresa") {
@@ -641,7 +678,7 @@ export default function ProcessosScreen({
                                     const value = maskCNPJ(proc?.cnpj);
                                     if (value && value !== "—") handleCopy(value, `CNPJ copiado: ${value}`);
                                   }}
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-indigo-600 transition hover:text-indigo-800"
+                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-brand-navy transition hover:text-brand-navy-700"
                                 >
                                   {maskedCnpj || "—"}
                                   <Clipboard className="h-3 w-3" aria-hidden="true" />
@@ -650,52 +687,57 @@ export default function ProcessosScreen({
                             );
                           } else if (column.id === "protocolo") {
                             content = normalizeIdentifier(proc?.protocolo) || "—";
-                          } else if (column.isDate) {
-                            content = formatProcessDate(proc?.[column.id]);
+                          } else if (column.id === "data_solicitacao") {
+                            content = formatProcessDate(proc?.data_solicitacao);
                           } else if (column.id === "municipio") {
                             content = municipio || "—";
-                          } else if (column.id === "situacao" || column.isStatus) {
-                            content = renderStatus(proc?.[column.id]);
+                          } else if (column.id === "situacao") {
+                            content = renderStatus(proc?.situacao || proc?.status);
+                          } else if (column.id === "detalhes") {
+                            content = (
+                              <div className="flex min-w-[260px] flex-wrap items-center gap-2">
+                                {detailChips.length > 0 ? (
+                                  detailChips.map((field) => (
+                                    <Chip key={field.key} variant="neutral" className="border-slate-200 bg-slate-100 text-[11px] text-slate-700">
+                                      {field.label}: {field.value}
+                                    </Chip>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-slate-500">Sem campos do tipo.</span>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => openDetailsDrawer(proc)}
+                                  className="text-[11px] font-semibold text-brand-navy underline-offset-2 hover:underline"
+                                >
+                                  Ver todos
+                                </button>
+                              </div>
+                            );
                           } else if (column.id === "obs") {
                             content = (
-                              <button
-                                type="button"
-                                onClick={() => openObsDrawer(proc)}
-                                className="inline-flex w-full max-w-xs items-start gap-2 text-left text-slate-700 transition-colors hover:text-slate-900"
-                              >
-                                {renderObsSnippet(obsValue)}
-                              </button>
+                              <div className="flex max-w-xs items-start gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => openEditProcesso(resolveProcessId(proc))}
+                                  className="inline-flex items-center gap-2 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-700 transition hover:bg-slate-50"
+                                  title="Editar processo"
+                                >
+                                  <PencilLine className="h-4 w-4" />
+                                  Editar
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => openObsDrawer(proc)}
+                                  className="inline-flex min-w-0 flex-1 items-start gap-2 text-left text-slate-700 transition-colors hover:text-slate-900"
+                                >
+                                  {renderObsSnippet(obsValue)}
+                                </button>
+                              </div>
                             );
-                          } else if (column.id === "area_m2") {
-                            const area = normalizeText(proc?.area_m2).trim();
-                            content = area ? `${area} m²` : "—";
-                          } else if (column.id === "operacao") {
-                            content = renderChip(proc?.operacao || proc?.diversosOperacaoLabel);
-                          } else if (column.id === "orgao") {
-                            content = renderChip(proc?.orgao);
-                          } else if (column.id === "alvara") {
-                            content = renderChip(proc?.alvara);
-                          } else if (column.id === "servico") {
-                            content = renderChip(proc?.servico);
-                          } else if (column.id === "notificacao") {
-                            content = renderChip(proc?.notificacao);
-                          } else if (column.id === "tpi_sync_status") {
-                            content = renderStatus(proc?.tpi_sync_status ?? proc?.tpi);
-                          } else if (column.id === "taxa_sanitaria_sync_status") {
-                            content = renderStatus(proc?.taxa_sanitaria_sync_status ?? proc?.taxa);
-                          } else if (column.id === "alvara_sanitario_status") {
-                            content = renderStatus(proc?.alvara_sanitario_status);
-                          } else if (column.id === "alvara_sanitario_validade") {
-                            content = formatProcessDate(proc?.alvara_sanitario_validade);
-                          } else if (column.id === "inscricao_imobiliaria") {
-                            content = normalizeIdentifier(proc?.inscricao_imobiliaria) || "—";
                           }
-
                           return (
-                            <TableCell
-                              key={column.id}
-                              className="min-w-[140px] align-top px-4 py-3 text-xs text-slate-700"
-                            >
+                            <TableCell key={column.id} className="min-w-[140px] align-top px-4 py-3 text-xs text-slate-700">
                               {content}
                             </TableCell>
                           );
@@ -712,107 +754,13 @@ export default function ProcessosScreen({
             {processosOrdenados.map((proc, index) => {
               const obsValue = resolveObsValue(proc);
               const obsText = normalizeText(obsValue).trim();
-              const obsKey = proc?.id ?? proc?.protocolo ?? `${proc.empresa}-${index}`;
+              const obsKey = resolveProcessId(proc) || proc?.protocolo || `${proc.empresa}-${index}`;
               const isObsExpanded = !!expandedObs[obsKey];
               const hasLongObs = obsText.length > 140;
               const municipio = formatMunicipio(proc);
-              const tipoKey = normKey(proc?.tipo);
-              const tipoCls = tipoBadge[tipoKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
+              const tipoCls = tipoBadge[proc.tipoKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
               const maskedCnpj = maskCNPJ(proc?.cnpj);
-
-              const specificFields = [];
-
-              if (normalizeText(proc?.operacao || proc?.diversosOperacaoLabel).trim()) {
-                specificFields.push({
-                  key: "operacao",
-                  label: "Operação",
-                  content: (
-                    <InfoPill>{proc.diversosOperacaoLabel || proc.operacao}</InfoPill>
-                  ),
-                });
-              }
-
-              if (normalizeText(proc?.orgao).trim()) {
-                specificFields.push({
-                  key: "orgao",
-                  label: "Órgão",
-                  content: <InfoPill>{proc.orgao}</InfoPill>,
-                });
-              }
-
-              if (normalizeText(proc?.alvara).trim()) {
-                specificFields.push({
-                  key: "alvara",
-                  label: "Alvará",
-                  content: <InfoPill>{proc.alvara}</InfoPill>,
-                });
-              }
-
-              if (normalizeText(proc?.servico).trim()) {
-                specificFields.push({
-                  key: "servico",
-                  label: "Serviço",
-                  content: <InfoPill>{proc.servico}</InfoPill>,
-                });
-              }
-
-              if (normalizeText(proc?.notificacao).trim()) {
-                specificFields.push({
-                  key: "notificacao",
-                  label: "Notificação",
-                  content: <InfoPill>{proc.notificacao}</InfoPill>,
-                });
-              }
-
-              if (proc?.tipoKey === "BOMBEIROS") {
-                const area = normalizeText(proc?.area_m2).trim();
-                const projeto = normalizeText(proc?.projeto).trim();
-                specificFields.push({
-                  key: "area_m2",
-                  label: "Área (m²)",
-                  content: area ? `${area} m²` : "—",
-                });
-                if (projeto) {
-                  specificFields.push({ key: "projeto", label: "Projeto", content: projeto });
-                }
-                specificFields.push({
-                  key: "tpi_sync_status",
-                  label: "TPI",
-                  content: renderStatus(proc?.tpi_sync_status ?? proc?.tpi),
-                });
-              }
-
-              if (proc?.tipoBase === "Uso do Solo" || proc?.tipoKey === "USO_DO_SOLO") {
-                specificFields.push({
-                  key: "inscricao_imobiliaria",
-                  label: "Inscrição imobiliária",
-                  content: normalizeIdentifier(proc?.inscricao_imobiliaria) || "—",
-                });
-              }
-
-              if (
-                proc?.tipoBase === "Sanitário" ||
-                proc?.tipoBase === "Alvará Sanitário" ||
-                proc?.tipoKey === "SANITARIO" ||
-                proc?.tipoKey === "ALVARA_SANITARIO"
-              ) {
-                specificFields.push({
-                  key: "taxa_sanitaria_sync_status",
-                  label: "Taxa",
-                  content: renderStatus(proc?.taxa_sanitaria_sync_status ?? proc?.taxa),
-                });
-                specificFields.push({
-                  key: "alvara_sanitario_validade",
-                  label: "Validade",
-                  content: formatProcessDate(proc?.alvara_sanitario_validade),
-                });
-                specificFields.push({
-                  key: "alvara_sanitario_status",
-                  label: "Status validade",
-                  content: renderStatus(proc?.alvara_sanitario_status),
-                });
-              }
-
+              const inlineTypeFields = getPriorityTypeFields(proc, 4);
               const Icon = PROCESS_TYPE_ICON[proc.tipoKey] || Settings;
 
               return (
@@ -828,10 +776,11 @@ export default function ProcessosScreen({
                           {proc.tipoDisplay}
                         </span>
                         <StatusBadge status={proc?.situacao || proc?.status || "Situação"} />
+                        <Chip variant="warning" className="border-amber-200 bg-amber-50 text-[11px] text-amber-800">
+                          Urgência {Math.max(0, Math.round(proc.urgencyScore))}
+                        </Chip>
                       </div>
-                      <p className="text-base font-semibold leading-tight text-slate-900">
-                        {proc?.empresa || "—"}
-                      </p>
+                      <p className="text-base font-semibold leading-tight text-slate-900">{proc?.empresa || "—"}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2 text-right">
                       {maskedCnpj && maskedCnpj !== "—" && (
@@ -841,13 +790,15 @@ export default function ProcessosScreen({
                             const value = maskCNPJ(proc?.cnpj);
                             if (value && value !== "—") handleCopy(value, `CNPJ copiado: ${value}`);
                           }}
-                          className="text-[12px] font-semibold text-indigo-600 transition hover:text-indigo-800"
+                          className="text-[12px] font-semibold text-brand-navy transition hover:text-brand-navy-700"
                         >
                           {maskedCnpj}
                         </button>
                       )}
                       {normalizeText(proc?.prazo).trim() && (
-                        <InfoPill>Prazo {proc.prazo}</InfoPill>
+                        <Chip variant="neutral" className="border-slate-200 bg-slate-100 text-[11px] text-slate-700">
+                          Prazo {proc.prazo}
+                        </Chip>
                       )}
                     </div>
                   </div>
@@ -875,9 +826,7 @@ export default function ProcessosScreen({
                       </InfoItem>
 
                       <InfoItem label="Data solicitação">{formatProcessDate(proc?.data_solicitacao)}</InfoItem>
-
                       <InfoItem label="Município">{municipio || "—"}</InfoItem>
-
                       <InfoItem label="CNPJ">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-slate-800">{maskedCnpj || "—"}</span>
@@ -899,12 +848,7 @@ export default function ProcessosScreen({
                       <InfoItem label="OBS" className="md:col-span-2">
                         {obsText ? (
                           <div className="space-y-2">
-                            <p
-                              className={cn(
-                                "text-sm leading-relaxed text-slate-700",
-                                !isObsExpanded && "line-clamp-2",
-                              )}
-                            >
+                            <p className={cn("text-sm leading-relaxed text-slate-700", !isObsExpanded && "line-clamp-2")}>
                               {obsText}
                             </p>
                             <div className="flex flex-wrap items-center gap-3">
@@ -912,7 +856,7 @@ export default function ProcessosScreen({
                                 <button
                                   type="button"
                                   onClick={() => toggleObsExpanded(obsKey)}
-                                  className="text-xs font-semibold text-indigo-600 transition hover:text-indigo-800"
+                                  className="text-xs font-semibold text-brand-navy transition hover:text-brand-navy-700"
                                 >
                                   Ver {isObsExpanded ? "menos" : "mais"}
                                 </button>
@@ -932,7 +876,7 @@ export default function ProcessosScreen({
                             <button
                               type="button"
                               onClick={() => openObsDrawer(proc)}
-                              className="text-xs font-semibold text-indigo-600 underline-offset-2 hover:underline"
+                              className="text-xs font-semibold text-brand-navy underline-offset-2 hover:underline"
                             >
                               Adicionar
                             </button>
@@ -940,11 +884,31 @@ export default function ProcessosScreen({
                         )}
                       </InfoItem>
 
-                      {specificFields.map((field) => (
+                      {inlineTypeFields.map((field) => (
                         <InfoItem key={field.key} label={field.label}>
-                          {field.content}
+                          {renderFieldValue(field)}
                         </InfoItem>
                       ))}
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => openDetailsDrawer(proc)}
+                        className="text-xs font-semibold text-brand-navy underline-offset-2 hover:underline"
+                      >
+                        Ver todos os campos do tipo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditProcesso(resolveProcessId(proc))}
+                        data-testid="process-edit-button"
+                        className="inline-flex items-center gap-2 rounded-md bg-brand-navy px-3 py-2 text-xs font-semibold text-brand-navy-foreground transition hover:bg-brand-navy-700"
+                        title="Editar processo"
+                      >
+                        <PencilLine className="h-4 w-4" />
+                        Editar
+                      </button>
                     </div>
                   </div>
                 </Card>
@@ -953,6 +917,30 @@ export default function ProcessosScreen({
           </div>
         )}
       </div>
+
+      <SideDrawer
+        open={detailsDrawer.open}
+        onClose={() => setDetailsDrawer({ open: false, processo: null })}
+        title={detailsDrawer?.processo?.empresa || "Campos do tipo"}
+        subtitle={detailsDrawer?.processo ? `Campos do tipo: ${detailsDrawer.processo.tipoDisplay || detailsDrawer.processo.tipo || "Processo"}` : "Campos do tipo"}
+      >
+        {detailsDrawer.processo ? (
+          <div className="space-y-3">
+            {detailsFields.length > 0 ? (
+              detailsFields.map((field) => (
+                <InfoItem key={field.key} label={field.label}>
+                  {renderFieldValue(field)}
+                </InfoItem>
+              ))
+            ) : (
+              <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-3 text-xs text-slate-600">
+                Tipo sem campos específicos configurados.
+              </div>
+            )}
+          </div>
+        ) : null}
+      </SideDrawer>
+
       {obsDrawer.open && obsDrawer.processo && (
         <div className="fixed inset-0 z-50 flex">
           <button
@@ -964,7 +952,7 @@ export default function ProcessosScreen({
           <div className="relative flex h-full w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl">
             <div className="flex items-start justify-between border-b border-slate-200 p-4">
               <div className="space-y-1">
-                <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-700">Observações</p>
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-brand-navy">Observações</p>
                 <p className="text-base font-semibold leading-tight text-slate-900">
                   {obsDrawer.processo.empresa || "Empresa"}
                 </p>
@@ -991,7 +979,7 @@ export default function ProcessosScreen({
                   rows={5}
                   value={obsDraft}
                   onChange={(event) => setObsDraft(event.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200"
+                  className="w-full rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 shadow-inner focus:border-brand-navy focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-navy-soft"
                   placeholder="Adicionar observação"
                 />
                 <div className="flex justify-end gap-2">
@@ -1006,7 +994,7 @@ export default function ProcessosScreen({
                     type="button"
                     onClick={saveObs}
                     disabled={savingObs}
-                    className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-400"
+                    className="inline-flex items-center gap-2 rounded-lg bg-brand-navy px-3 py-2 text-sm font-semibold text-brand-navy-foreground shadow-sm transition-colors hover:bg-brand-navy-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <PanelRightClose className="h-4 w-4" /> Salvar
                   </button>
@@ -1023,7 +1011,10 @@ export default function ProcessosScreen({
                     {loadingHistory && <RefreshCw className="h-4 w-4 animate-spin text-slate-400" />}
                     <button
                       type="button"
-                      onClick={() => fetchObsHistory(obsDrawer.processo.id)}
+                      onClick={() => {
+                        const processId = resolveProcessId(obsDrawer.processo);
+                        if (processId) fetchObsHistory(processId);
+                      }}
                       className="inline-flex items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800"
                     >
                       Atualizar
@@ -1043,18 +1034,18 @@ export default function ProcessosScreen({
                   <div className="space-y-3">
                     {obsHistory.map((entry) => (
                       <div
-                        key={entry.id || `${entry.changed_at}-${entry.old_obs?.length}`}
+                        key={entry.id || `${entry.changed_at || entry.timestamp}-${(entry.old_obs || entry.old_value || "").length}`}
                         className="rounded-xl border border-slate-100 bg-slate-50 p-3 shadow-inner"
                       >
                         <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                           <Clock className="h-3.5 w-3.5" />
-                          <span>{formatDateTime(entry.changed_at)}</span>
+                          <span>{formatDateTime(entry.changed_at || entry.timestamp)}</span>
                         </div>
                         <div className="mt-2 grid gap-2 text-xs text-slate-700 md:grid-cols-[1fr_auto_1fr] md:items-start md:gap-3">
                           <div className="space-y-1">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Anterior</p>
-                            <p className="line-clamp-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white/80 p-2 leading-relaxed shadow-sm" title={entry.old_obs || "—"}>
-                              {normalizeText(entry.old_obs).trim() || "—"}
+                            <p className="line-clamp-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white/80 p-2 leading-relaxed shadow-sm" title={entry.old_obs || entry.old_value || "—"}>
+                              {normalizeText(entry.old_obs || entry.old_value).trim() || "—"}
                             </p>
                           </div>
                           <div className="hidden items-center justify-center md:flex">
@@ -1062,8 +1053,8 @@ export default function ProcessosScreen({
                           </div>
                           <div className="space-y-1">
                             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Atual</p>
-                            <p className="line-clamp-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white/80 p-2 leading-relaxed shadow-sm" title={entry.new_obs || "—"}>
-                              {normalizeText(entry.new_obs).trim() || "—"}
+                            <p className="line-clamp-4 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white/80 p-2 leading-relaxed shadow-sm" title={entry.new_obs || entry.new_value || "—"}>
+                              {normalizeText(entry.new_obs || entry.new_value).trim() || "—"}
                             </p>
                           </div>
                         </div>

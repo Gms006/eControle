@@ -402,6 +402,7 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)
 ✅ Admin não consegue desativar a si mesmo (retorna 400)
 
 ## S6.2 — Operação no Portal (CRUD UI: Empresas/Processos/Licenças/Taxas) 
+**Status:** ✅ Entregue incrementalmente em 2026-02-27
 
 **Objetivo:** tornar o eControle operacional no dia a dia, permitindo criação e edição via interface (com validação, UX padrão CertHub e permissões).
 
@@ -448,13 +449,32 @@ Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)
    - Loading states
    - Validações mínimas (campos obrigatórios, datas, enums)
    - RBAC no front (VIEW: read-only; ADMIN/DEV: CRUD)
+   - Form de Empresa migrado para **drawer lateral** (portal, header sticky, ações no topo, fechamento por ESC/overlay com confirmação de dirty)
+   - Sem `window.location.reload()`; atualização via refetch/evento local
 
 ### Critérios de aceite
-- Usuário ADMIN/DEV consegue criar/editar Empresa e Processo no DB pelo front.
-- VIEW não vê botões de criação/edição e não consegue acionar rotas.
-- “Importar ReceitaWS” preenche campos no form (quando habilitado).
-- Criação de empresa opcionalmente cria licenças/taxas com os defaults definidos.
-- OBS em Processos mantém histórico de edições visível.
+- ✅ Usuário ADMIN/DEV cria/edita Empresa e Processo no DB pelo front sem `window.location.reload()`.
+- ✅ VIEW continua sem botões de criação/edição no frontend e sem permissão de escrita no backend.
+- ✅ “Importar ReceitaWS” preenche razão social, fantasia, porte, município padronizado, UF, e-mail, telefone, MEI e CNAEs.
+- ✅ Empresa persiste `company + profile` (incluindo CNAEs estruturados no profile).
+- ✅ Situação de débito passou a ser computada por `company_taxes` (`situacao_debito`) e não mais por `debito_prefeitura`.
+- ✅ Processos: botão Editar no card (rodapé, estilo padrão navy) e campo Situação via dropdown de enum backend.
+- ✅ Municípios normalizados no pipeline (lookup/create/edit/ingest) e endpoint distinto (`GET /api/v1/companies/municipios`) sem duplicatas.
+- ✅ `GET /api/v1/companies` passou a ocultar inativas por padrão; ADMIN/DEV podem incluir via `?include_inactive=true`.
+- ✅ Modal de editar empresa permite marcar `Ativa/Inativa` (`is_active`) e refetch remove inativas da lista padrão sem reload.
+- ✅ Modal de processo com campos condicionais por tipo persistidos em `extra` (JSON).
+- ✅ Modal de nova empresa com criação composta opcional de licenças/taxas via endpoint transacional `/api/v1/companies/composite`.
+- ✅ `processos.situacao` persistida em formato canônico snake_case (ex.: `em_analise`) com normalização backend robusta para legados (`EM ANÁLISE`, `Concluído`, etc).
+- ✅ Endpoint de metadados `GET /api/v1/meta/enums` entrega valores canônicos + labels humanizadas para evitar divergência frontend/backend.
+- ✅ Decisão única de status aplicada: **DB/API canonical snake_case** e **UI label humanizada** (Title Case com acento).
+- ✅ Decisão de datas refinada:
+  - `processos.data_solicitacao`: **UI `dd/mm/aaaa`** e **persistência/API `YYYY-MM-DD`**.
+  - `taxas.data_envio`: **string compatível com legado** no formato `dd/mm/aaaa` ou `dd/mm/aaaa - Método; Método`.
+- ✅ Drawer de Processo migrado para o mesmo componente base do drawer de Empresa (`SideDrawerForm`), com seções padronizadas:
+  - `Dados do Processo`
+  - `Detalhes`
+  - `Observação`
+- ✅ Novas migrations S6.2: `20260227_0012_normalize_all_status_fields_canonical.py` e `20260227_0013_refine_municipios_preserve_accents.py`.
 
 ### Validação (mínima)
 - E2E Playwright:

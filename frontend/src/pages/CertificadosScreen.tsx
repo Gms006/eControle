@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { AlertTriangle, KeyRound, ShieldCheck, ShieldX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ type CertificadosScreenProps = {
   matchesMunicipioFilter: (item: any) => boolean;
   matchesQuery: (values: any[], fieldMap?: Record<string, any[]>) => boolean;
   handleCopy: (value?: string, message?: string) => Promise<void> | void;
+  panelPreset?: { id: number; tab: string; preset?: Record<string, any> | null } | null;
 };
 
 type ViewMode = "cards" | "table";
@@ -35,8 +36,10 @@ export default function CertificadosScreen({
   matchesMunicipioFilter,
   matchesQuery,
   handleCopy,
+  panelPreset,
 }: CertificadosScreenProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
+  const [priorityFilter, setPriorityFilter] = useState("all");
 
   const lista = useMemo(() => (Array.isArray(certificados) ? certificados : []), [certificados]);
 
@@ -83,9 +86,28 @@ export default function CertificadosScreen({
     return base;
   }, [certificadosFiltrados]);
 
+  const certificadosPriorizados = useMemo(() => {
+    if (priorityFilter === "all") return certificadosFiltrados;
+    return certificadosFiltrados.filter((item) => {
+      const dias = Number.isFinite(item?.diasRestantes) ? Number(item.diasRestantes) : null;
+      if (dias === null) return false;
+      if (priorityFilter === "expired") return dias < 0;
+      if (priorityFilter === "due7") return dias >= 0 && dias <= 7;
+      if (priorityFilter === "due30") return dias >= 0 && dias <= 30;
+      return true;
+    });
+  }, [certificadosFiltrados, priorityFilter]);
+
+  useEffect(() => {
+    const preset = panelPreset?.preset;
+    if (!preset || panelPreset?.tab !== "certificados") return;
+    setPriorityFilter(preset?.group || "all");
+    setViewMode("table");
+  }, [panelPreset]);
+
   const ordered = useMemo(
     () =>
-      [...certificadosFiltrados].sort((a, b) => {
+      [...certificadosPriorizados].sort((a, b) => {
         const da = Number.isFinite(a?.diasRestantes) ? a.diasRestantes : Number.POSITIVE_INFINITY;
         const db = Number.isFinite(b?.diasRestantes) ? b.diasRestantes : Number.POSITIVE_INFINITY;
         if (da !== db) return da - db;
@@ -93,7 +115,7 @@ export default function CertificadosScreen({
           sensitivity: "base",
         });
       }),
-    [certificadosFiltrados],
+    [certificadosPriorizados],
   );
 
   return (
@@ -129,7 +151,42 @@ export default function CertificadosScreen({
         <InlineBadge variant="outline" className="bg-white">
           {modoFoco ? "Modo foco ativo (somente alertas)" : "Todos os certificados"}
         </InlineBadge>
-        <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
+            <Button
+              size="sm"
+              variant={priorityFilter === "all" ? "default" : "ghost"}
+              onClick={() => setPriorityFilter("all")}
+              className="h-8"
+            >
+              Todos
+            </Button>
+            <Button
+              size="sm"
+              variant={priorityFilter === "expired" ? "default" : "ghost"}
+              onClick={() => setPriorityFilter("expired")}
+              className="h-8"
+            >
+              Vencidos
+            </Button>
+            <Button
+              size="sm"
+              variant={priorityFilter === "due7" ? "default" : "ghost"}
+              onClick={() => setPriorityFilter("due7")}
+              className="h-8"
+            >
+              {"<=7 dias"}
+            </Button>
+            <Button
+              size="sm"
+              variant={priorityFilter === "due30" ? "default" : "ghost"}
+              onClick={() => setPriorityFilter("due30")}
+              className="h-8"
+            >
+              {"<=30 dias"}
+            </Button>
+          </div>
+          <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           <Button
             size="sm"
             variant={viewMode === "cards" ? "default" : "ghost"}
@@ -146,6 +203,7 @@ export default function CertificadosScreen({
           >
             Tabela
           </Button>
+          </div>
         </div>
       </div>
 

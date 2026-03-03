@@ -21,6 +21,21 @@
   --input: 214 32% 91%;
   --ring: 219 82% 62%;
   --radius: 1rem;
+  --bg-app: 220 27% 95%;
+  --bg-surface: 216 33% 97%;
+  --bg-card: 0 0% 100%;
+  --border-subtle: 215 25% 86%;
+  --border-strong: 216 29% 78%;
+  --text-primary: 222 47% 11%;
+  --text-muted: 215 16% 40%;
+  --status-ok: 150 54% 38%;
+  --status-warn: 35 92% 45%;
+  --status-danger: 354 71% 46%;
+  --status-info: 214 92% 45%;
+  --brand-navy: 220 73% 21%;
+  --brand-navy-700: 221 64% 16%;
+  --brand-navy-soft: 214 88% 95%;
+  --brand-navy-foreground: 210 40% 98%;
 }
 
 html, body {
@@ -39,4 +54,34 @@ body {
 .dot-grid {
   background-image: radial-gradient(rgba(255, 255, 255, 0.2) 1px, transparent 1px);
   background-size: 18px 18px;
+}
+
+@layer utilities {
+  .bg-app {
+    background-color: hsl(var(--bg-app));
+  }
+
+  .bg-surface {
+    background-color: hsl(var(--bg-surface));
+  }
+
+  .bg-card {
+    background-color: hsl(var(--bg-card));
+  }
+
+  .border-subtle {
+    border-color: hsl(var(--border-subtle));
+  }
+
+  .border-strong {
+    border-color: hsl(var(--border-strong));
+  }
+
+  .text-primary {
+    color: hsl(var(--text-primary));
+  }
+
+  .text-muted {
+    color: hsl(var(--text-muted));
+  }
 }

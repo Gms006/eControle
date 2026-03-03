@@ -28,10 +28,11 @@ class CompanyLicence(Base):
     alvara_funcionamento: Mapped[str | None] = mapped_column(String(64), nullable=True)
     licenca_ambiental: Mapped[str | None] = mapped_column(String(64), nullable=True)
     certidao_uso_solo: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    motivo_nao_exigido: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    justificativa_nao_exigido: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
     raw: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
-

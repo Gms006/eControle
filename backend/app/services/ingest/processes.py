@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.normalization import normalize_date_br, normalize_municipio, normalize_process_situacao
 from app.models.company import Company
 from app.models.company_process import CompanyProcess
 from app.services.ingest.utils import normalize_cnpj, null_if_marker, sanitize_text_tree
@@ -26,11 +27,11 @@ def upsert_processes(db: Session, org_id: str, items: list[dict]) -> tuple[int, 
             continue
 
         payload = {
-            "municipio": null_if_marker(item.get("municipio")),
+            "municipio": normalize_municipio(null_if_marker(item.get("municipio"))),
             "orgao": null_if_marker(item.get("orgao")),
             "operacao": null_if_marker(item.get("operacao")),
-            "data_solicitacao": null_if_marker(item.get("data_solicitacao")),
-            "situacao": null_if_marker(item.get("situacao")),
+            "data_solicitacao": normalize_date_br(null_if_marker(item.get("data_solicitacao")), strict=False),
+            "situacao": normalize_process_situacao(null_if_marker(item.get("situacao")), strict=False),
             "obs": null_if_marker(item.get("obs")),
             "extra": sanitize_text_tree(item.get("extra")) or None,
             "raw": sanitize_text_tree(item.get("raw")),

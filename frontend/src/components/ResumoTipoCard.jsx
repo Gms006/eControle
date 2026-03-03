@@ -2,7 +2,7 @@ import React from "react";
 import { Chip } from "@/components/Chip";
 
 const baseCardClasses =
-  "flex items-center justify-between gap-4 rounded-2xl border border-slate-100 bg-white shadow-sm px-4 py-3";
+  "flex items-center justify-between gap-4 rounded-2xl border border-subtle bg-card px-4 py-3";
 
 const IconBadge = ({ icon: Icon, corClasse }) => (
   <div
@@ -51,6 +51,7 @@ export function ResumoTipoCardTaxa({ tipo, total, icon, corClasse, stats }) {
         {stats.semStatus > 0 && (
           <Chip variant="neutral">Sem status {stats.semStatus}</Chip>
         )}
+        {stats.envioPendente > 0 && <Chip variant="warning">Envio pend. {stats.envioPendente}</Chip>}
       </div>
     </div>
   );

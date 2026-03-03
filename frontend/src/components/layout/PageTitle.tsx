@@ -18,7 +18,7 @@ export default function PageTitle({
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
-      className="mb-4 flex flex-col gap-3 rounded-3xl border border-slate-200/80 bg-white/90 p-4 shadow-panel backdrop-blur sm:flex-row sm:items-start sm:justify-between"
+      className="mb-4 flex flex-col gap-3 rounded-3xl border border-subtle bg-surface p-4 shadow-panel sm:flex-row sm:items-start sm:justify-between"
     >
       <div>
         <div className="flex flex-wrap items-center gap-2">
@@ -28,10 +28,10 @@ export default function PageTitle({
             </Pill>
           ))}
         </div>
-        <h1 className="mt-2 text-xl font-semibold tracking-tight text-slate-900 sm:text-2xl">
+        <h1 className="mt-2 text-xl font-semibold tracking-tight text-certhub-navy sm:text-2xl">
           {title}
         </h1>
-        <p className="mt-1 text-sm text-slate-500">{subtitle}</p>
+        <p className="mt-1 text-sm text-muted">{subtitle}</p>
       </div>
       {right ? <div className="shrink-0">{right}</div> : null}
     </motion.div>

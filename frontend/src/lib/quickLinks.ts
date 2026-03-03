@@ -8,9 +8,11 @@ export function normalizeIM(raw: string = ""): string {
   return onlyDigits(base);
 }
 
+let cartaoCnpjWindow: Window | null = null;
+const CARTAO_CNPJ_TARGET = "econtrole_cnpj_reva_tab";
+
 /**
- * Abre a página do Cartão CNPJ já com ?cnpj=<digits> e copia o número.
- * Não bloqueia a UI; abre em nova aba.
+ * Abre/reutiliza a aba do Cartão CNPJ já com ?cnpj=<digits> e copia o número.
  */
 export async function openCartaoCNPJ(
   cnpjRaw: string,
@@ -32,8 +34,22 @@ export async function openCartaoCNPJ(
   );
   url.searchParams.set("cnpj", cnpj);
 
-  onToast?.(`CNPJ copiado — abrindo Cartão CNPJ`);
-  window.open(url.toString(), "_blank", "noopener,noreferrer");
+  onToast?.("CNPJ copiado — abrindo Cartão CNPJ");
+
+  if (cartaoCnpjWindow && !cartaoCnpjWindow.closed) {
+    cartaoCnpjWindow.location.href = url.toString();
+    cartaoCnpjWindow.focus();
+    return;
+  }
+
+  const opened = window.open(url.toString(), CARTAO_CNPJ_TARGET);
+  if (opened) {
+    cartaoCnpjWindow = opened;
+    opened.focus();
+    return;
+  }
+
+  onToast?.("Popup bloqueado. Libere popups para reutilizar a aba do Cartão CNPJ.");
 }
 
 export async function openCNDAnapolis(

@@ -5,6 +5,8 @@ from pydantic import BaseModel, ConfigDict
 
 
 class CompanyCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cnpj: str
     razao_social: str
     nome_fantasia: Optional[str] = None
@@ -14,12 +16,30 @@ class CompanyCreate(BaseModel):
 
 
 class CompanyUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     cnpj: Optional[str] = None
     razao_social: Optional[str] = None
     nome_fantasia: Optional[str] = None
     municipio: Optional[str] = None
     uf: Optional[str] = None
     is_active: Optional[bool] = None
+
+    inscricao_estadual: Optional[str] = None
+    inscricao_municipal: Optional[str] = None
+    porte: Optional[str] = None
+    status_empresa: Optional[str] = None
+    categoria: Optional[str] = None
+    situacao: Optional[str] = None
+    certificado_digital: Optional[str] = None
+    observacoes: Optional[str] = None
+    proprietario_principal: Optional[str] = None
+    cpf: Optional[str] = None
+    telefone: Optional[str] = None
+    email: Optional[str] = None
+    responsavel_fiscal: Optional[str] = None
+    cnaes_principal: Optional[list[dict]] = None
+    cnaes_secundarios: Optional[list[dict]] = None
 
 
 class CompanyOut(BaseModel):
@@ -43,7 +63,7 @@ class CompanyOut(BaseModel):
     status_empresa: Optional[str] = None
     categoria: Optional[str] = None
     situacao: Optional[str] = None
-    debito_prefeitura: Optional[str] = None
+    situacao_debito: Optional[str] = None
     certificado_digital: Optional[str] = None
     observacoes: Optional[str] = None
     proprietario_principal: Optional[str] = None
@@ -51,6 +71,8 @@ class CompanyOut(BaseModel):
     telefone: Optional[str] = None
     email: Optional[str] = None
     responsavel_fiscal: Optional[str] = None
+    cnaes_principal: Optional[list[dict]] = None
+    cnaes_secundarios: Optional[list[dict]] = None
 
 
 def enrich_company_with_profile(company):
@@ -63,7 +85,6 @@ def enrich_company_with_profile(company):
         company.status_empresa = profile.status_empresa
         company.categoria = profile.categoria
         company.situacao = profile.situacao
-        company.debito_prefeitura = profile.debito_prefeitura
         company.certificado_digital = profile.certificado_digital
         company.observacoes = profile.observacoes
         company.proprietario_principal = profile.proprietario_principal
@@ -71,5 +92,7 @@ def enrich_company_with_profile(company):
         company.telefone = profile.telefone
         company.email = profile.email
         company.responsavel_fiscal = profile.responsavel_fiscal
+        company.cnaes_principal = profile.cnaes_principal
+        company.cnaes_secundarios = profile.cnaes_secundarios
     return company
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.normalization import normalize_date_br, normalize_generic_status
 from app.models.company import Company
 from app.models.company_tax import CompanyTax
 from app.services.ingest.utils import normalize_cnpj, null_if_marker, sanitize_text_tree
@@ -25,17 +26,17 @@ def upsert_taxes(db: Session, org_id: str, items: list[dict]) -> tuple[int, int,
             continue
 
         payload = {
-            "data_envio": null_if_marker(item.get("data_envio")),
-            "taxa_funcionamento": null_if_marker(item.get("taxa_funcionamento")),
-            "taxa_publicidade": null_if_marker(item.get("taxa_publicidade")),
-            "taxa_vig_sanitaria": null_if_marker(item.get("taxa_vig_sanitaria")),
-            "iss": null_if_marker(item.get("iss")),
-            "taxa_localiz_instalacao": null_if_marker(item.get("taxa_localiz_instalacao")),
-            "taxa_ocup_area_publica": null_if_marker(item.get("taxa_ocup_area_publica")),
-            "taxa_bombeiros": null_if_marker(item.get("taxa_bombeiros")),
-            "tpi": null_if_marker(item.get("tpi")),
+            "data_envio": normalize_date_br(null_if_marker(item.get("data_envio")), strict=False),
+            "taxa_funcionamento": normalize_generic_status(null_if_marker(item.get("taxa_funcionamento")), strict=False),
+            "taxa_publicidade": normalize_generic_status(null_if_marker(item.get("taxa_publicidade")), strict=False),
+            "taxa_vig_sanitaria": normalize_generic_status(null_if_marker(item.get("taxa_vig_sanitaria")), strict=False),
+            "iss": normalize_generic_status(null_if_marker(item.get("iss")), strict=False),
+            "taxa_localiz_instalacao": normalize_generic_status(null_if_marker(item.get("taxa_localiz_instalacao")), strict=False),
+            "taxa_ocup_area_publica": normalize_generic_status(null_if_marker(item.get("taxa_ocup_area_publica")), strict=False),
+            "taxa_bombeiros": normalize_generic_status(null_if_marker(item.get("taxa_bombeiros")), strict=False),
+            "tpi": normalize_generic_status(null_if_marker(item.get("tpi")), strict=False),
             "vencimento_tpi": null_if_marker(item.get("vencimento_tpi")),
-            "status_taxas": null_if_marker(item.get("status_taxas")),
+            "status_taxas": normalize_generic_status(null_if_marker(item.get("status_taxas")), strict=False),
             "raw": sanitize_text_tree(item.get("raw")),
         }
 

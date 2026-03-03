@@ -190,6 +190,26 @@ eControle/
 | **Documentação Técnica** | `docs/` |
 | **Scripts Utilitários** | `scripts/` |
 
+## Atualizações S6.2 (2026-02-27)
+- Novo helper backend de normalização: `backend/app/core/normalization.py` (title case, município, e-mail, telefone).
+- Novo módulo canônico de normalização: `backend/app/core/normalize.py` (whitespace/documentos/status/município + labels canônicos).
+- Migração de schema: `backend/alembic/versions/20260227_0009_add_cnaes_to_company_profiles.py`.
+- Migração de dados: `backend/alembic/versions/20260227_0010_normalize_municipios_existing_data.py`.
+- Migração de dados: `backend/alembic/versions/20260227_0011_normalize_process_situacao_canonical.py`.
+- Migração de dados: `backend/alembic/versions/20260227_0012_normalize_all_status_fields_canonical.py`.
+- Migração de dados: `backend/alembic/versions/20260227_0013_refine_municipios_preserve_accents.py`.
+- `company_profiles` agora suporta CNAEs estruturados (`cnaes_principal`, `cnaes_secundarios`).
+- Lookup ReceitaWS expandido em `backend/app/api/v1/endpoints/lookups.py`.
+- Novo endpoint de enums canônicos: `backend/app/api/v1/endpoints/meta.py` (`GET /api/v1/meta/enums`).
+- Novo helper frontend: `frontend/src/lib/normalization.js`.
+- Novo helper frontend de datas: `frontend/src/lib/date.js`.
+- Novo helper frontend de Taxas: `frontend/src/lib/taxes.js` (parse/format de `data_envio` com método(s) de envio).
+- Novo conjunto de primitives de formulário: `frontend/src/components/forms/DrawerFormPrimitives.jsx`.
+- Novo input de data BR reutilizável: `frontend/src/components/forms/BrDateInput.jsx`.
+- Novo componente UI: `frontend/src/components/ui/textarea.jsx`.
+- Drawer de Empresa (novo estilo lateral no HeaderMenu): `frontend/src/components/HeaderMenuPro.jsx`.
+- Novo smoke E2E portal: `frontend/tests_e2e/portal/company_import_save.smoke.spec.ts`.
+
 
 ## Convenções
 

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, Any
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
@@ -17,7 +17,6 @@ class CompanyProfileOut(BaseModel):
     inscricao_estadual: Optional[str] = None
     inscricao_municipal: Optional[str] = None
     situacao: Optional[str] = None
-    debito_prefeitura: Optional[str] = None
     certificado_digital: Optional[str] = None
     observacoes: Optional[str] = None
     proprietario_principal: Optional[str] = None
@@ -25,6 +24,8 @@ class CompanyProfileOut(BaseModel):
     telefone: Optional[str] = None
     email: Optional[str] = None
     responsavel_fiscal: Optional[str] = None
+    cnaes_principal: Optional[list[dict]] = None
+    cnaes_secundarios: Optional[list[dict]] = None
     raw: Optional[dict] = None
     created_at: datetime
     updated_at: datetime

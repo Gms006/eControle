@@ -17,9 +17,9 @@ export default function Sidebar({
   onLogout: () => void;
 }) {
   return (
-    <aside className="hidden w-[280px] shrink-0 border-r border-slate-200/80 bg-white/80 p-4 backdrop-blur lg:flex lg:flex-col lg:gap-4">
+    <aside className="hidden w-[286px] shrink-0 border-r border-subtle bg-surface p-4 lg:flex lg:flex-col lg:gap-4">
       <div
-        className="rounded-3xl p-4 text-white shadow-panel"
+        className="rounded-3xl border border-white/15 p-4 text-white shadow-panel"
         style={{
           background: `linear-gradient(135deg, ${BRAND_COLORS.navy} 0%, ${BRAND_COLORS.blue} 100%)`,
         }}
@@ -38,7 +38,7 @@ export default function Sidebar({
         </p>
       </div>
 
-      <nav className="space-y-1">
+      <nav className="space-y-1.5">
         {items.map((item, index) => {
           const Icon = item.icon;
           const isActive = activeTab === item.key;
@@ -52,8 +52,8 @@ export default function Sidebar({
               className={cn(
                 "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition",
                 isActive
-                  ? "border-blue-200 bg-blue-50 shadow-sm"
-                  : "border-transparent bg-transparent hover:border-slate-200 hover:bg-slate-50",
+                  ? "border-blue-200 bg-blue-50/90 shadow-sm"
+                  : "border-transparent bg-transparent hover:border-subtle hover:bg-card",
               )}
               title={`Alt+${index + 1}`}
             >
@@ -62,7 +62,7 @@ export default function Sidebar({
                   "grid h-9 w-9 shrink-0 place-items-center rounded-xl border",
                   isActive
                     ? "border-blue-200 bg-white text-blue-700"
-                    : "border-slate-200 bg-white text-slate-600",
+                    : "border-subtle bg-card text-slate-600",
                 )}
               >
                 <Icon className="h-4 w-4" />
@@ -76,15 +76,15 @@ export default function Sidebar({
                 >
                   {item.label}
                 </div>
-                <div className="truncate text-xs text-slate-500">{item.description}</div>
+                <div className="truncate text-xs text-muted">{item.description}</div>
               </div>
             </motion.button>
           );
         })}
       </nav>
 
-      <div className="mt-auto rounded-2xl border border-slate-200 bg-slate-50 p-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <div className="mt-auto rounded-2xl border border-subtle bg-card p-3">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted">
           Atalhos
         </p>
         <p className="mt-1 text-xs text-slate-600">`Alt+1..6` navega entre telas</p>
@@ -92,7 +92,7 @@ export default function Sidebar({
         <Button
           type="button"
           variant="outline"
-          className="mt-3 w-full justify-start"
+          className="mt-3 w-full justify-start border-subtle"
           onClick={onLogout}
         >
           <LogOut className="mr-2 h-4 w-4" /> Sair

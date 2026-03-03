@@ -6,9 +6,16 @@ from app.core.security import require_roles
 from app.db.session import get_db
 from app.models.org import Org
 from app.models.company_process import CompanyProcess
-from app.schemas.company_process import CompanyProcessOut
+from app.schemas.company_process import CompanyProcessOut, PROCESS_SITUACOES
 
 router = APIRouter()
+
+
+@router.get("/situacoes", response_model=list[str])
+def list_process_situacoes(
+    _user=Depends(require_roles("ADMIN", "DEV", "VIEW")),
+) -> list[str]:
+    return list(PROCESS_SITUACOES)
 
 
 @router.get("", response_model=list[CompanyProcessOut])

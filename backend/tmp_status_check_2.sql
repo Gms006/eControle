@@ -1,0 +1,1 @@
+select count(*) as non_canonical_tax from company_taxes where coalesce(taxa_funcionamento,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]' or coalesce(taxa_publicidade,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]' or coalesce(taxa_vig_sanitaria,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]' or coalesce(status_taxas,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]';

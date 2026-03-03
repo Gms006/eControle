@@ -18,6 +18,7 @@ import { normalizeText, removeDiacritics } from "../lib/text";
 import { getStatusKey, isAlertStatus, isProcessStatusActiveOrPending } from "../lib/status";
 import { listarEmpresas } from "../services/empresas";
 import { listarGruposKPIs } from "../services/kpis";
+import { formatMunicipioDisplay } from "@/lib/normalization";
 
 const SEARCH_FIELDS = [
   { key: "all", label: "Tudo" },
@@ -80,11 +81,13 @@ const normalizeEmpresaRecord = (empresa: any) => {
     inscricaoEstadual:
       empresa?.inscricaoEstadual ?? empresa?.inscricao_estadual ?? empresa?.ie,
     situacao: empresa?.situacao ?? empresa?.status_empresa,
-    debito: empresa?.debito ?? empresa?.debito_prefeitura,
+    debito: empresa?.debito ?? empresa?.situacao_debito,
     certificado: empresa?.certificado ?? empresa?.certificado_digital,
     responsavelFiscal: empresa?.responsavelFiscal ?? empresa?.responsavel_fiscal,
     responsavelLegal: empresa?.responsavelLegal ?? empresa?.proprietario_principal,
     cpfResponsavelLegal: empresa?.cpfResponsavelLegal ?? empresa?.cpf,
+    observacoes: empresa?.observacoes ?? empresa?.observacao ?? null,
+    municipio: formatMunicipioDisplay(empresa?.municipio),
   };
 };
 
@@ -126,18 +129,22 @@ const enrichWithCompany = (
 ) => {
   const company = getCompanyFromIndexes(item, indexes);
   const empresaId = getEmpresaKey(item) ?? getEmpresaKey(company);
+  const fallbackEmpresa = item?.company_name ?? item?.company_razao_social ?? item?.empresa ?? item?.razao_social;
+  const empresaNome =
+    fallbackEmpresa ??
+    company?.empresa ??
+    company?.razao_social ??
+    (empresaId ? `Empresa não vinculada (ID ${empresaId})` : "Empresa não vinculada");
+  const hasBackendCompany = Boolean(item?.company_name || item?.company_razao_social || item?.company_cnpj);
+  const semVinculo = Boolean(item?.sem_vinculo) || (!hasBackendCompany && !company);
 
   return {
     ...item,
     ...(empresaId ? { empresa_id: empresaId, company_id: item?.company_id ?? empresaId } : {}),
-    empresa:
-      item?.empresa ??
-      item?.razao_social ??
-      item?.razaoSocial ??
-      company?.empresa ??
-      company?.razao_social,
+    empresa: empresaNome,
     cnpj: item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? company?.cnpj,
-    municipio: item?.municipio ?? company?.municipio,
+    municipio: formatMunicipioDisplay(item?.municipio ?? company?.municipio),
+    sem_vinculo: semVinculo,
   };
 };
 
@@ -178,7 +185,15 @@ const adaptLicencasRecords = (
     if (hasValue(lic?.tipo) || hasValue(lic?.status) || hasValue(lic?.validade)) {
       expanded.push({
         ...enriched,
+        licence_id: lic?.licence_id ?? lic?.id,
+        licence_field:
+          lic?.licence_field ??
+          LICENSE_FIELD_MAP.find((entry) => entry.tipo.toLowerCase() === String(lic?.tipo || "").toLowerCase())?.field,
         status_geral: lic?.status_geral ?? lic?.statusGeral,
+        motivo_nao_exigido: lic?.motivo_nao_exigido ?? lic?.raw?.motivo_nao_exigido,
+        justificativa_nao_exigido:
+          lic?.justificativa_nao_exigido ?? lic?.raw?.justificativa_nao_exigido,
+        company_name: lic?.company_name,
       });
       return;
     }
@@ -186,24 +201,40 @@ const adaptLicencasRecords = (
     // Formato novo (1 linha agregada por empresa) -> expande para formato legado
     LICENSE_FIELD_MAP.forEach(({ field, tipo }) => {
       const status = lic?.[field];
-      if (!hasValue(status)) return;
+      const normalizedStatus = hasValue(status) ? status : "nao_possui";
+      const validadeRaw =
+        lic?.[`validade_${field}`] ??
+        lic?.raw?.[`validade_${field}`] ??
+        lic?.raw?.[`${field}_validade`] ??
+        null;
 
       expanded.push({
         ...enriched,
         id: `${lic?.id ?? enriched?.empresa_id ?? "lic"}:${field}`,
+        licence_id: lic?.id,
+        licence_field: field,
         tipo,
-        status,
+        status: normalizedStatus,
         status_geral: lic?.status_geral ?? lic?.statusGeral ?? null,
-        validade:
-          lic?.[`validade_${field}`] ??
-          lic?.raw?.[`validade_${field}`] ??
-          lic?.raw?.[`${field}_validade`] ??
-          null,
+        validade: validadeRaw,
         validade_br:
           lic?.[`validade_${field}_br`] ??
           lic?.raw?.[`validade_${field}_br`] ??
+          (typeof validadeRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(validadeRaw)
+            ? `${validadeRaw.slice(8, 10)}/${validadeRaw.slice(5, 7)}/${validadeRaw.slice(0, 4)}`
+            : null) ??
           null,
         status_detalhe: lic?.raw?.[`${field}_detalhe`] ?? null,
+        motivo_nao_exigido:
+          lic?.raw?.[`${field}_motivo_nao_exigido`] ?? lic?.motivo_nao_exigido ?? null,
+        justificativa_nao_exigido:
+          lic?.raw?.[`${field}_justificativa_nao_exigido`] ?? lic?.justificativa_nao_exigido ?? null,
+        observacao: lic?.raw?.[`${field}_observacao`] ?? null,
+        responsavel: lic?.raw?.[`${field}_responsavel`] ?? null,
+        proxima_acao: lic?.raw?.[`${field}_proxima_acao`] ?? null,
+        company_name: lic?.company_name,
+        company_razao_social: lic?.company_razao_social,
+        company_cnpj: lic?.company_cnpj,
       });
     });
   });
@@ -218,13 +249,20 @@ const adaptProcessosRecords = (
   processos.map((proc) => {
     const raw = proc?.raw && typeof proc.raw === "object" ? proc.raw : {};
     const extra = proc?.extra && typeof proc.extra === "object" ? proc.extra : {};
-    const enriched = enrichWithCompany({ ...raw, ...extra, ...proc }, indexes);
+    const merged = { ...raw, ...proc, ...extra };
+    const enriched = enrichWithCompany(merged, indexes);
 
     return {
       ...raw,
-      ...extra,
       ...proc,
+      ...extra,
       ...enriched,
+      id:
+        proc?.id ??
+        proc?.process_id ??
+        proc?.processId ??
+        raw?.id ??
+        raw?.process_id,
       tipo:
         proc?.tipo ??
         proc?.tipo_processo ??
@@ -244,6 +282,7 @@ const adaptProcessosRecords = (
 
 const normalizeProcesso = (proc: any) => ({
   ...proc,
+  id: proc?.id ?? proc?.process_id ?? proc?.processId ?? proc?.processo_id,
   empresa:
     proc?.empresa ??
     proc?.razao_social ??
@@ -256,12 +295,13 @@ const normalizeProcesso = (proc: any) => ({
   empresa_id: proc?.empresa_id ?? proc?.empresaId ?? proc?.company_id ?? proc?.companyId,
   company_id: proc?.company_id ?? proc?.companyId ?? proc?.empresa_id ?? proc?.empresaId,
   cnpj: proc?.cnpj ?? proc?.cnpj_empresa ?? proc?.cnpjEmpresa,
-  municipio:
+  municipio: formatMunicipioDisplay(
     proc?.municipio ??
-    proc?.municipio_exibicao ??
-    proc?.municipioExibicao ??
-    proc?.municipio_nome ??
-    proc?.municipioNome,
+      proc?.municipio_exibicao ??
+      proc?.municipioExibicao ??
+      proc?.municipio_nome ??
+      proc?.municipioNome,
+  ),
   situacao: proc?.situacao ?? proc?.status ?? proc?.status_padrao,
   status: proc?.status ?? proc?.situacao ?? proc?.status_padrao,
   tipo: proc?.tipo ?? proc?.tipo_processo ?? proc?.tipoProcesso ?? proc?.process_type,
@@ -295,8 +335,14 @@ export default function MainApp() {
   const [kpis, setKpis] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [municipiosApi, setMunicipiosApi] = useState<string[]>([]);
 
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
+  const [panelNavigation, setPanelNavigation] = useState<{
+    id: number;
+    tab: AppTabKey;
+    preset?: Record<string, any> | null;
+  } | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -322,74 +368,85 @@ export default function MainApp() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const loadAllData = useCallback(async () => {
+    setLoading(true);
+    setErrors({});
+    try {
+      const [
+        empresasResponse,
+        licencasResponse,
+        taxasResponse,
+        processosResponse,
+        certificadosResponse,
+        kpisResponse,
+        municipiosResponse,
+      ] = await Promise.allSettled([
+        listarEmpresas({ limit: 1000 }),
+        fetchJson("/api/v1/licencas", { query: { limit: 1000 } }),
+        fetchJson("/api/v1/taxas", { query: { limit: 1000 } }),
+        fetchJson("/api/v1/processos", { query: { limit: 1000 } }),
+        fetchJson("/api/v1/certificados", { query: { limit: 1000 } }),
+        listarGruposKPIs({}),
+        fetchJson("/api/v1/companies/municipios"),
+      ]);
+
+      const nextErrors: Record<string, string> = {};
+      const readCollection = (result: PromiseSettledResult<any>, key?: string) => {
+        if (result.status === "fulfilled") {
+          return normalizeItems(result.value);
+        }
+        const message = result.reason?.message || "Falha ao carregar dados.";
+        if (key) {
+          nextErrors[key] = message;
+        }
+        return [];
+      };
+
+      const empresasRaw = readCollection(empresasResponse, "empresas");
+      const empresasNormalized = empresasRaw.map(normalizeEmpresaRecord);
+      const companyIndexes = buildCompanyIndex(empresasNormalized);
+
+      const licencasRaw = readCollection(licencasResponse, "licencas");
+      const taxasRaw = readCollection(taxasResponse, "taxas");
+      const processosRaw = readCollection(processosResponse, "processos");
+      const certificadosRaw = readCollection(certificadosResponse, "certificados");
+
+      setEmpresas(empresasNormalized);
+      setLicencas(adaptLicencasRecords(licencasRaw, companyIndexes));
+      setTaxas(adaptTaxasRecords(taxasRaw, companyIndexes));
+      setProcessos(adaptProcessosRecords(processosRaw, companyIndexes));
+      setCertificados(certificadosRaw);
+
+      if (kpisResponse.status === "fulfilled") {
+        setKpis(kpisResponse.value || {});
+      } else {
+        nextErrors.kpis = kpisResponse.reason?.message || "Falha ao carregar KPIs.";
+        setKpis({});
+      }
+      if (municipiosResponse.status === "fulfilled") {
+        const values = Array.isArray(municipiosResponse.value) ? municipiosResponse.value : [];
+        setMunicipiosApi(values.filter(Boolean));
+      } else {
+        setMunicipiosApi([]);
+      }
+
+      setErrors(nextErrors);
+      return true;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      setLoading(true);
-      setErrors({});
-      try {
-        const [
-          empresasResponse,
-          licencasResponse,
-          taxasResponse,
-          processosResponse,
-          certificadosResponse,
-          kpisResponse,
-        ] = await Promise.allSettled([
-          listarEmpresas({ limit: 1000 }),
-          fetchJson("/api/v1/licencas", { query: { limit: 1000 } }),
-          fetchJson("/api/v1/taxas", { query: { limit: 1000 } }),
-          fetchJson("/api/v1/processos", { query: { limit: 1000 } }),
-          fetchJson("/api/v1/certificados", { query: { limit: 1000 } }),
-          listarGruposKPIs({}),
-        ]);
-
-        if (!active) return;
-
-        const nextErrors: Record<string, string> = {};
-        const readCollection = (result: PromiseSettledResult<any>, key?: string) => {
-          if (result.status === "fulfilled") {
-            return normalizeItems(result.value);
-          }
-          const message = result.reason?.message || "Falha ao carregar dados.";
-          if (key) {
-            nextErrors[key] = message;
-          }
-          return [];
-        };
-
-        const empresasRaw = readCollection(empresasResponse, "empresas");
-        const empresasNormalized = empresasRaw.map(normalizeEmpresaRecord);
-        const companyIndexes = buildCompanyIndex(empresasNormalized);
-
-        const licencasRaw = readCollection(licencasResponse, "licencas");
-        const taxasRaw = readCollection(taxasResponse, "taxas");
-        const processosRaw = readCollection(processosResponse, "processos");
-        const certificadosRaw = readCollection(certificadosResponse, "certificados");
-
-        setEmpresas(empresasNormalized);
-        setLicencas(adaptLicencasRecords(licencasRaw, companyIndexes));
-        setTaxas(adaptTaxasRecords(taxasRaw, companyIndexes));
-        setProcessos(adaptProcessosRecords(processosRaw, companyIndexes));
-        setCertificados(certificadosRaw);
-
-        if (kpisResponse.status === "fulfilled") {
-          setKpis(kpisResponse.value || {});
-        } else {
-          nextErrors.kpis = kpisResponse.reason?.message || "Falha ao carregar KPIs.";
-          setKpis({});
-        }
-
-        setErrors(nextErrors);
-      } finally {
-        if (active) setLoading(false);
-      }
-    };
-    void load();
+    void (async () => {
+      if (!active) return;
+      await loadAllData();
+    })();
     return () => {
       active = false;
     };
-  }, []);
+  }, [loadAllData]);
 
   const enqueueToast = useCallback((message: string) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
@@ -398,6 +455,32 @@ export default function MainApp() {
       setToasts((prev) => prev.filter((toast) => toast.id !== id));
     }, 3200);
   }, []);
+
+  const handleDashboardQueueOpen = useCallback(
+    (payload: { tab: AppTabKey; preset?: Record<string, any> | null }) => {
+      if (!payload?.tab) return;
+      setTab(payload.tab);
+      setPanelNavigation({
+        id: Date.now(),
+        tab: payload.tab,
+        preset: payload.preset ?? null,
+      });
+    },
+    [],
+  );
+
+  useEffect(() => {
+    const onRefresh = async () => {
+      try {
+        await loadAllData();
+        enqueueToast("Dados atualizados.");
+      } catch {
+        enqueueToast("Falha ao atualizar dados. Use Recarregar para tentar novamente.");
+      }
+    };
+    window.addEventListener("econtrole:refresh-data", onRefresh);
+    return () => window.removeEventListener("econtrole:refresh-data", onRefresh);
+  }, [enqueueToast, loadAllData]);
 
   const handleCopy = useCallback(
     async (value?: string, message?: string) => {
@@ -421,6 +504,12 @@ export default function MainApp() {
   }, []);
 
   const municipios = useMemo(() => {
+    if (municipiosApi.length > 0) {
+      const list = Array.from(
+        new Set(municipiosApi.filter(Boolean).map((value) => formatMunicipioDisplay(value)).filter(Boolean)),
+      ).sort((a, b) => a.localeCompare(b));
+      return ["Todos", ...list];
+    }
     const entries = new Set<string>();
     [empresas, licencas, taxas, processos].forEach((collection) => {
       collection.forEach((item) => {
@@ -431,13 +520,16 @@ export default function MainApp() {
           item?.municipio_nome ??
           item?.municipioNome;
         if (value) {
-          entries.add(String(value).trim());
+          const normalized = formatMunicipioDisplay(value);
+          if (normalized) {
+            entries.add(normalized);
+          }
         }
       });
     });
     const list = Array.from(entries).filter(Boolean).sort((a, b) => a.localeCompare(b));
     return ["Todos", ...list];
-  }, [empresas, licencas, taxas, processos]);
+  }, [empresas, licencas, municipiosApi, processos, taxas]);
 
   useEffect(() => {
     if (!municipios.includes(municipio)) {
@@ -511,6 +603,7 @@ export default function MainApp() {
           empresa?.cnpj,
           empresa?.municipio,
           empresa?.responsavelFiscal,
+          empresa?.observacoes,
         ];
         return matchesQuery(values, {
           nome: [empresa?.empresa, empresa?.nome_fantasia, empresa?.razao_social],
@@ -590,6 +683,7 @@ export default function MainApp() {
     (empresa: any) => {
       const empresaId = extractEmpresaId(empresa);
       if (isAlertStatus(empresa?.debito)) return true;
+      if (normalizeKey(empresa?.debito).includes("possui debito")) return true;
       if (empresa?.certificado && getStatusKey(empresa.certificado).includes("venc")) return true;
       if (empresaId === undefined) return false;
 
@@ -620,7 +714,7 @@ export default function MainApp() {
   ];
 
   return (
-    <div className="h-screen overflow-hidden bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50">
+    <div className="h-screen overflow-hidden bg-app">
       <div className="flex h-screen">
         <Sidebar
           items={APP_NAV_ITEMS}
@@ -646,10 +740,13 @@ export default function MainApp() {
             onSomenteAlertasChange={setSomenteAlertas}
             modoFoco={modoFoco}
             onModoFocoChange={setModoFoco}
+            onReload={() => {
+              void loadAllData();
+            }}
             onLogout={() => void logout()}
           />
 
-          <div className={`min-w-0 flex-1 min-h-0 overflow-y-auto ${backgroundClass}`}>
+          <div className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass}`}>
             <main className="mx-auto max-w-[1500px] px-4 py-4 lg:px-6 lg:py-5">
               <PageTitle
                 title={pageMeta.title}
@@ -657,7 +754,7 @@ export default function MainApp() {
                 chips={pageChips}
                 right={
                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
+                    <div className="rounded-2xl border border-subtle bg-card px-3 py-2 text-right shadow-sm">
                       <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <Database className="h-3.5 w-3.5" /> Dados
                       </div>
@@ -666,7 +763,7 @@ export default function MainApp() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
+                    <div className="rounded-2xl border border-subtle bg-card px-3 py-2 text-right shadow-sm">
                       <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <Filter className="h-3.5 w-3.5" /> Filtros
                       </div>
@@ -675,7 +772,7 @@ export default function MainApp() {
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-slate-200 bg-white px-3 py-2 text-right shadow-sm">
+                    <div className="rounded-2xl border border-subtle bg-card px-3 py-2 text-right shadow-sm">
                       <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                         <BellRing className="h-3.5 w-3.5" /> Alertas
                       </div>
@@ -690,7 +787,7 @@ export default function MainApp() {
               {/* TODO: o conteúdo da aba vem aqui embaixo (tabelas, cards etc) */}
 
               {loading && (
-                <div className="rounded-3xl border border-slate-200 bg-white p-6 text-sm text-slate-500 shadow-panel">
+                <div className="rounded-3xl border border-subtle bg-surface p-6 text-sm text-slate-500 shadow-panel">
                   Carregando dados do backend...
                 </div>
               )}
@@ -719,6 +816,7 @@ export default function MainApp() {
                       companyHasAlert={companyHasAlert}
                       licencasByEmpresa={licencasByEmpresa}
                       extractEmpresaId={extractEmpresaId}
+                      onOpenQueueTarget={handleDashboardQueueOpen}
                     />
                   </motion.div>
                 )}
@@ -760,6 +858,7 @@ export default function MainApp() {
                         matchesMunicipioFilter={matchesMunicipioFilter}
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
+                        panelPreset={panelNavigation?.tab === "certificados" ? panelNavigation : null}
                       />
                       {errors.certificados &&
                         renderEmptyState("Erro ao carregar certificados", errors.certificados)}
@@ -781,6 +880,9 @@ export default function MainApp() {
                         filteredLicencas={filteredLicencas}
                         modoFoco={modoFoco}
                         handleCopy={handleCopy}
+                        enqueueToast={enqueueToast}
+                        onRefreshData={loadAllData}
+                        panelPreset={panelNavigation?.tab === "licencas" ? panelNavigation : null}
                       />
                       {errors.licencas && renderEmptyState("Erro ao carregar licenças", errors.licencas)}
                     </>
@@ -799,6 +901,7 @@ export default function MainApp() {
                       <TaxasScreen
                         taxas={taxas}
                         modoFoco={modoFoco}
+                        soAlertas={somenteAlertas}
                         matchesMunicipioFilter={matchesMunicipioFilter}
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
@@ -824,6 +927,7 @@ export default function MainApp() {
                         matchesMunicipioFilter={matchesMunicipioFilter}
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
+                        panelPreset={panelNavigation?.tab === "processos" ? panelNavigation : null}
                       />
                       {errors.processos && renderEmptyState("Erro ao carregar processos", errors.processos)}
                     </>
@@ -840,7 +944,7 @@ export default function MainApp() {
           {toasts.map((toast) => (
             <div
               key={toast.id}
-              className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-xs font-medium text-slate-700 shadow-lg"
+              className="rounded-xl border border-subtle bg-card px-4 py-2 text-xs font-medium text-slate-700 shadow-lg"
             >
               {toast.message}
             </div>

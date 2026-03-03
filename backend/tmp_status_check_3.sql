@@ -1,0 +1,1 @@
+select count(*) as non_canonical_lic from company_licences where coalesce(alvara_vig_sanitaria,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]' or coalesce(cercon,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]' or coalesce(alvara_funcionamento,'') ~ '[A-Zµ¶ΗÒΦΰβει€ ]';

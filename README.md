@@ -94,6 +94,28 @@ CRUD básico com isolamento por `org_id` (filtro obrigatório) e RBAC:
 - `GET /api/v1/companies/{id}` (ADMIN/DEV/VIEW)
 - `PATCH /api/v1/companies/{id}` (ADMIN/DEV)
 
+### Atualizações S6.2
+- `GET /api/v1/lookups/receitaws/{cnpj}` retorna também:
+  - `municipio_padrao`, `email`, `telefone`, `simei_optante`, `cnaes_principal`, `cnaes_secundarios`.
+- `PATCH /api/v1/companies/{id}` passou a aceitar campos de `company_profile` (ex.: `porte`, `inscricao_*`, `cnaes_*`) no mesmo payload.
+- `GET /api/v1/companies` e `GET /api/v1/companies/{id}` retornam `situacao_debito` computada por `company_taxes`.
+- Novo endpoint: `GET /api/v1/processos/situacoes` para popular dropdown de situação no frontend.
+- Novo endpoint: `GET /api/v1/meta/enums` para obter enums canônicos com labels humanizadas (fonte única frontend/backend).
+- Novo endpoint: `GET /api/v1/companies/municipios` com municípios normalizados/distintos (sem duplicatas).
+- `GET /api/v1/companies` agora retorna apenas empresas ativas por padrão.
+  - Para ADMIN/DEV: usar `?include_inactive=true` para incluir inativas.
+- `processos.situacao` é normalizada para canonical snake_case no backend (`em_analise`, `em_andamento`, ...), incluindo entrada legada.
+- Modal de Empresa no frontend passou para drawer lateral (estilo OBS), com fechamento via ESC/overlay e confirmação de alterações não salvas.
+- `processos.data_solicitacao`: UI `dd/mm/aaaa` e API/DB `YYYY-MM-DD`.
+- `taxas.data_envio`: campo string compatível com legado:
+  - `dd/mm/aaaa`
+  - `dd/mm/aaaa - Método`
+  - `dd/mm/aaaa - Método; Método`
+- Padronização de status do domínio (taxas/licenças/processos/perfil):
+  - DB/API: valores canônicos `snake_case` minúsculo
+  - UI: labels humanizadas com acentuação (ex.: `em_andamento` -> `Em andamento`)
+- Drawer de Processo migrado para o mesmo componente base do drawer de Empresa (`SideDrawerForm`) com seções de formulário padronizadas.
+
 Exemplos PowerShell (Invoke-RestMethod):
 ```powershell
 $baseUrl = "http://localhost:8020"
