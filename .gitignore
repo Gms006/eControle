@@ -35,9 +35,10 @@ build/
 dist/
 *.egg-info/
 
-# Logs
+# Logs and Tests
 *.log
 logs/
+test-results/
 
 # Env files
 .env

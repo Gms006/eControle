@@ -1,827 +1,172 @@
-# Plano de Desenvolvimento — eControle v2 (Rebuild)
-
-## S0 — Kickoff e Baseline (Concluído)
-**Status:** ✅ Concluído em 2026-02-11
-
-**Objetivo:** travar o que significa “voltar até o ponto onde paramos” e evitar escopo infinito.
-
-**Checklist — Entregáveis localizados (✅)**
-
-✅ `docs/BASELINE_V1.md`  
-✅ `docs/REUSE_FRONTEND_MAP.md`  
-✅ `docs/INTEGRATION_CONTRACTS.md`  
-✅ `docs/RISKS_AND_DECISIONS_S0.md`
-
-**Links/paths esperados para o S0**
-
-* `docs/BASELINE_V1.md`
-* `docs/REUSE_FRONTEND_MAP.md`
-* `docs/INTEGRATION_CONTRACTS.md`
-* `docs/RISKS_AND_DECISIONS_S0.md`
-* `docs/S0_CHECKLIST.md`
-
-**Resumo (S0)**
-
-* Ponto alvo de paridade (v1): abas, fluxos e endpoints mapeados no baseline v1 para orientar a volta ao mesmo comportamento.
-* Reuso do frontend: mapa de reuso aponta reaproveitamento amplo com mudanças mínimas para auth, baseURL e abas integradas.
-* Decisões travadas: Docker-first, portas fixas, auth/RBAC no padrão CertHub, Certificados read-only e Uteis via exports.
-* Contratos de integração CertHub/Scribere: mirror read-only no eControle, deep link configurável e exports de notes/snippets.
-* Riscos e mitigação: riscos de auth/CORS, espelho stale e segurança de exports, com mitigação documentada.
-* CertHub deep link: base e path configuráveis com fallback quando não suportado.
-* Scribere: read-only e filtragem por escopo `private`/`org` com sanitização no render.
-* Painel do eControle manterá lista de certificados vencidos/próximos usando mirror local do CertHub; notificações serão disparadas por jobs no worker com log anti-duplicação.
-
-## S0 Checklist
-
-✅ Baseline definido e revisado
-✅ Mapa de reuse do front completo
-✅ Contratos de integracao definidos
-✅ Contrato Scribere = notes/snippets (sem file_url)
-✅ Decisoes e riscos documentados
-
----
-
-## S1 — Repo v2 no padrão CertHub + Infra Docker (sem conflitos de porta)
-**Status:** ✅ Concluído em 2026-02-12
-
-**Objetivo:** criar o esqueleto limpo e reproduzível (DX).
-
-**Entregas**
-
-* Monorepo `eControle/` com `backend/ frontend/ infra/ docs/ scripts/`.
-* `infra/docker-compose.yml` (Postgres + Redis) com portas:
-
-  * front **5174**
-  * API **8020**
-  * Redis **6381:6379**
-  * Postgres **5433:5432**
-* `.env.example` (sem Excel)
-* Healthchecks:
+# Plano de Desenvolvimento - eControle v2 (Rebuild)
 
-  * `GET /healthz`
-  * `GET /api/v1/worker/health` (stub por enquanto)
+Data de referencia: 2026-03-03
 
-**Aceite**
+## Visao geral
 
-diff --git a/PLANO_DESENVOLVIMENTO.md b/PLANO_DESENVOLVIMENTO.md
---- a/PLANO_DESENVOLVIMENTO.md
-+++ b/PLANO_DESENVOLVIMENTO.md
-@@
- ## S1 — Repo v2 no padrão CertHub + Infra Docker (sem conflitos de porta)
- 
-+**Status:** ✅ Concluído em 2026-02-12
-+
- **Objetivo:** criar o esqueleto limpo e reproduzível (DX).
- 
-@@
- **Aceite**
- 
-* Infra sobindo via Docker Compose com containers `healthy`.
-* Postgres do eControle exposto em **5434:5432** (evita conflito com CertHub em 5433).
-* Redis do eControle exposto em **6381:6379** (CertHub usa 6379).
-* Backend sobe em **8020** e responde:
-  - `GET /healthz` => 200
-  - `GET /api/v1/worker/health` => 200
- 
-**Evidências (execução local em 2026-02-12)**
+Status global: projeto operacional para dominio core e ingest JSON (S7), com integracao CertHub ainda incompleta.
 
-```text
-econtrole-postgres   Up (healthy)   0.0.0.0:5434->5432/tcp
-econtrole-redis      Up (healthy)   0.0.0.0:6381->6379/tcp
-certhub-postgres     Up             127.0.0.1:5433->5432/tcp
-certhub-redis        Up (healthy)   127.0.0.1:6379->6379/tcp
+- Concluido: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
+- Em andamento parcial: S8
+- Pendente: S9, S10, S11, S12
 
-psql -U postgres -c "select 1;"  => 1 row
-redis-cli ping => PONG
-GET /healthz => 200 {"status":"ok"}
-GET /api/v1/worker/health => 200 {"status":"ok","worker":"stub"}
-```
+## S0 - Kickoff e baseline
 
-**Comandos de validação**
-```bash
-docker compose -f infra/docker-compose.yml up -d
-docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -c "select 1;"
-docker compose -f infra/docker-compose.yml exec -T redis redis-cli ping
+Status: concluido (2026-02-11)
 
-cd backend
-uvicorn main:app --reload --host 0.0.0.0 --port 8020
-```
+Entregues:
+- `docs/BASELINE_V1.md`
+- `docs/REUSE_FRONTEND_MAP.md`
+- `docs/INTEGRATION_CONTRACTS.md`
+- `docs/RISKS_AND_DECISIONS_S0.md`
 
-**Rollback (infra)**
-```bash
-docker compose -f infra/docker-compose.yml down -v
-```
+## S1 - Estrutura de repo + infra Docker
 
-Testar:
+Status: concluido (2026-02-12)
 
-```bash
-curl http://localhost:8020/healthz
-curl http://localhost:8020/api/v1/worker/health
-```
----
+Entregues:
+- Monorepo padrao (`backend/`, `frontend/`, `infra/`, `docs/`, `scripts/`)
+- `infra/docker-compose.yml` com Postgres e Redis
+- Portas sem conflito: `5434`, `6381`, `8020`, `5174`
+- Healthchecks: `/healthz`, `/api/v1/worker/health`
 
-## S2 — Core Backend (padrão CertHub): config/logs/db/alembic/test harness
+## S2 - Core backend (config/db/alembic/test harness)
 
-**Status:** ✅ Concluído em 2026-02-18
+Status: concluido (2026-02-18)
 
-**Objetivo:** base sólida para não virar “frankenstein”.
+Entregues:
+- `backend/app/core/*`, `backend/app/db/*`, logging e config
+- Alembic ativo com migracoes incrementais
+- Base de testes com pytest
 
-**Entregas**
+## S3 - Auth + RBAC
 
-* `backend/app/core/` (config, logging, security base, audit base)
-* `backend/app/db/` (session/base)
-* Alembic configurado
-* Pytest rodando (smoke test)
-* CORS alinhado com front 5174
+Status: concluido (2026-02-18)
 
-**Aceite**
+Entregues:
+- `/api/v1/auth/login`, `/refresh`, `/logout`, `/me`
+- RBAC (`DEV`, `ADMIN`, `VIEW`)
+- Seed de org e usuario master por env
 
-* `alembic upgrade head` OK
-* `pytest` OK (mesmo que só smoke)
+## S4 - Org context / multi-tenant
 
-**Validação (local)**
+Status: concluido (2026-02-19)
 
-```bash
-docker compose -f infra/docker-compose.yml up -d
-cd backend
-alembic upgrade head
-pytest -q
-```
+Entregues:
+- Header opcional `X-Org-Id` / `X-Org-Slug` com validacao
+- `/api/v1/orgs/current`, `/api/v1/orgs/list`
+- Isolamento por `org_id`
 
----
+## S5 - Dominio core backend
 
-## S3 — Auth + RBAC central (eControle independente do CertHub)
+Status: concluido (2026-02-19)
 
-**Status:** ✅ Concluído em 2026-02-18
+Entregues:
+- CRUD de empresas, licencas, taxas e processos
+- Endpoints de suporte para operacao do front
+- Testes cobrindo auth/rbac/core
 
-**Objetivo:** eControle ser “portal principal” sem depender do CertHub estar online.
+## S6 - Frontend reaproveitado
 
-**Modelo**
+Status: concluido (2026-02-23)
 
-* **Mesma lógica do CertHub** (endpoints + RBAC DEV/ADMIN/VIEW).
-* Fonte de verdade: **tabelas de auth** compartilhadas (ou schema auth comum).
-* eControle valida login/refresh localmente (no próprio backend).
+Entregues:
+- Frontend em React/Vite operacional
+- Login real integrado ao backend
+- Navegacao por abas do dominio core
 
-**Entregas**
+## S6.1 - Admin users API
 
-* Endpoints:
+Status: concluido (2026-02-23)
 
-  * `POST /api/v1/auth/login`
-  * `POST /api/v1/auth/refresh`
-  * `POST /api/v1/auth/logout`
-  * `GET /api/v1/auth/me`
-* Guards/Deps RBAC no padrão CertHub
-* Seed de `ORG` + `MASTER_USER` por env (dev)
+Entregues:
+- `POST /api/v1/admin/users`
+- `GET /api/v1/admin/users`
+- `PATCH /api/v1/admin/users/{user_id}`
+- Regras de seguranca (ex.: nao desativar o proprio usuario)
 
-**Aceite**
+## S6.2 - Operacao completa no portal
 
-* Login real funcionando no eControle (sem token mint manual)
-* Rotas protegidas e RBAC aplicado
+Status: concluido incrementalmente (2026-02-27)
 
-**Validação (local)**
+Entregues:
+- Fluxos de criar/editar empresas e processos no frontend
+- Drawer lateral padronizado para formularios
+- Normalizacao canonica de status e municipios
+- Endpoints adicionais:
+  - `/api/v1/lookups/receitaws/{cnpj}`
+  - `/api/v1/meta/enums`
+  - `/api/v1/companies/municipios`
+- Migracoes de normalizacao e ajuste de schema ate `20260227_0013`
 
-```bash
-docker compose -f infra/docker-compose.yml up -d
-cd backend
-alembic upgrade head
-pytest -q
-```
+## S7 - Ingest JSON (substitui planilha)
 
-```bash
-curl -X POST http://localhost:8020/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"admin123"}'
+Status: concluido (base em 2026-02-24, evolucao 2026-02-25)
 
-# Copie o access_token para testar /me
-curl http://localhost:8020/api/v1/auth/me \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-```
-
----
-
-## S4 — Multi-tenant e “org context” (compatível com v1)
-
-**Status:** ✅ Concluído em 2026-02-19
-
-**Objetivo:** manter o que já era bom no eControle (org_id, uniques, filtros).
-
-**Entregas**
-
-* Org context obrigatório para operações de negócio
-* Header opcional `X-Org-Id`/`X-Org-Slug` validado contra `user.org_id`
-* `GET /api/v1/orgs/current` (auth)
-* `GET /api/v1/orgs/list` (ADMIN/DEV)
-* Migration incremental de org (slug unique + updated_at)
-
-**Aceite**
-
-* `/api/v1/orgs/current` retorna org do usuário autenticado
-* Header `X-Org-Id` divergente retorna **403**
-* RBAC continua funcionando
-* `alembic upgrade head` OK
-* `pytest -q` OK
-
-**Validação (local)**
-
-```bash
-cd backend
-alembic upgrade head
-pytest -q
-```
-
-```bash
-curl -X POST http://localhost:8020/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@example.com","password":"admin123"}'
-
-curl http://localhost:8020/api/v1/orgs/current \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-
-curl http://localhost:8020/api/v1/orgs/current \
-  -H "Authorization: Bearer <ACCESS_TOKEN>" \
-  -H "X-Org-Id: <ORG_ID_INVALIDO>"
-
-curl http://localhost:8020/api/v1/orgs/list \
-  -H "Authorization: Bearer <ACCESS_TOKEN>"
-```
-
----
-
-## S5 — Domínio Core (API) no mínimo para “voltar onde parou”
-
-**Status:** ✅ Concluído em 2026-02-19
-
-**Objetivo:** reimplantar o coração do eControle com estabilidade.
-
-**Entregas (mínimo)**
-
-* CRUD + filtros:
-
-  * Empresas
-  * Licenças/Certidões
-  * Taxas
-  * Processos
-* KPIs/alertas (mesmo que simples inicialmente)
-* Auditoria mínima em ações (create/update)
-
-**Aceite**
-
-* Front (mesmo antigo) consegue listar e operar o core sem gambiarra
-
-**Validação (local)**
-
-```bash
-docker compose -f infra/docker-compose.yml up -d
-cd backend
-alembic upgrade head
-alembic current
-alembic heads
-cd ..
-pytest -q
-```
-
-**Smoke (PowerShell)**
-
-```powershell
-$baseUrl = "http://localhost:8020"
-$token = (Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/auth/login" -Body (@{
-  email = "admin@example.com"
-  password = "admin123"
-} | ConvertTo-Json) -ContentType "application/json").access_token
-
-# Create
-$company = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/companies" -Headers @{
-  Authorization = "Bearer $token"
-} -Body (@{
-  cnpj = "12.345.678/0001-90"
-  razao_social = "Empresa Alpha"
-  nome_fantasia = "Alpha"
-  municipio = "Sao Paulo"
-  uf = "SP"
-} | ConvertTo-Json) -ContentType "application/json"
-
-# List (filtro por razao_social)
-Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/companies?razao_social=Alpha" -Headers @{
-  Authorization = "Bearer $token"
-}
-
-# Get by id
-Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/companies/$($company.id)" -Headers @{
-  Authorization = "Bearer $token"
-}
-
-# Patch (delete lógico)
-Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/companies/$($company.id)" -Headers @{
-  Authorization = "Bearer $token"
-} -Body (@{
-  is_active = $false
-} | ConvertTo-Json) -ContentType "application/json"
-```
-
----
-
-## S6 — Frontend reaproveitado (migração mínima)
-
-**Status:** ✅ Concluído em 2026-02-23
-
-**Objetivo:** reaproveitar "principalmente frontend", ajustando só base URL, auth e abas integradas.
-
-**Entregas**
-
-✅ Front v1 reaproveitado (features/telas)
-✅ Login endpoint real funcionando (/api/v1/auth/login)
-✅ Ajuste de:
-
-  * porta 5174
-  * API base para 8020 (ou proxy)
-  * fluxo de login (agora real)
-✅ AppShell coerente (padrão CertHub se quiser, mas sem refazer UI inteira)
-
-**Aceite**
-
-✅ Tela inicial e navegação funcionando
-✅ Login e sessão funcionando
-✅ Frontend consegue fazer login e abrir painel (/painel)
-✅ AppShell ativo com abas Painel/Empresas/Licenças/Taxas/Processos
-
----
-
-## S6.1 — Admin Users API (create/list/update com RBAC)
-
-**Status:** ✅ Entregue em 2026-02-23
-
-**Objetivo:** gerenciar usuários da org via API com segurança e auditoria.
-
-**Entregas**
-
-✅ `POST /api/v1/admin/users` (criar usuário)
-✅ `GET /api/v1/admin/users` (listar usuários da org com filtros)
-✅ `PATCH /api/v1/admin/users/{user_id}` (atualizar roles e status)
-✅ Guard: impede que admin desative a si mesmo
-✅ RBAC: apenas ADMIN/DEV podem gerenciar usuários
-✅ Isolamento: listabilidade e update apenas de usuários da mesma org
-
-**Endpoints**
-
-```powershell
-$baseUrl = "http://localhost:8020"
-$token = (Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/auth/login" -Body (@{
-  email = "cadastro@netocontabilidade.com.br"
-  password = "Dev@12345"
-} | ConvertTo-Json) -ContentType "application/json").access_token
-
-# Listar usuários da org
-Invoke-RestMethod -Method Get -Uri "$baseUrl/api/v1/admin/users?limit=50" `
-  -Headers @{ Authorization = "Bearer $token" }
-
-# Criar novo usuário
-$newUser = Invoke-RestMethod -Method Post -Uri "$baseUrl/api/v1/admin/users" `
-  -Headers @{ Authorization = "Bearer $token" } `
-  -ContentType "application/json" `
-  -Body (@{
-    email = "user@netocontabilidade.com.br"
-    password = "Temp@54321"
-    roles = @("VIEW")
-  } | ConvertTo-Json -Compress)
-
-# Atualizar roles
-Invoke-RestMethod -Method Patch -Uri "$baseUrl/api/v1/admin/users/$($newUser.id)" `
-  -Headers @{ Authorization = "Bearer $token" } `
-  -ContentType "application/json" `
-  -Body (@{
-    roles = @("DEV", "ADMIN")
-    is_active = $true
-  } | ConvertTo-Json -Compress)
-```
-
-**Aceite**
-
-✅ Admin endpoints aparecem no Swagger/OpenAPI
-✅ Create/List/Patch usuários funciona com token DEV/ADMIN
-✅ Usuários ficam vinculados à mesma org_id do caller
-✅ Admin não consegue desativar a si mesmo (retorna 400)
-
-## S6.2 — Operação no Portal (CRUD UI: Empresas/Processos/Licenças/Taxas) 
-**Status:** ✅ Entregue incrementalmente em 2026-02-27
-
-**Objetivo:** tornar o eControle operacional no dia a dia, permitindo criação e edição via interface (com validação, UX padrão CertHub e permissões).
-
-### Entregas
-1) **Header “Novo +”**
-   - Ações: **Nova Empresa**, **Novo Processo**.
-
-2) **Empresas — Create/Edit**
-   - Form com máscaras: CNPJ, CPF, telefone.
-   - Botões “Não possui” para IM/IE (preenche `-`).
-   - Flags:
-     - **MEI** → quando Sim, preencher taxas como **Isento**.
-     - **Endereço Fiscal/Holding** → prefixar `Fiscal -` em Categoria.
-   - Botão **Importar** (ReceitaWS) ao completar CNPJ:
-     - preenche razão social (normalizada), porte e município.
-   - Persistir em `companies` + `company_profiles`.
-   - Opções adicionais na criação:
-     - **Adicionar Licenças** (`company_licences`) com defaults:
-       - assinalado → `Sujeito`
-       - não assinalado → `Isento`
-       - “Não necessita” → todas `Não`
-     - **Adicionar Taxas** (`company_taxes`) com defaults:
-       - assinalado → `em_aberto`
-       - não assinalado → `Isento`
-       - **TPI** exige vencimento `dd/mm`.
-
-3) **Processos — Create/Edit**
-   - Seleção de empresa (search/select) que preenche automaticamente CNPJ, ID e Município.
-   - Campos padrão: Protocolo, Data Solicitação, Situação, Observação.
-   - Campos condicionais por tipo:
-     - Diversos: Operação, Órgão
-     - Funcionamento: Alvará
-     - Bombeiro/CERCON: Área (m²), Projeto Aprovado (com “Não possui” e “Não precisa”)
-     - Uso do Solo: Inscrição Imobiliária
-     - Sanitário: Serviço, Notificação
-
-4) **Edição em cards**
-   - Botão **Editar** nos cards de Empresas e Processos.
-   - Taxas: tornar funcional o “Editar envio”.
-   - Processos: tornar funcional “Editar OBS” + histórico de alterações.
-
-5) **UX e Regras**
-   - Toasts de sucesso/erro
-   - Loading states
-   - Validações mínimas (campos obrigatórios, datas, enums)
-   - RBAC no front (VIEW: read-only; ADMIN/DEV: CRUD)
-   - Form de Empresa migrado para **drawer lateral** (portal, header sticky, ações no topo, fechamento por ESC/overlay com confirmação de dirty)
-   - Sem `window.location.reload()`; atualização via refetch/evento local
-
-### Critérios de aceite
-- ✅ Usuário ADMIN/DEV cria/edita Empresa e Processo no DB pelo front sem `window.location.reload()`.
-- ✅ VIEW continua sem botões de criação/edição no frontend e sem permissão de escrita no backend.
-- ✅ “Importar ReceitaWS” preenche razão social, fantasia, porte, município padronizado, UF, e-mail, telefone, MEI e CNAEs.
-- ✅ Empresa persiste `company + profile` (incluindo CNAEs estruturados no profile).
-- ✅ Situação de débito passou a ser computada por `company_taxes` (`situacao_debito`) e não mais por `debito_prefeitura`.
-- ✅ Processos: botão Editar no card (rodapé, estilo padrão navy) e campo Situação via dropdown de enum backend.
-- ✅ Municípios normalizados no pipeline (lookup/create/edit/ingest) e endpoint distinto (`GET /api/v1/companies/municipios`) sem duplicatas.
-- ✅ `GET /api/v1/companies` passou a ocultar inativas por padrão; ADMIN/DEV podem incluir via `?include_inactive=true`.
-- ✅ Modal de editar empresa permite marcar `Ativa/Inativa` (`is_active`) e refetch remove inativas da lista padrão sem reload.
-- ✅ Modal de processo com campos condicionais por tipo persistidos em `extra` (JSON).
-- ✅ Modal de nova empresa com criação composta opcional de licenças/taxas via endpoint transacional `/api/v1/companies/composite`.
-- ✅ `processos.situacao` persistida em formato canônico snake_case (ex.: `em_analise`) com normalização backend robusta para legados (`EM ANÁLISE`, `Concluído`, etc).
-- ✅ Endpoint de metadados `GET /api/v1/meta/enums` entrega valores canônicos + labels humanizadas para evitar divergência frontend/backend.
-- ✅ Decisão única de status aplicada: **DB/API canonical snake_case** e **UI label humanizada** (Title Case com acento).
-- ✅ Decisão de datas refinada:
-  - `processos.data_solicitacao`: **UI `dd/mm/aaaa`** e **persistência/API `YYYY-MM-DD`**.
-  - `taxas.data_envio`: **string compatível com legado** no formato `dd/mm/aaaa` ou `dd/mm/aaaa - Método; Método`.
-- ✅ Drawer de Processo migrado para o mesmo componente base do drawer de Empresa (`SideDrawerForm`), com seções padronizadas:
-  - `Dados do Processo`
-  - `Detalhes`
-  - `Observação`
-- ✅ Novas migrations S6.2: `20260227_0012_normalize_all_status_fields_canonical.py` e `20260227_0013_refine_municipios_preserve_accents.py`.
-
-### Validação (mínima)
-- E2E Playwright:
-  - Login
-  - Criar empresa
-  - Editar empresa
-  - Criar processo
-  - Editar OBS e verificar histórico
-  - Garantir que VIEW não tem acesso a botões/actions
-
----
-
-## S7 — Ingest inicial por JSON (substitui planilha/ETL antigo)
-
-**Status:** ✅ Concluído em 2026-02-24 (evoluído com endpoints separados por dataset em 2026-02-25)
-
-**Objetivo:** popular o sistema via JSON (sem Excel) com idempotência, tracking de execução e suporte a ingest incremental por dataset.
-
-### Estado atual (S7)
-- Ingest JSON DEV-only com rota agregada: `POST /api/v1/ingest/run`
-- Endpoints separados por dataset no mesmo `ingest.py`:
+Entregues:
+- Ingest agregado: `POST /api/v1/ingest/run`
+- Ingest por dataset:
   - `POST /api/v1/ingest/licences`
   - `POST /api/v1/ingest/taxes`
   - `POST /api/v1/ingest/processes`
-- Schemas de envelope por dataset em `backend/app/schemas/ingest/envelopes.py`
-- Tracking por execução em `ingest_runs` (dataset, source metadata, source_hash, stats, status)
-- UTF-8 hardening para Windows (scripts PowerShell + payload UTF-8)
+- Tracking em `ingest_runs` com hash/stats/status
+- Idempotencia validada em testes e script oficial
+- Hardening UTF-8 em fluxo Windows/PowerShell
 
-### Entregáveis (implementados)
-- Contratos `backend/app/schemas/ingest/*.py` (incluindo envelopes por dataset)
-- Serviços de ingest/upsert em `backend/app/services/ingest/`
-  - `companies.py`, `company_profiles.py`, `licences.py`, `taxes.py`, `processes.py`
-  - `run.py` (ingest agregado de companies + anexos)
-- Tabelas/migrations:
-  - `ingest_runs`
-  - `company_profiles`
-  - `company_licences`, `company_taxes`, `company_processes`
-- Scripts/testes de validação S7 (`scripts/s7_validate_ingest.ps1`, `backend/tests/test_ingest_s7*.py`)
+## S8 - Integracao CertHub (espelho de certificados)
 
-### Requisitos atendidos
-- Idempotência por org/dataset (upserts)
-- Tracking por execução em `ingest_runs` com `source_hash` e `stats`
-- Endpoint DEV-only protegido por RBAC (`DEV`)
-- Hardening UTF-8 (Windows):
-  - `chcp 65001` nos scripts
-  - leitura/envio JSON em UTF-8 no PowerShell
+Status: em andamento parcial (2026-03-03)
 
-### Validação (PowerShell - fluxo atual)
+Implementado hoje:
+- Endpoint base `GET /api/v1/certificados` com auth + org context
+
+Pendente para concluir S8:
+- Persistencia de mirror local de certificados
+- Endpoint de sync com CertHub
+- Indicadores no dashboard de vencidos/proximos
+- Deep link operacional de "Instalar" com dados reais do mirror
+
+## S9 - Integracao Scribere (exports read-only)
+
+Status: pendente
+
+Objetivo:
+- Expor exports governados no Scribere via API do eControle (somente leitura)
+
+## S10 - Workers/Jobs/Watchers
+
+Status: pendente
+
+Objetivo:
+- Jobs de sync/notificacao/automacoes com anti-duplicacao e observabilidade
+
+## S11 - Polimento de paridade v1
+
+Status: pendente
+
+Objetivo:
+- Filtros, paginacao, ordenacao, performance, refinamentos de UX
+
+## S12 - Hardening e go-live
+
+Status: pendente
+
+Objetivo:
+- Runbooks finais, testes de regressao ampliados e ajustes de seguranca/operacao
+
+## Validacao operacional atual (recomendada)
+
 ```powershell
 docker compose -f infra/docker-compose.yml up -d
+python -m pip install -r requirements.txt
+
 cd backend
 alembic upgrade head
 pytest -q
 cd ..
 
-# Ingest (script oficial atual valida a rota agregada /ingest/run)
-$env:ECONTROLE_EMAIL="cadastro@netocontabilidade.com.br"
-$env:ECONTROLE_PASSWORD="Dev@12345"
+$env:ECONTROLE_EMAIL="seu_email"
+$env:ECONTROLE_PASSWORD="sua_senha"
 .\scripts\s7_validate_ingest.ps1
-
-# Tracking (últimos runs)
-docker compose -f infra/docker-compose.yml exec -T postgres psql -U postgres -d econtrole -c @"
-select id, dataset, status, stats, source_hash, created_at
-from ingest_runs
-order by created_at desc
-limit 10;
-"@
+.\scripts\e2e_run_full.ps1
 ```
-
-### Aceite (estado atual)
-- ✅ Rodar ingest agregado duas vezes não duplica dados (idempotência confirmada)
-- ✅ Tracking de ingest (`ingest_runs`) persistido
-- ✅ Ingest por dataset disponível para `licences`, `taxes` e `processes`
-- ✅ UTF-8 end-to-end validado no fluxo PowerShell/Windows
-
----
-
-## S8 — Integração CertHub: espelho de Certificados (Cards) + “Instalar → abre CertHub”
-
-**Objetivo:** substituir a aba Certificados do eControle sem reimplementar o CertHub.
-
-**Modelo**
-
-* Read-model local (mirror) no eControle:
-
-  * `certhub_certificates_mirror` deve conter no mínimo:
-
-  * `org_id`
-  * `certhub_cert_id` (nullable) **e/ou** `sha1_fingerprint` (preferido)
-  * `subject`, `cnpj` (se existir no subject/metadata)
-  * `not_before`, `not_after`
-  * `status` (OK/VENCENDO/VENCIDO) *(opcional, pode calcular)*
-  * `last_seen_at` *(se disponível)*
-  * `devices_count` *(se disponível)*
-  * `synced_at`
-
-* **Controle de sincronização**
-
-* tabela `integrations_sync_state` (ou equivalente) contendo:
-
-  * `org_id`
-  * `integration = 'certhub'`
-  * `last_synced_at`
-  * `last_sync_status` (ok/stale/error)
-  * `last_sync_error` (nullable)
-
-* **Endpoints (painel + mirror)**
-
-* `POST /api/v1/integracoes/certhub/sync` (dispara sync e atualiza `sync_state`)
-* `GET /api/v1/certificados` (lista do espelho com filtros)
-* **NOVO: `GET /api/v1/dashboard/certificados-alertas?days=30&critical=7`**
-
-  * retorna:
-
-    * `expired[]` (days_to_expire < 0)
-    * `critical[]` (0..critical)
-    * `upcoming[]` (0..days)
-    * `last_synced_at`
-  * `certhub_devices_mirror` (opcional)
-  * `certhub_jobs_mirror` (opcional)
-* Sync:
-
-  * `POST /api/v1/integracoes/certhub/sync` (pull job)
-  * registra `last_synced_at`
-
-**Frontend**
-
-* Aba Certificados em **cards** (espelhado do CertHub)
-* Botão “Instalar” = **deep link para o CertHub** (`CERTHUB_BASE_URL + CERTHUB_CERTS_PATH?install=<fingerprint|id>`)
-* **Painel/Dashboard:** manter tabela “Vencidos / Próximos do vencimento” consumindo `GET /dashboard/certificados-alertas`
-
-### Critérios de aceite do S8
-
-* Painel exibe:
-
-  * vencidos
-  * vencendo em **≤7 dias**
-  * vencendo em **≤30 dias** (config)
-  * “Última sync”
-* Aba Certificados funciona **sem o CertHub online** (dados do espelho + timestamp)
-* Instalar sempre redireciona para o CertHub (sem operação local)
-
-**Aceite**
-
-* Aba Certificados funciona mesmo se CertHub cair (mostra último espelho + “última sync”)
-* Instalar sempre redireciona ao CertHub
-
----
-
-## S9 — Integração Scribere: “Exports” controlados no Scribere + visualização no eControle
-
-**Objetivo:** substituir “Úteis (Modelos/Contatos)” por conteúdo governado no Scribere.
-
-**Modelo**
-
-* No Scribere: marcações do que é exportável (flag/tabela `exports`)
-* No eControle: endpoint que lê “exports” e exibe (somente leitura)
-
-**Entregas**
-
-* eControle:
-
-  * `GET /api/v1/integracoes/scribere/exports`
-  * `GET /api/v1/integracoes/scribere/exports/:id`
-* Front:
-
-  * lista + filtros
-  * visualizador
-  * botão “Abrir Scribere” e “Configurar exports”
-
-**Aceite**
-
-* Só aparece no eControle o que foi marcado no Scribere
-* Sem edição pelo eControle (apenas consumo)
-
----
-
-## S10 — Workers/Jobs/Watchers (apenas do que ainda pertence ao eControle)
-
-**Objetivo:** recuperar automações úteis sem duplicar CertHub/Scribere.
-
-**Entregas**
-
-* RQ worker e filas do eControle
-* Jobs do eControle:
-
-  * ingest agendado (se quiser)
-  * sync CertHub/Scribere
-  * automações CND/CAE (se mantidas)
-* Observabilidade e logs
-* **Tabelas de regras e log (anti-spam)**
-
-* `certificate_notification_rules`
-
-  * `org_id`
-  * `enabled` (bool)
-  * `threshold_days` (int) — ex.: 30, 15, 7, 1, 0
-  * `channels` (json/array: `email`, `whatsapp`, `in_app`)
-  * `recipients` (json/array; emails/telefones)
-  * `created_at`, `updated_at`
-
-* `certificate_notification_log`
-
-  * `org_id`
-  * `certificate_ref` (fingerprint ou certhub_cert_id)
-  * `threshold_days`
-  * `channel`
-  * `sent_at`
-  * `payload_hash` (opcional)
-  * índice único recomendado:
-
-    * (`org_id`, `certificate_ref`, `threshold_days`, `channel`, `date(sent_at)`) *(para evitar repetir no mesmo dia)*
-
-* **Job de notificação**
-
-* Job: `certificates_renewal_notify`
-
-  * roda **diariamente** (ou 6/6h em dev)
-  * busca certificados no mirror
-  * calcula `days_to_expire`
-  * para cada regra ativa:
-
-    * seleciona os certificados que batem no threshold
-    * checa `notification_log` antes de enviar
-    * envia e registra
-
-* **Canais (mínimo no v1 do sistema)**
-
-* Implementar **e-mail primeiro**
-* WhatsApp e in-app ficam “pluggable” (stubs/pendentes)
-
-* **Config/Env**
-
-* `CERT_NOTIFY_DEFAULT_THRESHOLDS=30,7,0` (opcional)
-* `CERT_NOTIFY_EMAIL_FROM=...`
-* `CERT_NOTIFY_EMAIL_PROVIDER=...` (smtp/sendgrid)
-* `CERTHUB_BASE_URL` para link no corpo do e-mail
-
-* **Observabilidade**
-
-* logs por execução:
-
-  * quantos certificados avaliados
-  * quantos enviados
-  * por threshold/canal
-
-### Critérios de aceite do S10
-
-* Job roda no Docker (worker) e registra execução
-* Não envia duplicado (log impede)
-* Template do e-mail inclui:
-
-  * Empresa
-  * Data de vencimento
-  * Dias restantes
-  * Botão/link “Abrir no CertHub” (deep link)
-* Regras por org funcionando (pelo menos seed default)
-
----
-
-## S11 — Polimento para “paridade v1” (UX, filtros, performance, índices)
-
-**Objetivo:** voltar ao nível de usabilidade do v1, agora com base limpa.
-
-**Entregas**
-
-* Filtros iguais aos do v1
-* Paginação, busca, ordenação
-* Índices e extensões necessárias (ex.: unaccent) se fizer sentido
-* Ajuste de CORS/cookies/dev
-
-### Melhorias de UX do Painel de Certificados
-
-* filtros rápidos no painel:
-
-  * “Somente críticos (≤7)”
-  * “Somente vencidos”
-* configuração por org (UI simples):
-
-  * editar thresholds (30/15/7/1/0)
-  * editar destinatários
-* “silenciar por X dias” (opcional)
-
-### Critérios de aceite do S11
-
-* Check de paridade: lista de telas/fluxos do baseline OK
-* Usuário admin consegue ajustar thresholds/recipients (ou via seed/env no mínimo)
-* Painel com filtros rápidos e paginação se necessário
-
----
-
-## S12 — Hardening e Go-live (segurança, testes, runbooks)
-
-**Objetivo:** deixar “operável” como o CertHub.
-
-**Entregas**
-
-* Testes:
-
-  * auth/rbac
-  * multi-tenant
-  * ingest idempotente
-  * integração sync
-* Runbooks:
-
-  * subir stack
-  * reset/seed
-  * troubleshooting
-* Auditoria final e rate limit (se necessário)
-
-**Aceite**
-
-* Smoke tests passam
-* Documentação mínima para manutenção
-
----
-
-## Validação E2E (S7)
-
-Objetivo: consolidar uma validação E2E sustentável para a stage S7 (ingest + portal), rodando junto com os testes existentes.
-
-### Escopo mínimo da validação
-
-* Infra via Docker Compose (`postgres` + `redis`)
-* API FastAPI com `uvicorn` real e HTTP real (`/healthz`, login e ingest)
-* Portal React/Vite com navegador real (Playwright)
-
-### Cenários E2E S7
-
-* API (`pytest -m e2e`)
-  * login (`/api/v1/auth/login` + `/api/v1/auth/me`)
-  * ingest principal (`POST /api/v1/ingest/run`) com idempotência (2 execuções)
-  * ingest separado (`/ingest/licences`, `/ingest/taxes`, `/ingest/processes`)
-* Portal (Playwright)
-  * login no `/login`
-  * navegação para aba `Empresas`
-  * validação de carregamento da listagem (smoke)
-
-### Runner único (Windows PowerShell)
-
-* Script oficial: `scripts\e2e_run_full.ps1`
-* Uso de env vars:
-  * `ECONTROLE_EMAIL`, `ECONTROLE_PASSWORD`
-  * `ECONTROLE_E2E_API_BASE_URL`, `ECONTROLE_E2E_PORTAL_BASE_URL`
-
-### Evolução por stages (próximos passos)
-
-* S8+: aumentar cobertura Playwright (Licenças, Taxas, Processos)
-* S8+: cenários negativos/permissão (RBAC DEV/ADMIN/VIEW)
-* S9+: fixtures/versionamento de datasets E2E por stage

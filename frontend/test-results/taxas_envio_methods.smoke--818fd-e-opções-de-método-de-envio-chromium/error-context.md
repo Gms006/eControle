@@ -1,0 +1,451 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - generic [ref=e4]:
+    - complementary [ref=e5]:
+      - generic [ref=e6]:
+        - generic [ref=e7]:
+          - img [ref=e9]
+          - generic [ref=e11]:
+            - paragraph [ref=e12]: eControle
+            - paragraph [ref=e13]: Theme CertHub
+        - paragraph [ref=e14]: Navegação principal do portal operacional com filtros globais no topo.
+      - navigation [ref=e15]:
+        - button "Painel Visão geral e alertas" [ref=e16] [cursor=pointer]:
+          - img [ref=e18]
+          - generic [ref=e23]:
+            - generic [ref=e24]: Painel
+            - generic [ref=e25]: Visão geral e alertas
+        - button "Empresas Cadastros e atalhos" [ref=e26] [cursor=pointer]:
+          - img [ref=e28]
+          - generic [ref=e32]:
+            - generic [ref=e33]: Empresas
+            - generic [ref=e34]: Cadastros e atalhos
+        - button "Certificados A1/A3 e vencimentos" [ref=e35] [cursor=pointer]:
+          - img [ref=e37]
+          - generic [ref=e40]:
+            - generic [ref=e41]: Certificados
+            - generic [ref=e42]: A1/A3 e vencimentos
+        - button "Licenças Situação por empresa/tipo" [ref=e43] [cursor=pointer]:
+          - img [ref=e45]
+          - generic [ref=e48]:
+            - generic [ref=e49]: Licenças
+            - generic [ref=e50]: Situação por empresa/tipo
+        - button "Taxas Pendências e envios" [ref=e51] [cursor=pointer]:
+          - img [ref=e53]
+          - generic [ref=e56]:
+            - generic [ref=e57]: Taxas
+            - generic [ref=e58]: Pendências e envios
+        - button "Processos Fluxo e observações" [ref=e59] [cursor=pointer]:
+          - img [ref=e61]
+          - generic [ref=e64]:
+            - generic [ref=e65]: Processos
+            - generic [ref=e66]: Fluxo e observações
+      - generic [ref=e67]:
+        - paragraph [ref=e68]: Atalhos
+        - paragraph [ref=e69]: "`Alt+1..6` navega entre telas"
+        - paragraph [ref=e70]: "`Ctrl/Cmd+K` foca a busca global"
+        - button "Sair" [ref=e71] [cursor=pointer]:
+          - img [ref=e72]
+          - text: Sair
+    - generic [ref=e75]:
+      - banner [ref=e76]:
+        - generic [ref=e78]:
+          - generic [ref=e79]:
+            - generic [ref=e80]:
+              - img
+              - textbox "Busca global" [ref=e81]:
+                - /placeholder: "Busca global: empresa, CNPJ, protocolo ou comando"
+            - button "Filtros avançados" [ref=e82] [cursor=pointer]:
+              - img [ref=e83]
+              - text: Filtros avançados
+            - generic [ref=e84]:
+              - button "+ Novo" [ref=e86] [cursor=pointer]
+              - button "Alertas" [ref=e87] [cursor=pointer]:
+                - img [ref=e88]
+              - button "Favoritos" [ref=e91] [cursor=pointer]:
+                - img [ref=e92]
+              - button "Perfil e sessão" [ref=e94] [cursor=pointer]:
+                - img [ref=e95]
+          - generic [ref=e98]:
+            - button "OFF Somente alertas" [ref=e99] [cursor=pointer]:
+              - generic [ref=e100]: "OFF"
+              - text: Somente alertas
+            - button "OFF Modo foco" [ref=e101] [cursor=pointer]:
+              - generic [ref=e102]: "OFF"
+              - text: Modo foco
+      - main [ref=e104]:
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e108]: Painel
+            - heading "Dashboard Operacional" [level=1] [ref=e109]
+            - paragraph [ref=e110]: Indicadores de monitoramento e alertas do escritório.
+          - generic [ref=e112]:
+            - generic [ref=e113]:
+              - generic [ref=e114]:
+                - img [ref=e115]
+                - text: Dados
+              - generic [ref=e119]: 237/1205/236
+            - generic [ref=e120]:
+              - generic [ref=e121]:
+                - img [ref=e122]
+                - text: Filtros
+              - generic [ref=e124]: Todos
+            - generic [ref=e125]:
+              - generic [ref=e126]:
+                - img [ref=e127]
+                - text: Alertas
+              - generic [ref=e132]: Todos
+        - generic [ref=e134]:
+          - generic [ref=e135]:
+            - generic [ref=e139]:
+              - generic [ref=e140]:
+                - paragraph [ref=e141]: Empresas monitoradas
+                - paragraph [ref=e142]: "237"
+              - img [ref=e144]
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - paragraph [ref=e153]: Sem certificado digital
+                - paragraph [ref=e154]: "0"
+              - img [ref=e156]
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - paragraph [ref=e163]: Licenças vencidas
+                - paragraph [ref=e164]: "175"
+              - img [ref=e166]
+            - generic [ref=e171]:
+              - generic [ref=e172]:
+                - paragraph [ref=e173]: TPI pendentes
+                - paragraph [ref=e174]: "0"
+              - img [ref=e176]
+          - generic [ref=e179]:
+            - generic [ref=e180]:
+              - heading "Tendência de alertas" [level=3] [ref=e182]:
+                - img [ref=e183]
+                - text: Tendência de alertas
+              - application [ref=e190]:
+                - generic [ref=e207]:
+                  - generic [ref=e208]:
+                    - generic [ref=e210]: out/25
+                    - generic [ref=e212]: nov/25
+                    - generic [ref=e214]: dez/25
+                    - generic [ref=e216]: jan/26
+                    - generic [ref=e218]: fev/26
+                    - generic [ref=e220]: mar/26
+                    - generic [ref=e222]: abr/26
+                    - generic [ref=e224]: mai/26
+                    - generic [ref=e226]: jun/26
+                    - generic [ref=e228]: jul/26
+                    - generic [ref=e230]: set/26
+                  - generic [ref=e231]:
+                    - generic [ref=e233]: "0"
+                    - generic [ref=e235]: "45"
+                    - generic [ref=e237]: "90"
+                    - generic [ref=e239]: "135"
+                    - generic [ref=e241]: "180"
+            - generic [ref=e242]:
+              - heading "Auto-teste do painel" [level=3] [ref=e244]:
+                - img [ref=e245]
+                - text: Auto-teste do painel
+              - generic [ref=e247]:
+                - generic [ref=e248]:
+                  - generic [ref=e249]: Empresas
+                  - generic [ref=e250]:
+                    - img [ref=e251]
+                    - text: OK
+                - generic [ref=e254]:
+                  - generic [ref=e255]: Licenças
+                  - generic [ref=e256]:
+                    - img [ref=e257]
+                    - text: OK
+                - generic [ref=e260]:
+                  - generic [ref=e261]: Taxas
+                  - generic [ref=e262]:
+                    - img [ref=e263]
+                    - text: OK
+                - generic [ref=e266]:
+                  - generic [ref=e267]: Processos
+                  - generic [ref=e268]:
+                    - img [ref=e269]
+                    - text: OK
+          - generic [ref=e272]:
+            - heading "Minhas prioridades hoje" [level=3] [ref=e274]:
+              - img [ref=e275]
+              - text: Minhas prioridades hoje
+            - generic [ref=e279]:
+              - tablist [ref=e280]:
+                - tab "Certificados (0)" [selected] [ref=e281] [cursor=pointer]
+                - tab "Licenças (40)" [ref=e282] [cursor=pointer]
+                - tab "Processos (30)" [ref=e283] [cursor=pointer]
+              - tabpanel "Certificados (0)" [ref=e284]:
+                - generic [ref=e286]: Sem certificados vencidos ou vencendo para priorizar hoje.
+          - generic [ref=e287]:
+            - generic [ref=e288]:
+              - generic [ref=e289]:
+                - heading "Certificados vencendo/vencidos" [level=3] [ref=e290]
+                - generic [ref=e291]:
+                  - button "Vencidos (0)" [ref=e292] [cursor=pointer]
+                  - button "Vencendo <=7 (0)" [ref=e293] [cursor=pointer]
+                  - button "Vencendo <=30 (0)" [ref=e294] [cursor=pointer]
+              - generic [ref=e298]:
+                - table [ref=e299]:
+                  - rowgroup [ref=e300]:
+                    - row "Empresa Tipo Validade Situação Dias" [ref=e301]:
+                      - columnheader "Empresa" [ref=e302]
+                      - columnheader "Tipo" [ref=e303]
+                      - columnheader "Validade" [ref=e304]
+                      - columnheader "Situação" [ref=e305]
+                      - columnheader "Dias" [ref=e306]
+                  - rowgroup
+                - generic [ref=e307]: Nenhum certificado neste recorte. Se existir pendência sem data de validade, revisar cadastro do certificado.
+            - generic [ref=e308]:
+              - heading "Licenças críticas" [level=3] [ref=e310]
+              - generic [ref=e311]:
+                - generic [ref=e312]:
+                  - generic [ref=e313]:
+                    - paragraph [ref=e314]: Vencidas
+                    - generic [ref=e315]: "175"
+                  - generic [ref=e316]:
+                    - generic [ref=e317]:
+                      - generic [ref=e318]:
+                        - paragraph [ref=e319]: Comercial Moreira Flex LTDA
+                        - paragraph [ref=e320]: Uso do Solo • —
+                      - generic [ref=e321]:
+                        - generic [ref=e322]: Vencido val 09 10 2019
+                        - button "Abrir" [ref=e323] [cursor=pointer]
+                    - generic [ref=e324]:
+                      - generic [ref=e325]:
+                        - paragraph [ref=e326]: Drogarias Nacional LTDA
+                        - paragraph [ref=e327]: Sanitária • —
+                      - generic [ref=e328]:
+                        - generic [ref=e329]: Vencido val 18 12 2025
+                        - button "Abrir" [ref=e330] [cursor=pointer]
+                    - generic [ref=e331]:
+                      - generic [ref=e332]:
+                        - paragraph [ref=e333]: Drogarias Nacional Pedro Ludovico LTDA
+                        - paragraph [ref=e334]: Sanitária • —
+                      - generic [ref=e335]:
+                        - generic [ref=e336]: Vencido val 18 12 2025
+                        - button "Abrir" [ref=e337] [cursor=pointer]
+                    - generic [ref=e338]:
+                      - generic [ref=e339]:
+                        - paragraph [ref=e340]: Drogarias Ultrapopular Jaiara LTDA
+                        - paragraph [ref=e341]: Funcionamento • —
+                      - generic [ref=e342]:
+                        - generic [ref=e343]: Vencido val 19 06 2025
+                        - button "Abrir" [ref=e344] [cursor=pointer]
+                - generic [ref=e345]:
+                  - generic [ref=e346]:
+                    - paragraph [ref=e347]: Vencendo <=7 dias
+                    - generic [ref=e348]: "0"
+                  - paragraph [ref=e349]: Sem itens neste grupo.
+                - generic [ref=e350]:
+                  - generic [ref=e351]:
+                    - paragraph [ref=e352]: Não possui (obrigatório)
+                    - generic [ref=e353]: "528"
+                  - generic [ref=e354]:
+                    - generic [ref=e355]:
+                      - generic [ref=e356]:
+                        - paragraph [ref=e357]: Empresa E2e Runner LTDA
+                        - paragraph [ref=e358]: CERCON • —
+                      - generic [ref=e359]:
+                        - generic [ref=e360]: Não possui
+                        - button "Abrir" [ref=e361] [cursor=pointer]
+                    - generic [ref=e362]:
+                      - generic [ref=e363]:
+                        - paragraph [ref=e364]: Empresa E2e Runner LTDA
+                        - paragraph [ref=e365]: Uso do Solo • —
+                      - generic [ref=e366]:
+                        - generic [ref=e367]: Não possui
+                        - button "Abrir" [ref=e368] [cursor=pointer]
+                    - generic [ref=e369]:
+                      - generic [ref=e370]:
+                        - paragraph [ref=e371]: Empresa E2e Runner LTDA
+                        - paragraph [ref=e372]: Ambiental • —
+                      - generic [ref=e373]:
+                        - generic [ref=e374]: Não possui
+                        - button "Abrir" [ref=e375] [cursor=pointer]
+                    - generic [ref=e376]:
+                      - generic [ref=e377]:
+                        - paragraph [ref=e378]: 33.000.604 Jose Aparecido Vaz
+                        - paragraph [ref=e379]: Sanitária • —
+                      - generic [ref=e380]:
+                        - generic [ref=e381]: Não possui
+                        - button "Abrir" [ref=e382] [cursor=pointer]
+                - generic [ref=e383]:
+                  - generic [ref=e384]:
+                    - paragraph [ref=e385]: Sem status (backlog)
+                    - generic [ref=e386]: "0"
+                  - paragraph [ref=e387]: Sem itens neste grupo.
+            - generic [ref=e388]:
+              - heading "Processos urgentes" [level=3] [ref=e390]
+              - generic [ref=e391]:
+                - generic [ref=e392]:
+                  - generic [ref=e393]:
+                    - paragraph [ref=e394]: Aguardando pagamento
+                    - generic [ref=e395]: "3"
+                  - generic [ref=e396]:
+                    - generic [ref=e397]:
+                      - generic [ref=e398]:
+                        - paragraph [ref=e399]: Green Ambiental LTDA - Filial
+                        - paragraph [ref=e400]: CERCON • solicitação 18/07/2025
+                      - generic [ref=e401]:
+                        - generic [ref=e402]: Aguardando pagamento
+                        - button "Abrir" [ref=e403] [cursor=pointer]
+                    - generic [ref=e404]:
+                      - generic [ref=e405]:
+                        - paragraph [ref=e406]: JS Medicamentos LTDA
+                        - paragraph [ref=e407]: CERCON • solicitação 02/03/2026
+                      - generic [ref=e408]:
+                        - generic [ref=e409]: Aguardando pagamento
+                        - button "Abrir" [ref=e410] [cursor=pointer]
+                    - generic [ref=e411]:
+                      - generic [ref=e412]:
+                        - paragraph [ref=e413]: Ana Pedras LTDA
+                        - paragraph [ref=e414]: USO_SOLO • solicitação 27/02/2026
+                      - generic [ref=e415]:
+                        - generic [ref=e416]: Aguardando pagamento
+                        - button "Abrir" [ref=e417] [cursor=pointer]
+                - generic [ref=e418]:
+                  - generic [ref=e419]:
+                    - paragraph [ref=e420]: Em análise
+                    - generic [ref=e421]: "11"
+                  - generic [ref=e422]:
+                    - generic [ref=e423]:
+                      - generic [ref=e424]:
+                        - paragraph [ref=e425]: Comercial Morais LTDA
+                        - paragraph [ref=e426]: USO_DO_SOLO • solicitação 20/02/2026
+                      - generic [ref=e427]:
+                        - generic [ref=e428]: Em análise
+                        - button "Abrir" [ref=e429] [cursor=pointer]
+                    - generic [ref=e430]:
+                      - generic [ref=e431]:
+                        - paragraph [ref=e432]: JS Medicamentos LTDA
+                        - paragraph [ref=e433]: USO_DO_SOLO • solicitação 27/02/2026
+                      - generic [ref=e434]:
+                        - generic [ref=e435]: Em análise
+                        - button "Abrir" [ref=e436] [cursor=pointer]
+                    - generic [ref=e437]:
+                      - generic [ref=e438]:
+                        - paragraph [ref=e439]: Empresa E2e Runner LTDA
+                        - paragraph [ref=e440]: ALVARA • solicitação —
+                      - generic [ref=e441]:
+                        - generic [ref=e442]: Em análise
+                        - button "Abrir" [ref=e443] [cursor=pointer]
+                    - generic [ref=e444]:
+                      - generic [ref=e445]:
+                        - paragraph [ref=e446]: Empresa E2e Runner LTDA
+                        - paragraph [ref=e447]: ALVARA • solicitação —
+                      - generic [ref=e448]:
+                        - generic [ref=e449]: Em análise
+                        - button "Abrir" [ref=e450] [cursor=pointer]
+                - generic [ref=e451]:
+                  - generic [ref=e452]:
+                    - paragraph [ref=e453]: Sem protocolo / dados incompletos
+                    - generic [ref=e454]: "15"
+                  - generic [ref=e455]:
+                    - generic [ref=e456]:
+                      - generic [ref=e457]:
+                        - paragraph [ref=e458]: Green Ambiental LTDA - Filial
+                        - paragraph [ref=e459]: ALVARA_SANITARIO • solicitação 28/07/2025
+                      - generic [ref=e460]:
+                        - generic [ref=e461]: Aguardando vistoria
+                        - button "Abrir" [ref=e462] [cursor=pointer]
+                    - generic [ref=e463]:
+                      - generic [ref=e464]:
+                        - paragraph [ref=e465]: WVM Energia E Eventos LTDA
+                        - paragraph [ref=e466]: ALVARA_SANITARIO • solicitação 05/06/2025
+                      - generic [ref=e467]:
+                        - generic [ref=e468]: Aguardando vistoria
+                        - button "Abrir" [ref=e469] [cursor=pointer]
+                    - generic [ref=e470]:
+                      - generic [ref=e471]:
+                        - paragraph [ref=e472]: Instituto Gean LTDA
+                        - paragraph [ref=e473]: ALVARA_SANITARIO • solicitação 29/08/2025
+                      - generic [ref=e474]:
+                        - generic [ref=e475]: Aguardando vistoria
+                        - button "Abrir" [ref=e476] [cursor=pointer]
+                    - generic [ref=e477]:
+                      - generic [ref=e478]:
+                        - paragraph [ref=e479]: Comercial Morais LTDA
+                        - paragraph [ref=e480]: USO_DO_SOLO • solicitação 20/02/2026
+                      - generic [ref=e481]:
+                        - generic [ref=e482]: Em análise
+                        - button "Abrir" [ref=e483] [cursor=pointer]
+                - generic [ref=e484]:
+                  - generic [ref=e485]:
+                    - paragraph [ref=e486]: Próximos do prazo
+                    - generic [ref=e487]: "1"
+                  - generic [ref=e489]:
+                    - generic [ref=e490]:
+                      - paragraph [ref=e491]: Industria e Comercio de Carnes Otto LTDA
+                      - paragraph [ref=e492]: ALVARA_SANITARIO • solicitação 08/11/2024
+                    - generic [ref=e493]:
+                      - generic [ref=e494]: Licenciado
+                      - button "Abrir" [ref=e495] [cursor=pointer]
+          - generic [ref=e496]:
+            - heading "Empresas com pendências" [level=3] [ref=e498]
+            - list [ref=e503]:
+              - listitem [ref=e504]:
+                - generic [ref=e506]:
+                  - paragraph [ref=e507]: Pirenopolis Cartorio Segundo Of Notas e Reg Tit e Docum
+                  - paragraph [ref=e508]:
+                    - img [ref=e509]
+                    - text: Pirenópolis
+              - listitem [ref=e512]:
+                - generic [ref=e514]:
+                  - paragraph [ref=e515]: Empresa E2e Runner LTDA
+                  - paragraph [ref=e516]:
+                    - img [ref=e517]
+                    - text: Anápolis
+              - listitem [ref=e520]:
+                - generic [ref=e521]:
+                  - generic [ref=e522]:
+                    - paragraph [ref=e523]: Radial Veiculos LTDA
+                    - paragraph [ref=e524]:
+                      - img [ref=e525]
+                      - text: Anápolis
+                  - generic [ref=e529]: Vencido val 05 08 2022
+              - listitem [ref=e530]:
+                - generic [ref=e532]:
+                  - paragraph [ref=e533]: Mercadi.in Mercados Autonomos LTDA
+                  - paragraph [ref=e534]:
+                    - img [ref=e535]
+                    - text: Anápolis
+              - listitem [ref=e538]:
+                - generic [ref=e539]:
+                  - generic [ref=e540]:
+                    - paragraph [ref=e541]: Embalagens Moura LTDA
+                    - paragraph [ref=e542]:
+                      - img [ref=e543]
+                      - text: Anápolis
+                  - generic [ref=e546]:
+                    - generic [ref=e547]: Vencido val 07 11 2025
+                    - generic [ref=e548]: Vencido val 25 01 2023
+              - listitem [ref=e549]:
+                - generic [ref=e550]:
+                  - generic [ref=e551]:
+                    - paragraph [ref=e552]: Disk Cerveja Pinguim LTDA
+                    - paragraph [ref=e553]:
+                      - img [ref=e554]
+                      - text: Anápolis
+                  - generic [ref=e557]:
+                    - generic [ref=e558]: Vencido val 04 09 2025
+                    - generic [ref=e559]: Vencido val 23 08 2025
+              - listitem [ref=e560]:
+                - generic [ref=e561]:
+                  - generic [ref=e562]:
+                    - paragraph [ref=e563]: Eduardo Veiculos LTDA
+                    - paragraph [ref=e564]:
+                      - img [ref=e565]
+                      - text: Anápolis
+                  - generic [ref=e569]: Vencido val 09 08 2025
+              - listitem [ref=e570]:
+                - generic [ref=e572]:
+                  - paragraph [ref=e573]: Nelia Carvalho De Souza
+                  - paragraph [ref=e574]:
+                    - img [ref=e575]
+                    - text: Anápolis
+  - generic [ref=e578]: "0"
+```

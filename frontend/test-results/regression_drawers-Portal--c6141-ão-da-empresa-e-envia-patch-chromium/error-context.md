@@ -1,0 +1,148 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e4]:
+  - complementary [ref=e5]:
+    - generic [ref=e6]:
+      - generic [ref=e7]:
+        - img [ref=e9]
+        - generic [ref=e11]:
+          - paragraph [ref=e12]: eControle
+          - paragraph [ref=e13]: Theme CertHub
+      - paragraph [ref=e14]: Navegação principal do portal operacional com filtros globais no topo.
+    - navigation [ref=e15]:
+      - button "Painel Visão geral e alertas" [ref=e16] [cursor=pointer]:
+        - img [ref=e18]
+        - generic [ref=e23]:
+          - generic [ref=e24]: Painel
+          - generic [ref=e25]: Visão geral e alertas
+      - button "Empresas Cadastros e atalhos" [active] [ref=e26] [cursor=pointer]:
+        - img [ref=e28]
+        - generic [ref=e32]:
+          - generic [ref=e33]: Empresas
+          - generic [ref=e34]: Cadastros e atalhos
+      - button "Certificados A1/A3 e vencimentos" [ref=e35] [cursor=pointer]:
+        - img [ref=e37]
+        - generic [ref=e40]:
+          - generic [ref=e41]: Certificados
+          - generic [ref=e42]: A1/A3 e vencimentos
+      - button "Licenças Situação por empresa/tipo" [ref=e43] [cursor=pointer]:
+        - img [ref=e45]
+        - generic [ref=e48]:
+          - generic [ref=e49]: Licenças
+          - generic [ref=e50]: Situação por empresa/tipo
+      - button "Taxas Pendências e envios" [ref=e51] [cursor=pointer]:
+        - img [ref=e53]
+        - generic [ref=e56]:
+          - generic [ref=e57]: Taxas
+          - generic [ref=e58]: Pendências e envios
+      - button "Processos Fluxo e observações" [ref=e59] [cursor=pointer]:
+        - img [ref=e61]
+        - generic [ref=e64]:
+          - generic [ref=e65]: Processos
+          - generic [ref=e66]: Fluxo e observações
+    - generic [ref=e67]:
+      - paragraph [ref=e68]: Atalhos
+      - paragraph [ref=e69]: "`Alt+1..6` navega entre telas"
+      - paragraph [ref=e70]: "`Ctrl/Cmd+K` foca a busca global"
+      - button "Sair" [ref=e71] [cursor=pointer]:
+        - img [ref=e72]
+        - text: Sair
+  - generic [ref=e75]:
+    - banner [ref=e76]:
+      - generic [ref=e78]:
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - img
+            - textbox "Busca global" [ref=e81]:
+              - /placeholder: "Busca global: empresa, CNPJ, protocolo ou comando"
+          - button "Filtros avançados" [ref=e82] [cursor=pointer]:
+            - img [ref=e83]
+            - text: Filtros avançados
+          - generic [ref=e84]:
+            - button "+ Novo" [ref=e86] [cursor=pointer]
+            - button "Alertas" [ref=e87] [cursor=pointer]:
+              - img [ref=e88]
+            - button "Favoritos" [ref=e91] [cursor=pointer]:
+              - img [ref=e92]
+            - button "Perfil e sessão" [ref=e94] [cursor=pointer]:
+              - img [ref=e95]
+        - generic [ref=e98]:
+          - button "OFF Somente alertas" [ref=e99] [cursor=pointer]:
+            - generic [ref=e100]: "OFF"
+            - text: Somente alertas
+          - button "OFF Modo foco" [ref=e101] [cursor=pointer]:
+            - generic [ref=e102]: "OFF"
+            - text: Modo foco
+    - main [ref=e104]:
+      - generic [ref=e105]:
+        - generic [ref=e106]:
+          - generic [ref=e108]: Empresas
+          - heading "Empresas" [level=1] [ref=e109]
+          - paragraph [ref=e110]: Cadastros monitorados com ações rápidas e situação consolidada.
+        - generic [ref=e112]:
+          - generic [ref=e113]:
+            - generic [ref=e114]:
+              - img [ref=e115]
+              - text: Dados
+            - generic [ref=e119]: 1/0/1
+          - generic [ref=e120]:
+            - generic [ref=e121]:
+              - img [ref=e122]
+              - text: Filtros
+            - generic [ref=e124]: Todos
+          - generic [ref=e125]:
+            - generic [ref=e126]:
+              - img [ref=e127]
+              - text: Alertas
+            - generic [ref=e132]: Todos
+      - generic [ref=e134]:
+        - generic [ref=e136]:
+          - generic [ref=e137]:
+            - generic [ref=e138]: 1 de 1 empresas exibidas
+            - generic [ref=e139]:
+              - button "Filtros avançados" [ref=e140] [cursor=pointer]:
+                - img [ref=e141]
+                - text: Filtros avançados
+              - generic [ref=e142]:
+                - button "Compacto" [ref=e143] [cursor=pointer]
+                - button "Detalhado" [ref=e144] [cursor=pointer]
+          - generic [ref=e145]:
+            - button "Com débitos 0" [ref=e146] [cursor=pointer]
+            - button "Sem certificado 1" [ref=e147] [cursor=pointer]
+            - button "Taxas pendentes 0" [ref=e148] [cursor=pointer]
+            - button "Licenças vencendo 0" [ref=e149] [cursor=pointer]
+            - button "Processos em andamento 1" [ref=e150] [cursor=pointer]
+            - button "Críticos (<=7 dias) 0" [ref=e151] [cursor=pointer]
+        - table [ref=e154]:
+          - rowgroup [ref=e155]:
+            - row "Nome CNPJ Município Status Débitos Certificado Pendências Ações" [ref=e156]:
+              - columnheader "Nome" [ref=e157]:
+                - button "Nome" [ref=e158] [cursor=pointer]:
+                  - text: Nome
+                  - img [ref=e159]
+              - columnheader "CNPJ" [ref=e163]
+              - columnheader "Município" [ref=e164]
+              - columnheader "Status" [ref=e165]:
+                - button "Status" [ref=e166] [cursor=pointer]
+              - columnheader "Débitos" [ref=e167]
+              - columnheader "Certificado" [ref=e168]
+              - columnheader "Pendências" [ref=e169]
+              - columnheader "Ações" [ref=e170]
+          - rowgroup [ref=e171]:
+            - row "Empresa Mock Ltda 12345678000190 Anápolis Ativa Sem Não Possui 0" [ref=e172]:
+              - cell "Empresa Mock Ltda" [ref=e173]
+              - cell "12345678000190" [ref=e174]
+              - cell "Anápolis" [ref=e175]
+              - cell "Ativa" [ref=e176]:
+                - generic [ref=e177]: Ativa
+              - cell "Sem" [ref=e178]:
+                - generic [ref=e179]: Sem
+              - cell "Não Possui" [ref=e180]:
+                - generic [ref=e181]: Não Possui
+              - cell "0" [ref=e182]:
+                - generic [ref=e183]: "0"
+              - cell [ref=e184]:
+                - button [ref=e185] [cursor=pointer]:
+                  - img [ref=e186]
+```
