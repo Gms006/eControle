@@ -1,4 +1,14 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:8020";
+const resolveApiBase = () => {
+  const fromEnv = (import.meta.env.VITE_API_BASE_URL || "").trim().replace(/\/$/, "");
+  if (fromEnv) return fromEnv;
+  if (typeof window === "undefined") return "http://localhost:8020";
+  const { protocol, hostname, port } = window.location;
+  if (port === "5173") return `${protocol}//${hostname}:8000`;
+  if (port === "5174") return `${protocol}//${hostname}:8020`;
+  return port ? `${protocol}//${hostname}:${port}` : `${protocol}//${hostname}`;
+};
+
+const API_BASE = resolveApiBase();
 
 export async function apiRequest<T>(
   endpoint: string,

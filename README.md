@@ -2,11 +2,12 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-03)
+## Status atual do projeto (2026-03-04)
 
 - S0 a S7: concluidos.
 - S8: iniciado parcialmente (endpoint de certificados existe, mas ainda sem sincronizacao CertHub; retorno atual vazio).
 - S9+: planejado.
+- Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
 Arquivos de acompanhamento:
 - `PLANO_DESENVOLVIMENTO.md`
@@ -51,6 +52,8 @@ Campos principais:
 - `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`
 - `SECRET_KEY` (obrigatorio fora de `ENV=dev`)
 - `SEED_ENABLED`, `SEED_ORG_NAME`, `MASTER_EMAIL`, `MASTER_PASSWORD`, `MASTER_ROLES`
+- `RECEITAWS_MIN_INTERVAL_SECONDS` (default `20`)
+- `RECEITAWS_RATE_LIMIT_BACKOFF_SECONDS` (default `60`)
 
 ## Endpoints principais (API v1)
 
@@ -74,6 +77,11 @@ Base: `http://localhost:8020/api/v1`
 - Grupos: `/grupos`
 - Admin usuarios: `/admin/users`
 - Ingest (DEV only): `/ingest/run`, `/ingest/licences`, `/ingest/taxes`, `/ingest/processes`
+- ReceitaWS bulk sync (DEV only):
+  - `POST /dev/receitaws/bulk-sync/start`
+  - `GET /dev/receitaws/bulk-sync/active`
+  - `GET /dev/receitaws/bulk-sync/{run_id}`
+  - `POST /dev/receitaws/bulk-sync/{run_id}/cancel`
 
 Healthchecks:
 - `GET /healthz`
@@ -88,6 +96,19 @@ $env:ECONTROLE_EMAIL="seu_email"
 $env:ECONTROLE_PASSWORD="sua_senha"
 .\scripts\s7_validate_ingest.ps1
 ```
+
+## ReceitaWS bulk sync (DEV only)
+
+- Atualiza empresas ativas em lote via ReceitaWS com rate limit (3/min).
+- Exige confirmacao por senha.
+- Possui modos de seguranca:
+  - `dry_run` (default on, nao grava no banco)
+  - `only_missing` (default on, nao sobrescreve campo preenchido)
+- Frontend:
+  - janela de progresso com barra e resumo
+  - minimizavel
+  - fechar pede confirmacao e cancela run
+  - se ja houver run ativo, menu retoma o run existente
 
 ## Testes
 

@@ -1,6 +1,6 @@
 # Estrutura do Repositorio - eControle v2
 
-Data de referencia: 2026-03-03
+Data de referencia: 2026-03-04
 
 ## Visao geral
 
@@ -27,6 +27,7 @@ eControle/
 |  |  |  |  |- company_profiles.py
 |  |  |  |  |- company_taxes.py
 |  |  |  |  |- company_taxes_patch.py
+|  |  |  |  |- dev_receitaws_bulk_sync.py
 |  |  |  |  |- grupos.py
 |  |  |  |  |- ingest.py
 |  |  |  |  |- lookups.py
@@ -53,6 +54,7 @@ eControle/
 |  |  |  |- ingest_run.py
 |  |  |  |- org.py
 |  |  |  |- refresh_token.py
+|  |  |  |- receitaws_bulk_sync_run.py
 |  |  |  |- role.py
 |  |  |  |- user.py
 |  |  |- schemas/
@@ -67,6 +69,7 @@ eControle/
 |  |  |  |- org.py
 |  |  |  |- token.py
 |  |  |  |- user.py
+|  |  |  |- receitaws_bulk_sync.py
 |  |  |  |- ingest/
 |  |  |     |- common.py
 |  |  |     |- companies.py
@@ -74,14 +77,16 @@ eControle/
 |  |  |     |- licences.py
 |  |  |     |- processes.py
 |  |  |     |- taxes.py
-|  |  |- services/ingest/
-|  |     |- companies.py
-|  |     |- company_profiles.py
-|  |     |- licences.py
-|  |     |- processes.py
-|  |     |- run.py
-|  |     |- taxes.py
-|  |     |- utils.py
+|  |  |- services/
+|  |  |  |- receitaws_bulk_sync.py
+|  |  |  |- ingest/
+|  |  |     |- companies.py
+|  |  |     |- company_profiles.py
+|  |  |     |- licences.py
+|  |  |     |- processes.py
+|  |  |     |- run.py
+|  |  |     |- taxes.py
+|  |  |     |- utils.py
 |  |- alembic/versions/
 |  |  |- 20260218_0001_create_orgs.py
 |  |  |- 20260218_0002_auth_tables.py
@@ -97,6 +102,7 @@ eControle/
 |  |  |- 20260227_0012_normalize_all_status_fields_canonical.py
 |  |  |- 20260227_0013_refine_municipios_preserve_accents.py
 |  |  |- 20260303_0014_add_nao_exigido_metadata_company_licences.py
+|  |  |- 20260303_0015_create_receitaws_bulk_sync_runs.py
 |  |- tests/
 |  |  |- conftest.py
 |  |  |- test_alertas_tendencia.py
@@ -114,6 +120,7 @@ eControle/
 |  |  |- test_normalization_helpers.py
 |  |  |- test_org_context.py
 |  |  |- test_processes_canonical.py
+|  |  |- test_receitaws_bulk_sync.py
 |  |- main.py
 |  |- pytest.ini
 |  |- alembic.ini
@@ -137,6 +144,7 @@ eControle/
 |  |  |- lib/
 |  |  |- providers/
 |  |  |- services/
+|  |  |  |- receitawsBulkSync.js
 |  |- tests_e2e/portal/
 |  |  |- login_empresas.smoke.spec.ts
 |  |  |- company_import_save.smoke.spec.ts
@@ -185,6 +193,7 @@ eControle/
 
 - `backend/app/api/v1/endpoints`: camada HTTP (rotas, RBAC, validacao de request/response).
 - `backend/app/services/ingest`: regras de ingest/upsert e idempotencia.
+- `backend/app/services/receitaws_bulk_sync.py`: job DEV-only de atualizacao em lote ReceitaWS com dry-run/only-missing/progresso/rate-limit.
 - `backend/app/models`: ORM SQLAlchemy.
 - `backend/app/schemas`: contratos Pydantic.
 - `backend/alembic/versions`: historico de schema e migracoes de dados.
@@ -195,5 +204,12 @@ eControle/
 ## Observacoes importantes do estado atual
 
 - Certificados (`backend/app/api/v1/endpoints/certificados.py`) ainda esta em modo placeholder e retorna lista vazia.
+- Bulk ReceitaWS DEV-only implementado:
+  - `POST /api/v1/dev/receitaws/bulk-sync/start`
+  - `GET /api/v1/dev/receitaws/bulk-sync/active`
+  - `GET /api/v1/dev/receitaws/bulk-sync/{run_id}`
+  - `POST /api/v1/dev/receitaws/bulk-sync/{run_id}/cancel`
+  - Tabela de runs: `receitaws_bulk_sync_runs`
+  - UI com janela de progresso minimizavel e retomada de run ativo.
 - Existem arquivos temporarios SQL/TXT em `backend/` (`tmp_*.sql`, `tmp_*.txt`) usados em investigacoes/migracoes.
 - `scripts/.e2e-logs/` eh diretoria auxiliar gerada nos fluxos E2E.

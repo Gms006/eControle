@@ -43,11 +43,19 @@ import {
   parseInstallment,
   validateInstallmentInput,
 } from "@/lib/installment";
+import {
+  cancelReceitaWSBulkSync,
+  getActiveReceitaWSBulkSyncRun,
+  getReceitaWSBulkSyncStatus,
+  startReceitaWSBulkSync,
+} from "@/services/receitawsBulkSync";
 
 const EVT_OPEN_COMPANY = "econtrole:open-company";
 const EVT_OPEN_PROCESS = "econtrole:open-process";
 const EVT_OPEN_TAX = "econtrole:open-tax";
 const EVT_REFRESH_DATA = "econtrole:refresh-data";
+const BULK_SYNC_POLL_MS = 3000;
+const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 const PROCESS_SITUACAO_LABELS = {
   pendente: "Pendente",
@@ -400,10 +408,12 @@ const EMPTY_PROCESS_FORM = {
 
 export default function HeaderMenuPro() {
   const auth = useAuth();
-  const rolesRaw = auth?.user?.roles || [];
+  const [currentUserRoles, setCurrentUserRoles] = useState([]);
+  const rolesRaw = auth?.user?.roles || currentUserRoles;
   const roleNames = Array.isArray(rolesRaw)
-    ? rolesRaw.map((r) => (typeof r === "string" ? r : r?.name)).filter(Boolean)
+    ? rolesRaw.map((r) => String(typeof r === "string" ? r : r?.name || "").toUpperCase()).filter(Boolean)
     : [];
+  const isDevUser = roleNames.includes("DEV");
   const canWrite = useMemo(() => {
     if (roleNames.length > 0) {
       return roleNames.includes("ADMIN") || roleNames.includes("DEV");
@@ -432,6 +442,18 @@ export default function HeaderMenuPro() {
   const [companySaving, setCompanySaving] = useState(false);
   const [taxSaving, setTaxSaving] = useState(false);
   const [companyOptions, setCompanyOptions] = useState([]);
+  const [bulkSyncModalOpen, setBulkSyncModalOpen] = useState(false);
+  const [bulkRunModalOpen, setBulkRunModalOpen] = useState(false);
+  const [bulkRunMinimized, setBulkRunMinimized] = useState(false);
+  const [bulkRunDetailsOpen, setBulkRunDetailsOpen] = useState(false);
+  const [bulkSyncPassword, setBulkSyncPassword] = useState("");
+  const [bulkDryRun, setBulkDryRun] = useState(true);
+  const [bulkOnlyMissing, setBulkOnlyMissing] = useState(true);
+  const [bulkSyncStarting, setBulkSyncStarting] = useState(false);
+  const [bulkSyncError, setBulkSyncError] = useState("");
+  const [bulkRunId, setBulkRunId] = useState("");
+  const [bulkRunStatus, setBulkRunStatus] = useState(null);
+  const [bulkToastMessage, setBulkToastMessage] = useState("");
 
   const closeCompanyModal = () => setCompanyModal({ open: false, mode: "create", companyId: null });
   const closeProcessModal = () => setProcessModal({ open: false, mode: "create", processId: null });
@@ -443,6 +465,31 @@ export default function HeaderMenuPro() {
     setTaxEnvioDateDraft("");
     setTaxEnvioMethodsDraft([]);
   };
+  const closeBulkSyncModal = () => {
+    if (bulkSyncStarting) return;
+    setBulkSyncModalOpen(false);
+    setBulkSyncError("");
+    setBulkSyncPassword("");
+  };
+
+  useEffect(() => {
+    if (!auth?.accessToken) {
+      setCurrentUserRoles([]);
+      return;
+    }
+    apiJson("/api/v1/auth/me")
+      .then((data) => {
+        const nextRoles = Array.isArray(data?.roles) ? data.roles : [];
+        setCurrentUserRoles(nextRoles);
+      })
+      .catch(() => setCurrentUserRoles([]));
+  }, [auth?.accessToken]);
+
+  useEffect(() => {
+    if (!bulkToastMessage) return;
+    const timer = setTimeout(() => setBulkToastMessage(""), 3200);
+    return () => clearTimeout(timer);
+  }, [bulkToastMessage]);
 
   const humanizeSituacao = (value) => PROCESS_SITUACAO_LABELS[value] || String(value || "");
 
@@ -476,6 +523,8 @@ export default function HeaderMenuPro() {
         uf: data?.uf || "",
         categoria: data?.categoria || "",
         is_active: data?.is_active !== false,
+        mei: data?.mei === true,
+        endereco_fiscal: data?.endereco_fiscal === true,
         representante: data?.proprietario_principal || "",
         cpf: maskCpf(data?.cpf || ""),
         email: data?.email || "",
@@ -709,6 +758,161 @@ export default function HeaderMenuPro() {
     }));
   };
 
+  const bulkProgressPercent = useMemo(() => {
+    const total = Number(bulkRunStatus?.total || 0);
+    const processed = Number(bulkRunStatus?.processed || 0);
+    if (!total) return 0;
+    return Math.max(0, Math.min(100, Math.round((processed / total) * 100)));
+  }, [bulkRunStatus?.processed, bulkRunStatus?.total]);
+
+  const bulkFieldCounters = useMemo(() => {
+    const entries = Object.entries(bulkRunStatus?.changes_summary?.field_counters || {});
+    return entries.sort((a, b) => Number(b[1] || 0) - Number(a[1] || 0)).slice(0, 8);
+  }, [bulkRunStatus?.changes_summary?.field_counters]);
+
+  const fetchBulkRunStatus = async (runId) => {
+    if (!runId) return;
+    const data = await getReceitaWSBulkSyncStatus(runId);
+    setBulkRunStatus(data || null);
+    if (TERMINAL_RUN_STATUSES.has(String(data?.status || ""))) {
+      window.dispatchEvent(new CustomEvent(EVT_REFRESH_DATA, { detail: { source: "receitaws-bulk-sync" } }));
+      if (String(data?.status || "") === "completed") {
+        setBulkToastMessage("Concluído");
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (!bulkRunId) return;
+    let active = true;
+    const load = async () => {
+      try {
+        const data = await getReceitaWSBulkSyncStatus(bulkRunId);
+        if (!active) return;
+        setBulkRunStatus(data || null);
+      } catch {
+        if (!active) return;
+        setBulkSyncError("Falha ao consultar progresso do run.");
+      }
+    };
+    void load();
+    const timer = setInterval(() => {
+      if (TERMINAL_RUN_STATUSES.has(String(bulkRunStatus?.status || ""))) return;
+      void load();
+    }, BULK_SYNC_POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, [bulkRunId, bulkRunStatus?.status]);
+
+  const handleStartBulkSync = async () => {
+    if (!bulkSyncPassword) {
+      setBulkSyncError("Informe sua senha para confirmar.");
+      return;
+    }
+    setBulkSyncStarting(true);
+    setBulkSyncError("");
+    try {
+      const response = await startReceitaWSBulkSync({
+        password: bulkSyncPassword,
+        dry_run: bulkDryRun,
+        only_missing: bulkOnlyMissing,
+      });
+      const runId = response?.run_id;
+      if (!runId) throw new Error("Resposta inválida ao iniciar o run.");
+      setBulkRunId(runId);
+      setBulkSyncPassword("");
+      setBulkSyncModalOpen(false);
+      setBulkRunModalOpen(true);
+      setBulkRunMinimized(false);
+      setBulkRunDetailsOpen(false);
+      await fetchBulkRunStatus(runId);
+    } catch (error) {
+      const message = String(error?.message || "");
+      if (message.includes("409")) {
+        try {
+          const active = await getActiveReceitaWSBulkSyncRun();
+          const runId = active?.run_id;
+          if (runId) {
+            setBulkRunId(runId);
+            setBulkSyncPassword("");
+            setBulkSyncModalOpen(false);
+            setBulkRunModalOpen(true);
+            setBulkRunMinimized(false);
+            await fetchBulkRunStatus(runId);
+            return;
+          }
+        } catch {
+          setBulkSyncError("Já existe um run ativo para esta organização.");
+        }
+      } else if (message.includes("401")) {
+        setBulkSyncError("Senha inválida.");
+      } else {
+        setBulkSyncError("Não foi possível iniciar o run.");
+      }
+    } finally {
+      setBulkSyncStarting(false);
+    }
+  };
+
+  const handleCancelBulkSync = async () => {
+    if (!bulkRunId) return;
+    try {
+      await cancelReceitaWSBulkSync(bulkRunId);
+      await fetchBulkRunStatus(bulkRunId);
+    } catch {
+      setBulkSyncError("Falha ao cancelar o run.");
+    }
+  };
+
+  const handleMinimizeBulkRun = () => {
+    setBulkRunModalOpen(false);
+    setBulkRunMinimized(true);
+  };
+
+  const handleRestoreBulkRun = () => {
+    setBulkRunModalOpen(true);
+    setBulkRunMinimized(false);
+  };
+
+  const handleCloseBulkRun = async () => {
+    const confirmed = window.confirm("Fechar esta janela vai cancelar o run atual. Deseja continuar?");
+    if (!confirmed) return;
+    if (!TERMINAL_RUN_STATUSES.has(String(bulkRunStatus?.status || "")) && bulkRunId) {
+      try {
+        await cancelReceitaWSBulkSync(bulkRunId);
+      } catch {
+        setBulkSyncError("Falha ao cancelar o run ao fechar a janela.");
+        return;
+      }
+    }
+    setBulkRunModalOpen(false);
+    setBulkRunMinimized(false);
+    setBulkRunDetailsOpen(false);
+    setBulkRunId("");
+    setBulkRunStatus(null);
+  };
+
+  const handleBulkSyncMenuEntry = async () => {
+    setBulkSyncError("");
+    if (!isDevUser) return;
+    try {
+      const active = await getActiveReceitaWSBulkSyncRun();
+      const runId = active?.run_id;
+      if (runId) {
+        setBulkRunId(runId);
+        setBulkRunModalOpen(true);
+        setBulkRunMinimized(false);
+        await fetchBulkRunStatus(runId);
+        return;
+      }
+    } catch {
+      // no active run: continue to start modal
+    }
+    setBulkSyncModalOpen(true);
+  };
+
   const saveCompany = async () => {
     setCompanySaving(true);
     try {
@@ -898,8 +1102,181 @@ export default function HeaderMenuPro() {
             <DropdownMenuItem onSelect={() => handleNew("processo")}>
               <FileText className="mr-2 h-4 w-4" /> Processo
             </DropdownMenuItem>
+            {isDevUser ? (
+              <DropdownMenuItem
+                onSelect={(event) => {
+                  event.preventDefault();
+                  void handleBulkSyncMenuEntry();
+                }}
+              >
+                <Import className="mr-2 h-4 w-4" /> Atualizar Cadastros em lote
+              </DropdownMenuItem>
+            ) : null}
           </DropdownMenuContent>
         </DropdownMenu>
+      ) : null}
+
+      <OverlayModal
+        open={bulkSyncModalOpen}
+        title="Atualizar empresas em lote (ReceitaWS)"
+        onClose={closeBulkSyncModal}
+        footer={
+          <div className="flex items-center justify-end gap-2">
+            <SecondaryButton type="button" onClick={closeBulkSyncModal}>
+              Cancelar
+            </SecondaryButton>
+            <PrimaryButton type="button" disabled={bulkSyncStarting} onClick={() => void handleStartBulkSync()}>
+              {bulkSyncStarting ? "Iniciando..." : "Iniciar"}
+            </PrimaryButton>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+            Ação DEV-only. Processo assíncrono, com limite de 3 consultas/min (20s por chamada) e pode levar horas.
+          </div>
+          <label className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm">
+            <span>DRY-RUN (não grava no banco)</span>
+            <input type="checkbox" checked={bulkDryRun} onChange={(e) => setBulkDryRun(e.target.checked)} />
+          </label>
+          <label className="flex items-center justify-between gap-3 rounded-md border p-3 text-sm">
+            <span>ONLY-MISSING (somente campos vazios/nulos/"-")</span>
+            <input
+              type="checkbox"
+              checked={bulkOnlyMissing}
+              onChange={(e) => setBulkOnlyMissing(e.target.checked)}
+            />
+          </label>
+          <div>
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-600">Senha</label>
+            <Input
+              type="password"
+              value={bulkSyncPassword}
+              onChange={(e) => setBulkSyncPassword(e.target.value)}
+              placeholder="Confirme sua senha"
+            />
+          </div>
+          {bulkSyncError ? <p className="text-sm text-rose-600">{bulkSyncError}</p> : null}
+        </div>
+      </OverlayModal>
+
+      <OverlayModal
+        open={bulkRunModalOpen}
+        title={`Progresso do run ${bulkRunId || ""}`}
+        onClose={() => void handleCloseBulkRun()}
+        footer={
+          <div className="flex items-center justify-between gap-2">
+            <div className="text-xs text-slate-500">Status: {bulkRunStatus?.status || "carregando"}</div>
+            <div className="flex items-center gap-2">
+              <SecondaryButton type="button" onClick={handleMinimizeBulkRun}>
+                Minimizar
+              </SecondaryButton>
+              {TERMINAL_RUN_STATUSES.has(String(bulkRunStatus?.status || "")) ? null : (
+                <SecondaryButton type="button" onClick={() => void handleCancelBulkSync()}>
+                  Cancelar run
+                </SecondaryButton>
+              )}
+              <PrimaryButton type="button" onClick={() => setBulkRunDetailsOpen((prev) => !prev)}>
+                {bulkRunDetailsOpen ? "Ocultar detalhes" : "Ver detalhes do run"}
+              </PrimaryButton>
+            </div>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <div>
+            <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
+              <span>
+                {Number(bulkRunStatus?.processed || 0)} / {Number(bulkRunStatus?.total || 0)}
+              </span>
+              <span>{bulkProgressPercent}%</span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-slate-200">
+              <div
+                className="h-2 rounded-full bg-blue-600 transition-all"
+                style={{ width: `${bulkProgressPercent}%` }}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
+            <div className="rounded border p-2">OK: {Number(bulkRunStatus?.ok_count || 0)}</div>
+            <div className="rounded border p-2">Falhas: {Number(bulkRunStatus?.error_count || 0)}</div>
+            <div className="rounded border p-2">Skipped: {Number(bulkRunStatus?.skipped_count || 0)}</div>
+            <div className="rounded border p-2">Atual: {bulkRunStatus?.current_cnpj || "—"}</div>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">Últimos 5 erros</p>
+            <div className="space-y-1 text-xs">
+              {(bulkRunStatus?.errors || []).slice(-5).map((item, index) => (
+                <div key={`${item?.cnpj || "err"}-${index}`} className="rounded border border-rose-200 bg-rose-50 p-2">
+                  {item?.cnpj || "sem cnpj"}: {item?.error || "erro"}
+                </div>
+              ))}
+              {!bulkRunStatus?.errors?.length ? <div className="text-slate-500">Sem erros até o momento.</div> : null}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">
+              {bulkRunStatus?.dry_run ? "Mudanças que seriam aplicadas" : "Mudanças aplicadas"}
+            </p>
+            <p className="mb-2 text-xs text-slate-600">
+              Empresas com mudanças: {Number(bulkRunStatus?.changes_summary?.companies_with_changes || 0)}
+            </p>
+            <div className="space-y-1 text-xs">
+              {bulkFieldCounters.map(([field, count]) => (
+                <div key={field} className="rounded border p-2">
+                  {field}: {Number(count || 0)}
+                </div>
+              ))}
+              {bulkFieldCounters.length === 0 ? <div className="text-slate-500">Sem alterações registradas.</div> : null}
+            </div>
+          </div>
+          {bulkRunDetailsOpen ? (
+            <div>
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-600">JSON resumido</p>
+              <pre className="max-h-64 overflow-auto rounded-md bg-slate-900 p-3 text-xs text-slate-100">
+                {JSON.stringify(
+                  {
+                    run_id: bulkRunStatus?.run_id,
+                    status: bulkRunStatus?.status,
+                    dry_run: bulkRunStatus?.dry_run,
+                    only_missing: bulkRunStatus?.only_missing,
+                    total: bulkRunStatus?.total,
+                    processed: bulkRunStatus?.processed,
+                    ok_count: bulkRunStatus?.ok_count,
+                    error_count: bulkRunStatus?.error_count,
+                    skipped_count: bulkRunStatus?.skipped_count,
+                    changes_summary: bulkRunStatus?.changes_summary,
+                  },
+                  null,
+                  2,
+                )}
+              </pre>
+            </div>
+          ) : null}
+        </div>
+      </OverlayModal>
+
+      {bulkRunMinimized && bulkRunId ? (
+        <div className="fixed right-4 top-[72px] z-[2147483647] flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-xl">
+          <button
+            type="button"
+            className="text-left"
+            onClick={handleRestoreBulkRun}
+            title="Restaurar progresso do run"
+          >
+            <p className="text-[11px] font-semibold text-slate-800">Run ReceitaWS</p>
+            <p className="text-[11px] text-slate-600">
+              {Number(bulkRunStatus?.processed || 0)}/{Number(bulkRunStatus?.total || 0)} ({bulkProgressPercent}%)
+            </p>
+          </button>
+          <SecondaryButton type="button" onClick={handleRestoreBulkRun}>
+            Abrir
+          </SecondaryButton>
+          <SecondaryButton type="button" onClick={() => void handleCloseBulkRun()}>
+            Fechar
+          </SecondaryButton>
+        </div>
       ) : null}
 
       <SideDrawerForm
@@ -1175,6 +1552,12 @@ export default function HeaderMenuPro() {
           )}
         </div>
       </SideDrawerForm>
+
+      {bulkToastMessage ? (
+        <div className="fixed bottom-4 right-4 z-[2147483647] rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-xs font-semibold text-emerald-800 shadow-lg">
+          {bulkToastMessage}
+        </div>
+      ) : null}
 
       <SideDrawerForm
         open={processModal.open}

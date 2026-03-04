@@ -1,6 +1,6 @@
 # Plano de Desenvolvimento - eControle v2 (Rebuild)
 
-Data de referencia: 2026-03-03
+Data de referencia: 2026-03-04
 
 ## Visao geral
 
@@ -8,6 +8,7 @@ Status global: projeto operacional para dominio core e ingest JSON (S7), com int
 
 - Concluido: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
 - Em andamento parcial: S8
+- Entregue adicional (ops DEV): Bulk sync ReceitaWS em lote
 - Pendente: S9, S10, S11, S12
 
 ## S0 - Kickoff e baseline
@@ -125,6 +126,37 @@ Pendente para concluir S8:
 - Endpoint de sync com CertHub
 - Indicadores no dashboard de vencidos/proximos
 - Deep link operacional de "Instalar" com dados reais do mirror
+
+## Entrega adicional - Bulk sync ReceitaWS (DEV-only)
+
+Status: concluido (2026-03-04)
+
+Entregues:
+- Job assinc com run persistido por org:
+  - tabela `receitaws_bulk_sync_runs`
+  - estados `queued/running/completed/failed/cancelled`
+  - progresso `total/processed/ok/error/skipped/current`
+- Endpoints DEV:
+  - `POST /api/v1/dev/receitaws/bulk-sync/start`
+  - `GET /api/v1/dev/receitaws/bulk-sync/active`
+  - `GET /api/v1/dev/receitaws/bulk-sync/{run_id}`
+  - `POST /api/v1/dev/receitaws/bulk-sync/{run_id}/cancel`
+- Seguranca obrigatoria:
+  - confirmacao por senha do usuario (sem persistir senha)
+  - `dry_run` (default on)
+  - `only_missing` (default on)
+  - bloqueio de dois runs simultaneos por org
+- Execucao e resiliencia:
+  - rate limit configuravel por env (`RECEITAWS_MIN_INTERVAL_SECONDS`, default 20)
+  - backoff para 429 (`RECEITAWS_RATE_LIMIT_BACKOFF_SECONDS`, default 60)
+  - continua processamento em erro por empresa
+- Frontend:
+  - acao DEV no menu "ReceitaWS em lote"
+  - modal de confirmacao com senha + toggles
+  - janela de progresso com barra, resumo e detalhes
+  - minimizacao/restauracao
+  - fechar janela pede confirmacao e cancela run
+  - ao clicar na acao, se existir run ativo, retoma em vez de abrir novo start
 
 ## S9 - Integracao Scribere (exports read-only)
 

@@ -7,6 +7,7 @@ from app.models.company_tax import CompanyTax
 from app.models.ingest_run import IngestRun
 from app.models.org import Org
 from app.models.refresh_token import RefreshToken
+from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.models.role import Role
 from app.models.user import User, user_roles
 
@@ -22,5 +23,6 @@ __all__ = [
     "Role",
     "User",
     "RefreshToken",
+    "ReceitaWSBulkSyncRun",
     "user_roles",
 ]

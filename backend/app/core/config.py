@@ -30,6 +30,8 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "dev-secret-change-me"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
+    RECEITAWS_MIN_INTERVAL_SECONDS: int = 20
+    RECEITAWS_RATE_LIMIT_BACKOFF_SECONDS: int = 60
 
     SEED_ENABLED: bool = True
     SEED_ORG_NAME: str = "Neto Contabilidade"

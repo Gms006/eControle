@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     company_profiles,
     company_taxes,
     company_taxes_patch,
+    dev_receitaws_bulk_sync,
     grupos,
     ingest,
     lookups,
@@ -46,3 +47,4 @@ api_router.include_router(alertas.router, prefix="/alertas", tags=["alertas"])
 api_router.include_router(certificados.router, prefix="/certificados", tags=["certificados"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin"])
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
+api_router.include_router(dev_receitaws_bulk_sync.router, prefix="/dev", tags=["dev"])
