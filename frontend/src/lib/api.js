@@ -440,15 +440,26 @@ export const normalizeCertificadoFromApi = (item) => {
     }
   }
 
-  // id / cert_id
-  const idCandidates = [item.id, item.cert_id, item.certId];
-  for (const candidate of idCandidates) {
-    const parsed = toFiniteNumber(candidate);
-    if (parsed !== undefined) {
-      normalized.id = parsed;
-      normalized.cert_id = parsed;
-      break;
-    }
+  // id / cert_id: prefer camelCase, fallback snake_case
+  const resolvedId = normalized.id ?? normalized.certId ?? normalized.cert_id;
+  const resolvedCertId = normalized.certId ?? normalized.cert_id ?? resolvedId;
+  if (resolvedId !== undefined && resolvedId !== null && String(resolvedId).trim() !== "") {
+    normalized.id = String(resolvedId).trim();
+  }
+  if (resolvedCertId !== undefined && resolvedCertId !== null && String(resolvedCertId).trim() !== "") {
+    normalized.certId = String(resolvedCertId).trim();
+    normalized.cert_id = normalized.certId;
+  }
+
+  // sha1 fingerprint para deep link
+  const sha1Fingerprint = normalized.sha1Fingerprint ?? normalized.sha1_fingerprint;
+  if (
+    sha1Fingerprint !== undefined &&
+    sha1Fingerprint !== null &&
+    String(sha1Fingerprint).trim() !== ""
+  ) {
+    normalized.sha1Fingerprint = String(sha1Fingerprint).trim();
+    normalized.sha1_fingerprint = normalized.sha1Fingerprint;
   }
 
   // org_id string
@@ -456,11 +467,13 @@ export const normalizeCertificadoFromApi = (item) => {
     normalized.org_id = String(normalized.org_id);
   }
 
-  // titular base: empresa (ou fallback da view/subject)
+  // titular base: prefer camelCase, fallback snake_case/campos legados
   let titular =
     normalized.titular ??
+    normalized.name ??
     normalized.empresa ??
     normalized.subject ??
+    normalized.cn ??
     "";
 
   // Se NÃO houver empresa vinculada (empresa_id nulo),
@@ -474,7 +487,12 @@ export const normalizeCertificadoFromApi = (item) => {
 
   normalized.titular = titular;
 
-  // datas snake_case → camelCase
+  // cnpj
+  if (normalized.cnpj === undefined && normalized.document_masked !== undefined) {
+    normalized.cnpj = normalized.document_masked;
+  }
+
+  // datas: prefer camelCase, fallback snake_case
   if (normalized.validoDe === undefined && normalized.valido_de !== undefined) {
     normalized.validoDe = normalized.valido_de;
   }
@@ -482,25 +500,35 @@ export const normalizeCertificadoFromApi = (item) => {
     normalized.validoAte = normalized.valido_ate;
   }
 
-  // diasRestantes recalculado pela data de validade
-  const diasRestantes = computeDiasRestantes(normalized.validoAte ?? normalized.valido_ate);
-  if (diasRestantes !== null) {
+  // diasRestantes: prefer payload, fallback calculado pela data de validade
+  const providedDias = toFiniteNumber(normalized.diasRestantes ?? normalized.dias_restantes);
+  const diasRestantes =
+    providedDias !== undefined
+      ? providedDias
+      : computeDiasRestantes(normalized.validoAte ?? normalized.valido_ate);
+  if (diasRestantes !== null && diasRestantes !== undefined) {
     normalized.diasRestantes = diasRestantes;
     normalized.dias_restantes = diasRestantes;
+  }
 
-    const situacaoKey = getStatusKey(normalized.situacao);
+  // situacao: preserve payload se vier; caso contrario, deriva de dias
+  if (normalized.situacao === undefined && normalized.status !== undefined) {
+    normalized.situacao = normalized.status;
+  }
+  if (!normalized.situacao && diasRestantes !== null && diasRestantes !== undefined) {
     if (diasRestantes < 0) {
       normalized.situacao = "VENCIDO";
     } else if (diasRestantes <= 7) {
-      if (!situacaoKey || situacaoKey.includes("venc") || situacaoKey.includes("valido")) {
-        normalized.situacao = "VENCE DENTRO DE 7 DIAS";
-      }
+      normalized.situacao = "VENCE DENTRO DE 7 DIAS";
     } else if (diasRestantes <= 30) {
-      if (!situacaoKey || situacaoKey.includes("venc") || situacaoKey.includes("valido")) {
-        normalized.situacao = "VENCE DENTRO DE 30 DIAS";
-      }
-    } else if (!situacaoKey) {
+      normalized.situacao = "VENCE DENTRO DE 30 DIAS";
+    } else {
       normalized.situacao = "VÁLIDO";
+    }
+  } else if (diasRestantes !== null && diasRestantes !== undefined) {
+    const situacaoKey = getStatusKey(normalized.situacao);
+    if (diasRestantes < 0 && (situacaoKey.includes("valido") || situacaoKey.includes("ok"))) {
+      normalized.situacao = "VENCIDO";
     }
   }
 

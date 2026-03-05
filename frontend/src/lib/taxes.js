@@ -124,7 +124,7 @@ export function getDataEnvioDisplay(raw) {
   return {
     date: parsed.date || "",
     methods: parsed.methods,
-    methodLabel: parsed.methods[0] || "",
+    methodLabel: parsed.methods.join("; ") || "",
   };
 }
 
@@ -133,8 +133,15 @@ export function isTaxStatusEmAberto(status) {
   return key === "em_aberto";
 }
 
+export function isTaxStatusPendente(status) {
+  const key = methodKey(status).replace(/_/g, " ").replace(/\s+/g, "_");
+  return key === "pendente";
+}
+
 export function isEnvioPendente(taxa) {
-  const hasOpenTax = TAX_FIELDS_REQUIRING_ENVIO.some((field) => isTaxStatusEmAberto(taxa?.[field]));
+  const hasPendingTax = TAX_FIELDS_REQUIRING_ENVIO.some(
+    (field) => isTaxStatusEmAberto(taxa?.[field]) || isTaxStatusPendente(taxa?.[field]),
+  );
   const hasEnvioDate = Boolean(parseDataEnvio(taxa?.data_envio).date);
-  return hasOpenTax && !hasEnvioDate;
+  return hasPendingTax && !hasEnvioDate;
 }

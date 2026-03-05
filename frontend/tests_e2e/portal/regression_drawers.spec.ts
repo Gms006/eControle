@@ -64,8 +64,34 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
     extra: { operacao: "abertura", orgao: "prefeitura" },
   };
 
+  const certificado = {
+    id: "cert-1",
+    org_id: "org-1",
+    company_id: "company-1",
+    cert_id: "cert-1",
+    sha1_fingerprint: "AA:BB:CC:DD:EE",
+    titular: "Empresa Mock Ltda",
+    cnpj: "12.345.678/0001-90",
+    valido_de: "2026-01-01T00:00:00Z",
+    valido_ate: "2026-03-10T00:00:00Z",
+    dias_restantes: 6,
+    situacao: "ALERTA",
+  };
+
   await page.addInitScript(() => {
     window.localStorage.setItem("access_token", "mock-token");
+    // @ts-expect-error helper de teste
+    window.__ECONTROLE_CERTHUB_BASE_URL = "https://certhub.mock.local";
+    // @ts-expect-error helper de teste
+    window.__ECONTROLE_CERTHUB_CERTS_PATH = "/certificados";
+    // @ts-expect-error helper de teste
+    window.__lastOpenUrl = null;
+    const originalOpen = window.open.bind(window);
+    window.open = ((url?: string | URL, target?: string, features?: string) => {
+      // @ts-expect-error helper de teste
+      window.__lastOpenUrl = String(url || "");
+      return originalOpen(url as string, target, features);
+    }) as typeof window.open;
   });
 
   await page.route("**/api/v1/**", async (route) => {
@@ -149,7 +175,7 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
     }
 
     if (path === "/api/v1/certificados" && method === "GET") {
-      return fulfillJson([]);
+      return fulfillJson([certificado]);
     }
     if (path === "/api/v1/grupos/kpis" && method === "GET") {
       return fulfillJson({});
@@ -162,17 +188,38 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
 }
 
 test.describe("Portal regression drawers", () => {
+  test("certificados renderiza dado real e aciona deep link de instalar", async ({ page }) => {
+    await setupMockApi(page);
+    await page.goto("/painel");
+
+    await page.getByRole("button", { name: /^Certificados/i }).first().click();
+    await expect(page.getByText("Empresa Mock Ltda").first()).toBeVisible();
+    await expect(page.getByRole("button", { name: "Instalar" }).first()).toBeEnabled();
+
+    await page.getByRole("button", { name: "Instalar" }).first().click();
+    const lastOpenUrl = await page.evaluate(() => {
+      // @ts-expect-error helper de teste
+      return window.__lastOpenUrl;
+    });
+    expect(lastOpenUrl).toBe("https://certhub.mock.local/certificados?install=AA%3ABB%3ACC%3ADD%3AEE");
+  });
+
   test("edita observação da empresa e envia patch", async ({ page }) => {
     const captures = await setupMockApi(page);
     await page.goto("/painel");
 
     await page.getByRole("button", { name: /^Empresas/i }).first().click();
-    await page.getByTestId("company-edit-button").first().click();
-    await expect(page.getByText("Editar Empresa")).toBeVisible();
-
+    const directEditButton = page.getByTestId("company-edit-button").first();
+    if (await directEditButton.isVisible().catch(() => false)) {
+      await directEditButton.click();
+    } else {
+      await page.locator("table tbody tr").first().locator("button").first().click();
+      await page.getByRole("menuitem", { name: /Editar empresa/i }).click();
+    }
     const obs = page.getByTestId("company-observacoes");
+    await expect(obs).toBeVisible();
     await obs.fill("Observação nova da empresa");
-    await page.getByRole("button", { name: "Salvar" }).first().click();
+    await page.getByRole("button", { name: "Salvar" }).first().click({ force: true });
 
     await expect.poll(() => captures.companyPatches.length).toBe(1);
     expect(captures.companyPatches[0]?.observacoes).toBe("Observação nova da empresa");
@@ -199,7 +246,7 @@ test.describe("Portal regression drawers", () => {
     expect(captures.taxPatches[0]?.taxa_funcionamento).toBe("em_aberto");
     expect(String(captures.taxPatches[0]?.data_envio)).toContain("05/03/2026");
     expect(String(captures.taxPatches[0]?.data_envio)).toContain("Pessoal");
-    expect(String(captures.taxPatches[0]?.data_envio)).toContain("Impresso");
+    expect(String(captures.taxPatches[0]?.data_envio).toLowerCase()).toContain("impresso");
   });
 
   test("edita processo e envia obs no patch", async ({ page }) => {

@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { formatDataEnvio, isEnvioPendente, parseDataEnvio } from "./taxes.js";
+import { formatDataEnvio, getDataEnvioDisplay, isEnvioPendente, parseDataEnvio } from "./taxes.js";
 import {
   deriveStatusFromInstallment,
   formatInstallment,
@@ -29,6 +29,19 @@ test("formatDataEnvio normalizes legacy impresso to office boy label", () => {
 test("isEnvioPendente returns true when there is em_aberto without data_envio", () => {
   const pending = isEnvioPendente({
     taxa_funcionamento: "em_aberto",
+    data_envio: null,
+  });
+  assert.equal(pending, true);
+});
+
+test("getDataEnvioDisplay exposes all selected methods in methodLabel", () => {
+  const display = getDataEnvioDisplay("05/02/2026 - Nº Escritório; E-mail; Pessoal");
+  assert.equal(display.methodLabel, "Nº Escritório; E-mail; Pessoal");
+});
+
+test("isEnvioPendente returns true when there is pendente without data_envio", () => {
+  const pending = isEnvioPendente({
+    taxa_publicidade: "pendente",
     data_envio: null,
   });
   assert.equal(pending, true);

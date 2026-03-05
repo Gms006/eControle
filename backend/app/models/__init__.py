@@ -1,4 +1,5 @@
 from app.db.base import Base
+from app.models.certificate_mirror import CertificateMirror
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
 from app.models.company_process import CompanyProcess
@@ -13,6 +14,7 @@ from app.models.user import User, user_roles
 
 __all__ = [
     "Base",
+    "CertificateMirror",
     "Company",
     "CompanyProfile",
     "CompanyLicence",

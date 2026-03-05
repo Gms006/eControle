@@ -64,12 +64,14 @@ eControle/
 | `VITE_API_BASE_URL`      | URL base da API                       | `http://localhost:8020` | `https://api.domain.com` |
 | `VITE_APP_ENV`           | Ambiente (dev/test/prod)              | `dev`           | `prod`         |
 | `VITE_CERTHUB_BASE_URL`  | URL base CertHub (para deep links)   | `http://localhost:3000` | `https://certhub.domain.com` |
+| `VITE_CERTHUB_CERTS_PATH`| Path da tela de certificados no CertHub | `/certificados` | `/certificados` |
 
 **Arquivo `.env.local` (gitignorado):**
 ```env
 VITE_API_BASE_URL=http://localhost:8020
 VITE_APP_ENV=dev
 VITE_CERTHUB_BASE_URL=http://localhost:3000
+VITE_CERTHUB_CERTS_PATH=/certificados
 ```
 
 **Estratégia de Proxy no Vite (recomendado):**
@@ -518,6 +520,7 @@ VITE_API_BASE_URL=http://localhost:8020
 
 # Apps externas (para deep links)
 VITE_CERTHUB_BASE_URL=http://localhost:3000
+VITE_CERTHUB_CERTS_PATH=/certificados
 VITE_SCRIBERE_BASE_URL=http://localhost:3001
 
 # App env
@@ -1126,6 +1129,7 @@ VITE_DEBUG=true
 ```env
 VITE_API_BASE_URL=https://api.econtrole.example.com
 VITE_CERTHUB_BASE_URL=https://certhub.example.com
+VITE_CERTHUB_CERTS_PATH=/certificados
 VITE_SCRIBERE_BASE_URL=https://scribere.example.com
 VITE_APP_ENV=production
 VITE_DEBUG=false

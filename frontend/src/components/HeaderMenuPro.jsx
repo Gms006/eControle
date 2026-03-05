@@ -337,6 +337,8 @@ const TAX_STATUS_FIELDS = [
   ["iss", "ISS"],
 ];
 
+const pendingObservationFieldKey = (field) => `${field}_observacao_pendente`;
+
 const EMPTY_COMPANY_FORM = {
   cnpj: "",
   razao_social: "",
@@ -393,6 +395,7 @@ const EMPTY_TAX_FORM = {
   tpi: "",
   vencimento_tpi: "",
   iss: "",
+  raw: {},
 };
 
 const EMPTY_PROCESS_FORM = {
@@ -430,6 +433,7 @@ export default function HeaderMenuPro() {
   const [taxStatusModeDraft, setTaxStatusModeDraft] = useState({});
   const [taxInstallmentDraft, setTaxInstallmentDraft] = useState({});
   const [taxInstallmentError, setTaxInstallmentError] = useState({});
+  const [taxPendingObservationDraft, setTaxPendingObservationDraft] = useState({});
   const [taxEnvioDateDraft, setTaxEnvioDateDraft] = useState("");
   const [taxEnvioMethodsDraft, setTaxEnvioMethodsDraft] = useState([]);
   const [processSituacoes, setProcessSituacoes] = useState(DEFAULT_PROCESS_SITUACOES);
@@ -462,6 +466,7 @@ export default function HeaderMenuPro() {
     setTaxStatusModeDraft({});
     setTaxInstallmentDraft({});
     setTaxInstallmentError({});
+    setTaxPendingObservationDraft({});
     setTaxEnvioDateDraft("");
     setTaxEnvioMethodsDraft([]);
   };
@@ -579,14 +584,22 @@ export default function HeaderMenuPro() {
     tpi: data?.tpi || "",
     vencimento_tpi: data?.vencimento_tpi || "",
     iss: data?.iss || "",
+    raw: data?.raw && typeof data.raw === "object" ? data.raw : {},
   });
 
   const initializeTaxStatusDraft = (normalized) => {
     const nextMode = {};
     const nextInstallment = {};
+    const nextPendingObservation = {};
+    const rawData = normalized?.raw && typeof normalized.raw === "object" ? normalized.raw : {};
     TAX_STATUS_FIELDS.forEach(([field]) => {
       const raw = String(normalized?.[field] || "").trim();
       const parsed = parseInstallment(raw);
+      const pendingObsKey = pendingObservationFieldKey(field);
+      const pendingObsValue = String(rawData?.[pendingObsKey] || "").trim();
+      if (pendingObsValue) {
+        nextPendingObservation[field] = pendingObsValue;
+      }
       if (parsed) {
         const derived = deriveStatusFromInstallment(parsed.paid, parsed.total);
         if (derived === "paid") {
@@ -605,10 +618,18 @@ export default function HeaderMenuPro() {
     setTaxStatusModeDraft(nextMode);
     setTaxInstallmentDraft(nextInstallment);
     setTaxInstallmentError({});
+    setTaxPendingObservationDraft(nextPendingObservation);
   };
 
   const handleTaxStatusChange = (field, value) => {
     setTaxStatusModeDraft((prev) => ({ ...prev, [field]: value }));
+    if (value !== "pendente") {
+      setTaxPendingObservationDraft((prev) => {
+        const clone = { ...prev };
+        delete clone[field];
+        return clone;
+      });
+    }
     if (value === "parcelado") {
       setTaxInstallmentDraft((prev) => ({ ...prev, [field]: prev[field] || "/" }));
       setTaxInstallmentError((prev) => ({ ...prev, [field]: validateInstallmentInput("/") }));
@@ -632,6 +653,10 @@ export default function HeaderMenuPro() {
     setTaxInstallmentDraft((prev) => ({ ...prev, [field]: normalized }));
     const error = validateInstallmentInput(normalized);
     setTaxInstallmentError((prev) => ({ ...prev, [field]: error }));
+  };
+
+  const handleTaxPendingObservationChange = (field, value) => {
+    setTaxPendingObservationDraft((prev) => ({ ...prev, [field]: value }));
   };
 
   const openTax = async ({ mode = "edit", taxId, taxa }) => {
@@ -1036,11 +1061,20 @@ export default function HeaderMenuPro() {
     try {
       const normalizedDataEnvio = formatDataEnvio(taxEnvioDateDraft, taxEnvioMethodsDraft);
       const nextPayloadStatus = {};
+      const nextPayloadRaw = {};
       for (const [field, label] of TAX_STATUS_FIELDS) {
         const mode = String(taxStatusModeDraft[field] ?? taxForm[field] ?? "").trim();
+        const pendingObsKey = pendingObservationFieldKey(field);
         if (!mode) {
           nextPayloadStatus[field] = null;
+          nextPayloadRaw[pendingObsKey] = null;
           continue;
+        }
+        if (mode === "pendente") {
+          const note = String(taxPendingObservationDraft[field] || "").trim();
+          nextPayloadRaw[pendingObsKey] = note || null;
+        } else {
+          nextPayloadRaw[pendingObsKey] = null;
         }
         if (mode !== "parcelado") {
           nextPayloadStatus[field] = mode;
@@ -1073,6 +1107,7 @@ export default function HeaderMenuPro() {
           tpi: nextPayloadStatus.tpi,
           vencimento_tpi: taxForm.vencimento_tpi || null,
           iss: nextPayloadStatus.iss,
+          raw: nextPayloadRaw,
         }),
       });
       closeTaxModal();
@@ -1894,6 +1929,18 @@ export default function HeaderMenuPro() {
                       <p className={`mt-1 text-xs ${taxInstallmentError[key] ? "text-rose-600" : "text-slate-500"}`}>
                         {taxInstallmentError[key] || "Use x/y. Ex.: 0/3, 1/4. Entrada com espaço vira x/y."}
                       </p>
+                    </div>
+                  ) : null}
+                  {(taxStatusModeDraft[key] ?? taxForm[key]) === "pendente" ? (
+                    <div className="mt-2">
+                      <Textarea
+                        data-testid={`tax-pendente-obs-${key}`}
+                        rows={2}
+                        className={COMPANY_FIELD_CLASS}
+                        placeholder="Observação do motivo pendente"
+                        value={taxPendingObservationDraft[key] ?? ""}
+                        onChange={(e) => handleTaxPendingObservationChange(key, e.target.value)}
+                      />
                     </div>
                   ) : null}
                 </FieldRow>

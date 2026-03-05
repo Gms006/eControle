@@ -12,9 +12,9 @@ from app.schemas.company_tax import CompanyTaxOut, CompanyTaxUpdate
 router = APIRouter()
 
 
-def _is_em_aberto(value: str | None) -> bool:
+def _requires_envio(value: str | None) -> bool:
     text = str(value or "").strip().lower().replace(" ", "_")
-    return text == "em_aberto"
+    return text in {"em_aberto", "pendente"}
 
 
 @router.patch("/{tax_id}", response_model=CompanyTaxOut)
@@ -35,6 +35,10 @@ def patch_company_tax(
 
     data = payload.model_dump(exclude_unset=True)
     for key, value in data.items():
+        if key == "raw" and isinstance(value, dict):
+            current_raw = tax.raw if isinstance(tax.raw, dict) else {}
+            tax.raw = {**current_raw, **value}
+            continue
         setattr(tax, key, value)
 
     tracked_fields = [
@@ -47,7 +51,7 @@ def patch_company_tax(
         tax.taxa_bombeiros,
         tax.tpi,
     ]
-    tax.status_taxas = "irregular" if any(_is_em_aberto(value) for value in tracked_fields) else "regular"
+    tax.status_taxas = "irregular" if any(_requires_envio(value) for value in tracked_fields) else "regular"
 
     db.commit()
     db.refresh(tax)

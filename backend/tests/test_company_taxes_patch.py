@@ -118,3 +118,39 @@ def test_patch_tax_recalculates_status_taxas(client: TestClient):
     assert response_envio.status_code == 200
     assert response_envio.json()["envio_pendente"] is False
     assert response_envio.json()["motivo_envio_pendente"] is None
+
+
+def test_patch_tax_pendente_requires_envio_and_persists_raw_notes(client: TestClient):
+    headers, org_id = _login(client)
+
+    db = SessionLocal()
+    try:
+        company = Company(org_id=org_id, cnpj="66666666000199", razao_social="Taxas Pendente SA")
+        db.add(company)
+        db.flush()
+        tax = CompanyTax(
+            org_id=org_id,
+            company_id=company.id,
+            taxa_funcionamento="isento",
+            raw={"legacy": "ok"},
+        )
+        db.add(tax)
+        db.commit()
+        db.refresh(tax)
+    finally:
+        db.close()
+
+    pending_response = client.patch(
+        f"/api/v1/taxas/{tax.id}",
+        headers=headers,
+        json={
+            "taxa_funcionamento": "pendente",
+            "raw": {"taxa_funcionamento_observacao_pendente": "Aguardando retorno da prefeitura"},
+        },
+    )
+    assert pending_response.status_code == 200
+    payload = pending_response.json()
+    assert payload["status_taxas"] == "irregular"
+    assert payload["envio_pendente"] is True
+    assert payload["raw"]["legacy"] == "ok"
+    assert payload["raw"]["taxa_funcionamento_observacao_pendente"] == "Aguardando retorno da prefeitura"

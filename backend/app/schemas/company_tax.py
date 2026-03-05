@@ -15,8 +15,8 @@ def _status_key(value: str | None) -> str:
     return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
 
 
-def _is_em_aberto(value: str | None) -> bool:
-    return _status_key(value) == "em_aberto"
+def _requires_envio(value: str | None) -> bool:
+    return _status_key(value) in {"em_aberto", "pendente"}
 
 
 def _has_data_envio_date(value: str | None) -> bool:
@@ -85,7 +85,7 @@ class CompanyTaxOut(BaseModel):
             self.taxa_bombeiros,
             self.tpi,
         ]
-        has_open_tax = any(_is_em_aberto(value) for value in tracked_fields)
+        has_open_tax = any(_requires_envio(value) for value in tracked_fields)
         has_envio_date = _has_data_envio_date(self.data_envio)
         self.envio_pendente = has_open_tax and not has_envio_date
         self.motivo_envio_pendente = (
@@ -111,6 +111,7 @@ class CompanyTaxUpdate(BaseModel):
     taxa_bombeiros: Optional[str] = None
     tpi: Optional[str] = None
     vencimento_tpi: Optional[str] = None
+    raw: Optional[dict] = None
 
     @field_validator("data_envio", mode="before")
     @classmethod

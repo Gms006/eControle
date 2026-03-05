@@ -19,6 +19,15 @@ import StatCard from "@/components/common/StatCard";
 import { categorizeCertificadoSituacao, isCertificadoSituacaoAlert } from "@/lib/certificados";
 import { cn } from "@/lib/utils";
 
+const RUNTIME_CERTHUB_BASE =
+  typeof window !== "undefined" ? (window as any).__ECONTROLE_CERTHUB_BASE_URL : "";
+const RUNTIME_CERTHUB_PATH =
+  typeof window !== "undefined" ? (window as any).__ECONTROLE_CERTHUB_CERTS_PATH : "";
+const CERTHUB_BASE_URL = (import.meta.env.VITE_CERTHUB_BASE_URL || RUNTIME_CERTHUB_BASE || "")
+  .trim()
+  .replace(/\/+$/u, "");
+const CERTHUB_CERTS_PATH = (import.meta.env.VITE_CERTHUB_CERTS_PATH || RUNTIME_CERTHUB_PATH || "/certificados").trim();
+
 type CertificadosScreenProps = {
   certificados: any[];
   modoFoco: boolean;
@@ -117,6 +126,25 @@ export default function CertificadosScreen({
       }),
     [certificadosPriorizados],
   );
+
+  const handleInstallClick = (cert: any) => {
+    const installKey =
+      cert?.sha1_fingerprint ??
+      cert?.sha1Fingerprint ??
+      cert?.cert_id ??
+      cert?.certId ??
+      cert?.id;
+    if (!CERTHUB_BASE_URL || !installKey) return;
+    const path = CERTHUB_CERTS_PATH.startsWith("/") ? CERTHUB_CERTS_PATH : `/${CERTHUB_CERTS_PATH}`;
+    const url = `${CERTHUB_BASE_URL}${path}?install=${encodeURIComponent(String(installKey))}`;
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  const canInstall = (cert: any) =>
+    Boolean(
+      CERTHUB_BASE_URL &&
+        (cert?.sha1_fingerprint ?? cert?.sha1Fingerprint ?? cert?.cert_id ?? cert?.certId ?? cert?.id),
+    );
 
   return (
     <div className="space-y-4">
@@ -220,6 +248,8 @@ export default function CertificadosScreen({
               key={cert?.id ?? `${cert?.titular}-${cert?.validoAte}-${index}`}
               cert={cert}
               handleCopy={handleCopy}
+              handleInstallClick={handleInstallClick}
+              canInstall={canInstall}
             />
           ))}
         </div>
@@ -238,6 +268,7 @@ export default function CertificadosScreen({
                     <TableHead>Validade</TableHead>
                     <TableHead>Dias</TableHead>
                     <TableHead>Credencial</TableHead>
+                    <TableHead>Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -284,6 +315,21 @@ export default function CertificadosScreen({
                           <span className="text-xs text-slate-400">Sem senha</span>
                         )}
                       </TableCell>
+                      <TableCell className="align-top">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleInstallClick(cert)}
+                          disabled={!canInstall(cert)}
+                          title={
+                            CERTHUB_BASE_URL
+                              ? "Instalar certificado no CertHub"
+                              : "Configure VITE_CERTHUB_BASE_URL"
+                          }
+                        >
+                          Instalar
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -296,7 +342,17 @@ export default function CertificadosScreen({
   );
 }
 
-function CertificadoCard({ cert, handleCopy }: { cert: any; handleCopy: CertificadosScreenProps["handleCopy"] }) {
+function CertificadoCard({
+  cert,
+  handleCopy,
+  handleInstallClick,
+  canInstall,
+}: {
+  cert: any;
+  handleCopy: CertificadosScreenProps["handleCopy"];
+  handleInstallClick: (cert: any) => void;
+  canInstall: (cert: any) => boolean;
+}) {
   const dias = Number.isFinite(cert?.diasRestantes) ? Number(cert.diasRestantes) : null;
   const isAlert = isCertificadoSituacaoAlert(cert?.situacao);
 
@@ -353,6 +409,21 @@ function CertificadoCard({ cert, handleCopy }: { cert: any; handleCopy: Certific
         <div className="flex items-center gap-2 text-xs text-slate-500">
           <KeyRound className="h-3.5 w-3.5" />
           Fonte: `/api/v1/certificados` (payload normalizado em `src/lib/api.js`)
+        </div>
+        <div className="flex items-center justify-end">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => handleInstallClick(cert)}
+            disabled={!canInstall(cert)}
+            title={
+              CERTHUB_BASE_URL
+                ? "Instalar certificado no CertHub"
+                : "Configure VITE_CERTHUB_BASE_URL"
+            }
+          >
+            Instalar
+          </Button>
         </div>
       </CardContent>
     </Card>

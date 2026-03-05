@@ -15,6 +15,16 @@ export default defineConfig({
     baseURL,
     trace: "retain-on-failure",
   },
+  webServer: {
+    command: "npm run dev -- --host 127.0.0.1 --port 5174",
+    url: "http://127.0.0.1:5174",
+    reuseExistingServer: true,
+    timeout: 120_000,
+    env: {
+      VITE_CERTHUB_BASE_URL: "https://certhub.mock.local",
+      VITE_CERTHUB_CERTS_PATH: "/certificados",
+    },
+  },
   projects: [
     {
       name: "chromium",

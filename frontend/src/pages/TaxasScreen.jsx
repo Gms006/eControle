@@ -11,7 +11,7 @@ import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
 import { BriefcaseBusiness, FileCheck2, PencilLine, Receipt } from "lucide-react";
-import { getDataEnvioDisplay, isEnvioPendente, isTaxStatusEmAberto } from "@/lib/taxes";
+import { getDataEnvioDisplay, isEnvioPendente, isTaxStatusEmAberto, isTaxStatusPendente } from "@/lib/taxes";
 import { isInstallmentInProgress } from "@/lib/installment";
 
 const TAXA_ICON_COMPONENTS = {
@@ -173,7 +173,7 @@ function LinhaTipoTaxa({ label, status, vencimento, envioPendente }) {
             Venc.: {formatVencimentoCurto(vencimento)}
           </Chip>
         ) : null}
-        {envioPendente && isTaxStatusEmAberto(status) ? (
+        {envioPendente && (isTaxStatusEmAberto(status) || isTaxStatusPendente(status)) ? (
           <Chip variant="warning" className="text-[11px]">
             Envio pendente
           </Chip>

@@ -5,7 +5,7 @@ Portal interno da Neto Contabilidade para operacao de empresas, licencas/certido
 ## Status atual do projeto (2026-03-04)
 
 - S0 a S7: concluidos.
-- S8: iniciado parcialmente (endpoint de certificados existe, mas ainda sem sincronizacao CertHub; retorno atual vazio).
+- S8: concluido (mirror local + sync CertHub + health de certificados).
 - S9+: planejado.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
@@ -54,6 +54,19 @@ Campos principais:
 - `SEED_ENABLED`, `SEED_ORG_NAME`, `MASTER_EMAIL`, `MASTER_PASSWORD`, `MASTER_ROLES`
 - `RECEITAWS_MIN_INTERVAL_SECONDS` (default `20`)
 - `RECEITAWS_RATE_LIMIT_BACKOFF_SECONDS` (default `60`)
+- CertHub / Certificados (S8):
+  - `CERTHUB_BASE_URL`
+  - `CERTHUB_API_TOKEN` (opcional, dependendo do CertHub)
+  - `CERTHUB_CERTS_LIST_URL_TEMPLATE` (ex.: `https://certhub.local/api/v1/orgs/{org_id}/certificates`)
+  - `CERTHUB_AUTH_LOGIN_URL` (opcional, para login automatico quando nao houver `CERTHUB_API_TOKEN`)
+  - `CERTHUB_EMAIL` (opcional, usado com `CERTHUB_AUTH_LOGIN_URL`)
+  - `CERTHUB_PASSWORD` (opcional, usado com `CERTHUB_AUTH_LOGIN_URL`)
+  - `CERTHUB_VERIFY_TLS` (default `true`)
+  - `CERTHUB_CA_BUNDLE` (opcional, caminho do CA bundle para TLS interno)
+  - `CERT_MIRROR_UPDATE_COMPANY_PROFILES` (default `true`)
+- Frontend (deep link CertHub):
+  - `VITE_CERTHUB_BASE_URL`
+  - `VITE_CERTHUB_CERTS_PATH` (default sugerido: `/certificados`)
 
 ## Endpoints principais (API v1)
 
@@ -71,7 +84,10 @@ Base: `http://localhost:8020/api/v1`
 - Processos: `/processos` (listagem + CRUD)
 - Situacoes de processos: `/processos/situacoes`
 - Alertas: `/alertas`, `/alertas/tendencia`
-- Certificados: `/certificados` (placeholder atual, sem sync)
+- Certificados:
+  - `GET /certificados` (lista do mirror)
+  - `POST /certificados/sync` (ADMIN|DEV)
+  - `GET /certificados/health`
 - Lookups: `/lookups/receitaws/{cnpj}`
 - Meta: `/meta/enums`
 - Grupos: `/grupos`
@@ -151,7 +167,7 @@ npm run test:e2e
 
 ## Integracoes
 
-- CertHub: previsto como espelho read-only para certificados (S8 em andamento).
+- CertHub: espelho read-only de certificados (S8 concluido).
 - Scribere: previsto para exports read-only (S9).
 
 ## Licenca

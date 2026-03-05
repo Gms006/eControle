@@ -46,6 +46,7 @@ eControle/
 |  |  |  |- base.py
 |  |  |  |- session.py
 |  |  |- models/
+|  |  |  |- certificate_mirror.py
 |  |  |  |- company.py
 |  |  |  |- company_licence.py
 |  |  |  |- company_process.py
@@ -60,6 +61,7 @@ eControle/
 |  |  |- schemas/
 |  |  |  |- admin_users.py
 |  |  |  |- auth.py
+|  |  |  |- certificate.py
 |  |  |  |- company.py
 |  |  |  |- company_composite.py
 |  |  |  |- company_licence.py
@@ -78,6 +80,8 @@ eControle/
 |  |  |     |- processes.py
 |  |  |     |- taxes.py
 |  |  |- services/
+|  |  |  |- certificados_mirror.py
+|  |  |  |- certhub_client.py
 |  |  |  |- receitaws_bulk_sync.py
 |  |  |  |- ingest/
 |  |  |     |- companies.py
@@ -103,6 +107,7 @@ eControle/
 |  |  |- 20260227_0013_refine_municipios_preserve_accents.py
 |  |  |- 20260303_0014_add_nao_exigido_metadata_company_licences.py
 |  |  |- 20260303_0015_create_receitaws_bulk_sync_runs.py
+|  |  |- 20260304_0016_create_certificate_mirror.py
 |  |- tests/
 |  |  |- conftest.py
 |  |  |- test_alertas_tendencia.py
@@ -203,7 +208,12 @@ eControle/
 
 ## Observacoes importantes do estado atual
 
-- Certificados (`backend/app/api/v1/endpoints/certificados.py`) ainda esta em modo placeholder e retorna lista vazia.
+- Certificados (`backend/app/api/v1/endpoints/certificados.py`) agora leem de mirror local com sync e health.
+- Integracao CertHub no backend suporta:
+  - pull por template (`CERTHUB_CERTS_LIST_URL_TEMPLATE`)
+  - header de tenant (`X-Org-Slug`)
+  - TLS configuravel (`CERTHUB_VERIFY_TLS`/`CERTHUB_CA_BUNDLE`)
+  - login automatico opcional (`CERTHUB_AUTH_LOGIN_URL`, `CERTHUB_EMAIL`, `CERTHUB_PASSWORD`)
 - Bulk ReceitaWS DEV-only implementado:
   - `POST /api/v1/dev/receitaws/bulk-sync/start`
   - `GET /api/v1/dev/receitaws/bulk-sync/active`
