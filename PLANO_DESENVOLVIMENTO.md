@@ -1,13 +1,13 @@
 # Plano de Desenvolvimento - eControle v2 (Rebuild)
 
-Data de referencia: 2026-03-04
+Data de referencia: 2026-03-06
 
 ## Visao geral
 
-Status global: projeto operacional para dominio core e ingest JSON (S7), com integracao CertHub ainda incompleta.
+Status global: projeto operacional para dominio core, ingest JSON (S7), mirror CertHub completo (S8) e webhook server-to-server ativo.
 
 - Concluido: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
-- Em andamento parcial: S8
+- Concluido: S8
 - Entregue adicional (ops DEV): Bulk sync ReceitaWS em lote
 - Pendente: S9, S10, S11, S12
 
@@ -116,7 +116,7 @@ Entregues:
 
 ## S8 - Integracao CertHub (espelho de certificados)
 
-Status: concluido (2026-03-04)
+Status: concluido (2026-03-06)
 
 Entregues:
 - Persistencia de mirror local em `certificate_mirror`
@@ -129,6 +129,14 @@ Entregues:
 - Painel e tela de Certificados consumindo payload real normalizado (snake_case/camelCase)
 - E2E portal cobrindo cenário com certificado real e assert de deep link (`window.open`)
 - Pull CertHub robusto com TLS configuravel (`CERTHUB_VERIFY_TLS`/`CERTHUB_CA_BUNDLE`), header `X-Org-Slug` e login automatico opcional por env
+- Webhook receptor server-to-server:
+  - `POST /api/v1/integracoes/certhub/webhook`
+  - auth exclusiva por Bearer token fixo (`CERTHUB_WEBHOOK_TOKEN`)
+  - modos `upsert`, `delete`, `full`
+  - resolucao de tenant por `org_slug` no payload
+  - delete por `cert_id`
+  - reconciliacao full por `sha1_fingerprint` com guard para payload vazio (evita wipe acidental)
+  - logging dedicado: `econtrole.webhook_certhub`
 
 ## Entrega adicional - Bulk sync ReceitaWS (DEV-only)
 

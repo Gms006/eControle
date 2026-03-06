@@ -2,10 +2,10 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-04)
+## Status atual do projeto (2026-03-06)
 
 - S0 a S7: concluidos.
-- S8: concluido (mirror local + sync CertHub + health de certificados).
+- S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
 - S9+: planejado.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
@@ -63,6 +63,7 @@ Campos principais:
   - `CERTHUB_PASSWORD` (opcional, usado com `CERTHUB_AUTH_LOGIN_URL`)
   - `CERTHUB_VERIFY_TLS` (default `true`)
   - `CERTHUB_CA_BUNDLE` (opcional, caminho do CA bundle para TLS interno)
+  - `CERTHUB_WEBHOOK_TOKEN` (token Bearer fixo validado no endpoint de webhook)
   - `CERT_MIRROR_UPDATE_COMPANY_PROFILES` (default `true`)
 - Frontend (deep link CertHub):
   - `VITE_CERTHUB_BASE_URL`
@@ -88,6 +89,9 @@ Base: `http://localhost:8020/api/v1`
   - `GET /certificados` (lista do mirror)
   - `POST /certificados/sync` (ADMIN|DEV)
   - `GET /certificados/health`
+- Integracoes CertHub (webhook server-to-server):
+  - `POST /integracoes/certhub/webhook` (auth por `Authorization: Bearer <CERTHUB_WEBHOOK_TOKEN>`)
+  - modos suportados: `upsert`, `delete`, `full`
 - Lookups: `/lookups/receitaws/{cnpj}`
 - Meta: `/meta/enums`
 - Grupos: `/grupos`
@@ -169,6 +173,22 @@ npm run test:e2e
 
 - CertHub: espelho read-only de certificados (S8 concluido).
 - Scribere: previsto para exports read-only (S9).
+
+## Webhook CertHub (S8)
+
+- Rota: `POST /api/v1/integracoes/certhub/webhook`
+- Auth: Bearer token fixo (`CERTHUB_WEBHOOK_TOKEN`), sem JWT de usuario.
+- Payload:
+  - `mode: upsert | delete | full`
+  - `org_slug`
+  - `certificates` (quando `upsert`/`full`)
+  - `deleted_cert_ids` (quando `delete`)
+- Comportamento:
+  - resolve org por `org_slug`
+  - `upsert`: upsert no mirror
+  - `delete`: remove por `cert_id`
+  - `full`: upsert + reconciliacao por `sha1_fingerprint`
+  - guard de seguranca: `full` com payload vazio e ignorado (sem wipe)
 
 ## Licenca
 

@@ -104,6 +104,12 @@ export const categorizeCertificadoSituacao = (situacao) => {
   if (!key) {
     return "Outros";
   }
+  if (key === "ok") {
+    return "VÁLIDO";
+  }
+  if (key.includes("alerta")) {
+    return "VENCE DENTRO DE 7 DIAS";
+  }
   if (key.includes("vencid")) {
     return "VENCIDO";
   }
@@ -128,6 +134,9 @@ export const categorizeCertificadoSituacao = (situacao) => {
 export const isCertificadoSituacaoAlert = (situacao) => {
   const key = removeDiacritics(normalizeTextLower(situacao)).trim();
   if (!key) {
+    return true;
+  }
+  if (key.includes("alerta")) {
     return true;
   }
   if (key === "naopossui" || key === "semcertificado" || key === "naotem") {

@@ -12,11 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Chip } from "@/components/Chip";
 import InlineBadge from "@/components/InlineBadge";
-import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import StatCard from "@/components/common/StatCard";
 import { categorizeCertificadoSituacao, isCertificadoSituacaoAlert } from "@/lib/certificados";
+import { formatCnpj, formatCpf, normalizeDocumentDigits } from "@/lib/text";
 import { cn } from "@/lib/utils";
 
 const RUNTIME_CERTHUB_BASE =
@@ -39,6 +40,60 @@ type CertificadosScreenProps = {
 
 type ViewMode = "cards" | "table";
 
+const formatDateBr = (value: any) => {
+  if (!value) return "—";
+  const text = String(value).trim();
+  if (!text) return "—";
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) return text;
+  const parsed = new Date(text);
+  if (Number.isNaN(parsed.getTime())) return text;
+  return new Intl.DateTimeFormat("pt-BR").format(parsed);
+};
+
+const isMaskLike = (value: any) => {
+  const text = String(value || "").trim();
+  if (!text) return false;
+  return /[./-]/.test(text) || text.includes("*");
+};
+
+const getFormattedDocument = (cert: any) => {
+  const masked =
+    cert?.cnpj ??
+    cert?.cpf ??
+    cert?.document_masked ??
+    cert?.documentMasked ??
+    cert?.raw?.document_masked ??
+    cert?.raw?.document;
+  if (isMaskLike(masked) && String(masked).replace(/\D/g, "").length >= 6) {
+    return String(masked).trim();
+  }
+
+  const digits = normalizeDocumentDigits(
+    cert?.document_unmasked ??
+      cert?.documentUnmasked ??
+      cert?.raw?.document_unmasked ??
+      cert?.document_digits ??
+      cert?.documentDigits ??
+      cert?.cnpj ??
+      cert?.cpf ??
+      masked,
+  );
+  if (!digits) return "—";
+  if (digits.length === 14) return formatCnpj(digits) || digits;
+  if (digits.length === 11) return formatCpf(digits) || digits;
+  return masked ? String(masked).trim() : digits;
+};
+
+function CertificadoStatusBadge({ status }: { status: any }) {
+  const raw = String(status || "").trim();
+  const key = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  let variant: "success" | "warning" | "danger" | "neutral" = "neutral";
+  if (key === "ok" || key.includes("valido")) variant = "success";
+  else if (key.includes("alerta") || key.includes("vence")) variant = "warning";
+  else if (key.includes("vencid")) variant = "danger";
+  return <Chip variant={variant}>{raw || "—"}</Chip>;
+}
+
 export default function CertificadosScreen({
   certificados,
   modoFoco,
@@ -49,6 +104,7 @@ export default function CertificadosScreen({
 }: CertificadosScreenProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("cards");
   const [priorityFilter, setPriorityFilter] = useState("all");
+  const [hideExpiredInAll, setHideExpiredInAll] = useState(true);
 
   const lista = useMemo(() => (Array.isArray(certificados) ? certificados : []), [certificados]);
 
@@ -96,7 +152,13 @@ export default function CertificadosScreen({
   }, [certificadosFiltrados]);
 
   const certificadosPriorizados = useMemo(() => {
-    if (priorityFilter === "all") return certificadosFiltrados;
+    if (priorityFilter === "all") {
+      if (!hideExpiredInAll) return certificadosFiltrados;
+      return certificadosFiltrados.filter((item) => {
+        const dias = Number.isFinite(item?.diasRestantes) ? Number(item.diasRestantes) : null;
+        return dias === null || dias >= 0;
+      });
+    }
     return certificadosFiltrados.filter((item) => {
       const dias = Number.isFinite(item?.diasRestantes) ? Number(item.diasRestantes) : null;
       if (dias === null) return false;
@@ -105,7 +167,7 @@ export default function CertificadosScreen({
       if (priorityFilter === "due30") return dias >= 0 && dias <= 30;
       return true;
     });
-  }, [certificadosFiltrados, priorityFilter]);
+  }, [certificadosFiltrados, hideExpiredInAll, priorityFilter]);
 
   useEffect(() => {
     const preset = panelPreset?.preset;
@@ -214,6 +276,17 @@ export default function CertificadosScreen({
               {"<=30 dias"}
             </Button>
           </div>
+          {priorityFilter === "all" ? (
+            <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">
+              <input
+                type="checkbox"
+                checked={hideExpiredInAll}
+                onChange={(event) => setHideExpiredInAll(event.target.checked)}
+                className="h-4 w-4 rounded border-slate-300"
+              />
+              Ocultar vencidos
+            </label>
+          ) : null}
           <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
           <Button
             size="sm"
@@ -266,6 +339,7 @@ export default function CertificadosScreen({
                     <TableHead>Titular</TableHead>
                     <TableHead>Situação</TableHead>
                     <TableHead>Validade</TableHead>
+                    <TableHead>CNPJ/CPF</TableHead>
                     <TableHead>Dias</TableHead>
                     <TableHead>Credencial</TableHead>
                     <TableHead>Ações</TableHead>
@@ -283,11 +357,19 @@ export default function CertificadosScreen({
                         </div>
                       </TableCell>
                       <TableCell className="align-top">
-                        <StatusBadge status={cert?.situacao || "—"} />
+                        <CertificadoStatusBadge status={cert?.situacao || "—"} />
                       </TableCell>
                       <TableCell className="align-top text-xs text-slate-700">
-                        <div>De: {cert?.validoDe || "—"}</div>
-                        <div>Até: {cert?.validoAte || "—"}</div>
+                        <div>De: {formatDateBr(cert?.validoDe)}</div>
+                        <div>Até: {formatDateBr(cert?.validoAte)}</div>
+                      </TableCell>
+                      <TableCell className="align-top text-xs text-slate-700">
+                        <div>{getFormattedDocument(cert)}</div>
+                        <div className="text-[11px] text-slate-500">
+                          {(cert?.cpf || cert?.document_type || "").toString().toUpperCase().includes("CPF")
+                            ? "CPF"
+                            : "CNPJ/CPF"}
+                        </div>
                       </TableCell>
                       <TableCell className="align-top text-xs">
                         <span
@@ -318,7 +400,8 @@ export default function CertificadosScreen({
                       <TableCell className="align-top">
                         <Button
                           size="sm"
-                          variant="outline"
+                          variant="default"
+                          className="bg-[hsl(var(--brand-navy))] text-[hsl(var(--brand-navy-foreground))] hover:bg-[hsl(var(--brand-navy-700))]"
                           onClick={() => handleInstallClick(cert)}
                           disabled={!canInstall(cert)}
                           title={
@@ -371,13 +454,13 @@ function CertificadoCard({
               {cert?.empresa || cert?.municipio || "Cadastro sem vínculo de empresa/município"}
             </p>
           </div>
-          <StatusBadge status={cert?.situacao || "—"} />
+          <CertificadoStatusBadge status={cert?.situacao || "—"} />
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         <div className="grid gap-2 sm:grid-cols-2">
-          <InfoBox label="Válido de" value={cert?.validoDe || "—"} />
-          <InfoBox label="Válido até" value={cert?.validoAte || "—"} />
+          <InfoBox label="Válido de" value={formatDateBr(cert?.validoDe)} />
+          <InfoBox label="Válido até" value={formatDateBr(cert?.validoAte)} />
           <InfoBox
             label="Dias restantes"
             value={
@@ -402,8 +485,7 @@ function CertificadoCard({
               Sem senha registrada
             </InlineBadge>
           )}
-          {cert?.cnpj ? <CopyableIdentifier label="CNPJ" value={cert.cnpj} onCopy={handleCopy} /> : null}
-          {cert?.cpf ? <CopyableIdentifier label="CPF" value={cert.cpf} onCopy={handleCopy} /> : null}
+          <CopyableIdentifier label="CNPJ/CPF" value={getFormattedDocument(cert)} onCopy={handleCopy} />
         </div>
 
         <div className="flex items-center gap-2 text-xs text-slate-500">
@@ -413,7 +495,8 @@ function CertificadoCard({
         <div className="flex items-center justify-end">
           <Button
             size="sm"
-            variant="outline"
+            variant="default"
+            className="bg-[hsl(var(--brand-navy))] text-[hsl(var(--brand-navy-foreground))] hover:bg-[hsl(var(--brand-navy-700))]"
             onClick={() => handleInstallClick(cert)}
             disabled={!canInstall(cert)}
             title={

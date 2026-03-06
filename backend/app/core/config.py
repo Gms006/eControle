@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     MASTER_ROLES: str = "DEV,ADMIN"
 
     DATABASE_URL: str = Field(default_factory=_build_default_database_url)
+    CERTHUB_WEBHOOK_TOKEN: str = ""
     CORS_ORIGINS: List[str] = Field(
         default_factory=lambda: [
             "http://localhost:5174",

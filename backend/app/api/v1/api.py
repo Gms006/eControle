@@ -20,6 +20,7 @@ from app.api.v1.endpoints import (
     meta,
     orgs,
 )
+from app.api.v1.endpoints.webhook_certhub import router as webhook_certhub_router
 
 
 api_router = APIRouter()
@@ -48,3 +49,4 @@ api_router.include_router(certificados.router, prefix="/certificados", tags=["ce
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin"])
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 api_router.include_router(dev_receitaws_bulk_sync.router, prefix="/dev", tags=["dev"])
+api_router.include_router(webhook_certhub_router)

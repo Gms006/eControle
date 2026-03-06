@@ -1,6 +1,6 @@
 # Estrutura do Repositorio - eControle v2
 
-Data de referencia: 2026-03-04
+Data de referencia: 2026-03-06
 
 ## Visao geral
 
@@ -33,6 +33,7 @@ eControle/
 |  |  |  |  |- lookups.py
 |  |  |  |  |- meta.py
 |  |  |  |  |- orgs.py
+|  |  |  |  |- webhook_certhub.py
 |  |  |- core/
 |  |  |  |- audit.py
 |  |  |  |- config.py
@@ -58,6 +59,7 @@ eControle/
 |  |  |  |- receitaws_bulk_sync_run.py
 |  |  |  |- role.py
 |  |  |  |- user.py
+|  |  |  |- webhook_certhub.py
 |  |  |- schemas/
 |  |  |  |- admin_users.py
 |  |  |  |- auth.py
@@ -199,6 +201,7 @@ eControle/
 - `backend/app/api/v1/endpoints`: camada HTTP (rotas, RBAC, validacao de request/response).
 - `backend/app/services/ingest`: regras de ingest/upsert e idempotencia.
 - `backend/app/services/receitaws_bulk_sync.py`: job DEV-only de atualizacao em lote ReceitaWS com dry-run/only-missing/progresso/rate-limit.
+- `backend/app/services/certificados_mirror.py`: mirror de certificados (upsert/delete/reconcile full para integracao CertHub).
 - `backend/app/models`: ORM SQLAlchemy.
 - `backend/app/schemas`: contratos Pydantic.
 - `backend/alembic/versions`: historico de schema e migracoes de dados.
@@ -209,6 +212,11 @@ eControle/
 ## Observacoes importantes do estado atual
 
 - Certificados (`backend/app/api/v1/endpoints/certificados.py`) agora leem de mirror local com sync e health.
+- Webhook CertHub (`backend/app/api/v1/endpoints/webhook_certhub.py`) habilitado:
+  - `POST /api/v1/integracoes/certhub/webhook`
+  - auth por Bearer token fixo (`CERTHUB_WEBHOOK_TOKEN`)
+  - modos `upsert`, `delete`, `full` com resolucao por `org_slug`
+  - `full` com guard para payload vazio (sem wipe de mirror)
 - Integracao CertHub no backend suporta:
   - pull por template (`CERTHUB_CERTS_LIST_URL_TEMPLATE`)
   - header de tenant (`X-Org-Slug`)

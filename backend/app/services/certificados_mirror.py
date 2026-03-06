@@ -1,14 +1,21 @@
 import os
+import inspect
+import logging
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from typing import Any, Iterable, Optional
 
+from sqlalchemy import delete
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 
 from app.models.certificate_mirror import CertificateMirror
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
+
+logger = logging.getLogger("econtrole.webhook_certhub")
+from app.models.org import Org as Organization
 
 
 def only_digits(value: Optional[str]) -> Optional[str]:
@@ -228,3 +235,82 @@ def refresh_company_profiles_certificado_digital(db: Session, org_id) -> int:
 
     db.flush()
     return changed
+
+
+async def _maybe_await(value: Any) -> Any:
+    if inspect.isawaitable(value):
+        return await value
+    return value
+
+
+async def ingest_certificates_from_payload(
+    db: AsyncSession, org: Organization, certificates: list[dict]
+) -> dict:
+    """
+    Faz upsert dos certificados recebidos e retorna resumo util para webhook.
+    """
+    result = upsert_mirror(db, org.id, certificates)
+    await _maybe_await(db.commit())
+    return {
+        "received": result.received,
+        "inserted": result.inserted,
+        "updated": result.updated,
+        "upserted": result.inserted + result.updated,
+        "mapped_companies": result.mapped_companies,
+        "unmapped_cnpjs": result.unmapped_cnpjs,
+        "updated_company_profiles": result.updated_company_profiles,
+    }
+
+
+async def delete_certificates_by_cert_ids(
+    db: AsyncSession, org: Organization, cert_ids: list[str]
+) -> dict:
+    """Remove entradas do mirror por cert_id."""
+    normalized_ids = sorted({(value or "").strip() for value in cert_ids if (value or "").strip()})
+    if not normalized_ids:
+        return {"deleted": 0}
+
+    stmt = delete(CertificateMirror).where(
+        CertificateMirror.org_id == org.id,
+        CertificateMirror.cert_id.in_(normalized_ids),
+    )
+    result = await _maybe_await(db.execute(stmt))
+    await _maybe_await(db.commit())
+    deleted = int(result.rowcount or 0)
+    return {"deleted": deleted}
+
+
+async def reconcile_full(
+    db: AsyncSession, org: Organization, certificates: list[dict]
+) -> dict:
+    """
+    1. Faz upsert de todos os certs recebidos (chama ingest_certificates_from_payload)
+    2. Deleta da tabela os registros da org cujo sha1_fingerprint
+       NÃO esteja no payload recebido
+    Retorna {"upserted": N, "deleted": M}
+    """
+    if not certificates:
+        logger.warning("reconcile_full ignorado: payload vazio para org_id=%s", org.id)
+        return {"upserted": 0, "deleted": 0, "skipped": True}
+
+    ingest_result = await ingest_certificates_from_payload(db, org, certificates)
+    fingerprints = sorted(
+        {
+            (cert.get("sha1_fingerprint") or cert.get("sha1") or "").strip()
+            for cert in (certificates or [])
+            if isinstance(cert, dict)
+            and (cert.get("sha1_fingerprint") or cert.get("sha1") or "").strip()
+        }
+    )
+
+    delete_stmt = delete(CertificateMirror).where(CertificateMirror.org_id == org.id)
+    if fingerprints:
+        delete_stmt = delete_stmt.where(
+            (CertificateMirror.sha1_fingerprint.is_(None))
+            | (~CertificateMirror.sha1_fingerprint.in_(fingerprints))
+        )
+
+    delete_result = await _maybe_await(db.execute(delete_stmt))
+    await _maybe_await(db.commit())
+    deleted = int(delete_result.rowcount or 0)
+    return {"upserted": int(ingest_result.get("upserted", 0)), "deleted": deleted}
