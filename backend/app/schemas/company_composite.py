@@ -1,6 +1,8 @@
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.core.fs_dirname import normalize_fs_dirname
 
 
 class CompositeCompany(BaseModel):
@@ -8,9 +10,15 @@ class CompositeCompany(BaseModel):
     cnpj: str
     razao_social: str
     nome_fantasia: Optional[str] = None
+    fs_dirname: Optional[str] = None
     municipio: Optional[str] = None
     uf: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("fs_dirname")
+    @classmethod
+    def validate_fs_dirname(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_fs_dirname(value)
 
 
 class CompositeProfile(BaseModel):

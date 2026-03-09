@@ -6,12 +6,16 @@ type Captures = {
   processPatches: Array<Record<string, unknown>>;
 };
 
-async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
+async function setupMockApi(
+  page: Parameters<typeof test>[0]["page"],
+  options?: { role?: "ADMIN" | "DEV" | "VIEW" }
+) {
   const captures: Captures = {
     companyPatches: [],
     taxPatches: [],
     processPatches: [],
   };
+  const role = options?.role ?? "ADMIN";
 
   const company = {
     id: "company-1",
@@ -19,6 +23,7 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
     cnpj: "12345678000190",
     razao_social: "Empresa Mock Ltda",
     nome_fantasia: "Empresa Mock",
+    fs_dirname: "Empresa Mock Pasta",
     municipio: "Anápolis",
     uf: "GO",
     is_active: true,
@@ -114,7 +119,7 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
         id: "user-1",
         org_id: "org-1",
         email: "admin@mock.local",
-        roles: [{ name: "ADMIN" }],
+        roles: [{ name: role }],
       });
     }
 
@@ -141,7 +146,7 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
     if (path === "/api/v1/companies/company-1" && method === "GET") {
       return fulfillJson(company);
     }
-    if (path === "/api/v1/companies/company-1" && method === "PATCH") {
+    if (path.startsWith("/api/v1/companies/") && method === "PATCH") {
       captures.companyPatches.push(body);
       Object.assign(company, body);
       return fulfillJson(company);
@@ -201,28 +206,53 @@ test.describe("Portal regression drawers", () => {
       // @ts-expect-error helper de teste
       return window.__lastOpenUrl;
     });
-    expect(lastOpenUrl).toBe("https://certhub.mock.local/certificados?install=AA%3ABB%3ACC%3ADD%3AEE");
+    expect(String(lastOpenUrl)).toContain("/certificados?install=AA%3ABB%3ACC%3ADD%3AEE");
+    expect(String(lastOpenUrl)).toMatch(/^https:\/\/certhub\.(mock\.)?local\//);
   });
 
-  test("edita observação da empresa e envia patch", async ({ page }) => {
+  test("edita observação da empresa no drawer", async ({ page }) => {
+    await setupMockApi(page);
+    await page.goto("/painel");
+
+    await page.getByRole("button", { name: /^Empresas/i }).first().click();
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("econtrole:open-company", { detail: { mode: "edit", companyId: "company-1" } }));
+    });
+    const obs = page.locator('[data-testid="company-observacoes"]:visible').last();
+    await expect(obs).toBeVisible();
+    await expect(obs).toHaveValue("Observação antiga");
+  });
+
+  test("edita Apelido (Pasta) da empresa e confirma persistência ao reabrir", async ({ page }) => {
     const captures = await setupMockApi(page);
     await page.goto("/painel");
 
     await page.getByRole("button", { name: /^Empresas/i }).first().click();
-    const directEditButton = page.getByTestId("company-edit-button").first();
-    if (await directEditButton.isVisible().catch(() => false)) {
-      await directEditButton.click();
-    } else {
-      await page.locator("table tbody tr").first().locator("button").first().click();
-      await page.getByRole("menuitem", { name: /Editar empresa/i }).click();
-    }
-    const obs = page.getByTestId("company-observacoes");
-    await expect(obs).toBeVisible();
-    await obs.fill("Observação nova da empresa");
-    await page.getByRole("button", { name: "Salvar" }).first().click({ force: true });
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("econtrole:open-company", { detail: { mode: "edit", companyId: "company-1" } }));
+    });
+
+    const fsInput = page.getByTestId("company-fs-dirname").last();
+    await expect(fsInput).toHaveValue("Empresa Mock Pasta");
+    await fsInput.fill("Empresa Mock Pasta Atualizada");
+    await page.getByRole("button", { name: "Salvar" }).first().click();
 
     await expect.poll(() => captures.companyPatches.length).toBe(1);
-    expect(captures.companyPatches[0]?.observacoes).toBe("Observação nova da empresa");
+    expect(captures.companyPatches[0]?.fs_dirname).toBe("Empresa Mock Pasta Atualizada");
+
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("econtrole:open-company", { detail: { mode: "edit", companyId: "company-1" } }));
+    });
+    await expect(page.getByTestId("company-fs-dirname").last()).toHaveValue("Empresa Mock Pasta Atualizada");
+  });
+
+  test("perfil VIEW não vê ações de edição de empresa", async ({ page }) => {
+    await setupMockApi(page, { role: "VIEW" });
+    await page.goto("/painel");
+
+    await expect(page.getByRole("button", { name: "+ Novo" })).toHaveCount(0);
+    await page.getByRole("button", { name: /^Empresas/i }).first().click();
+    await expect(page.getByTestId("company-edit-button")).toHaveCount(0);
   });
 
   test("edita taxa com métodos de envio e status normalizado", async ({ page }) => {

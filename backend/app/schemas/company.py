@@ -1,7 +1,9 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
+
+from app.core.fs_dirname import normalize_fs_dirname
 
 
 class CompanyCreate(BaseModel):
@@ -10,9 +12,15 @@ class CompanyCreate(BaseModel):
     cnpj: str
     razao_social: str
     nome_fantasia: Optional[str] = None
+    fs_dirname: Optional[str] = None
     municipio: Optional[str] = None
     uf: Optional[str] = None
     is_active: Optional[bool] = None
+
+    @field_validator("fs_dirname")
+    @classmethod
+    def validate_fs_dirname(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_fs_dirname(value)
 
 
 class CompanyUpdate(BaseModel):
@@ -21,6 +29,7 @@ class CompanyUpdate(BaseModel):
     cnpj: Optional[str] = None
     razao_social: Optional[str] = None
     nome_fantasia: Optional[str] = None
+    fs_dirname: Optional[str] = None
     municipio: Optional[str] = None
     uf: Optional[str] = None
     is_active: Optional[bool] = None
@@ -43,6 +52,11 @@ class CompanyUpdate(BaseModel):
     mei: Optional[bool] = None
     endereco_fiscal: Optional[bool] = None
 
+    @field_validator("fs_dirname")
+    @classmethod
+    def validate_fs_dirname(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_fs_dirname(value)
+
 
 class CompanyOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -52,6 +66,7 @@ class CompanyOut(BaseModel):
     cnpj: str
     razao_social: str
     nome_fantasia: Optional[str] = None
+    fs_dirname: Optional[str] = None
     municipio: Optional[str] = None
     uf: Optional[str] = None
     is_active: bool

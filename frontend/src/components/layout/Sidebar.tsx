@@ -49,6 +49,7 @@ export default function Sidebar({
               type="button"
               whileTap={{ scale: 0.995 }}
               onClick={() => onTabChange(item.key)}
+              data-testid={`nav-tab-${item.key}`}
               className={cn(
                 "group flex w-full items-center gap-3 rounded-2xl border px-3 py-3 text-left transition",
                 isActive

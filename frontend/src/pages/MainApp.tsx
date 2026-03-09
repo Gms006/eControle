@@ -336,6 +336,7 @@ export default function MainApp() {
   const [loading, setLoading] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [municipiosApi, setMunicipiosApi] = useState<string[]>([]);
+  const [currentRoles, setCurrentRoles] = useState<string[]>([]);
 
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
   const [panelNavigation, setPanelNavigation] = useState<{
@@ -380,6 +381,7 @@ export default function MainApp() {
         certificadosResponse,
         kpisResponse,
         municipiosResponse,
+        meResponse,
       ] = await Promise.allSettled([
         listarEmpresas({ limit: 1000 }),
         fetchJson("/api/v1/licencas", { query: { limit: 1000 } }),
@@ -388,6 +390,7 @@ export default function MainApp() {
         fetchJson("/api/v1/certificados", { query: { limit: 1000 } }),
         listarGruposKPIs({}),
         fetchJson("/api/v1/companies/municipios"),
+        fetchJson("/api/v1/auth/me"),
       ]);
 
       const nextErrors: Record<string, string> = {};
@@ -428,6 +431,12 @@ export default function MainApp() {
         setMunicipiosApi(values.filter(Boolean));
       } else {
         setMunicipiosApi([]);
+      }
+      if (meResponse.status === "fulfilled") {
+        const roles = Array.isArray(meResponse.value?.roles) ? meResponse.value.roles : [];
+        setCurrentRoles(roles.map((role: any) => String(role).toUpperCase()));
+      } else {
+        setCurrentRoles([]);
       }
 
       setErrors(nextErrors);
@@ -833,6 +842,7 @@ export default function MainApp() {
                       filteredEmpresas={filteredEmpresas}
                       empresas={empresas}
                       soAlertas={somenteAlertas}
+                      canManageEmpresas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                       extractEmpresaId={extractEmpresaId}
                       licencasByEmpresa={licencasByEmpresa}
                       taxasByEmpresa={taxasByEmpresa}
@@ -879,6 +889,7 @@ export default function MainApp() {
                         licencas={licencas}
                         filteredLicencas={filteredLicencas}
                         modoFoco={modoFoco}
+                        canManageLicencas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                         handleCopy={handleCopy}
                         enqueueToast={enqueueToast}
                         onRefreshData={loadAllData}

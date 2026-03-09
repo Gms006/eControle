@@ -33,6 +33,7 @@ eControle/
 |  |  |  |  |- lookups.py
 |  |  |  |  |- meta.py
 |  |  |  |  |- orgs.py
+|  |  |  |  |- worker.py
 |  |  |  |  |- webhook_certhub.py
 |  |  |- core/
 |  |  |  |- audit.py
@@ -50,6 +51,7 @@ eControle/
 |  |  |  |- certificate_mirror.py
 |  |  |  |- company.py
 |  |  |  |- company_licence.py
+|  |  |  |- licence_file_event.py
 |  |  |  |- company_process.py
 |  |  |  |- company_profile.py
 |  |  |  |- company_tax.py
@@ -59,7 +61,6 @@ eControle/
 |  |  |  |- receitaws_bulk_sync_run.py
 |  |  |  |- role.py
 |  |  |  |- user.py
-|  |  |  |- webhook_certhub.py
 |  |  |- schemas/
 |  |  |  |- admin_users.py
 |  |  |  |- auth.py
@@ -73,6 +74,7 @@ eControle/
 |  |  |  |- org.py
 |  |  |  |- token.py
 |  |  |  |- user.py
+|  |  |  |- worker.py
 |  |  |  |- receitaws_bulk_sync.py
 |  |  |  |- ingest/
 |  |  |     |- common.py
@@ -84,6 +86,9 @@ eControle/
 |  |  |- services/
 |  |  |  |- certificados_mirror.py
 |  |  |  |- certhub_client.py
+|  |  |  |- licence_detection.py
+|  |  |  |- licence_fs_paths.py
+|  |  |  |- licence_files.py
 |  |  |  |- receitaws_bulk_sync.py
 |  |  |  |- ingest/
 |  |  |     |- companies.py
@@ -93,6 +98,9 @@ eControle/
 |  |  |     |- run.py
 |  |  |     |- taxes.py
 |  |  |     |- utils.py
+|  |  |- worker/
+|  |  |  |- __init__.py
+|  |  |  |- watchers.py
 |  |- alembic/versions/
 |  |  |- 20260218_0001_create_orgs.py
 |  |  |- 20260218_0002_auth_tables.py
@@ -110,6 +118,7 @@ eControle/
 |  |  |- 20260303_0014_add_nao_exigido_metadata_company_licences.py
 |  |  |- 20260303_0015_create_receitaws_bulk_sync_runs.py
 |  |  |- 20260304_0016_create_certificate_mirror.py
+|  |  |- 20260306_0017_add_fs_dirname_and_licence_file_events.py
 |  |- tests/
 |  |  |- conftest.py
 |  |  |- test_alertas_tendencia.py
@@ -124,10 +133,15 @@ eControle/
 |  |  |- test_health.py
 |  |  |- test_ingest_s7.py
 |  |  |- test_ingest_s7_full.py
+|  |  |- test_licence_watcher.py
+|  |  |- test_licence_fs_paths.py
+|  |  |- test_licencas_detect.py
+|  |  |- test_licencas_upload_bulk.py
 |  |  |- test_normalization_helpers.py
 |  |  |- test_org_context.py
 |  |  |- test_processes_canonical.py
 |  |  |- test_receitaws_bulk_sync.py
+|  |  |- test_worker_endpoints.py
 |  |- main.py
 |  |- pytest.ini
 |  |- alembic.ini
@@ -154,6 +168,7 @@ eControle/
 |  |  |  |- receitawsBulkSync.js
 |  |- tests_e2e/portal/
 |  |  |- login_empresas.smoke.spec.ts
+|  |  |- licencas_upload_action.smoke.spec.ts
 |  |  |- company_import_save.smoke.spec.ts
 |  |  |- regression_drawers.spec.ts
 |  |  |- taxas_envio_methods.smoke.spec.ts
@@ -229,5 +244,26 @@ eControle/
   - `POST /api/v1/dev/receitaws/bulk-sync/{run_id}/cancel`
   - Tabela de runs: `receitaws_bulk_sync_runs`
   - UI com janela de progresso minimizavel e retomada de run ativo.
+- Worker endpoints S10.1a (read-only) concluidos:
+  - `GET /api/v1/worker/health` valida DB e resume jobs/watchers suportados
+  - `GET /api/v1/worker/jobs/{job_id}` consulta status/progresso do job (MVP via `receitaws_bulk_sync_runs`)
+- S10.1b (upload + watcher) concluido:
+  - `POST /api/v1/licencas/upload-bulk` (ADMIN|DEV) com escrita atomica `.tmp -> rename`
+  - nomes padronizados de licenca com suporte a `- Val DD.MM.AAAA` e `- Definitivo`
+  - hierarquia por tipo: `Definitivo > maior validade`
+  - tabela `licence_file_events` para dedupe/idempotencia por hash
+  - `companies.fs_dirname` para vinculo seguro empresa -> pasta
+  - watcher executavel separado: `python -m app.worker.watchers`
+- S10.2 (em andamento):
+  - `POST /api/v1/licencas/detect` (ADMIN|DEV) para sugestoes por filename
+  - `backend/app/services/licence_detection.py` centraliza parse/canonizacao/hierarquia por grupo
+  - `backend/app/services/licence_fs_paths.py` resolve subpastas Matriz/Filial/Municipio
+  - watcher aplica `Definitivo > maior validade` por grupo e preserva tipo real em `raw` (`source_document_kind_*`)
+  - `frontend/src/pages/LicencasScreen.jsx` usa drawer assistido (sem `window.prompt`)
+- S10.2 (incremental fs_dirname):
+  - schema/validacao de `companies.fs_dirname` em `backend/app/schemas/company.py` e `backend/app/schemas/company_composite.py`
+  - ingest `companies` com `fs_dirname`/`alias` em `backend/app/schemas/ingest/companies.py` e `backend/app/services/ingest/companies.py`
+  - formulario de empresa no portal em `frontend/src/components/HeaderMenuPro.jsx` com label `Apelido (Pasta)` e validacao client-side
+  - datasets em `scripts/datasets/companies_ingest_model.json` e `scripts/datasets/companies_json_creator.py`
 - Existem arquivos temporarios SQL/TXT em `backend/` (`tmp_*.sql`, `tmp_*.txt`) usados em investigacoes/migracoes.
 - `scripts/.e2e-logs/` eh diretoria auxiliar gerada nos fluxos E2E.

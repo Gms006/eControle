@@ -272,6 +272,16 @@ function normalizeDigits(v) {
   return String(v || "").replace(/\D/g, "");
 }
 
+function normalizeFsDirname(v) {
+  return String(v || "").trim();
+}
+
+function hasInvalidFsDirname(v) {
+  const value = normalizeFsDirname(v);
+  if (!value) return false;
+  return value.includes("..") || value.includes("/") || value.includes("\\") || value.includes(":");
+}
+
 function maskCnpj(v) {
   const d = normalizeDigits(v).slice(0, 14);
   if (d.length <= 2) return d;
@@ -343,6 +353,7 @@ const EMPTY_COMPANY_FORM = {
   cnpj: "",
   razao_social: "",
   nome_fantasia: "",
+  fs_dirname: "",
   inscricao_municipal: "",
   inscricao_estadual: "",
   porte: "",
@@ -418,11 +429,8 @@ export default function HeaderMenuPro() {
     : [];
   const isDevUser = roleNames.includes("DEV");
   const canWrite = useMemo(() => {
-    if (roleNames.length > 0) {
-      return roleNames.includes("ADMIN") || roleNames.includes("DEV");
-    }
-    return Boolean(auth?.accessToken);
-  }, [auth?.accessToken, roleNames]);
+    return roleNames.includes("ADMIN") || roleNames.includes("DEV");
+  }, [roleNames]);
 
   const [companyModal, setCompanyModal] = useState({ open: false, mode: "create", companyId: null });
   const [processModal, setProcessModal] = useState({ open: false, mode: "create", processId: null });
@@ -521,6 +529,7 @@ export default function HeaderMenuPro() {
         cnpj: maskCnpj(data?.cnpj || ""),
         razao_social: data?.razao_social || "",
         nome_fantasia: data?.nome_fantasia || "",
+        fs_dirname: data?.fs_dirname || "",
         inscricao_municipal: data?.inscricao_municipal || "",
         inscricao_estadual: data?.inscricao_estadual || "",
         porte: normalizePorteSigla(data?.porte || ""),
@@ -944,6 +953,9 @@ export default function HeaderMenuPro() {
     const digits = normalizeDigits(companyForm.cnpj);
     if (digits.length !== 14) throw new Error("CNPJ inválido");
     if (!companyForm.razao_social?.trim()) throw new Error("Razão social obrigatória");
+    if (hasInvalidFsDirname(companyForm.fs_dirname)) {
+      throw new Error("Apelido (Pasta) inválido: não use '..', '/', '\\\\' ou ':'");
+    }
 
     const categoriaFinal =
       companyForm.endereco_fiscal && companyForm.categoria && !companyForm.categoria.startsWith("Fiscal -")
@@ -958,6 +970,7 @@ export default function HeaderMenuPro() {
             cnpj: digits,
             razao_social: normalizeTitleCase(companyForm.razao_social),
             nome_fantasia: normalizeTitleCase(companyForm.nome_fantasia) || null,
+            fs_dirname: normalizeFsDirname(companyForm.fs_dirname) || null,
             municipio: normalizeMunicipio(companyForm.municipio) || null,
             uf: companyForm.uf || null,
             is_active: companyForm.is_active !== false,
@@ -992,6 +1005,7 @@ export default function HeaderMenuPro() {
         body: JSON.stringify({
           razao_social: normalizeTitleCase(companyForm.razao_social),
           nome_fantasia: normalizeTitleCase(companyForm.nome_fantasia) || null,
+          fs_dirname: normalizeFsDirname(companyForm.fs_dirname) || null,
           municipio: normalizeMunicipio(companyForm.municipio) || null,
           uf: companyForm.uf || null,
           is_active: companyForm.is_active !== false,
@@ -1350,6 +1364,19 @@ export default function HeaderMenuPro() {
                   value={companyForm.razao_social}
                   onChange={(e) => setCompanyForm((p) => ({ ...p, razao_social: e.target.value }))}
                 />
+              </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-medium">Apelido (Pasta)</label>
+                <input
+                  data-testid="company-fs-dirname"
+                  className={COMPANY_FIELD_CLASS}
+                  value={companyForm.fs_dirname}
+                  onChange={(e) => setCompanyForm((p) => ({ ...p, fs_dirname: e.target.value }))}
+                />
+                <p className="mt-1 text-xs text-slate-500">Nome exato da pasta em G:/EMPRESAS/&lt;PASTA&gt;</p>
+                {hasInvalidFsDirname(companyForm.fs_dirname) ? (
+                  <p className="mt-1 text-xs text-rose-600">Não use '..', '/', '\\' ou ':'</p>
+                ) : null}
               </div>
               <div>
                 <label className="text-xs font-medium">Situação</label>

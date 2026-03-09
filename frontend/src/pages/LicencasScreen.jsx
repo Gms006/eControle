@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,126 @@ const MOTIVO_OPTIONS = [
   "endereco_administrativo_fiscal",
   "outro",
 ];
+
+const DETECT_KIND_OPTIONS = [
+  { value: "ALVARA_BOMBEIROS", label: "Alvará Bombeiros" },
+  { value: "ALVARA_VIG_SANITARIA", label: "Alvará Vig Sanitária" },
+  { value: "DISPENSA_SANITARIA", label: "Dispensa Sanitária" },
+  { value: "ALVARA_FUNCIONAMENTO_DEFINITIVO", label: "Alvará Funcionamento - Definitivo" },
+  { value: "ALVARA_FUNCIONAMENTO_CONDICIONADO", label: "Alvará Funcionamento - Condicionado" },
+  { value: "ALVARA_FUNCIONAMENTO_PROVISORIO", label: "Alvará Funcionamento - Provisório" },
+  { value: "USO_DO_SOLO", label: "Uso do Solo" },
+  { value: "LICENCA_AMBIENTAL", label: "Licença Ambiental" },
+  { value: "DISPENSA_AMBIENTAL", label: "Dispensa Ambiental" },
+];
+
+const toUploadLicenceType = (kind, isDefinitive) => {
+  const key = String(kind || "").trim().toUpperCase();
+  if (!isDefinitive) return key;
+  if (key === "DISPENSA_SANITARIA") return "DISPENSA_SANITARIA_DEFINITIVO";
+  if (key === "DISPENSA_AMBIENTAL") return "DISPENSA_AMBIENTAL_DEFINITIVO";
+  return key;
+};
+
+function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploading }) {
+  const canSubmit = Boolean(draft?.companyId?.trim()) && (draft?.items || []).length > 0;
+  return (
+    <SideDrawer
+      open={open}
+      onClose={onClose}
+      title="Upload assistido de licenças"
+      subtitle="Detecta tipo e validade pelo nome do arquivo. Confirme antes de enviar."
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={onConfirm} disabled={!canSubmit || uploading}>
+            {uploading ? "Enviando..." : "Enviar arquivos"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <Label>company_id</Label>
+          <Input
+            value={draft.companyId}
+            onChange={(event) => setDraft((prev) => ({ ...prev, companyId: event.target.value }))}
+            placeholder="Informe o ID da empresa"
+          />
+        </div>
+        <div className="space-y-3">
+          {draft.items.map((item, index) => (
+            <div key={`${item.originalFilename}-${index}`} className="rounded-xl border border-slate-200 p-3">
+              <div className="text-sm font-medium text-slate-800">{item.originalFilename}</div>
+              <div className="mt-2 grid gap-3 md:grid-cols-2">
+                <div>
+                  <Label>Tipo sugerido</Label>
+                  <Select
+                    value={item.kind || "__none__"}
+                    onValueChange={(value) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        items: prev.items.map((current, idx) =>
+                          idx === index ? { ...current, kind: value === "__none__" ? "" : value } : current,
+                        ),
+                      }))
+                    }
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Selecione</SelectItem>
+                      {DETECT_KIND_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Validade</Label>
+                  <Input
+                    type="date"
+                    value={item.expiresAt || ""}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        items: prev.items.map((current, idx) =>
+                          idx === index ? { ...current, expiresAt: event.target.value } : current,
+                        ),
+                      }))
+                    }
+                    disabled={item.isDefinitive}
+                  />
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={item.isDefinitive}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        items: prev.items.map((current, idx) =>
+                          idx === index ? { ...current, isDefinitive: event.target.checked } : current,
+                        ),
+                      }))
+                    }
+                  />
+                  Definitivo
+                </label>
+                <span>Confiança: {Math.round((item.confidence || 0) * 100)}%</span>
+                {item.canonicalFilename ? <span>Canônico: {item.canonicalFilename}</span> : null}
+              </div>
+              {(item.warnings || []).length > 0 ? (
+                <div className="mt-2 text-xs text-amber-700">{item.warnings.join(" | ")}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </SideDrawer>
+  );
+}
 
 const normalizeTipo = (value) =>
   String(value || "")
@@ -252,6 +372,7 @@ export default function LicencasScreen({
   licencas,
   filteredLicencas,
   modoFoco,
+  canManageLicencas,
   handleCopy,
   enqueueToast,
   onRefreshData,
@@ -265,6 +386,10 @@ export default function LicencasScreen({
   const [drawerItem, setDrawerItem] = useState(null);
   const [kpiFilter, setKpiFilter] = useState("todos");
   const [priorityGroup, setPriorityGroup] = useState("todos");
+  const [uploading, setUploading] = useState(false);
+  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  const [uploadDraft, setUploadDraft] = useState({ companyId: "", items: [] });
+  const fileInputRef = useRef(null);
 
   React.useEffect(() => {
     const preset = panelPreset?.preset;
@@ -378,6 +503,91 @@ export default function LicencasScreen({
     ];
   }, [filteredBase]);
 
+  const triggerUpload = () => {
+    if (!canManageLicencas || uploading) return;
+    fileInputRef.current?.click();
+  };
+
+  const onSelectFiles = async (event) => {
+    if (!canManageLicencas) return;
+    const files = Array.from(event?.target?.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    try {
+      const detectForm = new FormData();
+      files.forEach((file) => detectForm.append("items", file));
+      const detectResponse = await fetchJson("/api/v1/licencas/detect", {
+        method: "POST",
+        body: detectForm,
+      });
+      const detectedItems = Array.isArray(detectResponse?.results) ? detectResponse.results : [];
+      setUploadDraft({
+        companyId: "",
+        items: files.map((file, index) => {
+          const detected = detectedItems[index] || {};
+          return {
+            file,
+            originalFilename: file.name,
+            kind: detected.suggested_document_kind || "",
+            expiresAt: detected.suggested_expires_at || "",
+            isDefinitive: Boolean(detected.is_definitive),
+            confidence: Number(detected.confidence || 0),
+            warnings: Array.isArray(detected.warnings) ? detected.warnings : [],
+            canonicalFilename: detected.canonical_filename || null,
+          };
+        }),
+      });
+      setUploadDrawerOpen(true);
+    } catch (error) {
+      enqueueToast?.(error?.message || "Falha ao detectar licenças.");
+    }
+  };
+
+  const submitAssistedUpload = async () => {
+    if (!canManageLicencas || uploading) return;
+    if (!uploadDraft.companyId?.trim()) {
+      enqueueToast?.("Informe o company_id.");
+      return;
+    }
+    for (const item of uploadDraft.items) {
+      const kind = String(item.kind || "").trim();
+      if (!kind) {
+        enqueueToast?.(`Defina o tipo para ${item.originalFilename}.`);
+        return;
+      }
+      const requiresExpiry = !item.isDefinitive && !String(kind).includes("DEFINITIVO");
+      if (requiresExpiry && !item.expiresAt) {
+        enqueueToast?.(`Defina a validade para ${item.originalFilename}.`);
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("company_id", uploadDraft.companyId.trim());
+    uploadDraft.items.forEach((item) => {
+      formData.append("items", item.file);
+      formData.append("licence_type", toUploadLicenceType(item.kind, item.isDefinitive));
+      formData.append("expires_at", item.isDefinitive ? "" : (item.expiresAt || ""));
+    });
+
+    setUploading(true);
+    try {
+      const response = await fetchJson("/api/v1/licencas/upload-bulk", {
+        method: "POST",
+        body: formData,
+      });
+      const okCount = Number(response?.saved_count || 0);
+      const total = Array.isArray(response?.results) ? response.results.length : uploadDraft.items.length;
+      enqueueToast?.(`Upload concluído: ${okCount}/${total} arquivos salvos.`);
+      setUploadDrawerOpen(false);
+      await onRefreshData?.();
+    } catch (error) {
+      enqueueToast?.(error?.message || "Falha no upload de licenças.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -390,6 +600,25 @@ export default function LicencasScreen({
         <Button size="sm" variant={view === "tipos" ? "default" : "secondary"} onClick={() => setView("tipos")}>
           Por tipo
         </Button>
+        {canManageLicencas && (
+          <Button
+            size="sm"
+            variant="secondary"
+            data-testid="licencas-upload-action"
+            onClick={triggerUpload}
+            disabled={uploading}
+          >
+            {uploading ? "Enviando..." : "Atualizar licenças"}
+          </Button>
+        )}
+        <input
+          ref={fileInputRef}
+          className="hidden"
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.png"
+          onChange={onSelectFiles}
+        />
       </div>
 
       <Card className="shadow-sm">
@@ -594,6 +823,14 @@ export default function LicencasScreen({
         onClose={() => setDrawerItem(null)}
         onSaved={onRefreshData}
         enqueueToast={enqueueToast}
+      />
+      <UploadAssistDrawer
+        open={uploadDrawerOpen}
+        onClose={() => setUploadDrawerOpen(false)}
+        draft={uploadDraft}
+        setDraft={setUploadDraft}
+        onConfirm={submitAssistedUpload}
+        uploading={uploading}
       />
     </div>
   );

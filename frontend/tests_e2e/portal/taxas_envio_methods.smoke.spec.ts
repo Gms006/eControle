@@ -13,7 +13,7 @@ test.describe("Taxas envio methods smoke", () => {
     await page.getByTestId("login-submit").click();
     await page.waitForURL(/\/painel$/);
 
-    await page.getByTestId("nav-tab-taxas").click();
+    await page.getByTestId("nav-tab-taxas").first().click();
 
     const editButtons = page.getByRole("button", { name: /^Editar$/ });
     const hasAnyTaxRecord = (await editButtons.count()) > 0;

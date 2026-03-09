@@ -91,8 +91,3 @@ async def redoc_html():
 def healthz():
     return {"status": "ok"}
 
-
-@app.get("/api/v1/worker/health")
-def worker_health():
-    return {"status": "ok", "worker": "stub"}
-

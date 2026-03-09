@@ -146,6 +146,7 @@ export default function Topbar({
                     key={item.key}
                     type="button"
                     onClick={() => onTabChange(item.key)}
+                    data-testid={`nav-tab-${item.key}`}
                     className={cn(
                       "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm font-medium whitespace-nowrap transition",
                       isActive

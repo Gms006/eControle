@@ -18,6 +18,7 @@ def test_create_company_composite_with_taxes_and_licences(client):
             "company": {
                 "cnpj": "12.345.678/0001-55",
                 "razao_social": "Empresa Composite",
+                "fs_dirname": "Empresa Composite Pasta",
                 "municipio": "ANAPOLIS",
                 "uf": "GO",
             },
@@ -47,6 +48,7 @@ def test_create_company_composite_with_taxes_and_licences(client):
     )
     assert response.status_code == 200
     company_id = response.json()["id"]
+    assert response.json()["fs_dirname"] == "Empresa Composite Pasta"
 
     licences = client.get("/api/v1/licencas", headers=headers)
     assert licences.status_code == 200

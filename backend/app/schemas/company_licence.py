@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.normalize import normalize_date_br, normalize_generic_status
 
@@ -80,3 +80,33 @@ class CompanyLicenceItemUpdate(BaseModel):
             if not str(self.justificativa_nao_exigido or "").strip():
                 raise ValueError("justificativa_nao_exigido is required when status is nao_exigido")
         return self
+
+
+class LicenceUploadItemResult(BaseModel):
+    file_original: str
+    ok: bool
+    final_name: str | None = None
+    relative_path: str | None = None
+    error: str | None = None
+
+
+class LicenceUploadBulkResponse(BaseModel):
+    company_id: str
+    saved_count: int
+    results: list[LicenceUploadItemResult]
+
+
+class LicenceDetectItemOut(BaseModel):
+    original_filename: str
+    suggested_group: str | None = None
+    suggested_document_kind: str | None = None
+    suggested_expires_at: str | None = None
+    is_definitive: bool = False
+    confidence: float = 0.0
+    evidence_snippets: list[str] = Field(default_factory=list)
+    canonical_filename: str | None = None
+    warnings: list[str] = Field(default_factory=list)
+
+
+class LicenceDetectResponse(BaseModel):
+    results: list[LicenceDetectItemOut]

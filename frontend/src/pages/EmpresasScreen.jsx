@@ -82,6 +82,7 @@ export default function EmpresasScreen({
   filteredEmpresas,
   empresas,
   soAlertas,
+  canManageEmpresas,
   extractEmpresaId,
   licencasByEmpresa,
   taxasByEmpresa,
@@ -193,7 +194,7 @@ export default function EmpresasScreen({
 
   return (
     <div className="space-y-3">
-      <Card className="border-subtle bg-surface">
+      <Card className="border-subtle bg-surface" data-testid="companies-summary">
         <CardContent className="p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm text-muted">{filteredRows.length} de {empresas.length} empresas exibidas</span>
@@ -218,7 +219,7 @@ export default function EmpresasScreen({
         </CardContent>
       </Card>
       {viewMode === "compact" ? (
-        <Card className="overflow-hidden border-subtle bg-card">
+        <Card className="overflow-hidden border-subtle bg-card" data-testid="companies-grid">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader className="bg-slate-100/70">
@@ -239,7 +240,11 @@ export default function EmpresasScreen({
               </TableHeader>
               <TableBody>
                 {filteredRows.map((row) => (
-                  <TableRow key={row.empresaId ?? row.empresa?.id ?? row.empresa?.cnpj} className="hover:shadow-[inset_0_0_0_1px_rgba(37,99,235,0.15)]">
+                  <TableRow
+                    key={row.empresaId ?? row.empresa?.id ?? row.empresa?.cnpj}
+                    className="hover:shadow-[inset_0_0_0_1px_rgba(37,99,235,0.15)]"
+                    data-testid="company-card"
+                  >
                     <TableCell className="font-medium text-slate-900">{row.empresa?.empresa || "—"}</TableCell>
                     <TableCell>{row.empresa?.cnpj || "—"}</TableCell>
                     <TableCell>{row.empresa?.municipio || "—"}</TableCell>
@@ -253,7 +258,9 @@ export default function EmpresasScreen({
                           <Button size="icon" variant="outline"><EllipsisVertical className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-72">
-                          <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(resolveEmpresaIdValue(row.empresa, extractEmpresaId))} />
+                          {canManageEmpresas ? (
+                            <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(resolveEmpresaIdValue(row.empresa, extractEmpresaId))} />
+                          ) : null}
                           <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
                           {row.empresa?.email ? <DropdownMenuItemFancy icon={Mail} title="Copiar e-mail" description={row.empresa.email} onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)} /> : null}
                           {row.empresa?.telefone ? <DropdownMenuItemFancy icon={Phone} title="Copiar telefone" description={row.empresa.telefone} onClick={() => handleCopy(row.empresa.telefone, `Telefone copiado: ${row.empresa.telefone}`)} /> : null}
@@ -314,7 +321,9 @@ export default function EmpresasScreen({
                       <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar últimas CNDs" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
                     </DropdownMenuContent>
                   </DropdownMenu>
-                  <Button size="sm" variant="outline" onClick={() => openEditEmpresa(resolveEmpresaIdValue(row.empresa, extractEmpresaId))} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
+                  {canManageEmpresas ? (
+                    <Button size="sm" variant="outline" onClick={() => openEditEmpresa(resolveEmpresaIdValue(row.empresa, extractEmpresaId))} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
+                  ) : null}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button size="sm" variant="outline"><File className="mr-1.5 h-3.5 w-3.5" /> Certidões</Button>

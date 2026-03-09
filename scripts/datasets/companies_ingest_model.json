@@ -10,6 +10,7 @@
     {
       "external_id": "123",
       "empresa": "Torneadora Fermax LTDA",
+      "fs_dirname": "Torneadora Fermax LTDA",
       "cnpj": "10.259.622/0001-92",
       "municipio": "Anápolis",
       "uf": "GO",

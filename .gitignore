@@ -39,6 +39,11 @@ dist/
 *.log
 logs/
 test-results/
+frontend/test-results/
+frontend/playwright-report/
+frontend/.last-run.json
+*.zip
+patch*.diff
 
 # Env files
 .env
