@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -23,10 +23,15 @@ class CompanyLicenceOut(BaseModel):
     company_id: str
     municipio: Optional[str] = None
     alvara_vig_sanitaria: Optional[str] = None
+    alvara_vig_sanitaria_valid_until: Optional[date] = None
     cercon: Optional[str] = None
+    cercon_valid_until: Optional[date] = None
     alvara_funcionamento: Optional[str] = None
+    alvara_funcionamento_valid_until: Optional[date] = None
     licenca_ambiental: Optional[str] = None
+    licenca_ambiental_valid_until: Optional[date] = None
     certidao_uso_solo: Optional[str] = None
+    certidao_uso_solo_valid_until: Optional[date] = None
     motivo_nao_exigido: Optional[str] = None
     justificativa_nao_exigido: Optional[str] = None
     company_name: Optional[str] = None

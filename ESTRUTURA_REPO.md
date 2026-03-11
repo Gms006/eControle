@@ -1,6 +1,6 @@
 # Estrutura do Repositorio - eControle v2
 
-Data de referencia: 2026-03-06
+Data de referencia: 2026-03-11
 
 ## Visao geral
 
@@ -51,6 +51,7 @@ eControle/
 |  |  |  |- certificate_mirror.py
 |  |  |  |- company.py
 |  |  |  |- company_licence.py
+|  |  |  |- licence_scan_run.py
 |  |  |  |- licence_file_event.py
 |  |  |  |- company_process.py
 |  |  |  |- company_profile.py
@@ -89,6 +90,7 @@ eControle/
 |  |  |  |- licence_detection.py
 |  |  |  |- licence_fs_paths.py
 |  |  |  |- licence_files.py
+|  |  |  |- licence_scan_full.py
 |  |  |  |- receitaws_bulk_sync.py
 |  |  |  |- ingest/
 |  |  |     |- companies.py
@@ -119,6 +121,8 @@ eControle/
 |  |  |- 20260303_0015_create_receitaws_bulk_sync_runs.py
 |  |  |- 20260304_0016_create_certificate_mirror.py
 |  |  |- 20260306_0017_add_fs_dirname_and_licence_file_events.py
+|  |  |- 20260311_0018_licences_valid_until_and_scan_runs.py
+|  |  |- 20260311_0019_allow_unregistered_company_on_diversos.py
 |  |- tests/
 |  |  |- conftest.py
 |  |  |- test_alertas_tendencia.py
@@ -137,6 +141,8 @@ eControle/
 |  |  |- test_licence_fs_paths.py
 |  |  |- test_licencas_detect.py
 |  |  |- test_licencas_upload_bulk.py
+|  |  |- test_licence_migration_backfill.py
+|  |  |- test_lookups_receitaws.py
 |  |  |- test_normalization_helpers.py
 |  |  |- test_org_context.py
 |  |  |- test_processes_canonical.py
@@ -180,6 +186,9 @@ eControle/
 |- scripts/
 |  |- s7_validate_ingest.ps1
 |  |- e2e_run_full.ps1
+|  |- ops/
+|  |  |- certhub_mirror_sync.ps1
+|  |  |- run_certhub_mirror_sync.cmd
 |  |- datasets/
 |     |- companies_json_creator.py
 |     |- licences_json_creator.py
@@ -208,7 +217,6 @@ eControle/
 |- PLANO_DESENVOLVIMENTO.md
 |- ESTRUTURA_REPO.md
 |- pytest.ini
-|- patch.diff
 ```
 
 ## Organizacao por responsabilidade
@@ -246,7 +254,7 @@ eControle/
   - UI com janela de progresso minimizavel e retomada de run ativo.
 - Worker endpoints S10.1a (read-only) concluidos:
   - `GET /api/v1/worker/health` valida DB e resume jobs/watchers suportados
-  - `GET /api/v1/worker/jobs/{job_id}` consulta status/progresso do job (MVP via `receitaws_bulk_sync_runs`)
+  - `GET /api/v1/worker/jobs/{job_id}` consulta status/progresso do job (`receitaws_bulk_sync_runs` e `licence_scan_runs`)
 - S10.1b (upload + watcher) concluido:
   - `POST /api/v1/licencas/upload-bulk` (ADMIN|DEV) com escrita atomica `.tmp -> rename`
   - nomes padronizados de licenca com suporte a `- Val DD.MM.AAAA` e `- Definitivo`
@@ -254,12 +262,14 @@ eControle/
   - tabela `licence_file_events` para dedupe/idempotencia por hash
   - `companies.fs_dirname` para vinculo seguro empresa -> pasta
   - watcher executavel separado: `python -m app.worker.watchers`
-- S10.2 (em andamento):
+- S10.2 (concluido):
   - `POST /api/v1/licencas/detect` (ADMIN|DEV) para sugestoes por filename
   - `backend/app/services/licence_detection.py` centraliza parse/canonizacao/hierarquia por grupo
   - `backend/app/services/licence_fs_paths.py` resolve subpastas Matriz/Filial/Municipio
   - watcher aplica `Definitivo > maior validade` por grupo e preserva tipo real em `raw` (`source_document_kind_*`)
   - `frontend/src/pages/LicencasScreen.jsx` usa drawer assistido (sem `window.prompt`)
+  - `POST /api/v1/licencas/scan-full` executa scan manual em lote com `BackgroundTasks`
+  - tabela `licence_scan_runs` persiste progresso (`queued/running/done/error`)
 - S10.2 (incremental fs_dirname):
   - schema/validacao de `companies.fs_dirname` em `backend/app/schemas/company.py` e `backend/app/schemas/company_composite.py`
   - ingest `companies` com `fs_dirname`/`alias` em `backend/app/schemas/ingest/companies.py` e `backend/app/services/ingest/companies.py`
@@ -267,3 +277,8 @@ eControle/
   - datasets em `scripts/datasets/companies_ingest_model.json` e `scripts/datasets/companies_json_creator.py`
 - Existem arquivos temporarios SQL/TXT em `backend/` (`tmp_*.sql`, `tmp_*.txt`) usados em investigacoes/migracoes.
 - `scripts/.e2e-logs/` eh diretoria auxiliar gerada nos fluxos E2E.
+- Pos-S10.2 implementado:
+  - processos `DIVERSOS` aceitam empresa nao cadastrada (`company_id` nulo com `company_cnpj` + `company_razao_social`) e persistem flag em `raw`
+  - frontend filtra licencas/taxas/processos/certificados para empresas ativas, preservando processos `DIVERSOS` sem cadastro
+  - `GET /api/v1/lookups/receitaws/{cnpj}` usa ReceitaWS como primario e fallback automatico para BrasilAPI
+  - scripts operacionais para sync do mirror CertHub em `scripts/ops/`

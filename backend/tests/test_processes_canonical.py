@@ -90,3 +90,46 @@ def test_process_rejects_invalid_situacao(client):
         },
     )
     assert response.status_code == 422
+
+
+def test_create_diversos_process_without_registered_company(client):
+    token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/api/v1/processos",
+        headers=headers,
+        json={
+            "process_type": "DIVERSOS",
+            "protocolo": "P-2026-ORFAO-0001",
+            "situacao": "pendente",
+            "company_cnpj": "12.345.678/0001-88",
+            "company_razao_social": "Empresa Sem Cadastro",
+            "empresa_nao_cadastrada": True,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company_id"] is None
+    assert payload["process_type"] == "DIVERSOS"
+    assert payload["raw"]["empresa_nao_cadastrada"] is True
+    assert payload["raw"]["company_cnpj"] == "12345678000188"
+    assert payload["raw"]["company_razao_social"] == "Empresa Sem Cadastro"
+
+
+def test_process_without_company_requires_diversos(client):
+    token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/api/v1/processos",
+        headers=headers,
+        json={
+            "process_type": "FUNCIONAMENTO",
+            "protocolo": "P-2026-ORFAO-0002",
+            "company_cnpj": "12.345.678/0001-89",
+            "company_razao_social": "Empresa Sem Cadastro 2",
+            "empresa_nao_cadastrada": True,
+        },
+    )
+    assert response.status_code == 422

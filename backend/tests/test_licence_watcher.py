@@ -49,6 +49,7 @@ def test_watcher_updates_projection_and_is_idempotent(client, tmp_path, monkeypa
         )
         assert refreshed is not None
         assert refreshed.cercon == "possui"
+        assert refreshed.cercon_valid_until.isoformat() == "2026-12-25"
         assert refreshed.raw["validade_cercon"] == "2026-12-25"
 
         events_count_first = (
@@ -114,11 +115,13 @@ def test_watcher_prefers_definitive_then_larger_expiry(client, tmp_path, monkeyp
             .first()
         )
         assert refreshed is not None
-        assert refreshed.alvara_funcionamento == "possui"
+        assert refreshed.alvara_funcionamento == "definitivo"
         assert refreshed.raw.get("source_kind_alvara_funcionamento") == "definitivo"
+        assert refreshed.alvara_funcionamento_valid_until is None
         assert refreshed.raw.get("validade_alvara_funcionamento") is None
-        assert refreshed.alvara_vig_sanitaria == "possui"
+        assert refreshed.alvara_vig_sanitaria == "definitivo"
         assert refreshed.raw.get("source_kind_alvara_vig_sanitaria") == "definitivo"
+        assert refreshed.alvara_vig_sanitaria_valid_until is None
         assert refreshed.raw.get("validade_alvara_vig_sanitaria") is None
         assert refreshed.raw.get("source_document_kind_alvara_vig_sanitaria") == "DISPENSA_SANITARIA"
     finally:

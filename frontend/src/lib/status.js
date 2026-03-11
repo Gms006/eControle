@@ -139,6 +139,10 @@ export const resolveStatusClass = (status) => {
       variant: "outline",
       className: "border-blue-200 bg-blue-50 text-blue-700",
     },
+    ir_na_visa: {
+      variant: "outline",
+      className: "border-blue-200 bg-blue-50 text-blue-700",
+    },
   };
 
   if (palette[normalizedKey]) {
@@ -150,7 +154,7 @@ export const resolveStatusClass = (status) => {
   }
 
   if (normalizedKey === "vencido") {
-    return { variant: "danger" };
+    return { variant: "warning" };
   }
 
   const fraction = parseProgressFraction(trimmed);
@@ -279,6 +283,8 @@ export const formatStatusDisplay = (status) => {
   }
 
   const canonicalLabels = {
+    possui: "Possui",
+    definitivo: "Definitivo",
     ativo: "Ativo",
     inativo: "Inativo",
     isento: "Isento",
@@ -311,6 +317,7 @@ export const formatStatusDisplay = (status) => {
     notificacao: "Notificação",
     indeferido: "Indeferido",
     cancelado: "Cancelado",
+    ir_na_visa: "Ir na Visa",
   };
   const lower = trimmed.toLowerCase();
   if (canonicalLabels[lower]) {

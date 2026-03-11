@@ -8,7 +8,12 @@ type Captures = {
 
 async function setupMockApi(
   page: Parameters<typeof test>[0]["page"],
-  options?: { role?: "ADMIN" | "DEV" | "VIEW" }
+  options?: {
+    role?: "ADMIN" | "DEV" | "VIEW";
+    licencas?: Array<Record<string, unknown>>;
+    companies?: Array<Record<string, unknown>>;
+    taxas?: Array<Record<string, unknown>>;
+  }
 ) {
   const captures: Captures = {
     companyPatches: [],
@@ -82,6 +87,9 @@ async function setupMockApi(
     dias_restantes: 6,
     situacao: "ALERTA",
   };
+  const licencasPayload = options?.licencas ?? [];
+  const companiesPayload = options?.companies ?? [company];
+  const taxasPayload = options?.taxas ?? [tax];
 
   await page.addInitScript(() => {
     window.localStorage.setItem("access_token", "mock-token");
@@ -141,7 +149,7 @@ async function setupMockApi(
       return fulfillJson(["Anápolis"]);
     }
     if (path === "/api/v1/companies" && method === "GET") {
-      return fulfillJson([company]);
+      return fulfillJson(companiesPayload);
     }
     if (path === "/api/v1/companies/company-1" && method === "GET") {
       return fulfillJson(company);
@@ -153,10 +161,10 @@ async function setupMockApi(
     }
 
     if (path === "/api/v1/licencas" && method === "GET") {
-      return fulfillJson([]);
+      return fulfillJson(licencasPayload);
     }
     if (path === "/api/v1/taxas" && method === "GET") {
-      return fulfillJson([tax]);
+      return fulfillJson(taxasPayload);
     }
     if (path === "/api/v1/taxas/tax-1" && method === "PATCH") {
       captures.taxPatches.push(body);
@@ -193,6 +201,42 @@ async function setupMockApi(
 }
 
 test.describe("Portal regression drawers", () => {
+  test("licenças agregadas priorizam validade_br e mantêm DD/MM sem inversão", async ({ page }) => {
+    await setupMockApi(page, {
+      licencas: [
+        {
+          id: "lic-agg-1",
+          org_id: "org-1",
+          company_id: "company-1",
+          company_name: "Empresa Mock Ltda",
+          company_razao_social: "Empresa Mock Ltda",
+          company_cnpj: "12.345.678/0001-90",
+          company_municipio: "Anápolis",
+          cercon: "possui",
+          alvara_vig_sanitaria: "possui",
+          alvara_funcionamento: "nao_possui",
+          licenca_ambiental: "possui",
+          certidao_uso_solo: "possui",
+          raw: {
+            source_kind_cercon: "dated",
+            validade_cercon: "2027-03-09",
+            validade_cercon_br: "09/03/2027",
+            source_kind_alvara_vig_sanitaria: "definitivo",
+            source_kind_certidao_uso_solo: "dated",
+            validade_certidao_uso_solo: "2026-12-11",
+          },
+        },
+      ],
+    });
+    await page.goto("/painel");
+    await page.getByRole("button", { name: /^Licenças/i }).first().click();
+    await page.getByRole("button", { name: "Matriz por empresa" }).click();
+
+    await expect(page.getByText("Possui - 09/03/2027")).toBeVisible();
+    await expect(page.getByText("03/09/2027")).toHaveCount(0);
+    await expect(page.getByText("Possui - Definitivo")).toBeVisible();
+  });
+
   test("certificados renderiza dado real e aciona deep link de instalar", async ({ page }) => {
     await setupMockApi(page);
     await page.goto("/painel");
@@ -208,6 +252,47 @@ test.describe("Portal regression drawers", () => {
     });
     expect(String(lastOpenUrl)).toContain("/certificados?install=AA%3ABB%3ACC%3ADD%3AEE");
     expect(String(lastOpenUrl)).toMatch(/^https:\/\/certhub\.(mock\.)?local\//);
+  });
+
+  test("oculta registros de empresa inativa na aba Taxas", async ({ page }) => {
+    await setupMockApi(page, {
+      companies: [
+        {
+          id: "company-1",
+          org_id: "org-1",
+          cnpj: "12345678000190",
+          razao_social: "Empresa Mock Ltda",
+          nome_fantasia: "Empresa Mock",
+          is_active: true,
+        },
+      ],
+      taxas: [
+        {
+          id: "tax-active",
+          org_id: "org-1",
+          company_id: "company-1",
+          empresa: "Empresa Mock Ltda",
+          cnpj: "12.345.678/0001-90",
+          taxa_funcionamento: "isento",
+          status_taxas: "regular",
+        },
+        {
+          id: "tax-inactive",
+          org_id: "org-1",
+          company_id: "7c8b5e96-4260-4c4c-bc54-62b000000000",
+          empresa: "Empresa Inativa",
+          cnpj: "99.999.999/0001-99",
+          taxa_funcionamento: "em_aberto",
+          status_taxas: "irregular",
+        },
+      ],
+    });
+    await page.goto("/painel");
+    await page.getByRole("button", { name: /^Taxas/i }).first().click();
+
+    await expect(page.getByText("Empresa Mock Ltda").first()).toBeVisible();
+    await expect(page.getByText("Empresa não vinculada (ID 7c8b5e96-4260-4c4c-bc54-62b000000000)")).toHaveCount(0);
+    await expect(page.getByText("Empresa Inativa")).toHaveCount(0);
   });
 
   test("edita observação da empresa no drawer", async ({ page }) => {

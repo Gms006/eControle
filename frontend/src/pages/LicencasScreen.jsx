@@ -8,6 +8,7 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/StatusBadge";
@@ -23,7 +24,23 @@ const TIPOS = [
   { key: "AMBIENTAL", label: "Ambiental", field: "licenca_ambiental" },
 ];
 
-const STATUS_OPTIONS = ["possui", "vencido", "sujeito", "nao_possui", "nao_exigido"];
+const STATUS_OPTIONS = [
+  "possui",
+  "definitivo",
+  "vencido",
+  "sujeito",
+  "nao_possui",
+  "nao_exigido",
+  "isento",
+  "aguardando_documento",
+  "aguardando_vistoria",
+  "aguardando_pagamento",
+  "aguardando_regularizacao",
+  "aguardando_liberacao",
+  "em_analise",
+  "notificacao",
+  "ir_na_visa",
+];
 const MOTIVO_OPTIONS = [
   "atividade_nao_exige",
   "zoneamento_nao_aplica",
@@ -164,44 +181,103 @@ const normalizeTipo = (value) =>
 
 const parseDias = (item) => {
   const parts = parseStatusParts(item);
-  const ref = parts.validadeIso || parts.validadeBr || item?.validade || item?.validade_br;
+  const ref = item?.valid_until || parts.validadeIso || parts.validadeBr || item?.validade || item?.validade_br;
   if (!ref) return null;
-  const date = dayjs(ref, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
+  const iso = toIsoDate(ref);
+  if (!iso) return null;
+  const date = dayjs(iso, "YYYY-MM-DD", true);
   if (!date.isValid()) return null;
   return date.startOf("day").diff(dayjs().startOf("day"), "day");
 };
 
 const toBrDate = (value) => {
   if (!value) return null;
-  const parsed = dayjs(value, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
+  const text = String(value).trim();
+  const brMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[1]}/${brMatch[2]}/${brMatch[3]}`;
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const parsed = dayjs(text, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
   if (!parsed.isValid()) return null;
   return parsed.format("DD/MM/YYYY");
 };
 
+const toIsoDate = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  const brMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  const parsed = dayjs(text, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
+  if (!parsed.isValid()) return null;
+  return parsed.format("YYYY-MM-DD");
+};
+
 const parseStatusParts = (item) => {
   const rawStatus = String(item?.status || "").trim();
+  const validUntilBr = toBrDate(item?.valid_until);
+  const validUntilIso = item?.valid_until && /^\d{4}-\d{2}-\d{2}$/.test(String(item?.valid_until))
+    ? String(item?.valid_until)
+    : null;
   const match = rawStatus
     .toLowerCase()
-    .match(/(vencido|sujeito|definitivo|possui)(?:_val(?:idade)?_)?(\d{1,2})[_/-](\d{1,2})[_/-](\d{2,4})/i);
+    .match(/([a-z_]+?)(?:_val(?:idade)?_)?(\d{1,2})[._/-](\d{1,2})[._/-](\d{2,4})/i);
 
   if (match) {
     const day = String(match[2]).padStart(2, "0");
     const month = String(match[3]).padStart(2, "0");
     const year = String(match[4]).length === 2 ? `20${match[4]}` : String(match[4]);
-    const baseStatus = formatStatusDisplay(match[1]);
+    let baseStatus = formatStatusDisplay(match[1]);
+    const validadeIso = `${year}-${month}-${day}`;
+    const isDefinitive = getStatusKey(baseStatus).includes("definitiv");
+    const dias = dayjs(validadeIso, "YYYY-MM-DD", true).startOf("day").diff(dayjs().startOf("day"), "day");
+    if (!isDefinitive && Number.isFinite(dias) && dias < 0) {
+      baseStatus = "Vencido";
+    }
     return {
       baseStatus,
-      validadeBr: `${day}/${month}/${year}`,
-      validadeIso: `${year}-${month}-${day}`,
+      validadeBr: isDefinitive ? null : `${day}/${month}/${year}`,
+      validadeIso: isDefinitive ? null : validadeIso,
     };
   }
 
-  const baseStatus = formatStatusDisplay(rawStatus || item?.status_key || "—");
-  const validadeBr = toBrDate(item?.validade_br || item?.validade);
-  const validadeIso = validadeBr
-    ? dayjs(validadeBr, "DD/MM/YYYY", true).format("YYYY-MM-DD")
+  const statusWithoutTrailingDate = rawStatus.replace(/\s*[-–]?\s*\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s*$/u, "").trim();
+  let baseStatus = formatStatusDisplay(statusWithoutTrailingDate || rawStatus || item?.status_key || "—");
+  const statusDateMatch = rawStatus.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  const statusDateBr = statusDateMatch
+    ? `${String(statusDateMatch[1]).padStart(2, "0")}/${String(statusDateMatch[2]).padStart(2, "0")}/${String(
+        statusDateMatch[3],
+      ).length === 2 ? `20${statusDateMatch[3]}` : statusDateMatch[3]}`
     : null;
-  return { baseStatus, validadeBr, validadeIso };
+  const validadeBr = validUntilBr || statusDateBr || toBrDate(item?.validade_br || item?.validade);
+  const validadeIso = validUntilIso || toIsoDate(validadeBr);
+  const isDefinitive = getStatusKey(baseStatus).includes("definitiv");
+  if (!isDefinitive && validadeIso) {
+    const dias = dayjs(validadeIso, "YYYY-MM-DD", true).startOf("day").diff(dayjs().startOf("day"), "day");
+    if (Number.isFinite(dias) && dias < 0) {
+      baseStatus = "Vencido";
+    }
+  }
+  return { baseStatus, validadeBr: isDefinitive ? null : validadeBr, validadeIso: isDefinitive ? null : validadeIso };
+};
+
+const formatStatusWithDate = (item) => {
+  const parts = parseStatusParts(item);
+  const sourceRaw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+  const sourceKind = String(sourceRaw?.[`source_kind_${item?.licence_field}`] || "").toLowerCase();
+  if (sourceKind === "definitivo" && getStatusKey(parts.baseStatus) === "possui") {
+    return "Possui - Definitivo";
+  }
+  if (getStatusKey(parts.baseStatus) === "definitivo") {
+    return "Possui - Definitivo";
+  }
+  const fallbackDate =
+    toBrDate(item?.valid_until) || parts.validadeBr || toBrDate(item?.validade_br || item?.validade) || item?.validade_br_display;
+  if (fallbackDate && !getStatusKey(parts.baseStatus).includes("definitiv")) {
+    return `${parts.baseStatus} - ${fallbackDate}`;
+  }
+  return parts.baseStatus;
 };
 
 const toCanonicalStatusKey = (value) => getStatusKey(value).replace(/\s+/g, "_");
@@ -250,8 +326,8 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
 
   React.useEffect(() => {
     if (!open || !item) return;
-    setStatus(getStatusKey(item?.status).replace(/\s+/g, "_") || "possui");
-    setValidade(item?.validade || "");
+    setStatus(item?.status_key_canonical || getStatusKey(item?.status).replace(/\s+/g, "_") || "possui");
+    setValidade(item?.valid_until || item?.validade || "");
     setMotivo(item?.motivo_nao_exigido || "");
     setJustificativa(item?.justificativa_nao_exigido || "");
     setObservacao(item?.observacao || "");
@@ -387,6 +463,7 @@ export default function LicencasScreen({
   const [kpiFilter, setKpiFilter] = useState("todos");
   const [priorityGroup, setPriorityGroup] = useState("todos");
   const [uploading, setUploading] = useState(false);
+  const [scanRunning, setScanRunning] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadDraft, setUploadDraft] = useState({ companyId: "", items: [] });
   const fileInputRef = useRef(null);
@@ -413,7 +490,7 @@ export default function LicencasScreen({
       base.map((item) => {
         const tipoNorm = normalizeTipo(item?.tipo);
         const parsedStatus = parseStatusParts(item);
-        const statusKeyCanonical = toCanonicalStatusKey(parsedStatus.baseStatus);
+        const statusKeyCanonical = item?.status_key_canonical || toCanonicalStatusKey(parsedStatus.baseStatus);
         return {
           ...item,
           tipo_norm: tipoNorm,
@@ -422,8 +499,8 @@ export default function LicencasScreen({
           status_key_canonical: statusKeyCanonical,
           sem_vinculo: Boolean(item?.sem_vinculo) || !item?.empresa,
           status_label: parsedStatus.baseStatus,
-          validade_br_display: parsedStatus.validadeBr,
-          validade_iso_display: parsedStatus.validadeIso,
+          validade_br_display: toBrDate(item?.valid_until) || parsedStatus.validadeBr,
+          validade_iso_display: item?.valid_until || parsedStatus.validadeIso,
           criticidade: classify(item),
         };
       }),
@@ -506,6 +583,41 @@ export default function LicencasScreen({
   const triggerUpload = () => {
     if (!canManageLicencas || uploading) return;
     fileInputRef.current?.click();
+  };
+
+  const triggerScanFull = async () => {
+    if (!canManageLicencas || scanRunning) return;
+    setScanRunning(true);
+    try {
+      const response = await fetchJson("/api/v1/licencas/scan-full", { method: "POST" });
+      const runId = response?.run_id;
+      enqueueToast?.(`Scan completo iniciado${runId ? ` (run ${runId})` : ""}.`);
+      if (!runId) {
+        await onRefreshData?.();
+        return;
+      }
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        const statusPayload = await fetchJson(`/api/v1/worker/jobs/${runId}`);
+        const status = String(statusPayload?.status || "").toLowerCase();
+        if (status === "done") {
+          enqueueToast?.("Scan completo concluído.");
+          await onRefreshData?.();
+          return;
+        }
+        if (status === "error") {
+          const reason = statusPayload?.errors?.[0]?.error;
+          enqueueToast?.(reason ? `Scan completo com erro: ${reason}` : "Scan completo com erro.");
+          await onRefreshData?.();
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      enqueueToast?.("Scan completo em andamento. Consulte o status novamente em instantes.");
+    } catch (error) {
+      enqueueToast?.(error?.message || "Falha ao iniciar scan completo.");
+    } finally {
+      setScanRunning(false);
+    }
   };
 
   const onSelectFiles = async (event) => {
@@ -601,15 +713,26 @@ export default function LicencasScreen({
           Por tipo
         </Button>
         {canManageLicencas && (
-          <Button
-            size="sm"
-            variant="secondary"
-            data-testid="licencas-upload-action"
-            onClick={triggerUpload}
-            disabled={uploading}
-          >
-            {uploading ? "Enviando..." : "Atualizar licenças"}
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="secondary"
+                data-testid="licencas-upload-action"
+                disabled={uploading || scanRunning}
+              >
+                {uploading ? "Enviando..." : (scanRunning ? "Escaneando..." : "Atualizar licenças")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={triggerUpload} data-testid="licencas-action-new">
+                Nova Licença
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={triggerScanFull} data-testid="licencas-action-scan-full">
+                Scan Completo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
         <input
           ref={fileInputRef}
@@ -668,11 +791,7 @@ export default function LicencasScreen({
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold">{item.empresa_display}</span>
                           <StatusBadge
-                            status={
-                              item.validade_br_display
-                                ? `${item.status_label} - ${item.validade_br_display}`
-                                : item.status_label
-                            }
+                            status={formatStatusWithDate(item)}
                           />
                           {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
                           <Chip variant="neutral">{item.tipo}</Chip>
@@ -732,11 +851,7 @@ export default function LicencasScreen({
                             >
                               {cell ? (
                                 <StatusBadge
-                                  status={
-                                    cell.validade_br_display
-                                      ? `${cell.status_label} - ${cell.validade_br_display}`
-                                      : cell.status_label
-                                  }
+                                  status={formatStatusWithDate(cell)}
                                 />
                               ) : (
                                 <Chip variant="neutral">Sem dado</Chip>

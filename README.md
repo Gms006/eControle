@@ -2,11 +2,11 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-06)
+## Status atual do projeto (2026-03-11)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
-- S10: em andamento (S10.1a + S10.1b + S10.2).
+- S10: concluido (S10.1a + S10.1b + S10.2).
 - S9/S11/S12: planejados.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
@@ -85,8 +85,10 @@ Base: `http://localhost:8020/api/v1`
 - Licencas: `/licencas`
   - `POST /licencas/upload-bulk` (ADMIN|DEV)
   - `POST /licencas/detect` (ADMIN|DEV, analisa somente nomes de arquivos)
+  - `POST /licencas/scan-full` (ADMIN|DEV, scan manual em lote com run/progresso)
 - Taxas: `/taxas` (inclui patch de envio)
 - Processos: `/processos` (listagem + CRUD)
+  - criacao de `DIVERSOS` com empresa nao cadastrada permitida com `company_id=null` + `company_cnpj` + `company_razao_social`
 - Situacoes de processos: `/processos/situacoes`
 - Alertas: `/alertas`, `/alertas/tendencia`
 - Certificados:
@@ -96,7 +98,7 @@ Base: `http://localhost:8020/api/v1`
 - Integracoes CertHub (webhook server-to-server):
   - `POST /integracoes/certhub/webhook` (auth por `Authorization: Bearer <CERTHUB_WEBHOOK_TOKEN>`)
   - modos suportados: `upsert`, `delete`, `full`
-- Lookups: `/lookups/receitaws/{cnpj}`
+- Lookups: `/lookups/receitaws/{cnpj}` (provedor primario ReceitaWS com fallback automatico para BrasilAPI)
 - Meta: `/meta/enums`
 - Grupos: `/grupos`
 - Admin usuarios: `/admin/users`
@@ -108,7 +110,7 @@ Base: `http://localhost:8020/api/v1`
   - `POST /dev/receitaws/bulk-sync/{run_id}/cancel`
 - Worker (read-only status):
   - `GET /worker/health` (ADMIN|DEV|VIEW, inclui `jobs_supported` e `watchers_supported`)
-  - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW)
+  - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW, suporta `receitaws_bulk_sync` e `licence_scan_full`)
 
 Healthchecks:
 - `GET /healthz`
@@ -162,13 +164,40 @@ $env:ECONTROLE_PASSWORD="sua_senha"
 
 ## Upload assistido de licencas (S10.2)
 
-- Na tela de Licencas, ADMIN/DEV abre `Atualizar licenças`.
+- Na tela de Licencas, ADMIN/DEV abre `Atualizar licenças` (dropdown).
+- Ações:
+  - `Nova Licença`: fluxo assistido de upload já existente.
+  - `Scan Completo`: dispara scan manual em lote (`POST /api/v1/licencas/scan-full`) e acompanha status por `worker/jobs`.
 - Ao selecionar arquivos, o frontend chama `POST /api/v1/licencas/detect`.
 - A deteccao sugere grupo/tipo/validade/nome canonico com confianca e avisos.
 - O usuario confirma/corrige cada arquivo no drawer antes do envio final.
 - O envio final continua no endpoint existente `POST /api/v1/licencas/upload-bulk`.
 - Perfil VIEW nao visualiza botoes de upload/deteccao.
 - Se houver layout estruturado de subpastas e a pasta esperada da unidade não existir, o upload falha com erro orientado.
+
+### Normalizacao de licencas (S10.2)
+
+- `company_licences` possui colunas `DATE` por documento: `*_valid_until`.
+- Status em colunas de licença ficam apenas canônicos (sem sufixos `*_val_*`).
+- Evidências continuam em `raw.validade_*` e `raw.validade_*_br`.
+
+## Entregas adicionais pos-S10.2
+
+- Processos `DIVERSOS` para empresa nao cadastrada:
+  - backend valida regras e persiste flag em `raw.empresa_nao_cadastrada`
+  - frontend (`Novo Processo`) exibe checkbox `Empresa nao cadastrada` com validacao obrigatoria de CNPJ/Razao Social
+- Frontend filtra empresas inativas em todas as abas de dominio:
+  - licencas, taxas, processos e certificados mostram apenas empresas ativas
+  - excecao mantida para processos `DIVERSOS` com empresa nao cadastrada
+- Lookups CNPJ com resiliencia:
+  - endpoint tenta ReceitaWS e, em falha temporaria, usa BrasilAPI automaticamente
+
+## Validacao S10.2 (executada em 2026-03-11)
+
+- `pytest -q backend/tests/test_licencas_detect.py backend/tests/test_licencas_upload_bulk.py backend/tests/test_licence_watcher.py backend/tests/test_worker_endpoints.py backend/tests/test_licence_migration_backfill.py`
+  - resultado: `19 passed`
+- `pytest -q backend/tests/test_lookups_receitaws.py backend/tests/test_processes_canonical.py`
+  - resultado: `6 passed`
 
 ## Testes
 

@@ -123,6 +123,53 @@ const getCompanyFromIndexes = (item: any, indexes: { byId: Map<string, any>; byC
   return undefined;
 };
 
+const hasCompanyReference = (item: any) =>
+  Boolean(
+    item?.company_id ??
+      item?.companyId ??
+      item?.empresa_id ??
+      item?.empresaId ??
+      item?.cnpj ??
+      item?.cnpj_empresa ??
+      item?.cnpjEmpresa ??
+      item?.company_cnpj,
+  );
+
+const hasActiveCompanyLink = (item: any, indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
+  const company = getCompanyFromIndexes(item, indexes);
+  if (company) return true;
+  const companyId =
+    item?.company_id ??
+    item?.companyId ??
+    item?.empresa_id ??
+    item?.empresaId;
+  if (companyId !== undefined && companyId !== null) {
+    return indexes.byId.has(String(companyId).trim());
+  }
+  const cnpjDigits = normalizeCnpjDigits(
+    item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? item?.company_cnpj,
+  );
+  if (cnpjDigits) {
+    return indexes.byCnpj.has(cnpjDigits);
+  }
+  return false;
+};
+
+const isUnregisteredDiversosProcess = (item: any) => {
+  const processType = String(item?.process_type ?? item?.tipo ?? "").trim().toUpperCase();
+  const explicitFlag =
+    item?.empresa_nao_cadastrada === true ||
+    item?.raw?.empresa_nao_cadastrada === true;
+  if (explicitFlag) return true;
+  if (processType !== "DIVERSOS") return false;
+  const hasNoCompanyId = !String(item?.company_id ?? item?.companyId ?? "").trim();
+  const hasManualCompanyData = Boolean(
+    String(item?.company_cnpj ?? item?.raw?.company_cnpj ?? item?.cnpj ?? "").trim() &&
+      String(item?.company_razao_social ?? item?.raw?.company_razao_social ?? item?.empresa ?? "").trim(),
+  );
+  return hasNoCompanyId && hasManualCompanyData;
+};
+
 const enrichWithCompany = (
   item: any,
   indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
@@ -193,6 +240,7 @@ const adaptLicencasRecords = (
         motivo_nao_exigido: lic?.motivo_nao_exigido ?? lic?.raw?.motivo_nao_exigido,
         justificativa_nao_exigido:
           lic?.justificativa_nao_exigido ?? lic?.raw?.justificativa_nao_exigido,
+        valid_until: lic?.valid_until ?? lic?.validade ?? null,
         company_name: lic?.company_name,
       });
       return;
@@ -202,10 +250,15 @@ const adaptLicencasRecords = (
     LICENSE_FIELD_MAP.forEach(({ field, tipo }) => {
       const status = lic?.[field];
       const normalizedStatus = hasValue(status) ? status : "nao_possui";
+      const sourceRaw = lic?.raw && typeof lic.raw === "object" ? lic.raw : {};
+      const validUntilRaw =
+        lic?.[`${field}_valid_until`] ??
+        sourceRaw?.[`${field}_valid_until`] ??
+        null;
       const validadeRaw =
         lic?.[`validade_${field}`] ??
-        lic?.raw?.[`validade_${field}`] ??
-        lic?.raw?.[`${field}_validade`] ??
+        sourceRaw?.[`validade_${field}`] ??
+        sourceRaw?.[`${field}_validade`] ??
         null;
 
       expanded.push({
@@ -216,22 +269,23 @@ const adaptLicencasRecords = (
         tipo,
         status: normalizedStatus,
         status_geral: lic?.status_geral ?? lic?.statusGeral ?? null,
+        valid_until: validUntilRaw,
         validade: validadeRaw,
         validade_br:
           lic?.[`validade_${field}_br`] ??
-          lic?.raw?.[`validade_${field}_br`] ??
+          sourceRaw?.[`validade_${field}_br`] ??
           (typeof validadeRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(validadeRaw)
             ? `${validadeRaw.slice(8, 10)}/${validadeRaw.slice(5, 7)}/${validadeRaw.slice(0, 4)}`
             : null) ??
           null,
-        status_detalhe: lic?.raw?.[`${field}_detalhe`] ?? null,
+        status_detalhe: sourceRaw?.[`${field}_detalhe`] ?? null,
         motivo_nao_exigido:
-          lic?.raw?.[`${field}_motivo_nao_exigido`] ?? lic?.motivo_nao_exigido ?? null,
+          sourceRaw?.[`${field}_motivo_nao_exigido`] ?? lic?.motivo_nao_exigido ?? null,
         justificativa_nao_exigido:
-          lic?.raw?.[`${field}_justificativa_nao_exigido`] ?? lic?.justificativa_nao_exigido ?? null,
-        observacao: lic?.raw?.[`${field}_observacao`] ?? null,
-        responsavel: lic?.raw?.[`${field}_responsavel`] ?? null,
-        proxima_acao: lic?.raw?.[`${field}_proxima_acao`] ?? null,
+          sourceRaw?.[`${field}_justificativa_nao_exigido`] ?? lic?.justificativa_nao_exigido ?? null,
+        observacao: sourceRaw?.[`${field}_observacao`] ?? null,
+        responsavel: sourceRaw?.[`${field}_responsavel`] ?? null,
+        proxima_acao: sourceRaw?.[`${field}_proxima_acao`] ?? null,
         company_name: lic?.company_name,
         company_razao_social: lic?.company_razao_social,
         company_cnpj: lic?.company_cnpj,
@@ -413,12 +467,22 @@ export default function MainApp() {
       const taxasRaw = readCollection(taxasResponse, "taxas");
       const processosRaw = readCollection(processosResponse, "processos");
       const certificadosRaw = readCollection(certificadosResponse, "certificados");
+      const licencasLinked = licencasRaw.filter((item: any) => hasActiveCompanyLink(item, companyIndexes));
+      const taxasLinked = taxasRaw.filter((item: any) => hasActiveCompanyLink(item, companyIndexes));
+      const processosLinked = processosRaw.filter(
+        (item: any) =>
+          hasActiveCompanyLink(item, companyIndexes) ||
+          isUnregisteredDiversosProcess(item),
+      );
+      const certificadosLinked = certificadosRaw.filter(
+        (item: any) => !hasCompanyReference(item) || hasActiveCompanyLink(item, companyIndexes),
+      );
 
       setEmpresas(empresasNormalized);
-      setLicencas(adaptLicencasRecords(licencasRaw, companyIndexes));
-      setTaxas(adaptTaxasRecords(taxasRaw, companyIndexes));
-      setProcessos(adaptProcessosRecords(processosRaw, companyIndexes));
-      setCertificados(certificadosRaw);
+      setLicencas(adaptLicencasRecords(licencasLinked, companyIndexes));
+      setTaxas(adaptTaxasRecords(taxasLinked, companyIndexes));
+      setProcessos(adaptProcessosRecords(processosLinked, companyIndexes));
+      setCertificados(certificadosLinked);
 
       if (kpisResponse.status === "fulfilled") {
         setKpis(kpisResponse.value || {});

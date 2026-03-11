@@ -71,7 +71,9 @@ def _upsert_licence_projection(
     if _rank_candidate(source_kind, _parse_raw_date(expiry_iso)) < _rank_candidate(current_kind, current_expiry):
         return
 
-    setattr(row, licence_field, "possui")
+    status_value = "definitivo" if source_kind == "definitivo" else "possui"
+    setattr(row, licence_field, status_value)
+    setattr(row, f"{licence_field}_valid_until", _parse_raw_date(expiry_iso))
     if expiry_iso:
         raw[f"validade_{licence_field}"] = expiry_iso
         raw[f"validade_{licence_field}_br"] = datetime.strptime(expiry_iso, "%Y-%m-%d").strftime("%d/%m/%Y")

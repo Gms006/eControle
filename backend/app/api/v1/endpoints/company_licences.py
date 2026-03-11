@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -13,6 +13,8 @@ from app.db.session import get_db
 from app.models.company import Company
 from app.models.org import Org
 from app.models.company_licence import CompanyLicence
+from app.models.licence_scan_run import LicenceScanRun
+from app.models.user import User
 from app.schemas.company_licence import (
     LicenceDetectItemOut,
     LicenceDetectResponse,
@@ -30,6 +32,7 @@ from app.services.licence_files import (
     parse_iso_date,
     resolve_licence_name_spec,
 )
+from app.services.licence_scan_full import run_licence_scan_full_job
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -104,6 +107,7 @@ def patch_company_licence_item(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Licence not found")
 
     setattr(licence, payload.field, payload.status)
+    setattr(licence, f"{payload.field}_valid_until", parse_iso_date(payload.validade) if payload.validade else None)
 
     raw = licence.raw if isinstance(licence.raw, dict) else {}
     if payload.validade:
@@ -144,6 +148,30 @@ def patch_company_licence_item(
         .first()
     )
     return _to_company_licence_out(licence, company)
+
+
+@router.post("/scan-full")
+def run_scan_full(
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    org: Org = Depends(get_current_org),
+    user: User = Depends(require_roles("ADMIN", "DEV")),
+) -> dict[str, str]:
+    run = LicenceScanRun(
+        org_id=org.id,
+        status="queued",
+        total=0,
+        processed=0,
+        ok_count=0,
+        error_count=0,
+    )
+    db.add(run)
+    db.commit()
+    db.refresh(run)
+
+    logger.info("licence_scan_full_started run_id=%s org_id=%s user_id=%s", run.id, org.id, user.id)
+    background_tasks.add_task(run_licence_scan_full_job, run.id)
+    return {"run_id": run.id, "status": run.status}
 
 
 @router.post("/detect", response_model=LicenceDetectResponse)

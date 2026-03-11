@@ -124,10 +124,14 @@ export default function EmpresasScreen({
     }
   }, [toast]);
 
-  const openEditEmpresa = React.useCallback((empresaId) => {
-    if (!empresaId) return;
-    window.dispatchEvent(new CustomEvent("econtrole:open-company", { detail: { mode: "edit", companyId: empresaId } }));
-  }, []);
+  const openEditEmpresa = React.useCallback((empresa) => {
+    const empresaId = resolveEmpresaIdValue(empresa, extractEmpresaId);
+    window.dispatchEvent(
+      new CustomEvent("econtrole:open-company", {
+        detail: { mode: "edit", companyId: empresaId || null, cnpj: empresa?.cnpj || null },
+      })
+    );
+  }, [extractEmpresaId]);
 
   const rows = React.useMemo(() => filteredEmpresas.map((empresa) => {
     const empresaId = resolveEmpresaIdValue(empresa, extractEmpresaId);
@@ -259,7 +263,7 @@ export default function EmpresasScreen({
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-72">
                           {canManageEmpresas ? (
-                            <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(resolveEmpresaIdValue(row.empresa, extractEmpresaId))} />
+                            <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(row.empresa)} />
                           ) : null}
                           <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
                           {row.empresa?.email ? <DropdownMenuItemFancy icon={Mail} title="Copiar e-mail" description={row.empresa.email} onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)} /> : null}
@@ -322,7 +326,7 @@ export default function EmpresasScreen({
                     </DropdownMenuContent>
                   </DropdownMenu>
                   {canManageEmpresas ? (
-                    <Button size="sm" variant="outline" onClick={() => openEditEmpresa(resolveEmpresaIdValue(row.empresa, extractEmpresaId))} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
+                    <Button size="sm" variant="outline" onClick={() => openEditEmpresa(row.empresa)} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
                   ) : null}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -362,7 +366,21 @@ export default function EmpresasScreen({
                 <details className="rounded-xl border border-subtle bg-slate-50/80 p-3">
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">Mais Detalhes</summary>
                   <div className="mt-2 space-y-1 text-xs text-slate-700">
+                    <p><span className="font-semibold">Responsável Fiscal:</span> {row.empresa?.responsavel_fiscal || row.empresa?.responsavelFiscal || "—"}</p>
+                    <p><span className="font-semibold">Responsável Legal:</span> {row.empresa?.proprietario_principal || row.empresa?.responsavel_legal || row.empresa?.responsavelLegal || row.empresa?.representante || "—"}</p>
+                    <p><span className="font-semibold">CPF Responsável Legal:</span> {row.empresa?.cpf || row.empresa?.cpf_responsavel_legal || row.empresa?.cpfResponsavelLegal || "—"}</p>
+                    <p><span className="font-semibold">Porte:</span> {row.empresa?.porte || "—"}</p>
                     {(row.empresa?.observacoes || "").trim() ? <p><span className="font-semibold">Observação:</span> {row.empresa.observacoes}</p> : null}
+                    <p>
+                      <span className="font-semibold">Classificação:</span>{" "}
+                      {[
+                        Boolean(row.empresa?.mei ?? row.empresa?.is_mei ?? row.empresa?.isMei) ? "MEI" : null,
+                        Boolean(row.empresa?.holding) ? "Holding" : null,
+                        Boolean(row.empresa?.endereco_fiscal ?? row.empresa?.enderecoFiscal) ? "Endereço Fiscal" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(", ") || "Não"}
+                    </p>
                     {(Boolean(row.empresa?.endereco_fiscal ?? row.empresa?.enderecoFiscal) || Boolean(row.empresa?.holding) || Boolean(row.empresa?.mei ?? row.empresa?.is_mei ?? row.empresa?.isMei)) ? (
                       <div className="flex flex-wrap gap-1.5">
                         {Boolean(row.empresa?.endereco_fiscal ?? row.empresa?.enderecoFiscal) ? <Chip variant="neutral">Endereço Fiscal</Chip> : null}

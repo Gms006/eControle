@@ -57,6 +57,8 @@ test.describe("Licencas assisted upload", () => {
 
     await page.getByTestId("nav-tab-licencas").first().click();
     await expect(page.getByTestId("licencas-upload-action")).toBeVisible();
+    await page.getByTestId("licencas-upload-action").click();
+    await page.getByTestId("licencas-action-new").click();
 
     const fileInput = page.locator('input[type="file"]').first();
     await fileInput.setInputFiles({
@@ -70,6 +72,46 @@ test.describe("Licencas assisted upload", () => {
     await page.getByRole("button", { name: "Enviar arquivos" }).click();
 
     await expect(page.getByText("Upload concluído: 1/1 arquivos salvos.")).toBeVisible();
+  });
+
+  test("ADMIN/DEV dispara scan completo e recebe run_id", async ({ page }) => {
+    await page.route("**/api/v1/licencas/scan-full", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ run_id: "scan-run-e2e", status: "queued" }),
+      });
+    });
+    await page.route("**/api/v1/worker/jobs/scan-run-e2e", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({
+          job_id: "scan-run-e2e",
+          job_type: "licence_scan_full",
+          source: "licence_scan_runs",
+          status: "done",
+          total: 10,
+          processed: 10,
+          ok_count: 10,
+          error_count: 0,
+          skipped_count: 0,
+          errors: [],
+          meta: {},
+        }),
+      });
+    });
+
+    await page.goto("/login");
+    await page.getByTestId("login-email").fill(email!);
+    await page.getByTestId("login-password").fill(password!);
+    await page.getByTestId("login-submit").click();
+    await page.waitForURL(/\/painel$/);
+
+    await page.getByTestId("nav-tab-licencas").first().click();
+    await page.getByTestId("licencas-upload-action").click();
+    await page.getByTestId("licencas-action-scan-full").click();
+    await expect(page.getByText(/Scan completo iniciado \(run scan-run-e2e\)\./)).toBeVisible();
   });
 
   test("VIEW não vê ação de upload/detect", async ({ page }) => {

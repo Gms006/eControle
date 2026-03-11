@@ -42,16 +42,47 @@ def create_process(
     org: Org = Depends(get_current_org),
     _user=Depends(require_roles("ADMIN", "DEV")),
 ) -> CompanyProcessOut:
-    # sanity check company belongs to org
-    company = (
-        db.query(Company)
-        .filter(Company.id == payload.company_id, Company.org_id == org.id)
-        .first()
+    data = payload.model_dump(
+        exclude_none=True,
+        exclude={"company_cnpj", "company_razao_social", "empresa_nao_cadastrada"},
     )
-    if not company:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+    process_type = str(data.get("process_type") or "").strip().upper()
+    data["process_type"] = process_type
 
-    data = payload.model_dump(exclude_none=True)
+    if payload.company_id:
+        company = (
+            db.query(Company)
+            .filter(Company.id == payload.company_id, Company.org_id == org.id)
+            .first()
+        )
+        if not company:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+    else:
+        if process_type != "DIVERSOS":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Only process_type DIVERSOS can be created without a registered company",
+            )
+        if not str(payload.company_razao_social or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="company_razao_social is required for unregistered company process",
+            )
+        if not str(payload.company_cnpj or "").strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="company_cnpj is required for unregistered company process",
+            )
+        raw = dict(data.get("raw") or {})
+        raw["empresa_nao_cadastrada"] = True
+        raw["company_cnpj"] = payload.company_cnpj
+        raw["company_razao_social"] = str(payload.company_razao_social).strip()
+        # campos usados no frontend para exibição
+        raw["cnpj"] = payload.company_cnpj
+        raw["empresa"] = str(payload.company_razao_social).strip()
+        data["raw"] = raw
+        data["company_id"] = None
+
     if "municipio" in data:
         data["municipio"] = normalize_municipio(data.get("municipio"))
     proc = CompanyProcess(org_id=org.id, **data)

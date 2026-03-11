@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.org import Org
+from app.models.licence_scan_run import LicenceScanRun
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.models.role import Role
 from app.models.user import User
@@ -81,6 +82,27 @@ def _create_receitaws_run() -> str:
         db.close()
 
 
+def _create_licence_scan_run() -> str:
+    db = SessionLocal()
+    try:
+        org = db.query(Org).first()
+        assert org is not None
+        run = LicenceScanRun(
+            org_id=org.id,
+            status="running",
+            total=4,
+            processed=2,
+            ok_count=2,
+            error_count=0,
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        return run.id
+    finally:
+        db.close()
+
+
 def test_worker_health_returns_ok(client):
     token = _login(client, "admin@example.com", "admin123")
     response = client.get("/api/v1/worker/health", headers={"Authorization": f"Bearer {token}"})
@@ -89,6 +111,7 @@ def test_worker_health_returns_ok(client):
     assert payload["status"] == "ok"
     assert payload["db"] == "ok"
     assert "receitaws_bulk_sync" in payload["jobs_supported"]
+    assert "licence_scan_full" in payload["jobs_supported"]
     assert "licence_directory_watcher" in payload["watchers_supported"]
 
 
@@ -118,3 +141,18 @@ def test_worker_endpoints_allow_view_role(client):
 
     status_response = client.get(f"/api/v1/worker/jobs/{run_id}", headers=headers)
     assert status_response.status_code == 200
+
+
+def test_worker_jobs_returns_licence_scan_run_status(client):
+    token = _login(client, "admin@example.com", "admin123")
+    run_id = _create_licence_scan_run()
+
+    response = client.get(f"/api/v1/worker/jobs/{run_id}", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["job_id"] == run_id
+    assert payload["job_type"] == "licence_scan_full"
+    assert payload["source"] == "licence_scan_runs"
+    assert payload["status"] == "running"
+    assert payload["processed"] == 2
+    assert payload["total"] == 4
