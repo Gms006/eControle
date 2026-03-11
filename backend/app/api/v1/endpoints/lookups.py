@@ -52,6 +52,19 @@ async def fetch_receitaws_payload(cnpj: str) -> dict[str, Any]:
         return r.json()
 
 
+@retry(stop=stop_after_attempt(2), wait=wait_exponential(multiplier=0.5, min=0.5, max=2))
+async def fetch_brasilapi_payload(cnpj: str) -> dict[str, Any]:
+    url = f"https://brasilapi.com.br/api/cnpj/v1/{cnpj}"
+    async with httpx.AsyncClient(timeout=10) as client:
+        r = await client.get(url, headers={"Accept": "application/json"})
+        if r.status_code in (429, 500, 502, 503, 504):
+            raise httpx.HTTPError(f"BrasilAPI temporary error: HTTP {r.status_code}")
+        if r.status_code == 404:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="CNPJ nao encontrado")
+        r.raise_for_status()
+        return r.json()
+
+
 def map_receitaws_payload(cnpj: str, data: dict[str, Any]) -> dict[str, Any]:
     principal = data.get("atividade_principal") or []
     secundarios = data.get("atividades_secundarias") or []
@@ -77,6 +90,48 @@ def map_receitaws_payload(cnpj: str, data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def map_brasilapi_payload(cnpj: str, data: dict[str, Any]) -> dict[str, Any]:
+    cnae_principal = []
+    cnae_fiscal = normalize_spaces(data.get("cnae_fiscal"))
+    cnae_fiscal_desc = normalize_spaces(data.get("cnae_fiscal_descricao"))
+    if cnae_fiscal or cnae_fiscal_desc:
+        cnae_principal.append({"code": cnae_fiscal or "", "text": cnae_fiscal_desc or ""})
+
+    cnaes_secundarios = []
+    for item in data.get("cnaes_secundarios") or []:
+        if not isinstance(item, dict):
+            continue
+        code = normalize_spaces(item.get("codigo") or item.get("code"))
+        text = normalize_spaces(item.get("descricao") or item.get("text"))
+        if code or text:
+            cnaes_secundarios.append({"code": code or "", "text": text or ""})
+
+    telefone = extract_primary_phone_digits(
+        " / ".join(
+            [
+                str(data.get("ddd_telefone_1") or "").strip(),
+                str(data.get("ddd_telefone_2") or "").strip(),
+            ]
+        )
+    )
+
+    return {
+        "cnpj": cnpj,
+        "razao_social": normalize_title_case(data.get("razao_social")),
+        "nome_fantasia": normalize_title_case(data.get("nome_fantasia")),
+        "porte": normalize_spaces(data.get("porte")),
+        "municipio": normalize_municipio(data.get("municipio")),
+        "municipio_padrao": normalize_municipio(data.get("municipio")),
+        "uf": (normalize_spaces(data.get("uf")) or "").upper() or None,
+        "email": normalize_email(data.get("email")),
+        "telefone": telefone,
+        "simei_optante": False,
+        "cnaes_principal": cnae_principal,
+        "cnaes_secundarios": cnaes_secundarios,
+        "status": "success",
+    }
+
+
 @router.get("/receitaws/{cnpj}")
 async def lookup_receitaws(
     cnpj: str,
@@ -89,19 +144,28 @@ async def lookup_receitaws(
     if cached and cached[0] > now:
         return cached[1]
 
+    receitaws_error: Exception | None = None
     try:
         data = await fetch_receitaws_payload(digits)
+        if isinstance(data, dict) and str(data.get("status", "")).upper() == "ERROR":
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=data.get("message") or "CNPJ nao encontrado")
+        mapped = map_receitaws_payload(digits, data)
+        _CACHE[digits] = (now + _TTL_SECONDS, mapped)
+        return mapped
+    except HTTPException:
+        raise
     except Exception as exc:
+        receitaws_error = exc
+
+    try:
+        data = await fetch_brasilapi_payload(digits)
+        mapped = map_brasilapi_payload(digits, data)
+        _CACHE[digits] = (now + _TTL_SECONDS, mapped)
+        return mapped
+    except HTTPException:
+        raise
+    except Exception as brasilapi_error:
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"ReceitaWS indisponivel: {exc}",
+            detail=f"Lookup indisponivel (ReceitaWS: {receitaws_error}; BrasilAPI: {brasilapi_error})",
         )
-
-    # ReceitaWS costuma retornar {"status":"ERROR","message":"..."} em alguns casos
-    if isinstance(data, dict) and str(data.get("status", "")).upper() == "ERROR":
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=data.get("message") or "CNPJ nao encontrado")
-
-    mapped = map_receitaws_payload(digits, data)
-
-    _CACHE[digits] = (now + _TTL_SECONDS, mapped)
-    return mapped

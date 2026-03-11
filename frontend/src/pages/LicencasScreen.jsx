@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/StatusBadge";
@@ -23,7 +24,23 @@ const TIPOS = [
   { key: "AMBIENTAL", label: "Ambiental", field: "licenca_ambiental" },
 ];
 
-const STATUS_OPTIONS = ["possui", "vencido", "sujeito", "nao_possui", "nao_exigido"];
+const STATUS_OPTIONS = [
+  "possui",
+  "definitivo",
+  "vencido",
+  "sujeito",
+  "nao_possui",
+  "nao_exigido",
+  "isento",
+  "aguardando_documento",
+  "aguardando_vistoria",
+  "aguardando_pagamento",
+  "aguardando_regularizacao",
+  "aguardando_liberacao",
+  "em_analise",
+  "notificacao",
+  "ir_na_visa",
+];
 const MOTIVO_OPTIONS = [
   "atividade_nao_exige",
   "zoneamento_nao_aplica",
@@ -33,6 +50,126 @@ const MOTIVO_OPTIONS = [
   "endereco_administrativo_fiscal",
   "outro",
 ];
+
+const DETECT_KIND_OPTIONS = [
+  { value: "ALVARA_BOMBEIROS", label: "Alvará Bombeiros" },
+  { value: "ALVARA_VIG_SANITARIA", label: "Alvará Vig Sanitária" },
+  { value: "DISPENSA_SANITARIA", label: "Dispensa Sanitária" },
+  { value: "ALVARA_FUNCIONAMENTO_DEFINITIVO", label: "Alvará Funcionamento - Definitivo" },
+  { value: "ALVARA_FUNCIONAMENTO_CONDICIONADO", label: "Alvará Funcionamento - Condicionado" },
+  { value: "ALVARA_FUNCIONAMENTO_PROVISORIO", label: "Alvará Funcionamento - Provisório" },
+  { value: "USO_DO_SOLO", label: "Uso do Solo" },
+  { value: "LICENCA_AMBIENTAL", label: "Licença Ambiental" },
+  { value: "DISPENSA_AMBIENTAL", label: "Dispensa Ambiental" },
+];
+
+const toUploadLicenceType = (kind, isDefinitive) => {
+  const key = String(kind || "").trim().toUpperCase();
+  if (!isDefinitive) return key;
+  if (key === "DISPENSA_SANITARIA") return "DISPENSA_SANITARIA_DEFINITIVO";
+  if (key === "DISPENSA_AMBIENTAL") return "DISPENSA_AMBIENTAL_DEFINITIVO";
+  return key;
+};
+
+function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploading }) {
+  const canSubmit = Boolean(draft?.companyId?.trim()) && (draft?.items || []).length > 0;
+  return (
+    <SideDrawer
+      open={open}
+      onClose={onClose}
+      title="Upload assistido de licenças"
+      subtitle="Detecta tipo e validade pelo nome do arquivo. Confirme antes de enviar."
+      footer={
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={onConfirm} disabled={!canSubmit || uploading}>
+            {uploading ? "Enviando..." : "Enviar arquivos"}
+          </Button>
+        </div>
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <Label>company_id</Label>
+          <Input
+            value={draft.companyId}
+            onChange={(event) => setDraft((prev) => ({ ...prev, companyId: event.target.value }))}
+            placeholder="Informe o ID da empresa"
+          />
+        </div>
+        <div className="space-y-3">
+          {draft.items.map((item, index) => (
+            <div key={`${item.originalFilename}-${index}`} className="rounded-xl border border-slate-200 p-3">
+              <div className="text-sm font-medium text-slate-800">{item.originalFilename}</div>
+              <div className="mt-2 grid gap-3 md:grid-cols-2">
+                <div>
+                  <Label>Tipo sugerido</Label>
+                  <Select
+                    value={item.kind || "__none__"}
+                    onValueChange={(value) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        items: prev.items.map((current, idx) =>
+                          idx === index ? { ...current, kind: value === "__none__" ? "" : value } : current,
+                        ),
+                      }))
+                    }
+                  >
+                    <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="__none__">Selecione</SelectItem>
+                      {DETECT_KIND_OPTIONS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Validade</Label>
+                  <Input
+                    type="date"
+                    value={item.expiresAt || ""}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        items: prev.items.map((current, idx) =>
+                          idx === index ? { ...current, expiresAt: event.target.value } : current,
+                        ),
+                      }))
+                    }
+                    disabled={item.isDefinitive}
+                  />
+                </div>
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                <label className="inline-flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={item.isDefinitive}
+                    onChange={(event) =>
+                      setDraft((prev) => ({
+                        ...prev,
+                        items: prev.items.map((current, idx) =>
+                          idx === index ? { ...current, isDefinitive: event.target.checked } : current,
+                        ),
+                      }))
+                    }
+                  />
+                  Definitivo
+                </label>
+                <span>Confiança: {Math.round((item.confidence || 0) * 100)}%</span>
+                {item.canonicalFilename ? <span>Canônico: {item.canonicalFilename}</span> : null}
+              </div>
+              {(item.warnings || []).length > 0 ? (
+                <div className="mt-2 text-xs text-amber-700">{item.warnings.join(" | ")}</div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </div>
+    </SideDrawer>
+  );
+}
 
 const normalizeTipo = (value) =>
   String(value || "")
@@ -44,44 +181,103 @@ const normalizeTipo = (value) =>
 
 const parseDias = (item) => {
   const parts = parseStatusParts(item);
-  const ref = parts.validadeIso || parts.validadeBr || item?.validade || item?.validade_br;
+  const ref = item?.valid_until || parts.validadeIso || parts.validadeBr || item?.validade || item?.validade_br;
   if (!ref) return null;
-  const date = dayjs(ref, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
+  const iso = toIsoDate(ref);
+  if (!iso) return null;
+  const date = dayjs(iso, "YYYY-MM-DD", true);
   if (!date.isValid()) return null;
   return date.startOf("day").diff(dayjs().startOf("day"), "day");
 };
 
 const toBrDate = (value) => {
   if (!value) return null;
-  const parsed = dayjs(value, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
+  const text = String(value).trim();
+  const brMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[1]}/${brMatch[2]}/${brMatch[3]}`;
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[3]}/${isoMatch[2]}/${isoMatch[1]}`;
+  const parsed = dayjs(text, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
   if (!parsed.isValid()) return null;
   return parsed.format("DD/MM/YYYY");
 };
 
+const toIsoDate = (value) => {
+  if (!value) return null;
+  const text = String(value).trim();
+  const isoMatch = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) return `${isoMatch[1]}-${isoMatch[2]}-${isoMatch[3]}`;
+  const brMatch = text.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) return `${brMatch[3]}-${brMatch[2]}-${brMatch[1]}`;
+  const parsed = dayjs(text, ["YYYY-MM-DD", "DD/MM/YYYY"], true);
+  if (!parsed.isValid()) return null;
+  return parsed.format("YYYY-MM-DD");
+};
+
 const parseStatusParts = (item) => {
   const rawStatus = String(item?.status || "").trim();
+  const validUntilBr = toBrDate(item?.valid_until);
+  const validUntilIso = item?.valid_until && /^\d{4}-\d{2}-\d{2}$/.test(String(item?.valid_until))
+    ? String(item?.valid_until)
+    : null;
   const match = rawStatus
     .toLowerCase()
-    .match(/(vencido|sujeito|definitivo|possui)(?:_val(?:idade)?_)?(\d{1,2})[_/-](\d{1,2})[_/-](\d{2,4})/i);
+    .match(/([a-z_]+?)(?:_val(?:idade)?_)?(\d{1,2})[._/-](\d{1,2})[._/-](\d{2,4})/i);
 
   if (match) {
     const day = String(match[2]).padStart(2, "0");
     const month = String(match[3]).padStart(2, "0");
     const year = String(match[4]).length === 2 ? `20${match[4]}` : String(match[4]);
-    const baseStatus = formatStatusDisplay(match[1]);
+    let baseStatus = formatStatusDisplay(match[1]);
+    const validadeIso = `${year}-${month}-${day}`;
+    const isDefinitive = getStatusKey(baseStatus).includes("definitiv");
+    const dias = dayjs(validadeIso, "YYYY-MM-DD", true).startOf("day").diff(dayjs().startOf("day"), "day");
+    if (!isDefinitive && Number.isFinite(dias) && dias < 0) {
+      baseStatus = "Vencido";
+    }
     return {
       baseStatus,
-      validadeBr: `${day}/${month}/${year}`,
-      validadeIso: `${year}-${month}-${day}`,
+      validadeBr: isDefinitive ? null : `${day}/${month}/${year}`,
+      validadeIso: isDefinitive ? null : validadeIso,
     };
   }
 
-  const baseStatus = formatStatusDisplay(rawStatus || item?.status_key || "—");
-  const validadeBr = toBrDate(item?.validade_br || item?.validade);
-  const validadeIso = validadeBr
-    ? dayjs(validadeBr, "DD/MM/YYYY", true).format("YYYY-MM-DD")
+  const statusWithoutTrailingDate = rawStatus.replace(/\s*[-–]?\s*\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\s*$/u, "").trim();
+  let baseStatus = formatStatusDisplay(statusWithoutTrailingDate || rawStatus || item?.status_key || "—");
+  const statusDateMatch = rawStatus.match(/(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})/);
+  const statusDateBr = statusDateMatch
+    ? `${String(statusDateMatch[1]).padStart(2, "0")}/${String(statusDateMatch[2]).padStart(2, "0")}/${String(
+        statusDateMatch[3],
+      ).length === 2 ? `20${statusDateMatch[3]}` : statusDateMatch[3]}`
     : null;
-  return { baseStatus, validadeBr, validadeIso };
+  const validadeBr = validUntilBr || statusDateBr || toBrDate(item?.validade_br || item?.validade);
+  const validadeIso = validUntilIso || toIsoDate(validadeBr);
+  const isDefinitive = getStatusKey(baseStatus).includes("definitiv");
+  if (!isDefinitive && validadeIso) {
+    const dias = dayjs(validadeIso, "YYYY-MM-DD", true).startOf("day").diff(dayjs().startOf("day"), "day");
+    if (Number.isFinite(dias) && dias < 0) {
+      baseStatus = "Vencido";
+    }
+  }
+  return { baseStatus, validadeBr: isDefinitive ? null : validadeBr, validadeIso: isDefinitive ? null : validadeIso };
+};
+
+const formatStatusWithDate = (item) => {
+  const parts = parseStatusParts(item);
+  const sourceRaw = item?.raw && typeof item.raw === "object" ? item.raw : {};
+  const sourceKind = String(sourceRaw?.[`source_kind_${item?.licence_field}`] || "").toLowerCase();
+  if (sourceKind === "definitivo" && getStatusKey(parts.baseStatus) === "possui") {
+    return "Possui - Definitivo";
+  }
+  if (getStatusKey(parts.baseStatus) === "definitivo") {
+    return "Possui - Definitivo";
+  }
+  const fallbackDate =
+    toBrDate(item?.valid_until) || parts.validadeBr || toBrDate(item?.validade_br || item?.validade) || item?.validade_br_display;
+  if (fallbackDate && !getStatusKey(parts.baseStatus).includes("definitiv")) {
+    return `${parts.baseStatus} - ${fallbackDate}`;
+  }
+  return parts.baseStatus;
 };
 
 const toCanonicalStatusKey = (value) => getStatusKey(value).replace(/\s+/g, "_");
@@ -130,8 +326,8 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
 
   React.useEffect(() => {
     if (!open || !item) return;
-    setStatus(getStatusKey(item?.status).replace(/\s+/g, "_") || "possui");
-    setValidade(item?.validade || "");
+    setStatus(item?.status_key_canonical || getStatusKey(item?.status).replace(/\s+/g, "_") || "possui");
+    setValidade(item?.valid_until || item?.validade || "");
     setMotivo(item?.motivo_nao_exigido || "");
     setJustificativa(item?.justificativa_nao_exigido || "");
     setObservacao(item?.observacao || "");
@@ -252,6 +448,7 @@ export default function LicencasScreen({
   licencas,
   filteredLicencas,
   modoFoco,
+  canManageLicencas,
   handleCopy,
   enqueueToast,
   onRefreshData,
@@ -265,6 +462,11 @@ export default function LicencasScreen({
   const [drawerItem, setDrawerItem] = useState(null);
   const [kpiFilter, setKpiFilter] = useState("todos");
   const [priorityGroup, setPriorityGroup] = useState("todos");
+  const [uploading, setUploading] = useState(false);
+  const [scanRunning, setScanRunning] = useState(false);
+  const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
+  const [uploadDraft, setUploadDraft] = useState({ companyId: "", items: [] });
+  const fileInputRef = useRef(null);
 
   React.useEffect(() => {
     const preset = panelPreset?.preset;
@@ -288,7 +490,7 @@ export default function LicencasScreen({
       base.map((item) => {
         const tipoNorm = normalizeTipo(item?.tipo);
         const parsedStatus = parseStatusParts(item);
-        const statusKeyCanonical = toCanonicalStatusKey(parsedStatus.baseStatus);
+        const statusKeyCanonical = item?.status_key_canonical || toCanonicalStatusKey(parsedStatus.baseStatus);
         return {
           ...item,
           tipo_norm: tipoNorm,
@@ -297,8 +499,8 @@ export default function LicencasScreen({
           status_key_canonical: statusKeyCanonical,
           sem_vinculo: Boolean(item?.sem_vinculo) || !item?.empresa,
           status_label: parsedStatus.baseStatus,
-          validade_br_display: parsedStatus.validadeBr,
-          validade_iso_display: parsedStatus.validadeIso,
+          validade_br_display: toBrDate(item?.valid_until) || parsedStatus.validadeBr,
+          validade_iso_display: item?.valid_until || parsedStatus.validadeIso,
           criticidade: classify(item),
         };
       }),
@@ -378,6 +580,126 @@ export default function LicencasScreen({
     ];
   }, [filteredBase]);
 
+  const triggerUpload = () => {
+    if (!canManageLicencas || uploading) return;
+    fileInputRef.current?.click();
+  };
+
+  const triggerScanFull = async () => {
+    if (!canManageLicencas || scanRunning) return;
+    setScanRunning(true);
+    try {
+      const response = await fetchJson("/api/v1/licencas/scan-full", { method: "POST" });
+      const runId = response?.run_id;
+      enqueueToast?.(`Scan completo iniciado${runId ? ` (run ${runId})` : ""}.`);
+      if (!runId) {
+        await onRefreshData?.();
+        return;
+      }
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        const statusPayload = await fetchJson(`/api/v1/worker/jobs/${runId}`);
+        const status = String(statusPayload?.status || "").toLowerCase();
+        if (status === "done") {
+          enqueueToast?.("Scan completo concluído.");
+          await onRefreshData?.();
+          return;
+        }
+        if (status === "error") {
+          const reason = statusPayload?.errors?.[0]?.error;
+          enqueueToast?.(reason ? `Scan completo com erro: ${reason}` : "Scan completo com erro.");
+          await onRefreshData?.();
+          return;
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      enqueueToast?.("Scan completo em andamento. Consulte o status novamente em instantes.");
+    } catch (error) {
+      enqueueToast?.(error?.message || "Falha ao iniciar scan completo.");
+    } finally {
+      setScanRunning(false);
+    }
+  };
+
+  const onSelectFiles = async (event) => {
+    if (!canManageLicencas) return;
+    const files = Array.from(event?.target?.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    try {
+      const detectForm = new FormData();
+      files.forEach((file) => detectForm.append("items", file));
+      const detectResponse = await fetchJson("/api/v1/licencas/detect", {
+        method: "POST",
+        body: detectForm,
+      });
+      const detectedItems = Array.isArray(detectResponse?.results) ? detectResponse.results : [];
+      setUploadDraft({
+        companyId: "",
+        items: files.map((file, index) => {
+          const detected = detectedItems[index] || {};
+          return {
+            file,
+            originalFilename: file.name,
+            kind: detected.suggested_document_kind || "",
+            expiresAt: detected.suggested_expires_at || "",
+            isDefinitive: Boolean(detected.is_definitive),
+            confidence: Number(detected.confidence || 0),
+            warnings: Array.isArray(detected.warnings) ? detected.warnings : [],
+            canonicalFilename: detected.canonical_filename || null,
+          };
+        }),
+      });
+      setUploadDrawerOpen(true);
+    } catch (error) {
+      enqueueToast?.(error?.message || "Falha ao detectar licenças.");
+    }
+  };
+
+  const submitAssistedUpload = async () => {
+    if (!canManageLicencas || uploading) return;
+    if (!uploadDraft.companyId?.trim()) {
+      enqueueToast?.("Informe o company_id.");
+      return;
+    }
+    for (const item of uploadDraft.items) {
+      const kind = String(item.kind || "").trim();
+      if (!kind) {
+        enqueueToast?.(`Defina o tipo para ${item.originalFilename}.`);
+        return;
+      }
+      const requiresExpiry = !item.isDefinitive && !String(kind).includes("DEFINITIVO");
+      if (requiresExpiry && !item.expiresAt) {
+        enqueueToast?.(`Defina a validade para ${item.originalFilename}.`);
+        return;
+      }
+    }
+
+    const formData = new FormData();
+    formData.append("company_id", uploadDraft.companyId.trim());
+    uploadDraft.items.forEach((item) => {
+      formData.append("items", item.file);
+      formData.append("licence_type", toUploadLicenceType(item.kind, item.isDefinitive));
+      formData.append("expires_at", item.isDefinitive ? "" : (item.expiresAt || ""));
+    });
+
+    setUploading(true);
+    try {
+      const response = await fetchJson("/api/v1/licencas/upload-bulk", {
+        method: "POST",
+        body: formData,
+      });
+      const okCount = Number(response?.saved_count || 0);
+      const total = Array.isArray(response?.results) ? response.results.length : uploadDraft.items.length;
+      enqueueToast?.(`Upload concluído: ${okCount}/${total} arquivos salvos.`);
+      setUploadDrawerOpen(false);
+      await onRefreshData?.();
+    } catch (error) {
+      enqueueToast?.(error?.message || "Falha no upload de licenças.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -390,6 +712,36 @@ export default function LicencasScreen({
         <Button size="sm" variant={view === "tipos" ? "default" : "secondary"} onClick={() => setView("tipos")}>
           Por tipo
         </Button>
+        {canManageLicencas && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="sm"
+                variant="secondary"
+                data-testid="licencas-upload-action"
+                disabled={uploading || scanRunning}
+              >
+                {uploading ? "Enviando..." : (scanRunning ? "Escaneando..." : "Atualizar licenças")}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={triggerUpload} data-testid="licencas-action-new">
+                Nova Licença
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={triggerScanFull} data-testid="licencas-action-scan-full">
+                Scan Completo
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        )}
+        <input
+          ref={fileInputRef}
+          className="hidden"
+          type="file"
+          multiple
+          accept=".pdf,.jpg,.png"
+          onChange={onSelectFiles}
+        />
       </div>
 
       <Card className="shadow-sm">
@@ -439,11 +791,7 @@ export default function LicencasScreen({
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="text-sm font-semibold">{item.empresa_display}</span>
                           <StatusBadge
-                            status={
-                              item.validade_br_display
-                                ? `${item.status_label} - ${item.validade_br_display}`
-                                : item.status_label
-                            }
+                            status={formatStatusWithDate(item)}
                           />
                           {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
                           <Chip variant="neutral">{item.tipo}</Chip>
@@ -503,11 +851,7 @@ export default function LicencasScreen({
                             >
                               {cell ? (
                                 <StatusBadge
-                                  status={
-                                    cell.validade_br_display
-                                      ? `${cell.status_label} - ${cell.validade_br_display}`
-                                      : cell.status_label
-                                  }
+                                  status={formatStatusWithDate(cell)}
                                 />
                               ) : (
                                 <Chip variant="neutral">Sem dado</Chip>
@@ -594,6 +938,14 @@ export default function LicencasScreen({
         onClose={() => setDrawerItem(null)}
         onSaved={onRefreshData}
         enqueueToast={enqueueToast}
+      />
+      <UploadAssistDrawer
+        open={uploadDrawerOpen}
+        onClose={() => setUploadDrawerOpen(false)}
+        draft={uploadDraft}
+        setDraft={setUploadDraft}
+        onConfirm={submitAssistedUpload}
+        uploading={uploading}
       />
     </div>
   );

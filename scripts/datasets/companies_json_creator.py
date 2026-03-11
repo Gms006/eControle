@@ -52,6 +52,16 @@ def upper_nullable(v: Any) -> Optional[str]:
     return s.upper() if s else None
 
 
+def first_non_empty_column(row: pd.Series, candidates: list[str]) -> Optional[str]:
+    for col in candidates:
+        if col not in row.index:
+            continue
+        value = nullable(row.get(col))
+        if value:
+            return value
+    return None
+
+
 def normalize_spaces(s: str) -> str:
     return re.sub(r"\s+", " ", s).strip()
 
@@ -157,6 +167,21 @@ def parse_is_active(status_empresa: Any) -> bool:
 def row_to_company(row: pd.Series, idx: int) -> Optional[Dict[str, Any]]:
     empresa = nullable(row.get("EMPRESA"))
     cnpj = normalize_cnpj(row.get("CNPJ"))
+    fs_dirname = first_non_empty_column(
+        row,
+        [
+            "fs_dirname",
+            "FS_DIRNAME",
+            "apelido",
+            "apelido_pasta",
+            "APELIDO",
+            "APELIDO_PASTA",
+            "alias",
+            "ALIAS",
+            "pasta",
+            "PASTA",
+        ],
+    )
 
     # Pula linha vazia/quebrada
     if not empresa and not cnpj:
@@ -179,6 +204,7 @@ def row_to_company(row: pd.Series, idx: int) -> Optional[Dict[str, Any]]:
         "cnpj": cnpj,
         "razao_social": empresa,
         "empresa": empresa,
+        "fs_dirname": fs_dirname,
         "nome_fantasia": nullable(row.get("NOME FANTASIA")) if "NOME FANTASIA" in row.index else None,
         "municipio": municipio,
         "uf": uf,

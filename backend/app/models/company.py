@@ -25,6 +25,7 @@ class Company(Base):
     cnpj: Mapped[str] = mapped_column(String(18), nullable=False)
     razao_social: Mapped[str] = mapped_column(String(255), nullable=False)
     nome_fantasia: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    fs_dirname: Mapped[str | None] = mapped_column(String(255), nullable=True)
     municipio: Mapped[str | None] = mapped_column(String(128), nullable=True)
     uf: Mapped[str | None] = mapped_column(String(2), nullable=True)
     is_active: Mapped[bool] = mapped_column(

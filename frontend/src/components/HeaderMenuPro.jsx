@@ -272,6 +272,16 @@ function normalizeDigits(v) {
   return String(v || "").replace(/\D/g, "");
 }
 
+function normalizeFsDirname(v) {
+  return String(v || "").trim();
+}
+
+function hasInvalidFsDirname(v) {
+  const value = normalizeFsDirname(v);
+  if (!value) return false;
+  return value.includes("..") || value.includes("/") || value.includes("\\") || value.includes(":");
+}
+
 function maskCnpj(v) {
   const d = normalizeDigits(v).slice(0, 14);
   if (d.length <= 2) return d;
@@ -343,6 +353,7 @@ const EMPTY_COMPANY_FORM = {
   cnpj: "",
   razao_social: "",
   nome_fantasia: "",
+  fs_dirname: "",
   inscricao_municipal: "",
   inscricao_estadual: "",
   porte: "",
@@ -400,6 +411,9 @@ const EMPTY_TAX_FORM = {
 
 const EMPTY_PROCESS_FORM = {
   company_id: "",
+  empresa_nao_cadastrada: false,
+  company_cnpj: "",
+  company_razao_social: "",
   process_type: "DIVERSOS",
   protocolo: "",
   municipio: "",
@@ -418,11 +432,8 @@ export default function HeaderMenuPro() {
     : [];
   const isDevUser = roleNames.includes("DEV");
   const canWrite = useMemo(() => {
-    if (roleNames.length > 0) {
-      return roleNames.includes("ADMIN") || roleNames.includes("DEV");
-    }
-    return Boolean(auth?.accessToken);
-  }, [auth?.accessToken, roleNames]);
+    return roleNames.includes("ADMIN") || roleNames.includes("DEV");
+  }, [roleNames]);
 
   const [companyModal, setCompanyModal] = useState({ open: false, mode: "create", companyId: null });
   const [processModal, setProcessModal] = useState({ open: false, mode: "create", processId: null });
@@ -512,15 +523,30 @@ export default function HeaderMenuPro() {
     setCompanyOptions(Array.isArray(data) ? data : []);
   };
 
-  const openCompany = async ({ mode, companyId }) => {
-    setCompanyModal({ open: true, mode, companyId: companyId || null });
-    if (mode === "edit" && companyId) {
-      const data = await apiJson(`/api/v1/companies/${companyId}`);
+  const openCompany = async ({ mode, companyId, cnpj }) => {
+    let resolvedCompanyId = companyId || null;
+    if (mode === "edit" && !resolvedCompanyId) {
+      const digits = normalizeDigits(cnpj);
+      if (digits.length === 14) {
+        const dataByCnpj = await apiJson(`/api/v1/companies?cnpj=${digits}&limit=1`);
+        if (Array.isArray(dataByCnpj) && dataByCnpj[0]?.id) {
+          resolvedCompanyId = dataByCnpj[0].id;
+        }
+      }
+    }
+
+    setCompanyModal({ open: true, mode, companyId: resolvedCompanyId });
+    if (mode === "edit") {
+      if (!resolvedCompanyId) {
+        throw new Error("Não foi possível localizar a empresa selecionada para edição.");
+      }
+      const data = await apiJson(`/api/v1/companies/${resolvedCompanyId}`);
       const form = {
         ...EMPTY_COMPANY_FORM,
         cnpj: maskCnpj(data?.cnpj || ""),
         razao_social: data?.razao_social || "",
         nome_fantasia: data?.nome_fantasia || "",
+        fs_dirname: data?.fs_dirname || "",
         inscricao_municipal: data?.inscricao_municipal || "",
         inscricao_estadual: data?.inscricao_estadual || "",
         porte: normalizePorteSigla(data?.porte || ""),
@@ -554,6 +580,9 @@ export default function HeaderMenuPro() {
       setProcessForm({
         ...EMPTY_PROCESS_FORM,
         company_id: data?.company_id || "",
+        empresa_nao_cadastrada: data?.raw?.empresa_nao_cadastrada === true,
+        company_cnpj: data?.raw?.company_cnpj || data?.raw?.cnpj || "",
+        company_razao_social: data?.raw?.company_razao_social || data?.raw?.empresa || "",
         process_type: data?.process_type || "DIVERSOS",
         protocolo: data?.protocolo || "",
         municipio: formatMunicipioDisplay(data?.municipio || ""),
@@ -691,7 +720,11 @@ export default function HeaderMenuPro() {
   useEffect(() => {
     const onCompany = (e) => {
       const detail = e?.detail || {};
-      openCompany({ mode: detail.mode || "create", companyId: detail.companyId || null }).catch(console.error);
+      openCompany({
+        mode: detail.mode || "create",
+        companyId: detail.companyId || null,
+        cnpj: detail.cnpj || null,
+      }).catch((error) => alert(error?.message || "Falha ao abrir edição da empresa."));
     };
     const onProcess = (e) => {
       const detail = e?.detail || {};
@@ -766,8 +799,11 @@ export default function HeaderMenuPro() {
 
   const doReceitaImport = async () => {
     const digits = normalizeDigits(companyForm.cnpj);
-    if (digits.length !== 14) return;
+    if (digits.length !== 14) throw new Error("Informe um CNPJ válido antes de importar.");
     const data = await apiJson(`/api/v1/lookups/receitaws/${digits}`);
+    if (!data || data?.status === "ERROR") {
+      throw new Error(data?.message || "Não foi possível importar dados deste CNPJ.");
+    }
     setCompanyForm((p) => ({
       ...p,
       razao_social: normalizeTitleCase(data?.razao_social || p.razao_social),
@@ -944,6 +980,9 @@ export default function HeaderMenuPro() {
     const digits = normalizeDigits(companyForm.cnpj);
     if (digits.length !== 14) throw new Error("CNPJ inválido");
     if (!companyForm.razao_social?.trim()) throw new Error("Razão social obrigatória");
+    if (hasInvalidFsDirname(companyForm.fs_dirname)) {
+      throw new Error("Apelido (Pasta) inválido: não use '..', '/', '\\\\' ou ':'");
+    }
 
     const categoriaFinal =
       companyForm.endereco_fiscal && companyForm.categoria && !companyForm.categoria.startsWith("Fiscal -")
@@ -958,6 +997,7 @@ export default function HeaderMenuPro() {
             cnpj: digits,
             razao_social: normalizeTitleCase(companyForm.razao_social),
             nome_fantasia: normalizeTitleCase(companyForm.nome_fantasia) || null,
+            fs_dirname: normalizeFsDirname(companyForm.fs_dirname) || null,
             municipio: normalizeMunicipio(companyForm.municipio) || null,
             uf: companyForm.uf || null,
             is_active: companyForm.is_active !== false,
@@ -992,6 +1032,7 @@ export default function HeaderMenuPro() {
         body: JSON.stringify({
           razao_social: normalizeTitleCase(companyForm.razao_social),
           nome_fantasia: normalizeTitleCase(companyForm.nome_fantasia) || null,
+          fs_dirname: normalizeFsDirname(companyForm.fs_dirname) || null,
           municipio: normalizeMunicipio(companyForm.municipio) || null,
           uf: companyForm.uf || null,
           is_active: companyForm.is_active !== false,
@@ -1018,8 +1059,19 @@ export default function HeaderMenuPro() {
   };
 
   const saveProcess = async () => {
-    if (!processForm.company_id && processModal.mode === "create") {
+    const isUnregistered = processModal.mode === "create" && processForm.empresa_nao_cadastrada === true;
+    if (!isUnregistered && !processForm.company_id && processModal.mode === "create") {
       throw new Error("Selecione a empresa");
+    }
+    if (isUnregistered && processForm.process_type !== "DIVERSOS") {
+      throw new Error("Empresa não cadastrada só é permitida para processos do tipo Diversos");
+    }
+    if (isUnregistered) {
+      const cnpjDigits = normalizeDigits(processForm.company_cnpj);
+      if (cnpjDigits.length !== 14) throw new Error("CNPJ da empresa não cadastrada inválido");
+      if (!String(processForm.company_razao_social || "").trim()) {
+        throw new Error("Razão Social da empresa não cadastrada é obrigatória");
+      }
     }
     if (!processForm.protocolo?.trim()) throw new Error("Protocolo obrigatório");
 
@@ -1034,9 +1086,18 @@ export default function HeaderMenuPro() {
     };
 
     if (processModal.mode === "create") {
+      const createPayload = isUnregistered
+        ? {
+            ...basePayload,
+            company_id: null,
+            empresa_nao_cadastrada: true,
+            company_cnpj: normalizeDigits(processForm.company_cnpj),
+            company_razao_social: String(processForm.company_razao_social || "").trim(),
+          }
+        : { ...basePayload, company_id: processForm.company_id };
       await apiJson("/api/v1/processos", {
         method: "POST",
-        body: JSON.stringify({ ...basePayload, company_id: processForm.company_id }),
+        body: JSON.stringify(createPayload),
       });
     } else {
       await apiJson(`/api/v1/processos/${processModal.processId}`, {
@@ -1351,6 +1412,19 @@ export default function HeaderMenuPro() {
                   onChange={(e) => setCompanyForm((p) => ({ ...p, razao_social: e.target.value }))}
                 />
               </div>
+              <div className="md:col-span-2">
+                <label className="text-xs font-medium">Apelido (Pasta)</label>
+                <input
+                  data-testid="company-fs-dirname"
+                  className={COMPANY_FIELD_CLASS}
+                  value={companyForm.fs_dirname}
+                  onChange={(e) => setCompanyForm((p) => ({ ...p, fs_dirname: e.target.value }))}
+                />
+                <p className="mt-1 text-xs text-slate-500">Nome exato da pasta em G:/EMPRESAS/&lt;PASTA&gt;</p>
+                {hasInvalidFsDirname(companyForm.fs_dirname) ? (
+                  <p className="mt-1 text-xs text-rose-600">Não use '..', '/', '\\' ou ':'</p>
+                ) : null}
+              </div>
               <div>
                 <label className="text-xs font-medium">Situação</label>
                 <select
@@ -1604,7 +1678,44 @@ export default function HeaderMenuPro() {
           <SectionCard title="Dados do Processo" description="Dados principais e status">
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
               <FieldRow label="Empresa" className="md:col-span-2" required>
-                {processModal.mode === "create" ? (
+                {processModal.mode === "create" && processForm.process_type === "DIVERSOS" ? (
+                  <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={processForm.empresa_nao_cadastrada === true}
+                      onChange={(e) =>
+                        setProcessForm((p) => ({
+                          ...p,
+                          empresa_nao_cadastrada: e.target.checked,
+                          company_id: e.target.checked ? "" : p.company_id,
+                          company_cnpj: e.target.checked ? p.company_cnpj : "",
+                          company_razao_social: e.target.checked ? p.company_razao_social : "",
+                        }))
+                      }
+                    />
+                    Empresa não cadastrada
+                  </label>
+                ) : null}
+                {processModal.mode === "create" && processForm.empresa_nao_cadastrada ? (
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <FieldRow label="CNPJ" required>
+                      <Input
+                        className={COMPANY_FIELD_CLASS}
+                        value={maskCnpj(processForm.company_cnpj)}
+                        onChange={(e) =>
+                          setProcessForm((p) => ({ ...p, company_cnpj: normalizeDigits(e.target.value).slice(0, 14) }))
+                        }
+                      />
+                    </FieldRow>
+                    <FieldRow label="Razão Social" required>
+                      <Input
+                        className={COMPANY_FIELD_CLASS}
+                        value={processForm.company_razao_social}
+                        onChange={(e) => setProcessForm((p) => ({ ...p, company_razao_social: e.target.value }))}
+                      />
+                    </FieldRow>
+                  </div>
+                ) : processModal.mode === "create" ? (
                   <select
                     className={COMPANY_FIELD_CLASS}
                     value={processForm.company_id}
@@ -1626,7 +1737,15 @@ export default function HeaderMenuPro() {
                     ))}
                   </select>
                 ) : (
-                  <Input value={processForm.company_id} className={COMPANY_FIELD_CLASS} disabled />
+                  <Input
+                    value={
+                      processForm.company_id ||
+                      processForm.company_razao_social ||
+                      "Empresa não cadastrada"
+                    }
+                    className={COMPANY_FIELD_CLASS}
+                    disabled
+                  />
                 )}
               </FieldRow>
 
@@ -1634,7 +1753,19 @@ export default function HeaderMenuPro() {
                 <select
                   className={COMPANY_FIELD_CLASS}
                   value={processForm.process_type}
-                  onChange={(e) => setProcessForm((p) => ({ ...p, process_type: e.target.value }))}
+                  onChange={(e) =>
+                    setProcessForm((p) => {
+                      const nextType = e.target.value;
+                      const keepUnregistered = p.empresa_nao_cadastrada && nextType === "DIVERSOS";
+                      return {
+                        ...p,
+                        process_type: nextType,
+                        empresa_nao_cadastrada: keepUnregistered,
+                        company_cnpj: keepUnregistered ? p.company_cnpj : "",
+                        company_razao_social: keepUnregistered ? p.company_razao_social : "",
+                      };
+                    })
+                  }
                 >
                   <option value="DIVERSOS">Diversos</option>
                   <option value="FUNCIONAMENTO">Funcionamento</option>

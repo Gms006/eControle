@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     RECEITAWS_MIN_INTERVAL_SECONDS: int = 20
     RECEITAWS_RATE_LIMIT_BACKOFF_SECONDS: int = 60
+    EMPRESAS_ROOT_DIR: str = "G:/EMPRESAS"
 
     SEED_ENABLED: bool = True
     SEED_ORG_NAME: str = "Neto Contabilidade"

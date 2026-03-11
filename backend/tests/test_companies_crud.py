@@ -143,6 +143,7 @@ def test_admin_can_create_and_update_company(client):
         json={
             "cnpj": "12.345.678/0001-90",
             "razao_social": "Empresa Alpha",
+            "fs_dirname": "Empresa Alpha Pasta",
             "municipio": "Sao Paulo",
             "uf": "SP",
         },
@@ -150,15 +151,17 @@ def test_admin_can_create_and_update_company(client):
     assert create_response.status_code == 200
     company = create_response.json()
     assert company["cnpj"] == "12345678000190"
+    assert company["fs_dirname"] == "Empresa Alpha Pasta"
 
     update_response = client.patch(
         f"/api/v1/companies/{company['id']}",
         headers={"Authorization": f"Bearer {admin_token}"},
-        json={"razao_social": "Empresa Alpha Atualizada", "is_active": False},
+        json={"razao_social": "Empresa Alpha Atualizada", "fs_dirname": "Empresa Alpha Pasta 2", "is_active": False},
     )
     assert update_response.status_code == 200
     updated = update_response.json()
     assert updated["razao_social"] == "Empresa Alpha Atualizada"
+    assert updated["fs_dirname"] == "Empresa Alpha Pasta 2"
     assert updated["is_active"] is False
 
     list_default = client.get(
@@ -216,3 +219,60 @@ def test_company_isolation_between_orgs(client):
         headers={"Authorization": f"Bearer {admin_token}"},
     )
     assert detail_response.status_code == 404
+
+
+def test_company_fs_dirname_rejects_path_traversal(client):
+    admin_token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    create_response = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={
+            "cnpj": "12.345.678/0001-33",
+            "razao_social": "Empresa FS",
+            "fs_dirname": "..\\hack",
+        },
+    )
+    assert create_response.status_code == 422
+
+    ok_create = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={
+            "cnpj": "12.345.678/0001-34",
+            "razao_social": "Empresa FS OK",
+            "fs_dirname": "Pasta Com Acento São José",
+        },
+    )
+    assert ok_create.status_code == 200
+    company_id = ok_create.json()["id"]
+
+    update_response = client.patch(
+        f"/api/v1/companies/{company_id}",
+        headers=headers,
+        json={"fs_dirname": "pastas/fora"},
+    )
+    assert update_response.status_code == 422
+
+
+def test_view_cannot_patch_company_fs_dirname(client):
+    admin_token = _login(client, "admin@example.com", "admin123")
+    me = client.get("/api/v1/auth/me", headers={"Authorization": f"Bearer {admin_token}"}).json()
+    _ensure_view_user(me["org_id"])
+    view_token = _login(client, "view@example.com", "view123")
+
+    create_response = client.post(
+        "/api/v1/companies",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"cnpj": "12.345.678/0001-35", "razao_social": "Empresa RBAC"},
+    )
+    assert create_response.status_code == 200
+    company_id = create_response.json()["id"]
+
+    view_patch = client.patch(
+        f"/api/v1/companies/{company_id}",
+        headers={"Authorization": f"Bearer {view_token}"},
+        json={"fs_dirname": "Nao Pode"},
+    )
+    assert view_patch.status_code == 403

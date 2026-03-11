@@ -14,9 +14,9 @@ test.describe("Portal E2E smoke", () => {
     await page.getByTestId("login-submit").click();
 
     await page.waitForURL(/\/painel$/);
-    await expect(page.getByTestId("nav-tab-empresas")).toBeVisible();
+    await expect(page.getByTestId("nav-tab-empresas").first()).toBeVisible();
 
-    await page.getByTestId("nav-tab-empresas").click();
+    await page.getByTestId("nav-tab-empresas").first().click();
 
     await expect(page.getByTestId("companies-summary")).toBeVisible();
     await expect(page.getByTestId("companies-grid")).toBeVisible();

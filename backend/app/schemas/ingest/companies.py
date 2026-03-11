@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
+from app.core.fs_dirname import normalize_fs_dirname
 from app.schemas.ingest.common import IngestOrg, IngestSource
 from app.schemas.ingest.licences import LicenceIngestItem
 from app.schemas.ingest.processes import ProcessIngestItem
@@ -15,6 +16,7 @@ class CompanyIngestItem(BaseModel):
     empresa: Optional[str] = None  # alias "razao_social" if provided
     razao_social: Optional[str] = None
     nome_fantasia: Optional[str] = None
+    fs_dirname: Optional[str] = Field(default=None, validation_alias=AliasChoices("fs_dirname", "alias"))
     cnpj: str
     municipio: Optional[str] = None
     uf: Optional[str] = None
@@ -37,6 +39,11 @@ class CompanyIngestItem(BaseModel):
     cnaes_principal: Optional[list[dict]] = None
     cnaes_secundarios: Optional[list[dict]] = None
     raw: Optional[dict] = None
+
+    @field_validator("fs_dirname")
+    @classmethod
+    def validate_fs_dirname(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_fs_dirname(value)
 
 
 class CompaniesIngestEnvelope(BaseModel):

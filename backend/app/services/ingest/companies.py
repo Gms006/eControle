@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
+from app.core.fs_dirname import normalize_fs_dirname
 from app.core.normalization import normalize_municipio, normalize_title_case
 from app.models.company import Company
 from app.services.ingest.utils import normalize_cnpj, repair_mojibake_utf8
@@ -32,6 +33,12 @@ def upsert_companies(db: Session, org_id: str, items: list[dict]) -> tuple[int, 
             "municipio": normalize_municipio(repair_mojibake_utf8(item.get("municipio"))),
             "uf": repair_mojibake_utf8(item.get("uf")),
         }
+
+        fs_dirname_raw = item.get("fs_dirname")
+        if fs_dirname_raw is None and "alias" in item:
+            fs_dirname_raw = item.get("alias")
+        if "fs_dirname" in item or "alias" in item:
+            payload["fs_dirname"] = normalize_fs_dirname(repair_mojibake_utf8(fs_dirname_raw))
 
         if "is_active" in item and item["is_active"] is not None:
             payload["is_active"] = bool(item["is_active"])

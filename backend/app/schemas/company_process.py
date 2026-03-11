@@ -17,7 +17,7 @@ class CompanyProcessOut(BaseModel):
 
     id: str
     org_id: str
-    company_id: str
+    company_id: Optional[str] = None
 
     process_type: str
     protocolo: str
@@ -39,7 +39,10 @@ class CompanyProcessOut(BaseModel):
 class CompanyProcessCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    company_id: str
+    company_id: Optional[str] = None
+    company_cnpj: Optional[str] = None
+    company_razao_social: Optional[str] = None
+    empresa_nao_cadastrada: bool = False
     process_type: str
     protocolo: str
 
@@ -60,6 +63,18 @@ class CompanyProcessCreate(BaseModel):
     @classmethod
     def validate_data_solicitacao(cls, value: str | None) -> str | None:
         return normalize_date_br(value, strict=True)
+
+    @field_validator("company_cnpj", mode="before")
+    @classmethod
+    def validate_company_cnpj(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        digits = "".join(ch for ch in str(value) if ch.isdigit())
+        if not digits:
+            return None
+        if len(digits) != 14:
+            raise ValueError("company_cnpj must have 14 digits")
+        return digits
 
 
 class CompanyProcessUpdate(BaseModel):

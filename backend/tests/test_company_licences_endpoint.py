@@ -1,6 +1,8 @@
 from app.db.session import SessionLocal
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
+from app.models.licence_scan_run import LicenceScanRun
+from app.worker.watchers import LICENCES_SUBDIR
 
 
 def _login(client, email: str = "admin@example.com", password: str = "admin123") -> str:
@@ -101,5 +103,48 @@ def test_patch_licenca_item_requires_reason_when_nao_exigido(client):
     assert ok_response.status_code == 200
     row = ok_response.json()
     assert row["alvara_vig_sanitaria"] == "nao_exigido"
+    assert row["alvara_vig_sanitaria_valid_until"] == "2026-12-31"
     assert row["motivo_nao_exigido"] == "zoneamento_nao_aplica"
     assert row["justificativa_nao_exigido"] == "Atividade sem exigencia sanitária municipal."
+
+
+def test_scan_full_creates_run_and_updates_progress(client, tmp_path, monkeypatch):
+    token = _login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    org_id = _org_id(client, headers)
+
+    db = SessionLocal()
+    company = Company(
+        org_id=org_id,
+        cnpj="32345678000110",
+        razao_social="Empresa Scan",
+        fs_dirname="Empresa Scan",
+        municipio="Goiania",
+    )
+    db.add(company)
+    db.flush()
+    db.add(CompanyLicence(org_id=org_id, company_id=company.id, municipio="Goiania", raw={}))
+    db.commit()
+    db.close()
+
+    base = tmp_path / "Empresa Scan" / LICENCES_SUBDIR
+    base.mkdir(parents=True, exist_ok=True)
+    (base / "ALVARA_BOMBEIROS - Val 25.12.2027.pdf").write_bytes(b"scan-full")
+
+    monkeypatch.setattr("app.services.licence_scan_full.settings.EMPRESAS_ROOT_DIR", str(tmp_path))
+
+    response = client.post("/api/v1/licencas/scan-full", headers=headers)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload.get("run_id")
+
+    db = SessionLocal()
+    try:
+        run = db.query(LicenceScanRun).filter(LicenceScanRun.id == payload["run_id"]).first()
+        assert run is not None
+        assert run.status in {"running", "done"}
+        assert int(run.total or 0) == 1
+        assert int(run.processed or 0) == 1
+        assert int(run.ok_count or 0) == 1
+    finally:
+        db.close()

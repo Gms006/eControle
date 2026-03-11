@@ -226,7 +226,7 @@ def update_company(
             detail="Company not found",
         )
     data = payload.model_dump(exclude_unset=True)
-    company_fields = {"cnpj", "razao_social", "nome_fantasia", "municipio", "uf", "is_active"}
+    company_fields = {"cnpj", "razao_social", "nome_fantasia", "fs_dirname", "municipio", "uf", "is_active"}
     profile_fields = set(data.keys()) - company_fields
 
     company_data = {k: v for k, v in data.items() if k in company_fields}

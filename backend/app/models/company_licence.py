@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 
-from sqlalchemy import DateTime, ForeignKey, String, UniqueConstraint, Index, func, JSON
+from sqlalchemy import Date, DateTime, ForeignKey, String, UniqueConstraint, Index, func, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base
@@ -24,10 +24,15 @@ class CompanyLicence(Base):
 
     municipio: Mapped[str | None] = mapped_column(String(128), nullable=True)
     alvara_vig_sanitaria: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    alvara_vig_sanitaria_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     cercon: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    cercon_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     alvara_funcionamento: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    alvara_funcionamento_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     licenca_ambiental: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    licenca_ambiental_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     certidao_uso_solo: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    certidao_uso_solo_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     motivo_nao_exigido: Mapped[str | None] = mapped_column(String(64), nullable=True)
     justificativa_nao_exigido: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
