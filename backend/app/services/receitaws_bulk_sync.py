@@ -16,6 +16,7 @@ from app.db.session import SessionLocal
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
+from app.services.company_scoring import recalculate_company_score
 
 
 MAX_ERROR_ITEMS = 50
@@ -185,6 +186,11 @@ def _merge_changes_summary(run: ReceitaWSBulkSyncRun, company: Company, changes:
     run.changes_summary = summary
 
 
+def _changes_affect_company_score(changes: list[dict[str, Any]]) -> bool:
+    score_fields = {"profile.cnaes_principal", "profile.cnaes_secundarios"}
+    return any(str(item.get("field")) in score_fields for item in changes)
+
+
 def _extract_digits(cnpj: str) -> str:
     return re.sub(r"\D", "", cnpj or "")
 
@@ -257,13 +263,15 @@ def run_receitaws_bulk_sync_job(run_id: str) -> None:
                         profile_to_apply = CompanyProfile(org_id=run.org_id, company_id=company.id)
                         db.add(profile_to_apply)
                         db.flush()
-                    diff_and_apply(
+                    apply_result = diff_and_apply(
                         company=company,
                         profile=profile_to_apply,
                         mapped_payload=mapped_payload,
                         dry_run=False,
                         only_missing=run.only_missing,
                     )
+                    if apply_result["changes"] and _changes_affect_company_score(apply_result["changes"]):
+                        recalculate_company_score(db, run.org_id, company.id)
             except Exception as exc:
                 message = str(exc)
                 is_rate_limited = "429" in message

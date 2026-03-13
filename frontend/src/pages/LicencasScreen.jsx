@@ -1,5 +1,6 @@
 import React, { useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
+import { BookDown, FileDown } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/Chip";
@@ -14,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import StatusBadge from "@/components/StatusBadge";
 import InlineBadge from "@/components/InlineBadge";
 import { fetchJson } from "@/lib/api";
+import { formatCnpj } from "@/lib/text";
 import { formatStatusDisplay, getStatusKey, isAlertStatus } from "@/lib/status";
 
 const TIPOS = [
@@ -71,7 +73,7 @@ const toUploadLicenceType = (kind, isDefinitive) => {
   return key;
 };
 
-function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploading }) {
+function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploading, companyOptions }) {
   const canSubmit = Boolean(draft?.companyId?.trim()) && (draft?.items || []).length > 0;
   return (
     <SideDrawer
@@ -90,12 +92,24 @@ function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploadi
     >
       <div className="space-y-4">
         <div>
-          <Label>company_id</Label>
-          <Input
+          <Label>Empresa</Label>
+          <select
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
             value={draft.companyId}
-            onChange={(event) => setDraft((prev) => ({ ...prev, companyId: event.target.value }))}
-            placeholder="Informe o ID da empresa"
-          />
+            onChange={(event) =>
+              setDraft((prev) => ({
+                ...prev,
+                companyId: event.target.value,
+              }))
+            }
+          >
+            <option value="">Selecione</option>
+            {companyOptions.map((item) => (
+              <option key={item.id} value={item.id}>
+                {(item.razao_social || item.empresa || "Empresa")} - {formatCnpj(item.cnpj)}
+              </option>
+            ))}
+          </select>
         </div>
         <div className="space-y-3">
           {draft.items.map((item, index) => (
@@ -447,6 +461,7 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
 export default function LicencasScreen({
   licencas,
   filteredLicencas,
+  empresas,
   modoFoco,
   canManageLicencas,
   handleCopy,
@@ -579,6 +594,19 @@ export default function LicencasScreen({
       { key: "nao_exigido", label: "Não exigido", value: make("nao_exigido") },
     ];
   }, [filteredBase]);
+
+  const companyOptions = useMemo(
+    () =>
+      (empresas || [])
+        .filter((item) => item?.id)
+        .map((item) => ({
+          id: String(item.id),
+          razao_social: item?.razao_social || item?.empresa || "",
+          cnpj: item?.cnpj || "",
+        }))
+        .sort((a, b) => (a.razao_social || "").localeCompare(b.razao_social || "")),
+    [empresas],
+  );
 
   const triggerUpload = () => {
     if (!canManageLicencas || uploading) return;
@@ -726,9 +754,11 @@ export default function LicencasScreen({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start">
               <DropdownMenuItem onClick={triggerUpload} data-testid="licencas-action-new">
+                <FileDown className="mr-2 h-4 w-4" />
                 Nova Licença
               </DropdownMenuItem>
               <DropdownMenuItem onClick={triggerScanFull} data-testid="licencas-action-scan-full">
+                <BookDown className="mr-2 h-4 w-4" />
                 Scan Completo
               </DropdownMenuItem>
             </DropdownMenuContent>
@@ -946,6 +976,7 @@ export default function LicencasScreen({
         setDraft={setUploadDraft}
         onConfirm={submitAssistedUpload}
         uploading={uploading}
+        companyOptions={companyOptions}
       />
     </div>
   );

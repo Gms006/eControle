@@ -1,6 +1,6 @@
 # Estrutura do Repositorio - eControle v2
 
-Data de referencia: 2026-03-11
+Data de referencia: 2026-03-13
 
 ## Visao geral
 
@@ -48,6 +48,7 @@ eControle/
 |  |  |  |- base.py
 |  |  |  |- session.py
 |  |  |- models/
+|  |  |  |- cnae_risk.py
 |  |  |  |- certificate_mirror.py
 |  |  |  |- company.py
 |  |  |  |- company_licence.py
@@ -87,6 +88,7 @@ eControle/
 |  |  |- services/
 |  |  |  |- certificados_mirror.py
 |  |  |  |- certhub_client.py
+|  |  |  |- company_scoring.py
 |  |  |  |- licence_detection.py
 |  |  |  |- licence_fs_paths.py
 |  |  |  |- licence_files.py
@@ -123,6 +125,12 @@ eControle/
 |  |  |- 20260306_0017_add_fs_dirname_and_licence_file_events.py
 |  |  |- 20260311_0018_licences_valid_until_and_scan_runs.py
 |  |  |- 20260311_0019_allow_unregistered_company_on_diversos.py
+|  |  |- 20260313_0020_create_cnae_risks_and_profile_scores.py
+|  |- scripts/
+|  |  |- backfill_company_scores.py
+|  |  |- load_cnae_risks_seed.py
+|  |- seeds/
+|  |  |- cnae_risks.seed.csv
 |  |- tests/
 |  |  |- conftest.py
 |  |  |- test_alertas_tendencia.py
@@ -133,6 +141,7 @@ eControle/
 |  |  |- test_companies_crud.py
 |  |  |- test_company_licences_endpoint.py
 |  |  |- test_company_taxes_patch.py
+|  |  |- test_company_scoring.py
 |  |  |- test_extra_endpoints.py
 |  |  |- test_health.py
 |  |  |- test_ingest_s7.py
@@ -282,3 +291,9 @@ eControle/
   - frontend filtra licencas/taxas/processos/certificados para empresas ativas, preservando processos `DIVERSOS` sem cadastro
   - `GET /api/v1/lookups/receitaws/{cnpj}` usa ReceitaWS como primario e fallback automatico para BrasilAPI
   - scripts operacionais para sync do mirror CertHub em `scripts/ops/`
+- S10.3 fase 2 (backend) concluida:
+  - serviço central `backend/app/services/company_scoring.py` para cálculo de score por CNAE + vencimentos
+  - recálculo integrado em endpoints/services/watcher sem duplicar regra
+  - recálculo otimizado no watcher e no bulk sync (somente quando há mudança real)
+  - testes dedicados em `backend/tests/test_company_scoring.py`
+  - script operacional `backend/scripts/backfill_company_scores.py` para popular snapshots legados

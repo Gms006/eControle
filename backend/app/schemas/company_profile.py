@@ -26,6 +26,10 @@ class CompanyProfileOut(BaseModel):
     responsavel_fiscal: Optional[str] = None
     cnaes_principal: Optional[list[dict]] = None
     cnaes_secundarios: Optional[list[dict]] = None
+    risco_consolidado: Optional[str] = None
+    score_urgencia: Optional[int] = None
+    score_status: Optional[str] = None
+    score_updated_at: Optional[datetime] = None
     raw: Optional[dict] = None
     created_at: datetime
     updated_at: datetime

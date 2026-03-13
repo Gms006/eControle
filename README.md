@@ -2,11 +2,11 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-11)
+## Status atual do projeto (2026-03-13)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
-- S10: concluido (S10.1a + S10.1b + S10.2).
+- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 em andamento).
 - S9/S11/S12: planejados.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
@@ -198,6 +198,53 @@ $env:ECONTROLE_PASSWORD="sua_senha"
   - resultado: `19 passed`
 - `pytest -q backend/tests/test_lookups_receitaws.py backend/tests/test_processes_canonical.py`
   - resultado: `6 passed`
+
+## S10.3 - Motor de Classificação e Priorização por CNAE (fases 1 e 2 backend)
+
+- Fase 1 (estrutura):
+  - tabela `cnae_risks` para classificação versionada por CNAE;
+  - snapshot de score em `company_profiles`:
+    - `risco_consolidado`
+    - `score_urgencia`
+    - `score_status`
+    - `score_updated_at`;
+  - campos expostos em responses do backend.
+- Fase 2 (motor + recálculo backend):
+  - serviço central: `backend/app/services/company_scoring.py`;
+  - cálculo MVP por CNAE mapeado + vencimentos de licenças;
+  - recálculo automático integrado em:
+    - `PATCH /companies/{id}` (alterações de profile/CNAE);
+    - `POST /companies/composite`;
+    - ingest de profiles;
+    - bulk sync ReceitaWS (somente quando mudanças afetam score);
+    - `PATCH /licencas/{id}/item`;
+    - watcher de licenças (somente quando projeção muda).
+- Decisões de modelagem:
+  - CNAEs permanecem em `company_profiles` (`cnaes_principal` e `cnaes_secundarios`);
+  - `companies` não vira fonte de verdade de CNAE;
+  - `cnae_risks` é tabela dedicada para motor futuro.
+- Seed inicial:
+  - arquivo versionado: `backend/seeds/cnae_risks.seed.csv`;
+  - carga manual idempotente por script: `python backend/scripts/load_cnae_risks_seed.py`.
+- Testes backend adicionados:
+  - `backend/tests/test_company_scoring.py`.
+- Operacionalização (backfill inicial):
+  - script one-shot: `python backend/scripts/backfill_company_scores.py`;
+  - suporta `--org-id`, `--limit`, `--batch-size` e `--dry-run`;
+  - processa `company_profiles` existentes e recalcula snapshot via `recalculate_company_score`.
+- Ainda pendente:
+  - uso do score no frontend e cenários E2E de score.
+
+### Backfill inicial dos snapshots de score (S10.3)
+
+- Execução completa:
+  - `python backend/scripts/backfill_company_scores.py`
+- Execução limitada:
+  - `python backend/scripts/backfill_company_scores.py --limit 10`
+- Execução por organização:
+  - `python backend/scripts/backfill_company_scores.py --org-id <ORG_ID>`
+- Simulação sem persistir:
+  - `python backend/scripts/backfill_company_scores.py --dry-run --limit 10`
 
 ## Testes
 

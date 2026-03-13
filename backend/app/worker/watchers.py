@@ -23,6 +23,7 @@ from app.services.licence_files import (
     is_safe_fs_dirname,
     sha256_bytes,
 )
+from app.services.company_scoring import recalculate_company_score
 
 
 logger = logging.getLogger("app.worker.watchers")
@@ -55,7 +56,7 @@ def _upsert_licence_projection(
     source_filename: str,
     source_document_kind: str | None = None,
     source_group: str | None = None,
-) -> None:
+) -> bool:
     row = (
         db.query(CompanyLicence)
         .filter(CompanyLicence.org_id == company.org_id, CompanyLicence.company_id == company.id)
@@ -69,25 +70,50 @@ def _upsert_licence_projection(
     current_kind = str(raw.get(f"source_kind_{licence_field}") or "").strip().lower()
     current_expiry = _parse_raw_date(raw.get(f"validade_{licence_field}"))
     if _rank_candidate(source_kind, _parse_raw_date(expiry_iso)) < _rank_candidate(current_kind, current_expiry):
-        return
+        return False
 
+    next_valid_until = _parse_raw_date(expiry_iso)
     status_value = "definitivo" if source_kind == "definitivo" else "possui"
+    current_status = getattr(row, licence_field)
+    current_valid_until = getattr(row, f"{licence_field}_valid_until")
+    changed = current_status != status_value or current_valid_until != next_valid_until
+
     setattr(row, licence_field, status_value)
-    setattr(row, f"{licence_field}_valid_until", _parse_raw_date(expiry_iso))
+    setattr(row, f"{licence_field}_valid_until", next_valid_until)
     if expiry_iso:
+        next_validade_br = datetime.strptime(expiry_iso, "%Y-%m-%d").strftime("%d/%m/%Y")
+        if raw.get(f"validade_{licence_field}") != expiry_iso:
+            changed = True
+        if raw.get(f"validade_{licence_field}_br") != next_validade_br:
+            changed = True
         raw[f"validade_{licence_field}"] = expiry_iso
-        raw[f"validade_{licence_field}_br"] = datetime.strptime(expiry_iso, "%Y-%m-%d").strftime("%d/%m/%Y")
+        raw[f"validade_{licence_field}_br"] = next_validade_br
     else:
+        if raw.get(f"validade_{licence_field}") is not None:
+            changed = True
+        if raw.get(f"validade_{licence_field}_br") is not None:
+            changed = True
         raw[f"validade_{licence_field}"] = None
         raw[f"validade_{licence_field}_br"] = None
+    if raw.get(f"source_kind_{licence_field}") != source_kind:
+        changed = True
+    if raw.get(f"source_label_{licence_field}") != source_label:
+        changed = True
+    if raw.get(f"source_filename_{licence_field}") != source_filename:
+        changed = True
     raw[f"source_kind_{licence_field}"] = source_kind
     raw[f"source_label_{licence_field}"] = source_label
     raw[f"source_filename_{licence_field}"] = source_filename
     if source_document_kind:
+        if raw.get(f"source_document_kind_{licence_field}") != source_document_kind:
+            changed = True
         raw[f"source_document_kind_{licence_field}"] = source_document_kind
     if source_group:
+        if raw.get(f"source_group_{licence_field}") != source_group:
+            changed = True
         raw[f"source_group_{licence_field}"] = source_group
     row.raw = raw
+    return changed
 
 
 def process_company_licence_dir(db: Session, company: Company, root_dir: Path) -> dict[str, int]:
@@ -200,12 +226,13 @@ def process_company_licence_dir(db: Session, company: Company, root_dir: Path) -
             stats["errors"] += 1
 
     if best_by_group:
+        projection_changed = False
         for _group, (winner, source_filename) in best_by_group.items():
             if not winner.mapped_field:
                 continue
             source_kind = "definitivo" if winner.is_definitive else "dated"
             source_label = winner.canonical_filename or winner.original_filename
-            _upsert_licence_projection(
+            changed = _upsert_licence_projection(
                 db,
                 company=company,
                 licence_field=winner.mapped_field,
@@ -216,7 +243,11 @@ def process_company_licence_dir(db: Session, company: Company, root_dir: Path) -
                 source_document_kind=winner.suggested_document_kind,
                 source_group=winner.suggested_group,
             )
+            projection_changed = projection_changed or bool(changed)
         db.commit()
+        if projection_changed:
+            recalculate_company_score(db, company.org_id, company.id)
+            db.commit()
     return stats
 
 

@@ -90,6 +90,10 @@ class CompanyOut(BaseModel):
     responsavel_fiscal: Optional[str] = None
     cnaes_principal: Optional[list[dict]] = None
     cnaes_secundarios: Optional[list[dict]] = None
+    risco_consolidado: Optional[str] = None
+    score_urgencia: Optional[int] = None
+    score_status: Optional[str] = None
+    score_updated_at: Optional[datetime] = None
 
 
 def enrich_company_with_profile(company):
@@ -111,6 +115,10 @@ def enrich_company_with_profile(company):
         company.responsavel_fiscal = profile.responsavel_fiscal
         company.cnaes_principal = profile.cnaes_principal
         company.cnaes_secundarios = profile.cnaes_secundarios
+        company.risco_consolidado = profile.risco_consolidado
+        company.score_urgencia = profile.score_urgencia
+        company.score_status = profile.score_status
+        company.score_updated_at = profile.score_updated_at
         raw = profile.raw if isinstance(profile.raw, dict) else {}
         company.mei = bool(raw.get("mei")) if "mei" in raw else None
         company.endereco_fiscal = bool(raw.get("endereco_fiscal")) if "endereco_fiscal" in raw else None

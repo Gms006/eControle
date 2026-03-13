@@ -22,6 +22,7 @@ from app.models.company_tax import CompanyTax
 from app.models.org import Org
 from app.schemas.company import CompanyOut, enrich_company_with_profile
 from app.schemas.company_composite import CompanyCompositeCreate
+from app.services.company_scoring import recalculate_company_score
 
 
 router = APIRouter()
@@ -127,6 +128,8 @@ def create_company_composite(
         )
         db.add(tax)
 
+    db.flush()
+    recalculate_company_score(db, org.id, company.id)
     db.commit()
     db.refresh(company)
     company = enrich_company_with_profile(company)

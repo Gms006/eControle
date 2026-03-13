@@ -20,6 +20,7 @@ from app.models.company_tax import CompanyTax
 from app.models.org import Org
 from app.models.user import User
 from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate, enrich_company_with_profile
+from app.services.company_scoring import recalculate_company_score
 
 router = APIRouter()
 
@@ -259,6 +260,8 @@ def update_company(
             elif key in {"situacao", "status_empresa"}:
                 value = normalize_generic_status(value, strict=False)
             setattr(profile, key, value)
+        db.flush()
+        recalculate_company_score(db, org.id, company.id)
     try:
         db.commit()
     except IntegrityError:

@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from app.core.normalization import normalize_generic_status
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
+from app.services.company_scoring import recalculate_company_score
 from app.services.ingest.utils import normalize_digits, normalize_cnpj, repair_mojibake_utf8, sanitize_text_tree
 
 
@@ -61,8 +62,11 @@ def upsert_company_profiles(db: Session, org_id: str, items: list[dict]) -> tupl
             for k, v in payload.items():
                 setattr(existing, k, v)
             updated += 1
+            recalculate_company_score(db, org_id, company.id)
         else:
             db.add(CompanyProfile(org_id=org_id, company_id=company.id, **payload))
             inserted += 1
+            db.flush()
+            recalculate_company_score(db, org_id, company.id)
 
     return inserted, updated

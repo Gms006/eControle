@@ -952,6 +952,7 @@ export default function MainApp() {
                       <LicencasScreen
                         licencas={licencas}
                         filteredLicencas={filteredLicencas}
+                        empresas={empresas}
                         modoFoco={modoFoco}
                         canManageLicencas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                         handleCopy={handleCopy}

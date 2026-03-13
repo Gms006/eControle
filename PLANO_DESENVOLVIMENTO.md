@@ -9,7 +9,7 @@ Status global: domínio principal operacional, ingest JSON ativo, integração C
 - Concluído: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
 - Concluído: S8
 - Entrega adicional concluída: bulk sync ReceitaWS (DEV)
-- Em andamento: S10 (S10.1a + S10.1b + S10.2)
+- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 2 concluída no backend)
 - Pendente: S9, S11, S12
 
 ## S0 - Kickoff e congelamento do baseline
@@ -184,7 +184,7 @@ Entregues:
 
 ### S10.2 - Auto-detecção assistida + hardening operacional
 
-Status: EM ANDAMENTO (2026-03-09)
+Status: concluído (2026-03-11)
 
 Escopo confirmado:
 - Endpoint `POST /api/v1/licencas/detect` (ADMIN|DEV), somente análise de filename.
@@ -218,6 +218,44 @@ Critérios de aceite S10.2 (parcial):
 
 Pendências registradas:
 - [ ] Validar pipeline final com credenciais reais de E2E para cenários não-skipped do Playwright.
+
+### S10.3 - Motor de Classificação e Priorização por CNAE
+
+Status: fase 2 backend concluída + backfill operacional (2026-03-13)
+
+Fase 1 (estrutural) entregue:
+- tabela dedicada `cnae_risks`;
+- snapshot de score em `company_profiles`:
+  - `risco_consolidado`
+  - `score_urgencia`
+  - `score_status`
+  - `score_updated_at`;
+- exposição dos campos em schemas de saída (sem edição manual).
+
+Fase 2 (motor + gatilhos backend) entregue:
+- serviço central `backend/app/services/company_scoring.py`;
+- cálculo MVP por CNAE + vencimento de licenças;
+- integração de recálculo em:
+  - `PATCH /companies/{id}` (quando altera profile/CNAE),
+  - `POST /companies/composite`,
+  - ingest `company_profiles`,
+  - bulk sync ReceitaWS (somente quando mudanças afetam score),
+  - `PATCH /licencas/{id}/item`,
+  - watcher de licenças (somente quando projeção realmente muda);
+- suíte de testes S10.3 adicionada em `backend/tests/test_company_scoring.py`.
+- backfill one-shot para base legada:
+  - script `backend/scripts/backfill_company_scores.py`;
+  - execução idempotente com `--org-id`, `--limit`, `--batch-size` e `--dry-run`;
+  - recálculo centralizado via `recalculate_company_score` (sem duplicar regra).
+
+Decisões fechadas:
+- CNAEs permanecem em `company_profiles` (`cnaes_principal` e `cnaes_secundarios`);
+- `companies` não é fonte de verdade para CNAE;
+- payload bruto de lookup ReceitaWS não é persistido automaticamente no fluxo normal.
+
+Pendente para próxima rodada:
+- consumo de score no frontend (listagem, filtros e ordenação);
+- E2E específico de score na interface.
 
 ## S11 - Polimento de paridade v1
 

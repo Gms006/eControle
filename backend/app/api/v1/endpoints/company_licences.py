@@ -33,6 +33,7 @@ from app.services.licence_files import (
     resolve_licence_name_spec,
 )
 from app.services.licence_scan_full import run_licence_scan_full_job
+from app.services.company_scoring import recalculate_company_score
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -139,6 +140,8 @@ def patch_company_licence_item(
     licence.municipio = normalize_municipio(licence.municipio)
     licence.raw = raw
 
+    db.flush()
+    recalculate_company_score(db, org.id, licence.company_id)
     db.commit()
     db.refresh(licence)
 
