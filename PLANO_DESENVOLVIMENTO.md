@@ -307,6 +307,24 @@ Pendente para próxima rodada desta linha:
 - integração com fontes oficiais via scraper/web crawling;
 - automação de proposta por importador (sempre como `PENDING`, sem aplicação automática).
 
+S10.3b entrega 2 (consulta oficial para sugestões pendentes) entregue em 2026-03-20:
+- camada de adaptadores oficiais em `backend/app/services/official_sources/`:
+  - `cgsim.py`, `anvisa.py`, `goiania.py`, `cbmgo.py`;
+- schema interno normalizado de findings com:
+  - `cnae_code`, `domain`, `official_result`, `suggested_risk_tier`, `suggested_base_weight`,
+    `source_name`, `source_reference`, `evidence_excerpt`, `confidence`, `requires_questionnaire`;
+- serviço orquestrador `backend/app/services/cnae_official_suggestions.py`:
+  - consulta por CNAE único ou lote,
+  - consolida findings,
+  - cria sugestões `PENDING` sem tocar em `cnae_risks`,
+  - tolera falha de fonte externa sem derrubar resposta inteira,
+  - deduplica sugestões pendentes idênticas;
+- endpoints `ADMIN|DEV`:
+  - `POST /api/v1/catalog/cnae-risk-suggestions/official/lookup`
+  - `POST /api/v1/catalog/cnae-risk-suggestions/official/lookup-batch`
+- regra de segurança reforçada:
+  - consulta oficial nunca faz autoapply no catálogo produtivo.
+
 ## S11 - Polimento de paridade v1
 
 Status: pendente

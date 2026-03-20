@@ -19,6 +19,7 @@ eControle/
 |  |  |  |  |- alertas.py
 |  |  |  |  |- auth.py
 |  |  |  |  |- certificados.py
+|  |  |  |  |- cnae_risk_official_sources.py
 |  |  |  |  |- cnae_risk_suggestions.py
 |  |  |  |  |- companies.py
 |  |  |  |  |- companies_composite.py
@@ -77,6 +78,7 @@ eControle/
 |  |  |  |- company_profile.py
 |  |  |  |- company_tax.py
 |  |  |  |- cnae_risk_suggestion.py
+|  |  |  |- official_sources.py
 |  |  |  |- org.py
 |  |  |  |- token.py
 |  |  |  |- user.py
@@ -93,7 +95,14 @@ eControle/
 |  |  |  |- certificados_mirror.py
 |  |  |  |- certhub_client.py
 |  |  |  |- company_scoring.py
+|  |  |  |- cnae_official_suggestions.py
 |  |  |  |- cnae_risk_suggestions.py
+|  |  |  |- official_sources/
+|  |  |  |  |- __init__.py
+|  |  |  |  |- anvisa.py
+|  |  |  |  |- cgsim.py
+|  |  |  |  |- goiania.py
+|  |  |  |  |- cbmgo.py
 |  |  |  |- licence_detection.py
 |  |  |  |- licence_fs_paths.py
 |  |  |  |- licence_files.py
@@ -148,6 +157,7 @@ eControle/
 |  |  |- test_company_licences_endpoint.py
 |  |  |- test_company_taxes_patch.py
 |  |  |- test_company_scoring.py
+|  |  |- test_cnae_official_sources.py
 |  |  |- test_cnae_risk_suggestions.py
 |  |  |- test_extra_endpoints.py
 |  |  |- test_health.py
@@ -328,3 +338,12 @@ eControle/
     - edição somente quando `PENDING`
     - rejeição com marcação de revisão
   - testes dedicados em `backend/tests/test_cnae_risk_suggestions.py`
+- S10.3b entrega 2 (consulta oficial para propostas pendentes) entregue:
+  - endpoint `backend/app/api/v1/endpoints/cnae_risk_official_sources.py` (`ADMIN|DEV`)
+  - orquestrador `backend/app/services/cnae_official_suggestions.py`
+  - adaptadores em `backend/app/services/official_sources/` para:
+    - `CGSIM`, `ANVISA`, `GOIANIA`, `CBMGO`
+  - schema de findings normalizados em `backend/app/schemas/official_sources.py`
+  - criação automática de sugestões sempre em `PENDING` (sem autoapply)
+  - tolerância a falha por fonte + deduplicação de pendências idênticas
+  - testes dedicados em `backend/tests/test_cnae_official_sources.py`

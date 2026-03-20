@@ -117,6 +117,8 @@ Base: `http://localhost:8020/api/v1`
   - `PATCH /catalog/cnae-risk-suggestions/{suggestion_id}`
   - `POST /catalog/cnae-risk-suggestions/{suggestion_id}/approve`
   - `POST /catalog/cnae-risk-suggestions/{suggestion_id}/reject`
+  - `POST /catalog/cnae-risk-suggestions/official/lookup`
+  - `POST /catalog/cnae-risk-suggestions/official/lookup-batch`
 
 Healthchecks:
 - `GET /healthz`
@@ -294,6 +296,18 @@ Status: concluída (backend + frontend + E2E portal)
   - scraper/web crawling;
   - aplicação automática sem revisão.
 
+### S10.3b entrega 2 - consulta de bases oficiais para geração automática de sugestões `PENDING`
+
+- novas fontes oficiais (adaptadores dedicados):
+  - `CGSIM`
+  - `ANVISA`
+  - `GOIANIA` (ALF/AMMA/VISA, conforme regra objetiva disponível)
+  - `CBMGO` (referência com dependência de contexto adicional)
+- saída normalizada por finding (`domain`, evidência, referência, confiança, `requires_questionnaire`);
+- orquestrador consulta 1 CNAE ou lote, consolida findings e cria sugestões pendentes;
+- regra mandatória mantida: nenhuma consulta oficial aplica direto em `cnae_risks`;
+- deduplicação: evita recriar sugestão pendente idêntica por CNAE+fonte+conteúdo.
+
 ### Backfill inicial dos snapshots de score (S10.3)
 
 - Execução completa:
@@ -338,6 +352,11 @@ Fluxo de validação da atualização assistida do catálogo CNAE:
 1. Rodar `pytest -q backend/tests/test_cnae_risk_suggestions.py`.
 2. Rodar regressão do motor: `pytest -q backend/tests/test_company_scoring.py`.
 3. Manter o fluxo E2E padrão (`tests_e2e/api` + Playwright portal) para cobertura de regressão geral.
+
+Fluxo de validação da consulta oficial (S10.3b entrega 2):
+1. Rodar `pytest -q backend/tests/test_cnae_official_sources.py`.
+2. Rodar `pytest -q backend/tests/test_cnae_risk_suggestions.py`.
+3. Rodar `pytest -q backend/tests/test_company_scoring.py`.
 
 Fluxo operacional do catálogo CNAE (S10.3 parcial):
 1. Editar `backend/seeds/cnae_risks.seed.csv`.
