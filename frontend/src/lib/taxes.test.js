@@ -1,7 +1,14 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-import { formatDataEnvio, getDataEnvioDisplay, isEnvioPendente, parseDataEnvio } from "./taxes.js";
+import {
+  formatDataEnvio,
+  formatTaxOpenStatus,
+  getDataEnvioDisplay,
+  isEnvioPendente,
+  isTaxStatusEmAberto,
+  parseDataEnvio,
+} from "./taxes.js";
 import {
   deriveStatusFromInstallment,
   formatInstallment,
@@ -45,6 +52,20 @@ test("isEnvioPendente returns true when there is pendente without data_envio", (
     data_envio: null,
   });
   assert.equal(pending, true);
+});
+
+test("isTaxStatusEmAberto accepts extended open status text", () => {
+  assert.equal(isTaxStatusEmAberto("Em aberto desde 2023"), true);
+});
+
+test("formatTaxOpenStatus formats consecutive open years including current year", () => {
+  const label = formatTaxOpenStatus("em_aberto", [2024, 2025, 2026], 2026);
+  assert.equal(label, "Em Aberto Desde 2024");
+});
+
+test("formatTaxOpenStatus formats non-consecutive years as interval", () => {
+  const label = formatTaxOpenStatus("em_aberto", [2021, 2023], 2026);
+  assert.equal(label, "Em aberto de 2021 a 2023");
 });
 
 test("installment parsing normalizes spaced input and validates boundaries", () => {

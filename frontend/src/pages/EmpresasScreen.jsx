@@ -11,10 +11,10 @@ import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import { ArrowDownAZ, ArrowUpZA, Clipboard, EllipsisVertical, ExternalLink, File, Mail, PencilLine, Phone, SlidersHorizontal } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
-import { DEFAULT_CERTIFICADO_SITUACAO } from "@/lib/certificados";
+import { buildCertificadoIndex, categorizeCertificadoSituacao, resolveEmpresaCertificadoSituacao } from "@/lib/certificados";
 import { parseDateLike } from "@/lib/date";
 import { cn } from "@/lib/utils";
-import { getStatusKey, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
+import { getStatusKey, hasPendingFraction, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
 import { openCartaoCNPJ, onlyDigits } from "@/lib/quickLinks";
 
 const VIEW_MODE_KEY = "econtrole.empresas.viewMode";
@@ -65,11 +65,39 @@ const findTaxaByEmpresa = (map, empresaId, empresaCnpj) => {
   return undefined;
 };
 
-const hasDebito = (empresa) => {
-  const key = getStatusKey(empresa?.debito || "");
-  return key.includes("possui") || key.includes("debito") || isAlertStatus(empresa?.debito);
+const isTaxaDebitoStatus = (status) => {
+  const key = getStatusKey(status || "");
+  if (!key) return false;
+  if (key.includes("abert")) return true;
+  if (!key.includes("parcelad")) return false;
+  if (hasPendingFraction(status)) return true;
+  return !key.includes("quitad") && !key.includes("pago");
+};
+const hasDebito = (taxa) => {
+  if (!taxa) return false;
+  return (
+    TAXA_TYPE_KEYS.some((taxaKey) => isTaxaDebitoStatus(taxa?.[taxaKey])) ||
+    isTaxaDebitoStatus(taxa?.status_taxas)
+  );
+};
+const isDebitoLabel = (value) => {
+  const key = getStatusKey(value || "");
+  if (!key) return false;
+  return key.includes("debito") || key.includes("debitos");
+};
+const resolveCompanyStatus = (empresa) => {
+  const fromStatusEmpresa = empresa?.status_empresa ?? empresa?.statusEmpresa;
+  if (fromStatusEmpresa && !isDebitoLabel(fromStatusEmpresa)) return fromStatusEmpresa;
+  const fromSituacao = empresa?.situacao;
+  if (fromSituacao && !isDebitoLabel(fromSituacao)) return fromSituacao;
+  if (empresa?.is_active === false || empresa?.isActive === false) return "Inativa";
+  return "Ativa";
 };
 const semCertificado = (empresa) => !getStatusKey(empresa?.certificado || "").includes("valid");
+const hasValidCertificado = (empresa, certificadoIndex) => {
+  const situacao = resolveEmpresaCertificadoSituacao(empresa, certificadoIndex);
+  return categorizeCertificadoSituacao(situacao) === "VÁLIDO";
+};
 const critico7dias = (lics) =>
   (lics || []).some((lic) => {
     const parsed = parseDateLike(lic?.validade || lic?.validade_br);
@@ -77,10 +105,66 @@ const critico7dias = (lics) =>
     const days = parsed.startOf("day").diff(dayjs().startOf("day"), "day");
     return days >= 0 && days <= 7;
   });
+const PLACEHOLDER_CNAE_CODE = "00.00-0-00";
+const RISK_PRIORITY = { LOW: 1, MEDIUM: 2, HIGH: 3 };
+
+const normalizeCode = (value) => String(value || "").trim().toUpperCase();
+const normalizeRisk = (value) => String(value || "").trim().toUpperCase();
+
+const getUsefulCnaes = (empresa) => {
+  const all = [...(Array.isArray(empresa?.cnaes_principal) ? empresa.cnaes_principal : []), ...(Array.isArray(empresa?.cnaes_secundarios) ? empresa.cnaes_secundarios : [])];
+  return all.filter((entry) => {
+    if (!entry || typeof entry !== "object") return false;
+    const code = normalizeCode(entry.code);
+    return Boolean(code) && code !== PLACEHOLDER_CNAE_CODE;
+  });
+};
+
+const formatRiskLabel = (value) => {
+  const key = normalizeRisk(value);
+  if (key === "HIGH") return "Alto";
+  if (key === "MEDIUM") return "Médio";
+  if (key === "LOW") return "Baixo";
+  return "—";
+};
+
+const formatScoreStatusLabel = (status, hasUsefulCnae) => {
+  const key = String(status || "").trim().toUpperCase();
+  if (!hasUsefulCnae && (key === "NO_CNAE" || key === "UNMAPPED_CNAE")) return "Sem CNAE";
+  if (key === "OK") return "OK";
+  if (key === "NO_CNAE") return "Sem CNAE";
+  if (key === "UNMAPPED_CNAE") return "CNAE não mapeado";
+  if (key === "NO_LICENCE") return "Sem licença datada";
+  return "—";
+};
+
+const riskChipVariant = (risk) => {
+  const key = normalizeRisk(risk);
+  if (key === "HIGH") return "danger";
+  if (key === "MEDIUM") return "warning";
+  if (key === "LOW") return "success";
+  return "neutral";
+};
+
+const compareNullableScore = (a, b, direction) => {
+  const an = Number.isFinite(a) ? a : null;
+  const bn = Number.isFinite(b) ? b : null;
+  if (an === null && bn === null) return 0;
+  if (an === null) return 1;
+  if (bn === null) return -1;
+  return (an - bn) * (direction === "asc" ? 1 : -1);
+};
+const ORDER_OPTIONS = [
+  { value: "score", label: "Score", defaultDir: "desc" },
+  { value: "nome", label: "Empresa", defaultDir: "asc" },
+  { value: "status", label: "Status", defaultDir: "asc" },
+  { value: "risco", label: "Risco", defaultDir: "desc" },
+];
 
 export default function EmpresasScreen({
   filteredEmpresas,
   empresas,
+  certificados,
   soAlertas,
   canManageEmpresas,
   extractEmpresaId,
@@ -94,8 +178,9 @@ export default function EmpresasScreen({
   const [viewMode, setViewMode] = React.useState(() => (typeof window !== "undefined" && window.localStorage.getItem(VIEW_MODE_KEY) === "detailed" ? "detailed" : "compact"));
   const [openFilters, setOpenFilters] = React.useState(false);
   const [kpiFilter, setKpiFilter] = React.useState(null);
-  const [statusFilter, setStatusFilter] = React.useState("todos");
-  const [sortBy, setSortBy] = React.useState({ field: "nome", direction: "asc" });
+  const [statusFilter, setStatusFilter] = React.useState("ativa");
+  const [riskFilter, setRiskFilter] = React.useState("todos");
+  const [sortBy, setSortBy] = React.useState({ field: "score", direction: "desc" });
   const [cndCache, setCndCache] = React.useState({});
   const cndRef = React.useRef(cndCache);
 
@@ -105,6 +190,10 @@ export default function EmpresasScreen({
   React.useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem(VIEW_MODE_KEY, viewMode);
   }, [viewMode]);
+  const certificadoIndex = React.useMemo(
+    () => buildCertificadoIndex(Array.isArray(certificados) ? certificados : []),
+    [certificados],
+  );
 
   const ensureCNDs = React.useCallback(async (cnpjRaw, { force = false } = {}) => {
     const digits = onlyDigits(cnpjRaw || "");
@@ -149,6 +238,12 @@ export default function EmpresasScreen({
       return acc;
     }, { total: 0, ativas: 0, vencendo: 0, vencidas: 0 });
     const taxaPendencias = taxa ? TAXA_TYPE_KEYS.filter((key) => isAlertStatus(taxa?.[key])).length : 0;
+    const certificadoValido = hasValidCertificado(empresa, certificadoIndex);
+    const usefulCnaes = getUsefulCnaes(empresa);
+    const riscoConsolidado = normalizeRisk(empresa?.risco_consolidado ?? empresa?.riscoConsolidado);
+    const scoreUrgenciaRaw = empresa?.score_urgencia ?? empresa?.scoreUrgencia;
+    const scoreUrgencia = Number.isFinite(scoreUrgenciaRaw) ? Number(scoreUrgenciaRaw) : null;
+    const scoreStatus = String(empresa?.score_status ?? empresa?.scoreStatus ?? "").trim().toUpperCase() || null;
     return {
       empresa,
       empresaId: empresaId ? String(empresaId) : undefined,
@@ -157,16 +252,21 @@ export default function EmpresasScreen({
       processos,
       ativos,
       taxaPendencias,
+      scoreUrgencia,
+      riscoConsolidado,
+      scoreStatus,
+      hasUsefulCnae: usefulCnaes.length > 0,
+      certificadoValido,
       flags: {
-        debitos: hasDebito(empresa),
-        semCertificado: semCertificado(empresa),
+        debitos: hasDebito(taxa),
+        semCertificado: !certificadoValido,
         taxasPendentes: taxaPendencias > 0,
         licencasVencendo: licSummary.vencendo > 0 || licSummary.vencidas > 0,
         processosAndamento: ativos.length > 0,
         criticos7dias: critico7dias(lics),
       },
     };
-  }), [extractEmpresaId, filteredEmpresas, licencasByEmpresa, processosByEmpresa, taxasByEmpresa]);
+  }), [certificadoIndex, extractEmpresaId, filteredEmpresas, licencasByEmpresa, processosByEmpresa, taxasByEmpresa]);
 
   const kpis = [
     { key: "debitos", label: "Com débitos" },
@@ -181,20 +281,36 @@ export default function EmpresasScreen({
   const filteredRows = React.useMemo(() => {
     const list = rows.filter((row) => {
       if (kpiFilter && !row.flags[kpiFilter]) return false;
-      const statusKey = getStatusKey(row.empresa?.situacao || "");
-      if (statusFilter === "ativa" && !statusKey.includes("ativ")) return false;
-      if (statusFilter === "inativa" && statusKey.includes("ativ")) return false;
+      const statusKey = getStatusKey(resolveCompanyStatus(row.empresa) || "");
+      const isActive = statusKey.includes("ativ") && !statusKey.includes("inativ");
+      if (statusFilter === "ativa" && !isActive) return false;
+      if (statusFilter === "inativa" && isActive) return false;
+      if (riskFilter !== "todos" && normalizeRisk(row.riscoConsolidado) !== riskFilter) return false;
       return true;
     });
     list.sort((a, b) => {
+      if (sortBy.field === "score") {
+        return compareNullableScore(a.scoreUrgencia, b.scoreUrgencia, sortBy.direction);
+      }
+      if (sortBy.field === "risco") {
+        const av = RISK_PRIORITY[normalizeRisk(a.riscoConsolidado)] || 0;
+        const bv = RISK_PRIORITY[normalizeRisk(b.riscoConsolidado)] || 0;
+        if (av === bv) return 0;
+        return (av - bv) * (sortBy.direction === "asc" ? 1 : -1);
+      }
       const av = sortBy.field === "status" ? getStatusKey(a.empresa?.situacao || "") : String(a.empresa?.empresa || "").toLowerCase();
       const bv = sortBy.field === "status" ? getStatusKey(b.empresa?.situacao || "") : String(b.empresa?.empresa || "").toLowerCase();
       return av.localeCompare(bv) * (sortBy.direction === "asc" ? 1 : -1);
     });
     return list;
-  }, [kpiFilter, rows, sortBy.direction, sortBy.field, statusFilter]);
+  }, [kpiFilter, riskFilter, rows, sortBy.direction, sortBy.field, statusFilter]);
 
-  const toggleSort = (field) => setSortBy((prev) => prev.field === field ? { field, direction: prev.direction === "asc" ? "desc" : "asc" } : { field, direction: "asc" });
+  const toggleSort = (field) =>
+    setSortBy((prev) =>
+      prev.field === field
+        ? { field, direction: prev.direction === "asc" ? "desc" : "asc" }
+        : { field, direction: field === "score" ? "desc" : "asc" }
+    );
 
   return (
     <div className="space-y-3">
@@ -222,6 +338,38 @@ export default function EmpresasScreen({
           </div>
         </CardContent>
       </Card>
+      <Card className="border-subtle bg-card">
+        <CardContent className="flex flex-wrap items-center gap-2 p-3">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {ORDER_OPTIONS.map((option) => {
+              const isActive = sortBy.field === option.value;
+              const directionSymbol = isActive ? (sortBy.direction === "asc" ? "↑" : "↓") : null;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) {
+                      setSortBy((prev) => ({ ...prev, direction: prev.direction === "asc" ? "desc" : "asc" }));
+                    } else {
+                      setSortBy({ field: option.value, direction: option.defaultDir });
+                    }
+                  }}
+                  className={cn(
+                    "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
+                    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                    isActive ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm" : "",
+                  )}
+                >
+                  <span>{option.label}</span>
+                  {directionSymbol ? <span className="text-xs">{directionSymbol}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
       {viewMode === "compact" ? (
         <Card className="overflow-hidden border-subtle bg-card" data-testid="companies-grid">
           <div className="overflow-x-auto">
@@ -236,6 +384,19 @@ export default function EmpresasScreen({
                   <TableHead>
                     <SortButton label="Status" active={sortBy.field === "status"} direction={sortBy.direction} onClick={() => toggleSort("status")} />
                   </TableHead>
+                  <TableHead>
+                    <SortButton
+                      label="Score"
+                      active={sortBy.field === "score"}
+                      direction={sortBy.direction}
+                      onClick={() => toggleSort("score")}
+                      dataTestId="companies-sort-score"
+                    />
+                  </TableHead>
+                  <TableHead>
+                    <SortButton label="Risco" active={sortBy.field === "risco"} direction={sortBy.direction} onClick={() => toggleSort("risco")} />
+                  </TableHead>
+                  <TableHead>Status score</TableHead>
                   <TableHead>Débitos</TableHead>
                   <TableHead>Certificado</TableHead>
                   <TableHead>Pendências</TableHead>
@@ -252,9 +413,16 @@ export default function EmpresasScreen({
                     <TableCell className="font-medium text-slate-900">{row.empresa?.empresa || "—"}</TableCell>
                     <TableCell>{row.empresa?.cnpj || "—"}</TableCell>
                     <TableCell>{row.empresa?.municipio || "—"}</TableCell>
-                    <TableCell><StatusBadge status={row.empresa?.situacao || "Ativa"} /></TableCell>
-                    <TableCell><Chip variant={row.flags.debitos ? "warning" : "success"}>{row.flags.debitos ? "Com" : "Sem"}</Chip></TableCell>
-                    <TableCell><StatusBadge status={row.empresa?.certificado || DEFAULT_CERTIFICADO_SITUACAO} /></TableCell>
+                    <TableCell><StatusBadge status={resolveCompanyStatus(row.empresa)} /></TableCell>
+                    <TableCell data-testid="company-score-value">{Number.isFinite(row.scoreUrgencia) ? row.scoreUrgencia : "—"}</TableCell>
+                    <TableCell data-testid="company-risk-badge"><Chip variant={riskChipVariant(row.riscoConsolidado)}>{formatRiskLabel(row.riscoConsolidado)}</Chip></TableCell>
+                    <TableCell data-testid="company-score-status">{formatScoreStatusLabel(row.scoreStatus, row.hasUsefulCnae)}</TableCell>
+                    <TableCell><Chip variant={row.flags.debitos ? "warning" : "success"}>{row.flags.debitos ? "Possui débitos" : "Sem débitos"}</Chip></TableCell>
+                    <TableCell>
+                      <Chip variant={row.certificadoValido ? "success" : "danger"}>
+                        {row.certificadoValido ? "SIM" : "NÃO"}
+                      </Chip>
+                    </TableCell>
                     <TableCell><Chip variant={row.taxaPendencias > 0 ? "warning" : "neutral"}>{row.taxaPendencias}</Chip></TableCell>
                     <TableCell className="text-right">
                       <DropdownMenu>
@@ -289,8 +457,10 @@ export default function EmpresasScreen({
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-base font-semibold text-primary">{row.empresa?.empresa}</h3>
-                        <StatusBadge status={row.empresa?.situacao || "Ativa"} />
-                        {row.flags.debitos ? <Chip variant="warning">Possui débitos</Chip> : null}
+                        <StatusBadge status={resolveCompanyStatus(row.empresa)} />
+                        <Chip variant={row.flags.debitos ? "warning" : "success"}>
+                          {row.flags.debitos ? "Possui débitos" : "Sem débitos"}
+                        </Chip>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                         <CopyableIdentifier label="CNPJ" value={row.empresa?.cnpj} onCopy={handleCopy} />
@@ -302,7 +472,9 @@ export default function EmpresasScreen({
                       </div>
                       <div className="flex flex-wrap gap-1.5 text-xs">
                         <Chip>Categoria: {row.empresa?.categoria || "—"}</Chip>
-                        <Chip variant={isAlertStatus(row.empresa?.certificado) ? "warning" : "success"}>Certificado: {row.empresa?.certificado || DEFAULT_CERTIFICADO_SITUACAO}</Chip>
+                        <Chip variant={row.certificadoValido ? "success" : "danger"}>
+                          Certificado: {row.certificadoValido ? "SIM" : "NÃO"}
+                        </Chip>
                         {row.empresa?.responsavelFiscal ? <Chip>Resp. fiscal: {row.empresa.responsavelFiscal}</Chip> : null}
                       </div>
                     </div>
@@ -316,6 +488,11 @@ export default function EmpresasScreen({
                   <MiniCounter title="Licenças" main={row.licSummary.total} sub1={`Vencendo: ${row.licSummary.vencendo}`} sub2={`Vencidas: ${row.licSummary.vencidas}`} />
                   <MiniCounter title="Processos" main={row.processos.length} sub1={`Ativos: ${row.ativos.length}`} sub2={`Encerrados: ${row.processos.length - row.ativos.length}`} />
                   <MiniCounter title="Taxas" main={row.taxaPendencias} sub1="Pendências" sub2={row.taxaPendencias > 0 ? "Atenção" : "Em dia"} />
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Chip data-testid="company-score-value" variant="outline">Score: {Number.isFinite(row.scoreUrgencia) ? row.scoreUrgencia : "—"}</Chip>
+                  <Chip data-testid="company-risk-badge" variant={riskChipVariant(row.riscoConsolidado)}>Risco: {formatRiskLabel(row.riscoConsolidado)}</Chip>
+                  <Chip data-testid="company-score-status" variant="neutral">Status: {formatScoreStatusLabel(row.scoreStatus, row.hasUsefulCnae)}</Chip>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-subtle pt-3">
                   <DropdownMenu>
@@ -388,8 +565,8 @@ export default function EmpresasScreen({
                         {Boolean(row.empresa?.mei ?? row.empresa?.is_mei ?? row.empresa?.isMei) ? <Chip variant="neutral">MEI</Chip> : null}
                       </div>
                     ) : null}
-                    {Array.isArray(row.empresa?.cnaes_principal) && row.empresa.cnaes_principal.length > 0 ? <p><span className="font-semibold">CNAE principal:</span> {row.empresa.cnaes_principal.map((entry) => [entry?.code, entry?.text].filter(Boolean).join(" - ")).join(" | ")}</p> : null}
-                    {Array.isArray(row.empresa?.cnaes_secundarios) && row.empresa.cnaes_secundarios.length > 0 ? <p><span className="font-semibold">CNAEs secundários:</span> {row.empresa.cnaes_secundarios.map((entry) => [entry?.code, entry?.text].filter(Boolean).join(" - ")).join(" | ")}</p> : null}
+                    {Array.isArray(row.empresa?.cnaes_principal) && row.empresa.cnaes_principal.filter((entry) => normalizeCode(entry?.code) && normalizeCode(entry?.code) !== PLACEHOLDER_CNAE_CODE).length > 0 ? <p><span className="font-semibold">CNAE principal:</span> {row.empresa.cnaes_principal.filter((entry) => normalizeCode(entry?.code) && normalizeCode(entry?.code) !== PLACEHOLDER_CNAE_CODE).map((entry) => [entry?.code, entry?.text].filter(Boolean).join(" - ")).join(" | ")}</p> : null}
+                    {Array.isArray(row.empresa?.cnaes_secundarios) && row.empresa.cnaes_secundarios.filter((entry) => normalizeCode(entry?.code) && normalizeCode(entry?.code) !== PLACEHOLDER_CNAE_CODE).length > 0 ? <p><span className="font-semibold">CNAEs secundários:</span> {row.empresa.cnaes_secundarios.filter((entry) => normalizeCode(entry?.code) && normalizeCode(entry?.code) !== PLACEHOLDER_CNAE_CODE).map((entry) => [entry?.code, entry?.text].filter(Boolean).join(" - ")).join(" | ")}</p> : null}
                   </div>
                 </details>
               </CardContent>
@@ -404,7 +581,7 @@ export default function EmpresasScreen({
         title="Filtros avançados da aba"
         footer={
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" className="border-subtle" onClick={() => { setStatusFilter("todos"); setKpiFilter(null); }}>Limpar</Button>
+            <Button type="button" variant="outline" className="border-subtle" onClick={() => { setStatusFilter("ativa"); setRiskFilter("todos"); setKpiFilter(null); }}>Limpar</Button>
             <Button type="button" onClick={() => setOpenFilters(false)}>Aplicar</Button>
           </div>
         }
@@ -419,18 +596,30 @@ export default function EmpresasScreen({
             { value: "inativa", label: "Inativas" },
           ]}
         />
+        <SimpleFilterRow
+          label="Risco CNAE"
+          value={riskFilter}
+          onChange={setRiskFilter}
+          testIdPrefix="companies-risk-filter"
+          options={[
+            { value: "todos", label: "Todos" },
+            { value: "HIGH", label: "Alto" },
+            { value: "MEDIUM", label: "Médio" },
+            { value: "LOW", label: "Baixo" },
+          ]}
+        />
       </SideDrawer>
     </div>
   );
 }
 
-function SimpleFilterRow({ label, value, onChange, options }) {
+function SimpleFilterRow({ label, value, onChange, options, testIdPrefix }) {
   return (
     <div className="space-y-1.5">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
-          <button key={option.value} type="button" onClick={() => onChange(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", value === option.value ? "border-blue-200 bg-blue-50 text-blue-800" : "border-subtle bg-card text-slate-600")}>{option.label}</button>
+          <button key={option.value} type="button" data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined} onClick={() => onChange(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", value === option.value ? "border-blue-200 bg-blue-50 text-blue-800" : "border-subtle bg-card text-slate-600")}>{option.label}</button>
         ))}
       </div>
     </div>
@@ -448,9 +637,9 @@ function MiniCounter({ title, main, sub1, sub2 }) {
   );
 }
 
-function SortButton({ label, active, direction, onClick }) {
+function SortButton({ label, active, direction, onClick, dataTestId }) {
   return (
-    <button type="button" className="inline-flex items-center gap-1 font-semibold text-muted hover:text-slate-800" onClick={onClick}>
+    <button type="button" data-testid={dataTestId} className="inline-flex items-center gap-1 font-semibold text-muted hover:text-slate-800" onClick={onClick}>
       {label}
       {active ? (direction === "asc" ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />) : null}
     </button>

@@ -1,6 +1,14 @@
 import React, { useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
-import { BookDown, FileDown } from "lucide-react";
+import {
+  BookDown,
+  ChartBarIncreasing,
+  Clipboard,
+  FileDown,
+  FileMinus,
+  Info,
+  MapPin,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Chip } from "@/components/Chip";
@@ -16,7 +24,7 @@ import StatusBadge from "@/components/StatusBadge";
 import InlineBadge from "@/components/InlineBadge";
 import { fetchJson } from "@/lib/api";
 import { formatCnpj } from "@/lib/text";
-import { formatStatusDisplay, getStatusKey, isAlertStatus } from "@/lib/status";
+import { formatStatusDisplay, getStatusKey, isAlertStatus, resolveLicencaTipo } from "@/lib/status";
 
 const TIPOS = [
   { key: "SANITARIA", label: "Sanitária", field: "alvara_vig_sanitaria" },
@@ -64,6 +72,94 @@ const DETECT_KIND_OPTIONS = [
   { value: "LICENCA_AMBIENTAL", label: "Licença Ambiental" },
   { value: "DISPENSA_AMBIENTAL", label: "Dispensa Ambiental" },
 ];
+
+const SCORE_RISK_OPTIONS = [
+  { value: "todos", label: "Todos riscos" },
+  { value: "HIGH", label: "Risco alto" },
+  { value: "MEDIUM", label: "Risco médio" },
+  { value: "LOW", label: "Risco baixo" },
+  { value: "__none__", label: "Sem risco" },
+];
+
+const SCORE_STATUS_OPTIONS = [
+  { value: "todos", label: "Todos score status" },
+  { value: "OK", label: "OK" },
+  { value: "NO_CNAE", label: "Sem CNAE" },
+  { value: "UNMAPPED_CNAE", label: "CNAE não mapeado" },
+  { value: "NO_LICENCE", label: "Sem licença datada" },
+  { value: "__none__", label: "Sem score status" },
+];
+
+const normalizeScoreRisk = (value) => String(value || "").trim().toUpperCase();
+const normalizeScoreStatus = (value) => String(value || "").trim().toUpperCase();
+const normalizeDigits = (value) => String(value || "").replace(/\D/g, "");
+
+const formatScoreRiskLabel = (value) => {
+  const key = normalizeScoreRisk(value);
+  if (key === "HIGH") return "Alto";
+  if (key === "MEDIUM") return "Médio";
+  if (key === "LOW") return "Baixo";
+  return "—";
+};
+
+const formatScoreStatusLabel = (value) => {
+  const key = normalizeScoreStatus(value);
+  if (key === "OK") return "OK";
+  if (key === "NO_CNAE") return "Sem CNAE";
+  if (key === "UNMAPPED_CNAE") return "CNAE não mapeado";
+  if (key === "NO_LICENCE") return "Sem licença datada";
+  return "—";
+};
+
+const scoreRiskChipVariant = (value) => {
+  const key = normalizeScoreRisk(value);
+  if (key === "HIGH") return "danger";
+  if (key === "MEDIUM") return "warning";
+  if (key === "LOW") return "success";
+  return "neutral";
+};
+
+const SORT_OPTIONS = [
+  { value: "score_urgencia", label: "Score", defaultDir: "desc", isNumber: true },
+  { value: "dias_para_vencer", label: "Vencimento", defaultDir: "asc", isNumber: true },
+  { value: "empresa_display", label: "Empresa", defaultDir: "asc" },
+  { value: "tipo", label: "Tipo", defaultDir: "asc" },
+];
+
+const DEFAULT_SORT = SORT_OPTIONS[0];
+
+const compareWithSort = (a, b, option, direction) => {
+  const dir = direction === "desc" ? -1 : 1;
+  const field = option?.value;
+  if (!field) return 0;
+  if (option?.isNumber) {
+    const av = Number.isFinite(a?.[field]) ? Number(a[field]) : null;
+    const bv = Number.isFinite(b?.[field]) ? Number(b[field]) : null;
+    if (av === null && bv === null) return 0;
+    if (av === null) return 1;
+    if (bv === null) return -1;
+    return (av - bv) * dir;
+  }
+  const at = String(a?.[field] || "").trim();
+  const bt = String(b?.[field] || "").trim();
+  if (!at && !bt) return 0;
+  if (!at) return 1;
+  if (!bt) return -1;
+  return at.localeCompare(bt, "pt-BR", { sensitivity: "base" }) * dir;
+};
+
+function ScoreLegendInfo() {
+  return (
+    <span className="relative inline-flex items-center group">
+      <Info className="h-3.5 w-3.5 text-slate-500" />
+      <span className="pointer-events-none absolute left-1/2 top-full z-30 mt-1 w-64 -translate-x-1/2 rounded-md border border-slate-200 bg-white p-2 text-[11px] leading-snug text-slate-700 opacity-0 shadow-md transition group-hover:opacity-100">
+        Score = maior peso CNAE + peso de vencimento.
+        <br />
+        Vencida: +50, até 7 dias: +40, até 30 dias: +25, até 60 dias: +10.
+      </span>
+    </span>
+  );
+}
 
 const toUploadLicenceType = (kind, isDefinitive) => {
   const key = String(kind || "").trim().toUpperCase();
@@ -473,6 +569,10 @@ export default function LicencasScreen({
   const [quickMunicipio, setQuickMunicipio] = useState("todos");
   const [quickTipo, setQuickTipo] = useState("todos");
   const [quickStatus, setQuickStatus] = useState("todos");
+  const [quickScoreRisk, setQuickScoreRisk] = useState("todos");
+  const [quickScoreStatus, setQuickScoreStatus] = useState("todos");
+  const [sortField, setSortField] = useState(DEFAULT_SORT.value);
+  const [sortDir, setSortDir] = useState(DEFAULT_SORT.defaultDir);
   const [somenteAlertasLocal, setSomenteAlertasLocal] = useState(false);
   const [drawerItem, setDrawerItem] = useState(null);
   const [kpiFilter, setKpiFilter] = useState("todos");
@@ -491,6 +591,10 @@ export default function LicencasScreen({
     setQuickMunicipio("todos");
     setQuickTipo("todos");
     setQuickStatus("todos");
+    setQuickScoreRisk("todos");
+    setQuickScoreStatus("todos");
+    setSortField(DEFAULT_SORT.value);
+    setSortDir(DEFAULT_SORT.defaultDir);
     setKpiFilter("todos");
     setPriorityGroup(preset?.group || "todos");
   }, [panelPreset]);
@@ -503,9 +607,29 @@ export default function LicencasScreen({
   const rows = useMemo(
     () =>
       base.map((item) => {
+        const companyId = String(item?.company_id || item?.empresa_id || "").trim();
+        const companyById =
+          companyId && Array.isArray(empresas)
+            ? empresas.find((company) => String(company?.id || company?.company_id || "").trim() === companyId)
+            : undefined;
+        const itemCnpj = normalizeDigits(item?.cnpj || item?.company_cnpj);
+        const companyByCnpj =
+          !companyById && itemCnpj && Array.isArray(empresas)
+            ? empresas.find((company) => normalizeDigits(company?.cnpj) === itemCnpj)
+            : undefined;
+        const companySnapshot = companyById || companyByCnpj;
         const tipoNorm = normalizeTipo(item?.tipo);
         const parsedStatus = parseStatusParts(item);
+        const diasParaVencer = parseDias(item);
         const statusKeyCanonical = item?.status_key_canonical || toCanonicalStatusKey(parsedStatus.baseStatus);
+        const scoreUrgenciaRaw = companySnapshot?.score_urgencia ?? companySnapshot?.scoreUrgencia;
+        const scoreUrgencia = Number.isFinite(scoreUrgenciaRaw) ? Number(scoreUrgenciaRaw) : null;
+        const scoreRisk = normalizeScoreRisk(
+          companySnapshot?.risco_consolidado ?? companySnapshot?.riscoConsolidado,
+        );
+        const scoreStatus = normalizeScoreStatus(
+          companySnapshot?.score_status ?? companySnapshot?.scoreStatus,
+        );
         return {
           ...item,
           tipo_norm: tipoNorm,
@@ -517,9 +641,13 @@ export default function LicencasScreen({
           validade_br_display: toBrDate(item?.valid_until) || parsedStatus.validadeBr,
           validade_iso_display: item?.valid_until || parsedStatus.validadeIso,
           criticidade: classify(item),
+          dias_para_vencer: Number.isFinite(diasParaVencer) ? diasParaVencer : null,
+          score_urgencia: scoreUrgencia,
+          risco_consolidado: scoreRisk || null,
+          score_status: scoreStatus || null,
         };
       }),
-    [base],
+    [base, empresas],
   );
 
   const municipios = useMemo(() => ["todos", ...Array.from(new Set(rows.map((r) => r?.municipio).filter(Boolean)))], [rows]);
@@ -530,11 +658,34 @@ export default function LicencasScreen({
         if (quickMunicipio !== "todos" && item?.municipio !== quickMunicipio) return false;
         if (quickTipo !== "todos" && item?.tipo_norm !== quickTipo) return false;
         if (quickStatus !== "todos" && item?.status_key_canonical !== quickStatus) return false;
+        if (
+          quickScoreRisk !== "todos" &&
+          ((quickScoreRisk === "__none__" && item?.risco_consolidado) ||
+            (quickScoreRisk !== "__none__" && item?.risco_consolidado !== quickScoreRisk))
+        ) {
+          return false;
+        }
+        if (
+          quickScoreStatus !== "todos" &&
+          ((quickScoreStatus === "__none__" && item?.score_status) ||
+            (quickScoreStatus !== "__none__" && item?.score_status !== quickScoreStatus))
+        ) {
+          return false;
+        }
         if (somenteAlertasLocal && !isAlertStatus(item?.status)) return false;
         if (priorityGroup !== "todos" && item?.criticidade !== priorityGroup) return false;
         return true;
       }),
-    [priorityGroup, quickMunicipio, quickStatus, quickTipo, rows, somenteAlertasLocal],
+    [
+      priorityGroup,
+      quickMunicipio,
+      quickScoreRisk,
+      quickScoreStatus,
+      quickStatus,
+      quickTipo,
+      rows,
+      somenteAlertasLocal,
+    ],
   );
 
   const filtered = useMemo(
@@ -546,23 +697,34 @@ export default function LicencasScreen({
     [filteredBase, kpiFilter],
   );
 
+  const sortedFiltered = useMemo(() => {
+    const selectedSort = SORT_OPTIONS.find((option) => option.value === sortField) || DEFAULT_SORT;
+    const comparator = (a, b) => {
+      const primary = compareWithSort(a, b, selectedSort, sortDir);
+      if (primary !== 0) return primary;
+      const secondary = compareWithSort(a, b, DEFAULT_SORT, DEFAULT_SORT.defaultDir);
+      if (secondary !== 0) return secondary;
+      return compareWithSort(a, b, { value: "empresa_display" }, "asc");
+    };
+    return [...filtered].sort(comparator);
+  }, [filtered, sortDir, sortField]);
+
   const grouped = useMemo(() => {
+    const selectedSort = SORT_OPTIONS.find((option) => option.value === sortField) || DEFAULT_SORT;
+    const comparator = (a, b) => {
+      const primary = compareWithSort(a, b, selectedSort, sortDir);
+      if (primary !== 0) return primary;
+      const secondary = compareWithSort(a, b, DEFAULT_SORT, DEFAULT_SORT.defaultDir);
+      if (secondary !== 0) return secondary;
+      return compareWithSort(a, b, { value: "empresa_display" }, "asc");
+    };
     const map = new Map(groupConfig.map((cfg) => [cfg.key, []]));
     filtered.forEach((item) => {
       if (item.criticidade && map.has(item.criticidade)) map.get(item.criticidade).push(item);
     });
-    map.forEach((list) =>
-      list.sort((a, b) => {
-        const da = parseDias(a);
-        const db = parseDias(b);
-        if (da == null && db == null) return a.empresa_display.localeCompare(b.empresa_display);
-        if (da == null) return 1;
-        if (db == null) return -1;
-        return da - db;
-      }),
-    );
+    map.forEach((list) => list.sort(comparator));
     return map;
-  }, [filtered]);
+  }, [filtered, sortDir, sortField]);
 
   const empresasMatriz = useMemo(() => {
     const map = new Map();
@@ -777,27 +939,91 @@ export default function LicencasScreen({
       <Card className="shadow-sm">
         <CardContent className="flex flex-wrap items-center gap-2 pt-6">
           <Select value={quickMunicipio} onValueChange={setQuickMunicipio}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Município" /></SelectTrigger>
+            <SelectTrigger className="w-[180px]">
+              <MapPin className="h-4 w-4 text-slate-500" />
+              <SelectValue placeholder="Município" />
+            </SelectTrigger>
             <SelectContent>{municipios.map((m) => <SelectItem key={m} value={m}>{m === "todos" ? "Todos municípios" : m}</SelectItem>)}</SelectContent>
           </Select>
           <Select value={quickTipo} onValueChange={setQuickTipo}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectTrigger className="w-[180px]">
+              <FileMinus className="h-4 w-4 text-slate-500" />
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos tipos</SelectItem>
               {TIPOS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={quickStatus} onValueChange={setQuickStatus}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Status" /></SelectTrigger>
+            <SelectTrigger className="w-[180px]">
+              <Clipboard className="h-4 w-4 text-slate-500" />
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
             <SelectContent>
               <SelectItem value="todos">Todos status</SelectItem>
               {STATUS_OPTIONS.map((opt) => <SelectItem key={opt} value={opt}>{formatStatusDisplay(opt)}</SelectItem>)}
+            </SelectContent>
+          </Select>
+          <Select value={quickScoreRisk} onValueChange={setQuickScoreRisk}>
+            <SelectTrigger className="w-[180px]" data-testid="licencas-score-risk-filter">
+              <ChartBarIncreasing className="h-4 w-4 text-slate-500" />
+              <SelectValue placeholder="Risco score" />
+            </SelectTrigger>
+            <SelectContent>
+              {SCORE_RISK_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={quickScoreStatus} onValueChange={setQuickScoreStatus}>
+            <SelectTrigger className="w-[220px]" data-testid="licencas-score-status-filter">
+              <SelectValue placeholder="Status score" />
+            </SelectTrigger>
+            <SelectContent>
+              {SCORE_STATUS_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
           <Button size="sm" variant={somenteAlertasLocal ? "default" : "secondary"} onClick={() => setSomenteAlertasLocal(!somenteAlertasLocal)}>
             Somente alertas
           </Button>
           <InlineBadge variant="outline" className="bg-white">{filtered.length} itens</InlineBadge>
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-sm">
+        <CardContent className="flex flex-wrap items-center gap-2 pt-6">
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
+          <div className="flex flex-wrap items-center gap-2">
+            {SORT_OPTIONS.map((option) => {
+              const isActive = sortField === option.value;
+              const directionSymbol = isActive ? (sortDir === "asc" ? "↑" : "↓") : null;
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    if (isActive) {
+                      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
+                    } else {
+                      setSortField(option.value);
+                      setSortDir(option.defaultDir);
+                    }
+                  }}
+                  className={[
+                    "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
+                    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+                    isActive ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm" : "",
+                  ].join(" ")}
+                >
+                  <span>{option.label}</span>
+                  {directionSymbol ? <span className="text-xs">{directionSymbol}</span> : null}
+                </button>
+              );
+            })}
+          </div>
         </CardContent>
       </Card>
 
@@ -824,7 +1050,17 @@ export default function LicencasScreen({
                             status={formatStatusWithDate(item)}
                           />
                           {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
-                          <Chip variant="neutral">{item.tipo}</Chip>
+                          <Chip variant={resolveLicencaTipo(item.tipo).variant}>{resolveLicencaTipo(item.tipo).label}</Chip>
+                          <Chip data-testid="licencas-score-urgencia" variant="outline">
+                            Score: {Number.isFinite(item?.score_urgencia) ? item.score_urgencia : "—"}
+                            <ScoreLegendInfo />
+                          </Chip>
+                          <Chip data-testid="licencas-score-risk" variant={scoreRiskChipVariant(item?.risco_consolidado)}>
+                            Risco: {formatScoreRiskLabel(item?.risco_consolidado)}
+                          </Chip>
+                          <Chip data-testid="licencas-score-status" variant="neutral">
+                            Status score: {formatScoreStatusLabel(item?.score_status)}
+                          </Chip>
                         </div>
                         <div className="flex flex-wrap gap-1">
                           <Button size="sm" variant="secondary" onClick={() => setDrawerItem(item)}>Detalhes</Button>
@@ -931,16 +1167,7 @@ export default function LicencasScreen({
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {[...filtered]
-                      .sort((a, b) => {
-                        const da = parseDias(a);
-                        const db = parseDias(b);
-                        if (da == null && db == null) return a.empresa_display.localeCompare(b.empresa_display);
-                        if (da == null) return 1;
-                        if (db == null) return -1;
-                        return da - db;
-                      })
-                      .map((item, idx) => (
+                    {sortedFiltered.map((item, idx) => (
                         <TableRow key={`${item.id}-${idx}`}>
                           <TableCell>
                             <div className="flex items-center gap-2">
@@ -948,7 +1175,9 @@ export default function LicencasScreen({
                               {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
                             </div>
                           </TableCell>
-                          <TableCell>{item.tipo}</TableCell>
+                          <TableCell>
+                            <Chip variant={resolveLicencaTipo(item.tipo).variant}>{resolveLicencaTipo(item.tipo).label}</Chip>
+                          </TableCell>
                           <TableCell><StatusBadge status={item.status_label} /></TableCell>
                           <TableCell>{item.validade_br_display || "—"}</TableCell>
                           <TableCell>{item.municipio || "—"}</TableCell>

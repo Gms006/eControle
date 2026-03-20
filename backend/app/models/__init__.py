@@ -1,5 +1,6 @@
 from app.db.base import Base
 from app.models.cnae_risk import CNAERisk
+from app.models.cnae_risk_suggestion import CNAERiskSuggestion
 from app.models.certificate_mirror import CertificateMirror
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
@@ -18,6 +19,7 @@ from app.models.user import User, user_roles
 __all__ = [
     "Base",
     "CNAERisk",
+    "CNAERiskSuggestion",
     "CertificateMirror",
     "Company",
     "CompanyProfile",

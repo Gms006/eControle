@@ -27,6 +27,7 @@ const METHOD_LABEL_BY_CANONICAL = new Map([
 ]);
 
 const DATE_AND_METHODS_RE = /^\s*(\d{2}\/\d{2}\/\d{4}|\d{4}-\d{2}-\d{2})(?:\s*-\s*(.+))?\s*$/;
+const YEAR_RE = /\b(19|20)\d{2}\b/g;
 const TAX_FIELDS_REQUIRING_ENVIO = [
   "func",
   "publicidade",
@@ -46,6 +47,21 @@ const TAX_FIELDS_REQUIRING_ENVIO = [
 
 function unique(values) {
   return [...new Set(values)];
+}
+
+function normalizeYears(values) {
+  return unique(
+    (values ?? [])
+      .map((value) => Number(value))
+      .filter((year) => Number.isInteger(year) && year >= 1900 && year <= 2099),
+  ).sort((a, b) => a - b);
+}
+
+function extractYears(value) {
+  if (Array.isArray(value)) return normalizeYears(value);
+  const text = String(value ?? "");
+  if (!text) return [];
+  return normalizeYears((text.match(YEAR_RE) || []).map((year) => Number(year)));
 }
 
 function methodKey(value) {
@@ -130,12 +146,29 @@ export function getDataEnvioDisplay(raw) {
 
 export function isTaxStatusEmAberto(status) {
   const key = methodKey(status).replace(/_/g, " ").replace(/\s+/g, "_");
-  return key === "em_aberto";
+  return key.startsWith("em_aberto") || key.includes("aberto");
 }
 
 export function isTaxStatusPendente(status) {
   const key = methodKey(status).replace(/_/g, " ").replace(/\s+/g, "_");
-  return key === "pendente";
+  return key === "pendente" || key.startsWith("pendente_");
+}
+
+export function extractOpenYears(status, openYearsRaw) {
+  return normalizeYears([...extractYears(openYearsRaw), ...extractYears(status)]);
+}
+
+export function formatTaxOpenStatus(status, openYearsRaw, currentYear = new Date().getFullYear()) {
+  if (!isTaxStatusEmAberto(status)) return status;
+  const years = extractOpenYears(status, openYearsRaw);
+  if (years.length < 2) return status;
+  const firstYear = years[0];
+  const lastYear = years[years.length - 1];
+  const isConsecutive = years.every((year, index) => index === 0 || year === years[index - 1] + 1);
+  if (isConsecutive && lastYear === Number(currentYear)) {
+    return `Em Aberto Desde ${firstYear}`;
+  }
+  return `Em aberto de ${firstYear} a ${lastYear}`;
 }
 
 export function isEnvioPendente(taxa) {

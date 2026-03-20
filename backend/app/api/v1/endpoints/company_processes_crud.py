@@ -6,12 +6,13 @@ from sqlalchemy.orm import Session
 
 from app.core.normalization import normalize_municipio
 from app.core.org_context import get_current_org
-from app.core.security import get_current_user, require_roles
+from app.core.security import get_current_user, require_roles, verify_password
 from app.db.session import get_db
 from app.models.company import Company
 from app.models.company_process import CompanyProcess
 from app.models.org import Org
 from app.models.user import User
+from app.schemas.auth import PasswordConfirmRequest
 from app.schemas.company_process import (
     CompanyProcessCreate,
     CompanyProcessObsHistoryItem,
@@ -181,3 +182,20 @@ def get_process_obs_history(
     hist = proc.obs_history or []
     # garante formato previsível
     return [CompanyProcessObsHistoryItem(**item) for item in hist]
+
+
+@router.delete("/{process_id}")
+def delete_process(
+    process_id: str,
+    payload: PasswordConfirmRequest,
+    db: Session = Depends(get_db),
+    org: Org = Depends(get_current_org),
+    user: User = Depends(require_roles("ADMIN", "DEV")),
+) -> dict:
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+
+    proc = _get_process_or_404(db, org.id, process_id)
+    db.delete(proc)
+    db.commit()
+    return {"status": "ok"}

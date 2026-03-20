@@ -9,7 +9,7 @@ Status global: domínio principal operacional, ingest JSON ativo, integração C
 - Concluído: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
 - Concluído: S8
 - Entrega adicional concluída: bulk sync ReceitaWS (DEV)
-- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 2 concluída no backend)
+- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída)
 - Pendente: S9, S11, S12
 
 ## S0 - Kickoff e congelamento do baseline
@@ -221,7 +221,7 @@ Pendências registradas:
 
 ### S10.3 - Motor de Classificação e Priorização por CNAE
 
-Status: fase 2 backend concluída + backfill operacional (2026-03-13)
+Status: fase 3 (frontend + E2E portal) concluída (2026-03-13) + parcial (normalização + calibragem inicial de catálogo) em evolução (2026-03-16)
 
 Fase 1 (estrutural) entregue:
 - tabela dedicada `cnae_risks`;
@@ -254,8 +254,58 @@ Decisões fechadas:
 - payload bruto de lookup ReceitaWS não é persistido automaticamente no fluxo normal.
 
 Pendente para próxima rodada:
-- consumo de score no frontend (listagem, filtros e ordenação);
-- E2E específico de score na interface.
+- curadoria fina do catálogo `cnae_risks` (pesos/tiers por domínio regulatório real).
+- job diário de recálculo de score após atualização de catálogo.
+
+Fase 3 (frontend + E2E portal) entregue:
+- `frontend/src/pages/EmpresasScreen.jsx` atualizado para:
+  - exibir score/risco/status de score;
+  - filtrar por risco (`Todos`, `Alto`, `Médio`, `Baixo`);
+  - ordenar por `score_urgencia` com `nulls last`;
+  - exibir labels amigáveis de risco/status;
+  - tratar valores nulos sem quebra de renderização;
+  - evitar destaque do placeholder CNAE `00.00-0-00` como CNAE válido.
+- E2E portal adicionado em `frontend/tests_e2e/portal/company_scoring.spec.ts`.
+
+Parcial P1 (normalização canônica e operação pós-seed) entregue:
+- helper único `backend/app/core/cnae.py` para normalização canônica de CNAE;
+- aplicação do helper nos fluxos:
+  - `backend/app/services/company_scoring.py`
+  - `backend/app/services/ingest/company_profiles.py`
+  - `backend/app/services/receitaws_bulk_sync.py`
+  - `backend/scripts/load_cnae_risks_seed.py`
+- equivalência de formatos de CNAE no lookup de `cnae_risks`:
+  - `56.11-2-01` == `5611201` == `56 11-2/01`
+- seed operacional com recálculo no mesmo fluxo transacional:
+  - `--recalculate-affected` (somente impactados por insert/update de catálogo)
+  - `--recalculate-all` (todos os profiles)
+- sem remodelagem de banco, sem mover CNAE para `companies`, sem job diário nesta etapa.
+
+Parcial atual (calibragem de catálogo) entregue:
+- revisão do seed `backend/seeds/cnae_risks.seed.csv` para CNAEs mais usados, removendo perfil totalmente achatado;
+- introdução de tiers/pesos reais (`LOW`, `MEDIUM`, `HIGH`) mantendo compatibilidade do motor;
+- placeholders inválidos (`00.00-0-00`, `********`, `Não informada`) tratados como ausência de CNAE no scoring (`NO_CNAE`);
+- validação por testes de:
+  - placeholder -> `NO_CNAE`;
+  - maior tier/peso refletido no snapshot;
+  - recálculo após atualização de catálogo.
+
+Subfase seguinte (base segura de atualização assistida) entregue em 2026-03-20:
+- nova tabela `cnae_risk_suggestions` para propostas de atualização sem aplicação automática direta;
+- workflow de revisão humana com status:
+  - `PENDING`, `APPROVED`, `REJECTED`, `APPLIED`;
+- endpoints RBAC `ADMIN|DEV` para:
+  - listar sugestões,
+  - criar sugestão manual/importada,
+  - editar sugestão pendente,
+  - aprovar (com aplicação em `cnae_risks` + recálculo de empresas afetadas),
+  - rejeitar;
+- recálculo reutiliza serviço central `recalculate_company_score` (sem duplicar regra);
+- auditoria mínima registrada em cada ação relevante de sugestão.
+
+Pendente para próxima rodada desta linha:
+- integração com fontes oficiais via scraper/web crawling;
+- automação de proposta por importador (sempre como `PENDING`, sem aplicação automática).
 
 ## S11 - Polimento de paridade v1
 

@@ -31,6 +31,7 @@ class CompositeProfile(BaseModel):
     cpf: Optional[str] = None
     email: Optional[str] = None
     telefone: Optional[str] = None
+    responsavel_fiscal: Optional[str] = None
     observacoes: Optional[str] = None
     cnaes_principal: Optional[list[dict]] = None
     cnaes_secundarios: Optional[list[dict]] = None

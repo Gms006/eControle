@@ -14,7 +14,7 @@ router = APIRouter()
 
 def _requires_envio(value: str | None) -> bool:
     text = str(value or "").strip().lower().replace(" ", "_")
-    return text in {"em_aberto", "pendente"}
+    return text == "pendente" or text.startswith("pendente_") or text == "em_aberto" or text.startswith("em_aberto_")
 
 
 @router.patch("/{tax_id}", response_model=CompanyTaxOut)

@@ -25,7 +25,7 @@ import {
 import { formatProcessDate, getDiversosOperacaoLabel, getProcessBaseType, normalizeProcessType } from "@/lib/process";
 import { normalizeIdentifier, normalizeText, removeDiacritics } from "@/lib/text";
 import { maskCNPJ } from "@/lib/format";
-import { isProcessStatusActiveOrPending } from "@/lib/status";
+import { isProcessStatusActiveOrPending, resolveProcessoTipo } from "@/lib/status";
 import { fetchJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatMunicipioDisplay } from "@/lib/normalization";
@@ -76,17 +76,6 @@ const normalizeTipoKey = (tipoBase) =>
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9]+/g, "_");
-
-const badgeBase = "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ring-1 ring-inset";
-
-const tipoBadge = {
-  SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
-  ALVARA_SANITARIO: `${badgeBase} bg-violet-50 text-violet-700 ring-violet-200`,
-  CERCON: `${badgeBase} bg-amber-50 text-amber-700 ring-amber-200`,
-  DIVERSOS: `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`,
-  FUNCIONAMENTO: `${badgeBase} bg-blue-50 text-blue-700 ring-blue-200`,
-  USO_DO_SOLO: `${badgeBase} bg-orange-50 text-orange-700 ring-orange-200`,
-};
 
 const extractDateValue = (value) => {
   const normalized = normalizeText(value).trim();
@@ -149,6 +138,20 @@ const getProcessKey = (proc, index) => {
     .filter(Boolean);
   const suffix = parts.length > 0 ? parts.join("-") : String(index);
   return [tipoKey, suffix].filter(Boolean).join("-");
+};
+
+const EXCLUDED_URGENT_STATUS_KEYWORDS = [
+  "concluido",
+  "licenciado",
+  "indeferido",
+  "cancelado",
+];
+const isUrgentByStatus = (proc) => {
+  const statusKey = removeDiacritics(
+    normalizeText(proc?.situacao || proc?.status || "").toLowerCase(),
+  ).trim();
+  if (!statusKey) return true;
+  return !EXCLUDED_URGENT_STATUS_KEYWORDS.some((keyword) => statusKey.includes(keyword));
 };
 
 const renderStatus = (value) => {
@@ -270,6 +273,7 @@ export default function ProcessosScreen({
           proc.area_m2,
           proc.projeto,
           proc.tpi_sync_status,
+          proc.taxa_bombeiros_sync_status,
           proc.taxa_sanitaria_sync_status,
           proc.alvara_sanitario_status,
         ],
@@ -386,12 +390,12 @@ export default function ProcessosScreen({
 
   const urgencyCounts = useMemo(() => {
     const counts = {
-      all: processosPorTipo.filter((proc) => proc.urgencyBuckets.length > 0).length,
+      all: processosPorTipo.filter((proc) => isUrgentByStatus(proc)).length,
     };
     URGENCY_BUCKETS.forEach((bucket) => {
       if (bucket.key === "all") return;
       counts[bucket.key] = processosPorTipo.filter((proc) =>
-        proc.urgencyBuckets.includes(bucket.key),
+        isUrgentByStatus(proc) && proc.urgencyBuckets.includes(bucket.key),
       ).length;
     });
     return counts;
@@ -399,7 +403,7 @@ export default function ProcessosScreen({
 
   const processosFiltradosQueue = useMemo(() => {
     if (queueMode !== "urgent") return processosPorTipo;
-    const urgentOnly = processosPorTipo.filter((proc) => proc.urgencyBuckets.length > 0);
+    const urgentOnly = processosPorTipo.filter((proc) => isUrgentByStatus(proc));
     if (selectedUrgencyBucket === "all") return urgentOnly;
     return urgentOnly.filter((proc) => proc.urgencyBuckets.includes(selectedUrgencyBucket));
   }, [processosPorTipo, queueMode, selectedUrgencyBucket]);
@@ -758,7 +762,7 @@ export default function ProcessosScreen({
               const isObsExpanded = !!expandedObs[obsKey];
               const hasLongObs = obsText.length > 140;
               const municipio = formatMunicipio(proc);
-              const tipoCls = tipoBadge[proc.tipoKey] ?? `${badgeBase} bg-slate-50 text-slate-700 ring-slate-200`;
+              const tipoResolved = resolveProcessoTipo(proc.tipoKey || proc.tipoBase || proc.tipo);
               const maskedCnpj = maskCNPJ(proc?.cnpj);
               const inlineTypeFields = getPriorityTypeFields(proc, 4);
               const Icon = PROCESS_TYPE_ICON[proc.tipoKey] || Settings;
@@ -771,10 +775,9 @@ export default function ProcessosScreen({
                   <div className="flex items-start justify-between gap-3 border-b border-slate-100 px-4 py-3">
                     <div className="space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className={tipoCls}>
-                          <Icon className="h-4 w-4 text-slate-500" />
+                        <Chip variant={tipoResolved.variant} icon={<Icon className="h-4 w-4" />}>
                           {proc.tipoDisplay}
-                        </span>
+                        </Chip>
                         <StatusBadge status={proc?.situacao || proc?.status || "Situação"} />
                         <Chip variant="warning" className="border-amber-200 bg-amber-50 text-[11px] text-amber-800">
                           Urgência {Math.max(0, Math.round(proc.urgencyScore))}

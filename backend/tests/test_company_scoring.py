@@ -104,6 +104,93 @@ def test_company_score_unmapped_cnae_returns_unmapped(client):
         db.close()
 
 
+def test_company_score_placeholder_cnae_is_treated_as_no_cnae(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        company = Company(org_id=org.id, cnpj="90909090000109", razao_social="Placeholder CNAE")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "Não informada", "text": "Nao informada"}],
+                cnaes_secundarios=[{"code": "********", "text": "Nao informada"}],
+                raw={},
+            )
+        )
+        db.flush()
+
+        result = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert result["score_status"] == "NO_CNAE"
+        assert result["cnae_codes"] == []
+        assert result["matched_cnaes"] == 0
+    finally:
+        db.close()
+
+
+def test_company_score_matches_equivalent_cnae_formats(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        _ensure_cnae_risk(db, "56.11-2-01", risk_tier="MEDIUM", base_weight=35)
+        company = Company(org_id=org.id, cnpj="21212121000121", razao_social="CNAE formato equivalente")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "5611201", "text": "Restaurantes e similares"}],
+                cnaes_secundarios=[{"code": "56 11-2/01", "text": "Mesmo CNAE"}],
+                raw={},
+            )
+        )
+        db.flush()
+
+        result = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert result["score_status"] == "NO_LICENCE"
+        assert result["matched_cnaes"] == 1
+        assert result["cnae_codes"] == ["56.11-2-01"]
+    finally:
+        db.close()
+
+
+def test_company_score_uses_highest_tier_and_weight_across_cnaes(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        _ensure_cnae_risk(db, "56.11-2-01", risk_tier="HIGH", base_weight=55)
+        _ensure_cnae_risk(db, "62.01-5-01", risk_tier="LOW", base_weight=10)
+        company = Company(org_id=org.id, cnpj="91919191000191", razao_social="Mix CNAE")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "6201501", "text": "Software"}],
+                cnaes_secundarios=[{"code": "5611201", "text": "Restaurante"}],
+                raw={},
+            )
+        )
+        db.flush()
+
+        result = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert result["score_status"] == "NO_LICENCE"
+        assert result["risco_consolidado"] == "HIGH"
+        assert result["score_urgencia"] == 55
+    finally:
+        db.close()
+
+
 def test_company_score_mapped_cnae_without_licence_date_returns_no_licence(client):
     db = SessionLocal()
     try:
@@ -167,6 +254,43 @@ def test_company_score_mapped_cnae_with_overdue_licence_increases_score(client):
         assert profile is not None
         assert profile.risco_consolidado == "HIGH"
         assert profile.score_urgencia == 80
+    finally:
+        db.close()
+
+
+def test_recalculate_after_catalog_update_changes_profile_snapshot(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        _ensure_cnae_risk(db, "56.11-2-01", risk_tier="LOW", base_weight=10)
+        company = Company(org_id=org.id, cnpj="92929292000192", razao_social="Recalculo Seed")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "56.11-2-01", "text": "Restaurantes"}],
+                raw={},
+            )
+        )
+        db.flush()
+
+        first = recalculate_company_score(db, org.id, company.id)
+        assert first["score_urgencia"] == 10
+        assert first["risco_consolidado"] == "LOW"
+
+        risk = db.query(CNAERisk).filter(CNAERisk.cnae_code == "56.11-2-01").first()
+        assert risk is not None
+        risk.risk_tier = "HIGH"
+        risk.base_weight = 55
+
+        second = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert second["score_urgencia"] == 55
+        assert second["risco_consolidado"] == "HIGH"
+        assert second["changed"] is True
     finally:
         db.close()
 
@@ -286,7 +410,7 @@ def test_bulk_sync_recalculates_score_when_cnae_changes(client, monkeypatch):
             "porte": "ME",
             "municipio": "Anápolis",
             "uf": "GO",
-            "atividade_principal": [{"code": "56.11-2-01", "text": "Restaurantes e similares"}],
+            "atividade_principal": [{"code": "5611201", "text": "Restaurantes e similares"}],
             "atividades_secundarias": [],
         }
 

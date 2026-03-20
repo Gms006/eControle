@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
-import { Building2, ChevronDown, CircleX, FileText, Import, X } from "lucide-react";
+import { Building2, ChevronDown, CircleX, FileText, Import, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -49,6 +49,7 @@ import {
   getReceitaWSBulkSyncStatus,
   startReceitaWSBulkSync,
 } from "@/services/receitawsBulkSync";
+import { RESPONSAVEL_FISCAL_OPTIONS } from "@/lib/constants";
 
 const EVT_OPEN_COMPANY = "econtrole:open-company";
 const EVT_OPEN_PROCESS = "econtrole:open-process";
@@ -74,10 +75,14 @@ const PROCESS_SITUACAO_LABELS = {
 };
 
 const DEFAULT_DIVERSOS_OPERACOES = [
+  { value: "inscricao", label: "Inscrição" },
+  { value: "restituicao", label: "Restituição" },
   { value: "abertura", label: "Abertura" },
   { value: "renovacao", label: "Renovação" },
   { value: "alteracao", label: "Alteração" },
   { value: "baixa", label: "Baixa" },
+  { value: "cancel_de_tributos", label: "Cancelamento de Tributos" },
+  { value: "retificacao", label: "Retificação" },
 ];
 
 const DEFAULT_ORGAOS_OPTIONS = [
@@ -93,6 +98,7 @@ const DEFAULT_ALVARA_OPTIONS = [
 ];
 
 const DEFAULT_SANITARIO_SERVICOS = [
+  { value: "1o_alvara", label: "1º Alvará" },
   { value: "licenciamento", label: "Licenciamento" },
   { value: "renovacao", label: "Renovação" },
   { value: "vistoria", label: "Vistoria" },
@@ -346,8 +352,42 @@ const TAX_STATUS_FIELDS = [
   ["tpi", "TPI"],
   ["iss", "ISS"],
 ];
+const PROCESS_CERCON_TAX_FIELDS = [
+  ["taxa_bombeiros_sync_status", "Taxa"],
+  ["tpi_sync_status", "TPI"],
+];
+const PROCESS_CERCON_TAX_TO_COMPANY_TAX_FIELD = {
+  taxa_bombeiros_sync_status: "taxa_bombeiros",
+  tpi_sync_status: "tpi",
+};
 
 const pendingObservationFieldKey = (field) => `${field}_observacao_pendente`;
+const openYearsFieldKey = (field) => `${field}_anos_em_aberto`;
+const OPEN_YEAR_RE = /\b(19|20)\d{2}\b/g;
+
+const normalizeStatusKey = (value) =>
+  String(value || "")
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const normalizeOpenYears = (values) =>
+  [...new Set((values || []).map((year) => Number(year)).filter((year) => Number.isInteger(year) && year >= 1900 && year <= 2099))].sort(
+    (a, b) => a - b,
+  );
+
+const extractOpenYears = (value) => {
+  if (Array.isArray(value)) return normalizeOpenYears(value);
+  const text = String(value || "");
+  if (!text) return [];
+  const matches = text.match(OPEN_YEAR_RE) || [];
+  return normalizeOpenYears(matches.map((year) => Number(year)));
+};
+
+const formatOpenYearsInput = (years) => normalizeOpenYears(years).join(", ");
 
 const EMPTY_COMPANY_FORM = {
   cnpj: "",
@@ -364,6 +404,7 @@ const EMPTY_COMPANY_FORM = {
   mei: false,
   endereco_fiscal: false,
   representante: "",
+  responsavel_fiscal: "",
   cpf: "",
   email: "",
   telefone: "",
@@ -440,11 +481,16 @@ export default function HeaderMenuPro() {
   const [taxModal, setTaxModal] = useState({ open: false, mode: "edit", taxId: null });
   const [companyForm, setCompanyForm] = useState(EMPTY_COMPANY_FORM);
   const [processForm, setProcessForm] = useState(EMPTY_PROCESS_FORM);
+  const [processCerconTaxStatusDraft, setProcessCerconTaxStatusDraft] = useState({});
+  const [processCerconTaxInstallmentDraft, setProcessCerconTaxInstallmentDraft] = useState({});
+  const [processCerconTaxInstallmentError, setProcessCerconTaxInstallmentError] = useState({});
+  const [processCerconTaxPendingObservationDraft, setProcessCerconTaxPendingObservationDraft] = useState({});
   const [taxForm, setTaxForm] = useState(EMPTY_TAX_FORM);
   const [taxStatusModeDraft, setTaxStatusModeDraft] = useState({});
   const [taxInstallmentDraft, setTaxInstallmentDraft] = useState({});
   const [taxInstallmentError, setTaxInstallmentError] = useState({});
   const [taxPendingObservationDraft, setTaxPendingObservationDraft] = useState({});
+  const [taxOpenYearsDraft, setTaxOpenYearsDraft] = useState({});
   const [taxEnvioDateDraft, setTaxEnvioDateDraft] = useState("");
   const [taxEnvioMethodsDraft, setTaxEnvioMethodsDraft] = useState([]);
   const [processSituacoes, setProcessSituacoes] = useState(DEFAULT_PROCESS_SITUACOES);
@@ -455,7 +501,9 @@ export default function HeaderMenuPro() {
   const [processNotificacoes, setProcessNotificacoes] = useState(DEFAULT_SANITARIO_NOTIFICACOES);
   const [companyInitialForm, setCompanyInitialForm] = useState(EMPTY_COMPANY_FORM);
   const [companySaving, setCompanySaving] = useState(false);
+  const [companyDeleting, setCompanyDeleting] = useState(false);
   const [taxSaving, setTaxSaving] = useState(false);
+  const [processDeleting, setProcessDeleting] = useState(false);
   const [companyOptions, setCompanyOptions] = useState([]);
   const [bulkSyncModalOpen, setBulkSyncModalOpen] = useState(false);
   const [bulkRunModalOpen, setBulkRunModalOpen] = useState(false);
@@ -471,13 +519,20 @@ export default function HeaderMenuPro() {
   const [bulkToastMessage, setBulkToastMessage] = useState("");
 
   const closeCompanyModal = () => setCompanyModal({ open: false, mode: "create", companyId: null });
-  const closeProcessModal = () => setProcessModal({ open: false, mode: "create", processId: null });
+  const closeProcessModal = () => {
+    setProcessModal({ open: false, mode: "create", processId: null });
+    setProcessCerconTaxStatusDraft({});
+    setProcessCerconTaxInstallmentDraft({});
+    setProcessCerconTaxInstallmentError({});
+    setProcessCerconTaxPendingObservationDraft({});
+  };
   const closeTaxModal = () => {
     setTaxModal({ open: false, mode: "edit", taxId: null });
     setTaxStatusModeDraft({});
     setTaxInstallmentDraft({});
     setTaxInstallmentError({});
     setTaxPendingObservationDraft({});
+    setTaxOpenYearsDraft({});
     setTaxEnvioDateDraft("");
     setTaxEnvioMethodsDraft([]);
   };
@@ -523,6 +578,93 @@ export default function HeaderMenuPro() {
     setCompanyOptions(Array.isArray(data) ? data : []);
   };
 
+  const fetchCompanyTaxByCompanyId = async (companyId) => {
+    if (!companyId) return null;
+    const data = await apiJson("/api/v1/taxas?limit=1000");
+    const list = Array.isArray(data) ? data : [];
+    return (
+      list.find((item) => {
+        const candidate = String(item?.company_id ?? item?.empresa_id ?? "").trim();
+        return candidate && candidate === String(companyId).trim();
+      }) || null
+    );
+  };
+
+  const initializeProcessCerconTaxDraft = (extraRaw) => {
+    const extra = extraRaw && typeof extraRaw === "object" ? extraRaw : {};
+    const nextStatus = {};
+    const nextInstallment = {};
+    const nextPendingObservation = {};
+    PROCESS_CERCON_TAX_FIELDS.forEach(([field]) => {
+      const raw = String(extra?.[field] || "").trim();
+      const parsed = parseInstallment(raw);
+      const pendingObservationKey = `${field}_observacao_pendente`;
+      const pendingObsValue = String(extra?.[pendingObservationKey] || "").trim();
+      if (pendingObsValue) {
+        nextPendingObservation[field] = pendingObsValue;
+      }
+      if (parsed) {
+        const derived = deriveStatusFromInstallment(parsed.paid, parsed.total);
+        if (derived === "paid") {
+          nextStatus[field] = "pago";
+        } else {
+          nextStatus[field] = "parcelado";
+          nextInstallment[field] = formatInstallment(parsed.paid, parsed.total);
+        }
+        return;
+      }
+      nextStatus[field] = raw || "";
+      if (raw === "parcelado") {
+        nextInstallment[field] = "/";
+      }
+    });
+    setProcessCerconTaxStatusDraft(nextStatus);
+    setProcessCerconTaxInstallmentDraft(nextInstallment);
+    setProcessCerconTaxInstallmentError({});
+    setProcessCerconTaxPendingObservationDraft(nextPendingObservation);
+  };
+
+  const handleProcessCerconTaxStatusChange = (field, value) => {
+    setProcessCerconTaxStatusDraft((prev) => ({ ...prev, [field]: value }));
+    if (value !== "pendente") {
+      setProcessCerconTaxPendingObservationDraft((prev) => {
+        const clone = { ...prev };
+        delete clone[field];
+        return clone;
+      });
+    }
+    if (value === "parcelado") {
+      setProcessCerconTaxInstallmentDraft((prev) => ({ ...prev, [field]: prev[field] || "/" }));
+      setProcessCerconTaxInstallmentError((prev) => ({ ...prev, [field]: validateInstallmentInput("/") }));
+    } else {
+      setProcessCerconTaxInstallmentDraft((prev) => {
+        const clone = { ...prev };
+        delete clone[field];
+        return clone;
+      });
+      setProcessCerconTaxInstallmentError((prev) => {
+        const clone = { ...prev };
+        delete clone[field];
+        return clone;
+      });
+    }
+    setProcessForm((prev) => ({
+      ...prev,
+      extra: { ...(prev.extra || {}), [field]: value },
+    }));
+  };
+
+  const handleProcessCerconTaxInstallmentChange = (field, value) => {
+    const normalized = normalizeInstallmentInput(value);
+    setProcessCerconTaxInstallmentDraft((prev) => ({ ...prev, [field]: normalized }));
+    const error = validateInstallmentInput(normalized);
+    setProcessCerconTaxInstallmentError((prev) => ({ ...prev, [field]: error }));
+  };
+
+  const handleProcessCerconTaxPendingObservationChange = (field, value) => {
+    setProcessCerconTaxPendingObservationDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
   const openCompany = async ({ mode, companyId, cnpj }) => {
     let resolvedCompanyId = companyId || null;
     if (mode === "edit" && !resolvedCompanyId) {
@@ -557,6 +699,7 @@ export default function HeaderMenuPro() {
         mei: data?.mei === true,
         endereco_fiscal: data?.endereco_fiscal === true,
         representante: data?.proprietario_principal || "",
+        responsavel_fiscal: data?.responsavel_fiscal || "",
         cpf: maskCpf(data?.cpf || ""),
         email: data?.email || "",
         telefone: maskPhone(data?.telefone || ""),
@@ -577,24 +720,82 @@ export default function HeaderMenuPro() {
     setProcessModal({ open: true, mode, processId: processId || null });
     if (mode === "edit" && processId) {
       const data = await apiJson(`/api/v1/processos/${processId}`);
+      const processType = data?.process_type || "DIVERSOS";
+      let extra = data?.extra || {};
+      if (processType === "CERCON" && data?.company_id) {
+        const tax = await fetchCompanyTaxByCompanyId(data.company_id);
+        if (tax) {
+          const taxRaw = tax?.raw && typeof tax.raw === "object" ? tax.raw : {};
+          extra = {
+            ...extra,
+            taxa_bombeiros_sync_status:
+              tax?.taxa_bombeiros ?? tax?.bombeiros ?? extra?.taxa_bombeiros_sync_status ?? "",
+            tpi_sync_status: tax?.tpi ?? extra?.tpi_sync_status ?? "",
+            taxa_bombeiros_sync_status_observacao_pendente:
+              taxRaw?.taxa_bombeiros_observacao_pendente ??
+              extra?.taxa_bombeiros_sync_status_observacao_pendente ??
+              "",
+            tpi_sync_status_observacao_pendente:
+              taxRaw?.tpi_observacao_pendente ?? extra?.tpi_sync_status_observacao_pendente ?? "",
+          };
+        }
+      }
       setProcessForm({
         ...EMPTY_PROCESS_FORM,
         company_id: data?.company_id || "",
         empresa_nao_cadastrada: data?.raw?.empresa_nao_cadastrada === true,
         company_cnpj: data?.raw?.company_cnpj || data?.raw?.cnpj || "",
         company_razao_social: data?.raw?.company_razao_social || data?.raw?.empresa || "",
-        process_type: data?.process_type || "DIVERSOS",
+        process_type: processType,
         protocolo: data?.protocolo || "",
         municipio: formatMunicipioDisplay(data?.municipio || ""),
         data_solicitacao: data?.data_solicitacao || "",
         situacao: data?.situacao || "",
         obs: data?.obs || "",
-        extra: data?.extra || {},
+        extra,
       });
+      if (processType === "CERCON") {
+        initializeProcessCerconTaxDraft(extra);
+      } else {
+        initializeProcessCerconTaxDraft({});
+      }
       return;
     }
     setProcessForm(EMPTY_PROCESS_FORM);
+    initializeProcessCerconTaxDraft({});
   };
+
+  useEffect(() => {
+    if (!processModal.open) return;
+    if (processModal.mode !== "create") return;
+    if (processForm.process_type !== "CERCON") return;
+    const companyId = String(processForm.company_id || "").trim();
+    if (!companyId) return;
+    let active = true;
+    void (async () => {
+      try {
+        const tax = await fetchCompanyTaxByCompanyId(companyId);
+        if (!active || !tax) return;
+        const taxRaw = tax?.raw && typeof tax.raw === "object" ? tax.raw : {};
+        const nextExtra = {
+          ...(processForm.extra || {}),
+          taxa_bombeiros_sync_status: tax?.taxa_bombeiros ?? tax?.bombeiros ?? "",
+          tpi_sync_status: tax?.tpi ?? "",
+          taxa_bombeiros_sync_status_observacao_pendente:
+            taxRaw?.taxa_bombeiros_observacao_pendente ?? "",
+          tpi_sync_status_observacao_pendente:
+            taxRaw?.tpi_observacao_pendente ?? "",
+        };
+        setProcessForm((prev) => ({ ...prev, extra: nextExtra }));
+        initializeProcessCerconTaxDraft(nextExtra);
+      } catch {
+        // Ignora erro de pré-carregamento; usuário ainda pode salvar processo.
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [processForm.company_id, processForm.process_type, processModal.mode, processModal.open]);
 
   const normalizeTaxForm = (data) => ({
     ...EMPTY_TAX_FORM,
@@ -620,12 +821,18 @@ export default function HeaderMenuPro() {
     const nextMode = {};
     const nextInstallment = {};
     const nextPendingObservation = {};
+    const nextOpenYears = {};
     const rawData = normalized?.raw && typeof normalized.raw === "object" ? normalized.raw : {};
     TAX_STATUS_FIELDS.forEach(([field]) => {
       const raw = String(normalized?.[field] || "").trim();
+      const statusKey = normalizeStatusKey(raw);
       const parsed = parseInstallment(raw);
       const pendingObsKey = pendingObservationFieldKey(field);
+      const openYearsKey = openYearsFieldKey(field);
       const pendingObsValue = String(rawData?.[pendingObsKey] || "").trim();
+      const openYearsValue = extractOpenYears(rawData?.[openYearsKey]);
+      const openYearsFromStatus = extractOpenYears(raw);
+      const mergedOpenYears = normalizeOpenYears([...openYearsValue, ...openYearsFromStatus]);
       if (pendingObsValue) {
         nextPendingObservation[field] = pendingObsValue;
       }
@@ -639,7 +846,14 @@ export default function HeaderMenuPro() {
         }
         return;
       }
-      nextMode[field] = raw || "";
+      if (statusKey.startsWith("em_aberto") || statusKey.includes("aberto")) {
+        nextMode[field] = "em_aberto";
+      } else {
+        nextMode[field] = raw || "";
+      }
+      if (mergedOpenYears.length > 0) {
+        nextOpenYears[field] = formatOpenYearsInput(mergedOpenYears);
+      }
       if (raw === "parcelado") {
         nextInstallment[field] = "/";
       }
@@ -648,12 +862,20 @@ export default function HeaderMenuPro() {
     setTaxInstallmentDraft(nextInstallment);
     setTaxInstallmentError({});
     setTaxPendingObservationDraft(nextPendingObservation);
+    setTaxOpenYearsDraft(nextOpenYears);
   };
 
   const handleTaxStatusChange = (field, value) => {
     setTaxStatusModeDraft((prev) => ({ ...prev, [field]: value }));
     if (value !== "pendente") {
       setTaxPendingObservationDraft((prev) => {
+        const clone = { ...prev };
+        delete clone[field];
+        return clone;
+      });
+    }
+    if (value !== "em_aberto") {
+      setTaxOpenYearsDraft((prev) => {
         const clone = { ...prev };
         delete clone[field];
         return clone;
@@ -686,6 +908,10 @@ export default function HeaderMenuPro() {
 
   const handleTaxPendingObservationChange = (field, value) => {
     setTaxPendingObservationDraft((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const handleTaxOpenYearsChange = (field, value) => {
+    setTaxOpenYearsDraft((prev) => ({ ...prev, [field]: value }));
   };
 
   const openTax = async ({ mode = "edit", taxId, taxa }) => {
@@ -1008,6 +1234,7 @@ export default function HeaderMenuPro() {
             porte: normalizePorteSigla(companyForm.porte) || null,
             categoria: categoriaFinal || null,
             proprietario_principal: companyForm.representante || null,
+            responsavel_fiscal: companyForm.responsavel_fiscal || null,
             cpf: normalizeDigits(companyForm.cpf) || null,
             email: normalizeEmail(companyForm.email) || null,
             telefone: extractPrimaryPhoneDigits(companyForm.telefone) || null,
@@ -1041,6 +1268,7 @@ export default function HeaderMenuPro() {
           porte: normalizePorteSigla(companyForm.porte) || null,
           categoria: categoriaFinal || null,
           proprietario_principal: normalizeTitleCase(companyForm.representante) || null,
+          responsavel_fiscal: companyForm.responsavel_fiscal || null,
           cpf: normalizeDigits(companyForm.cpf) || null,
           email: normalizeEmail(companyForm.email) || null,
           telefone: extractPrimaryPhoneDigits(companyForm.telefone) || null,
@@ -1055,6 +1283,52 @@ export default function HeaderMenuPro() {
       window.dispatchEvent(new CustomEvent(EVT_REFRESH_DATA, { detail: { source: "company-save" } }));
     } finally {
       setCompanySaving(false);
+    }
+  };
+
+  const promptPasswordForDelete = () => {
+    const password = window.prompt("Confirme sua senha para prosseguir com a exclusão:");
+    if (password === null) return null;
+    const trimmed = String(password || "").trim();
+    if (!trimmed) throw new Error("Senha obrigatória para confirmar a exclusão.");
+    return trimmed;
+  };
+
+  const deleteCompany = async () => {
+    if (companyModal.mode !== "edit" || !companyModal.companyId) return;
+    const confirmed = window.confirm("Excluir esta empresa? Essa ação é irreversível.");
+    if (!confirmed) return;
+    const password = promptPasswordForDelete();
+    if (!password) return;
+    setCompanyDeleting(true);
+    try {
+      await apiJson(`/api/v1/companies/${companyModal.companyId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ password }),
+      });
+      closeCompanyModal();
+      window.dispatchEvent(new CustomEvent(EVT_REFRESH_DATA, { detail: { source: "company-delete" } }));
+    } finally {
+      setCompanyDeleting(false);
+    }
+  };
+
+  const deleteProcess = async () => {
+    if (processModal.mode !== "edit" || !processModal.processId) return;
+    const confirmed = window.confirm("Excluir este processo? Essa ação é irreversível.");
+    if (!confirmed) return;
+    const password = promptPasswordForDelete();
+    if (!password) return;
+    setProcessDeleting(true);
+    try {
+      await apiJson(`/api/v1/processos/${processModal.processId}`, {
+        method: "DELETE",
+        body: JSON.stringify({ password }),
+      });
+      closeProcessModal();
+      window.dispatchEvent(new CustomEvent(EVT_REFRESH_DATA, { detail: { source: "process-delete" } }));
+    } finally {
+      setProcessDeleting(false);
     }
   };
 
@@ -1075,6 +1349,49 @@ export default function HeaderMenuPro() {
     }
     if (!processForm.protocolo?.trim()) throw new Error("Protocolo obrigatório");
 
+    const nextProcessExtra = { ...(processForm.extra || {}) };
+    const cerconTaxPatch = {};
+    const cerconTaxRawPatch = {};
+    if (processForm.process_type === "CERCON" && processForm.company_id) {
+      for (const [field, label] of PROCESS_CERCON_TAX_FIELDS) {
+        const mode = String(processCerconTaxStatusDraft[field] ?? processForm.extra?.[field] ?? "").trim();
+        const pendingObsKey = `${field}_observacao_pendente`;
+        if (!mode) {
+          nextProcessExtra[field] = null;
+          nextProcessExtra[pendingObsKey] = null;
+          cerconTaxPatch[field] = null;
+          cerconTaxRawPatch[field] = null;
+          continue;
+        }
+        if (mode === "pendente") {
+          const note = String(processCerconTaxPendingObservationDraft[field] || "").trim();
+          nextProcessExtra[pendingObsKey] = note || null;
+          cerconTaxRawPatch[field] = note || null;
+        } else {
+          nextProcessExtra[pendingObsKey] = null;
+          cerconTaxRawPatch[field] = null;
+        }
+        if (mode !== "parcelado") {
+          nextProcessExtra[field] = mode;
+          cerconTaxPatch[field] = mode;
+          continue;
+        }
+        const installmentText = String(processCerconTaxInstallmentDraft[field] ?? "").trim();
+        const installmentError = validateInstallmentInput(installmentText);
+        if (installmentError) {
+          throw new Error(`${label}: ${installmentError}`);
+        }
+        const parsed = parseInstallment(installmentText);
+        if (!parsed) {
+          throw new Error(`${label}: formato de parcelamento inválido.`);
+        }
+        const derived = deriveStatusFromInstallment(parsed.paid, parsed.total);
+        const value = derived === "paid" ? "pago" : formatInstallment(parsed.paid, parsed.total);
+        nextProcessExtra[field] = value;
+        cerconTaxPatch[field] = value;
+      }
+    }
+
     const basePayload = {
       process_type: processForm.process_type,
       protocolo: processForm.protocolo,
@@ -1082,7 +1399,7 @@ export default function HeaderMenuPro() {
       data_solicitacao: toCanonicalIsoDate(processForm.data_solicitacao) || null,
       situacao: processForm.situacao || null,
       obs: processForm.obs || null,
-      extra: processForm.extra || {},
+      extra: nextProcessExtra,
     };
 
     if (processModal.mode === "create") {
@@ -1106,6 +1423,31 @@ export default function HeaderMenuPro() {
       });
     }
 
+    if (processForm.process_type === "CERCON" && processForm.company_id) {
+      const taxRecord = await fetchCompanyTaxByCompanyId(processForm.company_id);
+      if (!taxRecord?.id) {
+        throw new Error("Não foi possível localizar o registro de taxas da empresa para sincronizar TPI/Taxa.");
+      }
+      const rawPayload = {};
+      PROCESS_CERCON_TAX_FIELDS.forEach(([field]) => {
+        const mappedField = PROCESS_CERCON_TAX_TO_COMPANY_TAX_FIELD[field];
+        if (mappedField === "taxa_bombeiros") {
+          rawPayload.taxa_bombeiros_observacao_pendente = cerconTaxRawPatch[field] ?? null;
+        }
+        if (mappedField === "tpi") {
+          rawPayload.tpi_observacao_pendente = cerconTaxRawPatch[field] ?? null;
+        }
+      });
+      await apiJson(`/api/v1/taxas/${taxRecord.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          taxa_bombeiros: cerconTaxPatch.taxa_bombeiros_sync_status ?? null,
+          tpi: cerconTaxPatch.tpi_sync_status ?? null,
+          raw: rawPayload,
+        }),
+      });
+    }
+
     closeProcessModal();
     window.dispatchEvent(new CustomEvent(EVT_REFRESH_DATA, { detail: { source: "process-save" } }));
   };
@@ -1126,9 +1468,11 @@ export default function HeaderMenuPro() {
       for (const [field, label] of TAX_STATUS_FIELDS) {
         const mode = String(taxStatusModeDraft[field] ?? taxForm[field] ?? "").trim();
         const pendingObsKey = pendingObservationFieldKey(field);
+        const openYearsKey = openYearsFieldKey(field);
         if (!mode) {
           nextPayloadStatus[field] = null;
           nextPayloadRaw[pendingObsKey] = null;
+          nextPayloadRaw[openYearsKey] = null;
           continue;
         }
         if (mode === "pendente") {
@@ -1137,6 +1481,17 @@ export default function HeaderMenuPro() {
         } else {
           nextPayloadRaw[pendingObsKey] = null;
         }
+        if (mode === "em_aberto") {
+          const yearsText = String(taxOpenYearsDraft[field] || "").trim();
+          const years = extractOpenYears(yearsText);
+          if (yearsText && years.length === 0) {
+            throw new Error(`${label}: informe anos válidos no formato AAAA, AAAA.`);
+          }
+          nextPayloadRaw[openYearsKey] = years.length > 0 ? years : null;
+          nextPayloadStatus[field] = "em_aberto";
+          continue;
+        }
+        nextPayloadRaw[openYearsKey] = null;
         if (mode !== "parcelado") {
           nextPayloadStatus[field] = mode;
           continue;
@@ -1549,6 +1904,21 @@ export default function HeaderMenuPro() {
                 />
               </div>
               <div>
+                <label className="text-xs font-medium">Responsável Fiscal</label>
+                <select
+                  className={COMPANY_FIELD_CLASS}
+                  value={companyForm.responsavel_fiscal}
+                  onChange={(e) => setCompanyForm((p) => ({ ...p, responsavel_fiscal: e.target.value }))}
+                >
+                  <option value="">Selecione</option>
+                  {RESPONSAVEL_FISCAL_OPTIONS.map((item) => (
+                    <option key={item.value} value={item.value}>
+                      {item.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
                 <label className="text-xs font-medium">Telefone</label>
                 <input
                   className={COMPANY_FIELD_CLASS}
@@ -1659,6 +2029,22 @@ export default function HeaderMenuPro() {
               </SectionCard>
             </>
           )}
+          {companyModal.mode === "edit" ? (
+            <>
+              <Separator />
+              <div className="flex justify-end">
+                <SecondaryButton
+                  type="button"
+                  disabled={companyDeleting}
+                  className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                  onClick={() => deleteCompany().catch((e) => alert(e.message))}
+                >
+                  <Trash2 className="mr-1.5 h-4 w-4" />
+                  {companyDeleting ? "Excluindo..." : "Excluir Empresa"}
+                </SecondaryButton>
+              </div>
+            </>
+          ) : null}
         </div>
       </SideDrawerForm>
 
@@ -1753,7 +2139,16 @@ export default function HeaderMenuPro() {
                 <select
                   className={COMPANY_FIELD_CLASS}
                   value={processForm.process_type}
-                  onChange={(e) =>
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    if (nextType !== "CERCON") {
+                      setProcessCerconTaxStatusDraft({});
+                      setProcessCerconTaxInstallmentDraft({});
+                      setProcessCerconTaxInstallmentError({});
+                      setProcessCerconTaxPendingObservationDraft({});
+                    } else {
+                      initializeProcessCerconTaxDraft(processForm.extra || {});
+                    }
                     setProcessForm((p) => {
                       const nextType = e.target.value;
                       const keepUnregistered = p.empresa_nao_cadastrada && nextType === "DIVERSOS";
@@ -1765,7 +2160,7 @@ export default function HeaderMenuPro() {
                         company_razao_social: keepUnregistered ? p.company_razao_social : "",
                       };
                     })
-                  }
+                  }}
                 >
                   <option value="DIVERSOS">Diversos</option>
                   <option value="FUNCIONAMENTO">Funcionamento</option>
@@ -1878,6 +2273,45 @@ export default function HeaderMenuPro() {
                       }
                     />
                   </FieldRow>
+                  {PROCESS_CERCON_TAX_FIELDS.map(([field, label]) => (
+                    <FieldRow key={field} label={label}>
+                      <select
+                        className={COMPANY_FIELD_CLASS}
+                        value={processCerconTaxStatusDraft[field] ?? processForm.extra?.[field] ?? ""}
+                        onChange={(e) => handleProcessCerconTaxStatusChange(field, e.target.value)}
+                      >
+                        {TAX_STATUS_OPTION_ITEMS.map((status) => (
+                          <option key={`${field}-${status.value || "empty"}`} value={status.value}>
+                            {status.label}
+                          </option>
+                        ))}
+                      </select>
+                      {(processCerconTaxStatusDraft[field] ?? processForm.extra?.[field]) === "parcelado" ? (
+                        <div className="mt-2">
+                          <Input
+                            className={COMPANY_FIELD_INLINE_CLASS}
+                            placeholder="x/y"
+                            value={processCerconTaxInstallmentDraft[field] ?? "/"}
+                            onChange={(e) => handleProcessCerconTaxInstallmentChange(field, e.target.value)}
+                          />
+                          <p className={`mt-1 text-xs ${processCerconTaxInstallmentError[field] ? "text-rose-600" : "text-slate-500"}`}>
+                            {processCerconTaxInstallmentError[field] || "Use x/y. Ex.: 0/3, 1/4."}
+                          </p>
+                        </div>
+                      ) : null}
+                      {(processCerconTaxStatusDraft[field] ?? processForm.extra?.[field]) === "pendente" ? (
+                        <div className="mt-2">
+                          <Textarea
+                            rows={2}
+                            className={COMPANY_FIELD_CLASS}
+                            placeholder="Observação do motivo pendente"
+                            value={processCerconTaxPendingObservationDraft[field] ?? ""}
+                            onChange={(e) => handleProcessCerconTaxPendingObservationChange(field, e.target.value)}
+                          />
+                        </div>
+                      ) : null}
+                    </FieldRow>
+                  ))}
                   <FieldRow label="Projeto aprovado">
                     <div className="space-y-2">
                       <Input
@@ -1960,6 +2394,17 @@ export default function HeaderMenuPro() {
               {processModal.mode === "edit" ? "Edição" : "Cadastro"}
             </Badge>
             <div className="flex gap-2">
+              {processModal.mode === "edit" ? (
+                <SecondaryButton
+                  type="button"
+                  disabled={processDeleting}
+                  className="border-rose-200 text-rose-700 hover:bg-rose-50"
+                  onClick={() => deleteProcess().catch((e) => alert(e.message))}
+                >
+                  <Trash2 className="mr-1.5 h-4 w-4" />
+                  {processDeleting ? "Excluindo..." : "Excluir"}
+                </SecondaryButton>
+              ) : null}
               <SecondaryButton type="button" onClick={closeProcessModal}>
                 Cancelar
               </SecondaryButton>
@@ -2059,6 +2504,20 @@ export default function HeaderMenuPro() {
                       />
                       <p className={`mt-1 text-xs ${taxInstallmentError[key] ? "text-rose-600" : "text-slate-500"}`}>
                         {taxInstallmentError[key] || "Use x/y. Ex.: 0/3, 1/4. Entrada com espaço vira x/y."}
+                      </p>
+                    </div>
+                  ) : null}
+                  {(taxStatusModeDraft[key] ?? taxForm[key]) === "em_aberto" ? (
+                    <div className="mt-2">
+                      <Input
+                        data-testid={`tax-open-years-${key}`}
+                        className={COMPANY_FIELD_CLASS}
+                        placeholder="Anos em aberto (AAAA, AAAA)"
+                        value={taxOpenYearsDraft[key] ?? ""}
+                        onChange={(e) => handleTaxOpenYearsChange(key, e.target.value)}
+                      />
+                      <p className="mt-1 text-xs text-slate-500">
+                        Ex.: 2023, 2024, 2025.
                       </p>
                     </div>
                   ) : null}

@@ -2,11 +2,11 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-13)
+## Status atual do projeto (2026-03-16)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
-- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 em andamento).
+- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída + S10.3 parcial com calibragem de catálogo e base de atualização assistida em andamento).
 - S9/S11/S12: planejados.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
@@ -111,6 +111,12 @@ Base: `http://localhost:8020/api/v1`
 - Worker (read-only status):
   - `GET /worker/health` (ADMIN|DEV|VIEW, inclui `jobs_supported` e `watchers_supported`)
   - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW, suporta `receitaws_bulk_sync` e `licence_scan_full`)
+- Catálogo CNAE (ADMIN|DEV, revisão humana obrigatória):
+  - `GET /catalog/cnae-risk-suggestions`
+  - `POST /catalog/cnae-risk-suggestions`
+  - `PATCH /catalog/cnae-risk-suggestions/{suggestion_id}`
+  - `POST /catalog/cnae-risk-suggestions/{suggestion_id}/approve`
+  - `POST /catalog/cnae-risk-suggestions/{suggestion_id}/reject`
 
 Healthchecks:
 - `GET /healthz`
@@ -199,7 +205,9 @@ $env:ECONTROLE_PASSWORD="sua_senha"
 - `pytest -q backend/tests/test_lookups_receitaws.py backend/tests/test_processes_canonical.py`
   - resultado: `6 passed`
 
-## S10.3 - Motor de Classificação e Priorização por CNAE (fases 1 e 2 backend)
+## S10.3 - Motor de Classificação e Priorização por CNAE (fases 1, 2 e 3)
+
+Status: concluída (backend + frontend + E2E portal)
 
 - Fase 1 (estrutura):
   - tabela `cnae_risks` para classificação versionada por CNAE;
@@ -225,15 +233,66 @@ $env:ECONTROLE_PASSWORD="sua_senha"
   - `cnae_risks` é tabela dedicada para motor futuro.
 - Seed inicial:
   - arquivo versionado: `backend/seeds/cnae_risks.seed.csv`;
-  - carga manual idempotente por script: `python backend/scripts/load_cnae_risks_seed.py`.
+  - carga manual idempotente por script: `python backend/scripts/load_cnae_risks_seed.py`;
+  - recálculo operacional no mesmo fluxo:
+    - impactados: `python backend/scripts/load_cnae_risks_seed.py --recalculate-affected`
+    - completo: `python backend/scripts/load_cnae_risks_seed.py --recalculate-all`
 - Testes backend adicionados:
   - `backend/tests/test_company_scoring.py`.
 - Operacionalização (backfill inicial):
   - script one-shot: `python backend/scripts/backfill_company_scores.py`;
   - suporta `--org-id`, `--limit`, `--batch-size` e `--dry-run`;
   - processa `company_profiles` existentes e recalcula snapshot via `recalculate_company_score`.
+- Fase 3 (frontend + E2E portal):
+  - exibição de `score_urgencia`, `risco_consolidado` e `score_status` na listagem de empresas;
+  - filtro de risco (`Todos`, `Alto`, `Médio`, `Baixo`);
+  - ordenação por score com prioridade para maior urgência e `nulls last`;
+  - labels amigáveis para risco e status;
+  - tratamento defensivo para `null`;
+  - placeholder CNAE `00.00-0-00` sem destaque como CNAE válido.
+- E2E portal:
+  - `frontend/tests_e2e/portal/company_scoring.spec.ts`.
 - Ainda pendente:
-  - uso do score no frontend e cenários E2E de score.
+  - curadoria fina de `cnae_risks` para calibragem de risco/peso por domínio.
+  - job diário de recálculo automático (fora do escopo atual).
+
+### S10.3 parcial P1 (normalização canônica CNAE + recálculo pós-seed)
+
+- helper único de normalização canônica de CNAE em `backend/app/core/cnae.py`;
+- aplicado em:
+  - `backend/app/services/company_scoring.py`
+  - `backend/app/services/ingest/company_profiles.py`
+  - `backend/app/services/receitaws_bulk_sync.py`
+  - `backend/scripts/load_cnae_risks_seed.py`
+- lookup em `cnae_risks` passa a casar formatos equivalentes (`5611201`, `56 11-2/01`, `56.11-2-01`);
+- seed ganhou opção de recálculo transacional de score:
+  - `--recalculate-affected`
+  - `--recalculate-all`
+- placeholders inválidos de CNAE (`00.00-0-00`, `********`, `Não informada`) passam a cair em `NO_CNAE`.
+
+### S10.3 parcial (calibragem de catálogo CNAE)
+
+- diagnóstico confirmado: gargalo atual em catálogo achatado (`LOW/10/bootstrap`) e não no motor;
+- seed passou a incluir tiers e pesos calibrados (`LOW`, `MEDIUM`, `HIGH`) para CNAEs mais recorrentes;
+- compatível com motor atual (sem alteração de schema);
+- operação recomendada após editar catálogo:
+  1. editar `backend/seeds/cnae_risks.seed.csv`;
+  2. executar `python backend/scripts/load_cnae_risks_seed.py --recalculate-all`;
+  3. validar distribuição no banco (`risk_tier`, `base_weight`, `source`);
+  4. rodar testes backend.
+
+### S10.3 subfase - atualização assistida de catálogo CNAE (base segura)
+
+- tabela de sugestões: `cnae_risk_suggestions`;
+- regra de segurança: atualização automatizada nunca aplica direto em produção sem revisão humana;
+- status do fluxo: `PENDING -> APPLIED` (com opção `REJECTED`; `APPROVED` intermediário interno);
+- ao aprovar uma sugestão:
+  - aplica em `cnae_risks` (upsert);
+  - recalcula empresas afetadas pelo CNAE;
+  - registra auditoria mínima via `record_audit_event`;
+- fora de escopo nesta entrega:
+  - scraper/web crawling;
+  - aplicação automática sem revisão.
 
 ### Backfill inicial dos snapshots de score (S10.3)
 
@@ -268,6 +327,23 @@ $env:ECONTROLE_EMAIL="seu_email"
 $env:ECONTROLE_PASSWORD="sua_senha"
 .\scripts\e2e_run_full.ps1
 ```
+
+Fluxo E2E recomendado (sem ampliar spec visual):
+1. Rodar o backend E2E API.
+2. Rodar o portal E2E existente (`frontend/tests_e2e/portal/company_scoring.spec.ts` incluso).
+3. Em cenários de ajuste de catálogo CNAE, executar antes:
+   - `python backend/scripts/load_cnae_risks_seed.py --recalculate-affected`
+
+Fluxo de validação da atualização assistida do catálogo CNAE:
+1. Rodar `pytest -q backend/tests/test_cnae_risk_suggestions.py`.
+2. Rodar regressão do motor: `pytest -q backend/tests/test_company_scoring.py`.
+3. Manter o fluxo E2E padrão (`tests_e2e/api` + Playwright portal) para cobertura de regressão geral.
+
+Fluxo operacional do catálogo CNAE (S10.3 parcial):
+1. Editar `backend/seeds/cnae_risks.seed.csv`.
+2. Rodar `python backend/scripts/load_cnae_risks_seed.py --recalculate-all`.
+3. Validar distribuição no banco.
+4. Rodar `pytest -q backend/tests/test_company_scoring.py`.
 
 Portal E2E Playwright:
 

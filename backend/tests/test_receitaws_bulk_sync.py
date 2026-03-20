@@ -6,7 +6,7 @@ from app.models.org import Org
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.models.role import Role
 from app.models.user import User
-from app.services.receitaws_bulk_sync import diff_and_apply
+from app.services.receitaws_bulk_sync import _to_cnae_code_list, diff_and_apply
 
 
 def _login(client, email: str, password: str) -> str:
@@ -214,3 +214,15 @@ def test_diff_and_apply_dry_run_does_not_persist_and_only_missing_respected(clie
         assert profile.raw.get("mei") is True
     finally:
         db.close()
+
+
+def test_to_cnae_code_list_normalizes_equivalent_formats():
+    items = [
+        {"code": "5611201", "text": "Restaurantes"},
+        {"code": "56 11-2/01", "text": "Restaurantes repetido"},
+        {"code": "", "text": "Sem codigo"},
+    ]
+    result = _to_cnae_code_list(items)
+    assert result[0]["code"] == "56.11-2-01"
+    assert result[1]["code"] == "56.11-2-01"
+    assert result[2]["code"] == ""

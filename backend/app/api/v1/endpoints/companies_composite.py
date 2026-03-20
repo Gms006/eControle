@@ -70,6 +70,8 @@ def create_company_composite(
         p["telefone"] = extract_primary_phone_digits(p.get("telefone"))
     if "proprietario_principal" in p:
         p["proprietario_principal"] = normalize_title_case(p.get("proprietario_principal"))
+    if "responsavel_fiscal" in p:
+        p["responsavel_fiscal"] = normalize_title_case(p.get("responsavel_fiscal"))
     categoria = p.get("categoria")
     if endereco_fiscal and categoria and not str(categoria).startswith("Fiscal -"):
         p["categoria"] = f"Fiscal - {categoria}"

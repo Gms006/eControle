@@ -10,6 +10,7 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.api.v1.endpoints.lookups import fetch_receitaws_payload, map_receitaws_payload, normalize_cnpj
+from app.core.cnae import normalize_cnae_list
 from app.core.config import settings
 from app.core.normalization import normalize_municipio, normalize_spaces, normalize_title_case
 from app.db.session import SessionLocal
@@ -28,18 +29,7 @@ def _now_utc() -> datetime:
 
 
 def _to_cnae_code_list(items: Any) -> list[dict]:
-    if not isinstance(items, list):
-        return []
-    result: list[dict] = []
-    for item in items:
-        if not isinstance(item, dict):
-            continue
-        code = normalize_spaces(item.get("code")) or ""
-        text = normalize_spaces(item.get("text")) or ""
-        if not code and not text:
-            continue
-        result.append({"code": code, "text": text})
-    return result
+    return normalize_cnae_list(items)
 
 
 def _normalize_uf(value: Any) -> str | None:

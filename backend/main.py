@@ -33,7 +33,7 @@ app = FastAPI(
     title=settings.PROJECT_NAME,
     version="0.1.0",
     lifespan=lifespan,
-    redoc_url=None,  # desabilita o /redoc padrão do FastAPI (que aponta para redoc@next)
+    redoc_url=None,  # "None": desabilita o /redoc padrão do FastAPI (que aponta para redoc@next)
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)

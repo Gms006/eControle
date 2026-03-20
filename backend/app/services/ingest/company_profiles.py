@@ -1,6 +1,7 @@
 from __future__ import annotations
 from sqlalchemy.orm import Session
 
+from app.core.cnae import normalize_cnae_list
 from app.core.normalization import normalize_generic_status
 from app.models.company import Company
 from app.models.company_profile import CompanyProfile
@@ -48,8 +49,8 @@ def upsert_company_profiles(db: Session, org_id: str, items: list[dict]) -> tupl
             "telefone": normalize_digits(item.get("telefone") or "") or None,
             "email": _null_if_isento(item.get("email")),
             "responsavel_fiscal": _null_if_isento(item.get("responsavel_fiscal")),
-            "cnaes_principal": item.get("cnaes_principal"),
-            "cnaes_secundarios": item.get("cnaes_secundarios"),
+            "cnaes_principal": normalize_cnae_list(item.get("cnaes_principal")),
+            "cnaes_secundarios": normalize_cnae_list(item.get("cnaes_secundarios")),
             "raw": sanitize_text_tree(item.get("raw")),
         }
 

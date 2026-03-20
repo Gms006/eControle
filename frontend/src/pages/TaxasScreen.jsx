@@ -11,7 +11,13 @@ import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
 import { BriefcaseBusiness, FileCheck2, PencilLine, Receipt } from "lucide-react";
-import { getDataEnvioDisplay, isEnvioPendente, isTaxStatusEmAberto, isTaxStatusPendente } from "@/lib/taxes";
+import {
+  formatTaxOpenStatus,
+  getDataEnvioDisplay,
+  isEnvioPendente,
+  isTaxStatusEmAberto,
+  isTaxStatusPendente,
+} from "@/lib/taxes";
 import { isInstallmentInProgress } from "@/lib/installment";
 
 const TAXA_ICON_COMPONENTS = {
@@ -48,16 +54,33 @@ const TAX_SORT_OPTIONS = [
   { value: "vencimento_desc", label: "Vencimento (mais distante)" },
   { value: "envio_desc", label: "Último envio (mais recente)" },
 ];
+const TAX_EMPRESA_SORT_OPTIONS = [
+  { value: "empresa", label: "Empresa", defaultDir: "asc" },
+  { value: "municipio", label: "Município", defaultDir: "asc" },
+  { value: "status_geral", label: "Status geral", defaultDir: "asc" },
+  { value: "data_envio", label: "Último envio", defaultDir: "desc", isDate: true },
+];
 
 const TAX_LINE_ITEMS = [
-  { key: "tpi", label: "TPI", getVencimento: (taxa) => getVencimentoTpi(taxa) },
-  { key: "publicidade", label: "PUBLICIDADE" },
-  { key: "localizacao_instalacao", label: "LOCALIZAÇÃO/INSTALAÇÃO" },
-  { key: "bombeiros", label: "BOMBEIROS" },
   { key: "func", label: "FUNCIONAMENTO" },
+  { key: "publicidade", label: "PUBLICIDADE" },
   { key: "sanitaria", label: "SANITÁRIA" },
+  { key: "localizacao_instalacao", label: "LOCALIZAÇÃO/INSTALAÇÃO" },
   { key: "area_publica", label: "ÁREA PÚBLICA" },
+  { key: "bombeiros", label: "BOMBEIROS" },
+  { key: "tpi", label: "TPI", getVencimento: (taxa) => getVencimentoTpi(taxa) },
 ];
+
+const TAX_STATUS_FIELD_BY_LINE_KEY = {
+  func: "taxa_funcionamento",
+  publicidade: "taxa_publicidade",
+  sanitaria: "taxa_vig_sanitaria",
+  localizacao_instalacao: "taxa_localiz_instalacao",
+  area_publica: "taxa_ocup_area_publica",
+  bombeiros: "taxa_bombeiros",
+  tpi: "tpi",
+  iss: "iss",
+};
 
 const parseSortableDate = (value) => {
   if (!value) return null;
@@ -131,6 +154,15 @@ const hasAnyEmAberto = (taxa) => getQueueStatusFields(taxa).some((value) => isTa
 const hasAnyIsenta = (taxa) => getQueueStatusFields(taxa).some((value) => getStatusKey(value) === "isento");
 const hasAnyInstallmentInProgress = (taxa) =>
   getQueueStatusFields(taxa).some((value) => isInstallmentInProgress(value));
+const isParceladoEmAndamento = (status) => {
+  const key = getStatusKey(status || "");
+  if (!key.includes("parcel")) return false;
+  if (isInstallmentInProgress(status)) return true;
+  if (key.includes("andament")) return true;
+  return !key.includes("quitad") && !key.includes("pago");
+};
+const isTaxaIrregular = (taxa) =>
+  getQueueStatusFields(taxa).some((value) => isTaxStatusEmAberto(value) || isParceladoEmAndamento(value));
 
 const getTpiDiffDays = (taxa) => {
   const ts = parseSortableDate(getVencimentoTpi(taxa));
@@ -158,13 +190,28 @@ const matchesQueueFilter = (taxa, queueFilter, tipoKeys) => {
   return true;
 };
 
-function LinhaTipoTaxa({ label, status, vencimento, envioPendente }) {
+const getOpenYearsRawForField = (taxa, fieldKey) => {
+  const raw = taxa?.raw;
+  if (!raw || typeof raw !== "object") return null;
+  const canonicalField = TAX_STATUS_FIELD_BY_LINE_KEY[fieldKey] || fieldKey;
+  const canonicalYears = raw?.[`${canonicalField}_anos_em_aberto`];
+  if (canonicalYears !== undefined && canonicalYears !== null) return canonicalYears;
+  return raw?.[`${fieldKey}_anos_em_aberto`] ?? null;
+};
+
+const getDisplayStatusForField = (taxa, fieldKey) => {
+  const rawStatus = taxa?.[fieldKey];
+  const openYearsRaw = getOpenYearsRawForField(taxa, fieldKey);
+  return formatTaxOpenStatus(rawStatus, openYearsRaw);
+};
+
+function LinhaTipoTaxa({ label, status, statusDisplay, vencimento, envioPendente }) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 border-b border-subtle py-1.5 last:border-0">
       <span className="text-xs font-semibold uppercase tracking-wide text-muted">{label}</span>
       <div className="flex flex-wrap items-center gap-2 text-xs">
         {hasRelevantStatus(status) ? (
-          <StatusBadge status={status} />
+          <StatusBadge status={statusDisplay ?? status} />
         ) : (
           <Chip variant="outline">Sem status</Chip>
         )}
@@ -188,6 +235,7 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
   const [selectedTipo, setSelectedTipo] = useState("__ALL__");
   const [queueFilter, setQueueFilter] = useState(null);
   const [sortByTipo, setSortByTipo] = useState({});
+  const [sortEmpresas, setSortEmpresas] = useState({ field: "empresa", direction: "asc" });
 
   const taxaTipos = useMemo(
     () => TAXA_COLUMNS.filter((column) => column.key !== "status_geral"),
@@ -231,6 +279,27 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
     () => taxasGlobais.filter((taxa) => matchesQueueFilter(taxa, queueFilter, tipoKeys)),
     [queueFilter, taxasGlobais, tipoKeys],
   );
+  const taxasVisiveisOrdenadas = useMemo(() => {
+    const list = [...taxasVisiveis];
+    const factor = sortEmpresas.direction === "desc" ? -1 : 1;
+    list.sort((a, b) => {
+      if (sortEmpresas.field === "data_envio") {
+        const av = parseSortableDate(getDataEnvioDisplay(a?.data_envio).date) ?? 0;
+        const bv = parseSortableDate(getDataEnvioDisplay(b?.data_envio).date) ?? 0;
+        if (av === bv) return 0;
+        return (av - bv) * factor;
+      }
+      if (sortEmpresas.field === "status_geral") {
+        const as = isTaxaIrregular(a) ? "Irregular" : "Regular";
+        const bs = isTaxaIrregular(b) ? "Irregular" : "Regular";
+        return as.localeCompare(bs, "pt-BR", { sensitivity: "base" }) * factor;
+      }
+      const av = String(a?.[sortEmpresas.field] || "").trim();
+      const bv = String(b?.[sortEmpresas.field] || "").trim();
+      return av.localeCompare(bv, "pt-BR", { sensitivity: "base" }) * factor;
+    });
+    return list;
+  }, [sortEmpresas.direction, sortEmpresas.field, taxasVisiveis]);
 
   const taxaTipoStats = useMemo(
     () =>
@@ -341,18 +410,52 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
           </div>
         </CardContent>
       </Card>
+      {viewMode === "empresas" ? (
+        <Card className="border-subtle bg-card">
+          <CardContent className="flex flex-wrap items-center gap-2 p-3">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
+            <div className="flex flex-wrap items-center gap-2">
+              {TAX_EMPRESA_SORT_OPTIONS.map((option) => {
+                const isActive = sortEmpresas.field === option.value;
+                const directionSymbol = isActive ? (sortEmpresas.direction === "asc" ? "↑" : "↓") : null;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => {
+                      if (isActive) {
+                        setSortEmpresas((prev) => ({
+                          ...prev,
+                          direction: prev.direction === "asc" ? "desc" : "asc",
+                        }));
+                      } else {
+                        setSortEmpresas({ field: option.value, direction: option.defaultDir });
+                      }
+                    }}
+                    className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition ${isActive ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm" : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"}`}
+                  >
+                    <span>{option.label}</span>
+                    {directionSymbol ? <span className="text-xs">{directionSymbol}</span> : null}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {viewMode === "empresas" ? (
-        taxasVisiveis.length === 0 ? (
+        taxasVisiveisOrdenadas.length === 0 ? (
           <Card className="border-subtle bg-card">
             <CardContent className="p-6 text-center text-sm text-muted">Nenhuma taxa correspondente ao filtro.</CardContent>
           </Card>
         ) : (
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-            {taxasVisiveis.map((taxa, index) => {
+            {taxasVisiveisOrdenadas.map((taxa, index) => {
               const taxaKey = resolveTaxaKey(taxa, index);
               const envio = getDataEnvioDisplay(taxa?.data_envio);
               const envioPendente = Boolean(taxa?.envio_pendente) || isEnvioPendente(taxa);
+              const statusGeral = isTaxaIrregular(taxa) ? "Irregular" : "Regular";
               return (
                 <Card key={taxaKey} className="border-subtle bg-card transition hover:border-strong hover:shadow-card-hover">
                   <CardContent className="space-y-3 p-4">
@@ -374,7 +477,7 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-2">
-                        {taxa.status_geral ? <StatusBadge status={taxa.status_geral} /> : <Chip variant="outline">Sem status</Chip>}
+                        <StatusBadge status={statusGeral} />
                         <button
                           type="button"
                           onClick={() => openEditTaxa(taxa)}
@@ -387,15 +490,20 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
                       </div>
                     </div>
                     <div className="space-y-0.5">
-                      {TAX_LINE_ITEMS.map((item) => (
+                      {TAX_LINE_ITEMS.map((item) => {
+                        const rawStatus = taxa?.[item.key];
+                        const statusDisplay = getDisplayStatusForField(taxa, item.key);
+                        return (
                         <LinhaTipoTaxa
                           key={`${taxaKey}-${item.key}`}
                           label={item.label}
-                          status={taxa?.[item.key]}
+                          status={rawStatus}
+                          statusDisplay={statusDisplay}
                           vencimento={item.getVencimento ? item.getVencimento(taxa) : null}
                           envioPendente={envioPendente}
                         />
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -508,12 +616,13 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
                           const envio = getDataEnvioDisplay(taxa?.data_envio);
                           const envioPendente = Boolean(taxa?.envio_pendente) || isEnvioPendente(taxa);
                           const status = taxa?.[tipo.key];
+                          const statusDisplay = getDisplayStatusForField(taxa, tipo.key);
                           return (
                             <TableRow key={`${taxa.__taxa_key}-${tipo.key}`}>
                               <TableCell className="font-medium">{taxa.empresa || "—"}</TableCell>
                               <TableCell>
                                 {hasRelevantStatus(status) ? (
-                                  <StatusBadge status={status} />
+                                  <StatusBadge status={statusDisplay ?? status} />
                                 ) : (
                                   <Chip variant="outline">Sem status</Chip>
                                 )}

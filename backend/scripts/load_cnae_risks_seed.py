@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.dialects.postgresql import insert
 
 
@@ -15,8 +15,11 @@ BACKEND_DIR = ROOT_DIR / "backend"
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
+from app.core.cnae import extract_cnae_codes, normalize_cnae_code  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.models.cnae_risk import CNAERisk  # noqa: E402
+from app.models.company_profile import CompanyProfile  # noqa: E402
+from app.services.company_scoring import recalculate_company_score  # noqa: E402
 
 
 SEED_HEADERS = [
@@ -53,7 +56,7 @@ def _load_rows(seed_file: Path) -> list[dict[str, Any]]:
                 f"Esperado: {SEED_HEADERS}; recebido: {reader.fieldnames}"
             )
         for row in reader:
-            cnae_code = _normalize_text(row.get("cnae_code"))
+            cnae_code = normalize_cnae_code(row.get("cnae_code"))
             cnae_text = _normalize_text(row.get("cnae_text"))
             if not cnae_code or cnae_code == "00.00-0-00" or not cnae_text:
                 continue
@@ -74,12 +77,51 @@ def _load_rows(seed_file: Path) -> list[dict[str, Any]]:
     return rows
 
 
-def load_seed(seed_file: Path) -> tuple[int, int, int]:
+def _collect_recalc_targets(
+    db,
+    *,
+    recalculate_all: bool,
+    changed_codes: set[str],
+) -> list[tuple[str, str]]:
+    if not recalculate_all and not changed_codes:
+        return []
+
+    rows = db.execute(
+        select(
+            CompanyProfile.org_id,
+            CompanyProfile.company_id,
+            CompanyProfile.cnaes_principal,
+            CompanyProfile.cnaes_secundarios,
+        ).where(and_(CompanyProfile.org_id.is_not(None), CompanyProfile.company_id.is_not(None)))
+    ).all()
+
+    targets: list[tuple[str, str]] = []
+    for org_id, company_id, cnaes_principal, cnaes_secundarios in rows:
+        if recalculate_all:
+            targets.append((str(org_id), str(company_id)))
+            continue
+        profile_codes = set(extract_cnae_codes(cnaes_principal, cnaes_secundarios))
+        if profile_codes.intersection(changed_codes):
+            targets.append((str(org_id), str(company_id)))
+    return targets
+
+
+def load_seed(
+    seed_file: Path,
+    *,
+    recalculate_affected: bool = False,
+    recalculate_all: bool = False,
+) -> tuple[int, int, int, int]:
+    if recalculate_affected and recalculate_all:
+        raise ValueError("Use apenas um modo de recalculo: --recalculate-affected ou --recalculate-all.")
+
     payload_rows = _load_rows(seed_file)
     db = SessionLocal()
     inserted = 0
     updated = 0
     unchanged = 0
+    recalculated = 0
+    changed_codes: set[str] = set()
     try:
         existing_rows = db.execute(
             select(
@@ -114,10 +156,12 @@ def load_seed(seed_file: Path) -> tuple[int, int, int]:
             current = existing_by_code.get(row["cnae_code"])
             if not current:
                 inserted += 1
+                changed_codes.add(row["cnae_code"])
             elif current == {k: v for k, v in row.items() if k != "cnae_code"}:
                 unchanged += 1
             else:
                 updated += 1
+                changed_codes.add(row["cnae_code"])
 
         if payload_rows:
             stmt = insert(CNAERisk).values(payload_rows)
@@ -136,8 +180,19 @@ def load_seed(seed_file: Path) -> tuple[int, int, int]:
                 },
             )
             db.execute(stmt)
+
+        if recalculate_affected or recalculate_all:
+            targets = _collect_recalc_targets(
+                db,
+                recalculate_all=recalculate_all,
+                changed_codes=changed_codes,
+            )
+            for org_id, company_id in targets:
+                recalculate_company_score(db, org_id, company_id)
+            recalculated = len(targets)
+
         db.commit()
-        return inserted, updated, unchanged
+        return inserted, updated, unchanged, recalculated
     except Exception:
         db.rollback()
         raise
@@ -152,16 +207,40 @@ def main() -> int:
         default=str(ROOT_DIR / "backend" / "seeds" / "cnae_risks.seed.csv"),
         help="Caminho do CSV versionado de seed (default: backend/seeds/cnae_risks.seed.csv).",
     )
+    mode_group = parser.add_mutually_exclusive_group()
+    mode_group.add_argument(
+        "--recalculate-affected",
+        action="store_true",
+        help="Recalcula snapshots de score apenas para empresas impactadas por CNAEs inseridos/atualizados.",
+    )
+    mode_group.add_argument(
+        "--recalculate-all",
+        action="store_true",
+        help="Recalcula snapshots de score para todas as empresas com profile.",
+    )
     args = parser.parse_args()
 
     seed_file = Path(args.seed_file).resolve()
     if not seed_file.exists():
         raise FileNotFoundError(f"Arquivo de seed nao encontrado: {seed_file}")
 
-    inserted, updated, unchanged = load_seed(seed_file)
+    inserted, updated, unchanged, recalculated = load_seed(
+        seed_file,
+        recalculate_affected=args.recalculate_affected,
+        recalculate_all=args.recalculate_all,
+    )
     total = inserted + updated + unchanged
+    recalc_mode = (
+        "all"
+        if args.recalculate_all
+        else "affected"
+        if args.recalculate_affected
+        else "none"
+    )
     print(
-        f"cnae_risks seed carregada: total={total} inserted={inserted} updated={updated} unchanged={unchanged}"
+        "cnae_risks seed carregada: "
+        f"total={total} inserted={inserted} updated={updated} unchanged={unchanged} "
+        f"recalc_mode={recalc_mode} recalculated={recalculated}"
     )
     return 0
 

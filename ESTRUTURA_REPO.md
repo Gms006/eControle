@@ -19,6 +19,7 @@ eControle/
 |  |  |  |  |- alertas.py
 |  |  |  |  |- auth.py
 |  |  |  |  |- certificados.py
+|  |  |  |  |- cnae_risk_suggestions.py
 |  |  |  |  |- companies.py
 |  |  |  |  |- companies_composite.py
 |  |  |  |  |- company_licences.py
@@ -37,6 +38,7 @@ eControle/
 |  |  |  |  |- webhook_certhub.py
 |  |  |- core/
 |  |  |  |- audit.py
+|  |  |  |- cnae.py
 |  |  |  |- config.py
 |  |  |  |- logging.py
 |  |  |  |- normalize.py
@@ -49,6 +51,7 @@ eControle/
 |  |  |  |- session.py
 |  |  |- models/
 |  |  |  |- cnae_risk.py
+|  |  |  |- cnae_risk_suggestion.py
 |  |  |  |- certificate_mirror.py
 |  |  |  |- company.py
 |  |  |  |- company_licence.py
@@ -73,6 +76,7 @@ eControle/
 |  |  |  |- company_process.py
 |  |  |  |- company_profile.py
 |  |  |  |- company_tax.py
+|  |  |  |- cnae_risk_suggestion.py
 |  |  |  |- org.py
 |  |  |  |- token.py
 |  |  |  |- user.py
@@ -89,6 +93,7 @@ eControle/
 |  |  |  |- certificados_mirror.py
 |  |  |  |- certhub_client.py
 |  |  |  |- company_scoring.py
+|  |  |  |- cnae_risk_suggestions.py
 |  |  |  |- licence_detection.py
 |  |  |  |- licence_fs_paths.py
 |  |  |  |- licence_files.py
@@ -126,6 +131,7 @@ eControle/
 |  |  |- 20260311_0018_licences_valid_until_and_scan_runs.py
 |  |  |- 20260311_0019_allow_unregistered_company_on_diversos.py
 |  |  |- 20260313_0020_create_cnae_risks_and_profile_scores.py
+|  |  |- 20260320_0021_create_cnae_risk_suggestions.py
 |  |- scripts/
 |  |  |- backfill_company_scores.py
 |  |  |- load_cnae_risks_seed.py
@@ -142,6 +148,7 @@ eControle/
 |  |  |- test_company_licences_endpoint.py
 |  |  |- test_company_taxes_patch.py
 |  |  |- test_company_scoring.py
+|  |  |- test_cnae_risk_suggestions.py
 |  |  |- test_extra_endpoints.py
 |  |  |- test_health.py
 |  |  |- test_ingest_s7.py
@@ -182,6 +189,7 @@ eControle/
 |  |  |- services/
 |  |  |  |- receitawsBulkSync.js
 |  |- tests_e2e/portal/
+|  |  |- company_scoring.spec.ts
 |  |  |- login_empresas.smoke.spec.ts
 |  |  |- licencas_upload_action.smoke.spec.ts
 |  |  |- company_import_save.smoke.spec.ts
@@ -297,3 +305,26 @@ eControle/
   - recálculo otimizado no watcher e no bulk sync (somente quando há mudança real)
   - testes dedicados em `backend/tests/test_company_scoring.py`
   - script operacional `backend/scripts/backfill_company_scores.py` para popular snapshots legados
+- S10.3 parcial P1 concluido:
+  - helper canonico de CNAE em `backend/app/core/cnae.py`
+  - normalizacao de CNAE aplicada em ingest, bulk ReceitaWS e cálculo de score
+  - script `backend/scripts/load_cnae_risks_seed.py` suporta recálculo no mesmo fluxo:
+    - `--recalculate-affected`
+    - `--recalculate-all`
+- S10.3 parcial (calibragem de catalogo) em andamento:
+  - `backend/seeds/cnae_risks.seed.csv` com tiers/pesos calibrados (nao mais totalmente `LOW/10`)
+  - placeholders invalidos de CNAE tratados como ausencia (`NO_CNAE`) via `backend/app/core/cnae.py`
+  - testes de score cobrindo placeholder, mistura de tiers e recálculo após atualização de catálogo
+- S10.3 fase 3 (frontend + E2E portal) concluida:
+  - `frontend/src/pages/EmpresasScreen.jsx` com score/risco/status, filtro por risco e ordenação por score
+  - tratamento visual defensivo para valores nulos de score
+  - placeholder CNAE `00.00-0-00` não é destacado como CNAE útil na exibição
+  - teste E2E portal em `frontend/tests_e2e/portal/company_scoring.spec.ts`
+- S10.3 subfase de atualização assistida (base segura) entregue:
+  - tabela `cnae_risk_suggestions` com revisão humana obrigatória antes de aplicar em `cnae_risks`
+  - endpoint `backend/app/api/v1/endpoints/cnae_risk_suggestions.py` (`ADMIN|DEV`)
+  - serviço `backend/app/services/cnae_risk_suggestions.py` com:
+    - aprovação transacional (upsert em catálogo + recálculo afetados + auditoria)
+    - edição somente quando `PENDING`
+    - rejeição com marcação de revisão
+  - testes dedicados em `backend/tests/test_cnae_risk_suggestions.py`

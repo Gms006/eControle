@@ -34,6 +34,9 @@ const getStatusFallback = (proc, key) => {
   if (key === "tpi_sync_status") {
     return proc?.tpi_sync_status ?? proc?.tpi;
   }
+  if (key === "taxa_bombeiros_sync_status") {
+    return proc?.taxa_bombeiros_sync_status ?? proc?.taxa_bombeiros ?? proc?.bombeiros;
+  }
   if (key === "taxa_sanitaria_sync_status") {
     return proc?.taxa_sanitaria_sync_status ?? proc?.taxa;
   }
@@ -50,8 +53,9 @@ const FIELD_CONFIG_BY_TYPE = {
   ],
   BOMBEIROS: [
     { key: "area_m2", label: "Área (m²)", priority: "high", format: "area" },
-    { key: "projeto", label: "Projeto", priority: "medium", format: "text" },
+    { key: "taxa_bombeiros_sync_status", label: "Taxa", priority: "high", format: "status" },
     { key: "tpi_sync_status", label: "TPI", priority: "high", format: "status" },
+    { key: "projeto", label: "Projeto", priority: "medium", format: "text" },
   ],
   USO_DO_SOLO: [
     { key: "inscricao_imobiliaria", label: "Inscrição imobiliária", priority: "high", format: "identifier" },
@@ -101,4 +105,3 @@ export const getPriorityTypeFields = (proc, max = 3) =>
   getTypeFields(proc)
     .filter((field) => field.priority === "high")
     .slice(0, max);
-

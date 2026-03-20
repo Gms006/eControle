@@ -12,13 +12,18 @@ from app.core.normalization import (
     normalize_title_case,
 )
 from app.core.org_context import get_current_org
-from app.core.security import require_roles
+from app.core.security import require_roles, verify_password
+from app.models.certificate_mirror import CertificateMirror
 from app.db.session import get_db
 from app.models.company import Company
+from app.models.company_licence import CompanyLicence
+from app.models.company_process import CompanyProcess
 from app.models.company_profile import CompanyProfile
 from app.models.company_tax import CompanyTax
+from app.models.licence_file_event import LicenceFileEvent
 from app.models.org import Org
 from app.models.user import User
+from app.schemas.auth import PasswordConfirmRequest
 from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate, enrich_company_with_profile
 from app.services.company_scoring import recalculate_company_score
 
@@ -259,6 +264,8 @@ def update_company(
                 value = normalize_title_case(value)
             elif key in {"situacao", "status_empresa"}:
                 value = normalize_generic_status(value, strict=False)
+            elif key == "responsavel_fiscal":
+                value = normalize_title_case(value)
             setattr(profile, key, value)
         db.flush()
         recalculate_company_score(db, org.id, company.id)
@@ -294,3 +301,52 @@ def update_company(
     company = enrich_company_with_profile(company)
     company.situacao_debito = "Possui Débito" if has_open else "Sem Débitos"
     return CompanyOut.model_validate(company)
+
+
+@router.delete("/{company_id}")
+def delete_company(
+    company_id: str,
+    payload: PasswordConfirmRequest,
+    db: Session = Depends(get_db),
+    org: Org = Depends(get_current_org),
+    user: User = Depends(require_roles("ADMIN", "DEV")),
+) -> dict:
+    if not verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid password")
+
+    company = (
+        db.query(Company)
+        .filter(Company.id == company_id, Company.org_id == org.id)
+        .first()
+    )
+    if not company:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Company not found")
+
+    try:
+        (
+            db.query(CertificateMirror)
+            .filter(CertificateMirror.org_id == org.id, CertificateMirror.company_id == company.id)
+            .update({CertificateMirror.company_id: None}, synchronize_session=False)
+        )
+        db.query(CompanyProcess).filter(CompanyProcess.org_id == org.id, CompanyProcess.company_id == company.id).delete(
+            synchronize_session=False
+        )
+        db.query(CompanyTax).filter(CompanyTax.org_id == org.id, CompanyTax.company_id == company.id).delete(
+            synchronize_session=False
+        )
+        db.query(CompanyLicence).filter(CompanyLicence.org_id == org.id, CompanyLicence.company_id == company.id).delete(
+            synchronize_session=False
+        )
+        db.query(CompanyProfile).filter(CompanyProfile.org_id == org.id, CompanyProfile.company_id == company.id).delete(
+            synchronize_session=False
+        )
+        db.query(LicenceFileEvent).filter(
+            LicenceFileEvent.org_id == org.id, LicenceFileEvent.company_id == company.id
+        ).delete(synchronize_session=False)
+        db.delete(company)
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to delete company")
+
+    return {"status": "ok"}

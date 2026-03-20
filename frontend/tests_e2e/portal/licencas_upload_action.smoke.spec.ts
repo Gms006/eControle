@@ -68,7 +68,21 @@ test.describe("Licencas assisted upload", () => {
     });
 
     await expect(page.getByText("Upload assistido de licenças")).toBeVisible();
-    await page.getByPlaceholder("Informe o ID da empresa").fill("company-e2e");
+    const uploadDrawer = page.locator("section").filter({
+      has: page.getByRole("heading", { name: "Upload assistido de licenças" }),
+    });
+    const companySelect = uploadDrawer.locator("select").first();
+    await expect(companySelect).toBeVisible();
+    const companyId = await companySelect.evaluate((element) => {
+      const select = element as HTMLSelectElement;
+      const options = Array.from(select.options || []);
+      const firstValid = options.find((opt) => String(opt.value || "").trim() !== "");
+      return firstValid?.value || "";
+    });
+    if (!companyId) {
+      throw new Error("Nenhuma empresa disponível para seleção no upload assistido.");
+    }
+    await companySelect.selectOption(companyId);
     await page.getByRole("button", { name: "Enviar arquivos" }).click();
 
     await expect(page.getByText("Upload concluído: 1/1 arquivos salvos.")).toBeVisible();

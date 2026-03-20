@@ -6,9 +6,11 @@ import { formatStatusDisplay, resolveStatusClass } from "@/lib/status";
 function StatusBadge({ status }) {
   const normalized = normalizeText(status);
   const displayValue = formatStatusDisplay(normalized);
-  const { variant, className } = resolveStatusClass(status);
+  const resolved = resolveStatusClass(status);
+  const variant = typeof resolved === "string" ? resolved : resolved?.variant;
+  const className = typeof resolved === "object" ? resolved?.className : undefined;
   return (
-    <Chip variant={variant} className={className}>
+    <Chip variant={variant || "neutral"} className={className}>
       {displayValue}
     </Chip>
   );

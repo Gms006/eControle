@@ -16,7 +16,8 @@ def _status_key(value: str | None) -> str:
 
 
 def _requires_envio(value: str | None) -> bool:
-    return _status_key(value) in {"em_aberto", "pendente"}
+    key = _status_key(value)
+    return key == "pendente" or key.startswith("pendente_") or key == "em_aberto" or key.startswith("em_aberto_")
 
 
 def _has_data_envio_date(value: str | None) -> bool:

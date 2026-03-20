@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BellRing, Database, Filter } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
@@ -39,6 +39,11 @@ const normalizeItems = (payload: any) => {
 };
 
 const normalizeCnpjDigits = (value: any) => String(value ?? "").replace(/\D/g, "");
+const normalizeTipoProcessoKey = (value: any) =>
+  removeDiacritics(normalizeText(value))
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_");
 
 const hasValue = (value: any) =>
   value !== undefined && value !== null && String(value).trim() !== "";
@@ -299,12 +304,37 @@ const adaptLicencasRecords = (
 const adaptProcessosRecords = (
   processos: any[],
   indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
+  taxasByCompanyId: Map<string, any>,
+  taxasByCnpj: Map<string, any>,
 ) =>
   processos.map((proc) => {
     const raw = proc?.raw && typeof proc.raw === "object" ? proc.raw : {};
     const extra = proc?.extra && typeof proc.extra === "object" ? proc.extra : {};
     const merged = { ...raw, ...proc, ...extra };
     const enriched = enrichWithCompany(merged, indexes);
+    const companyIdKey = String(
+      enriched?.company_id ?? enriched?.empresa_id ?? proc?.company_id ?? proc?.empresa_id ?? "",
+    ).trim();
+    const cnpjDigits = normalizeCnpjDigits(
+      enriched?.cnpj ?? enriched?.cnpj_empresa ?? proc?.cnpj ?? proc?.cnpj_empresa,
+    );
+    const taxa =
+      (companyIdKey && taxasByCompanyId.get(companyIdKey)) ||
+      (cnpjDigits && taxasByCnpj.get(cnpjDigits)) ||
+      null;
+    const tipoKey = normalizeTipoProcessoKey(
+      proc?.process_type ?? proc?.tipo ?? raw?.process_type ?? raw?.tipo,
+    );
+    const isCercon = tipoKey.includes("CERCON") || tipoKey.includes("BOMBEIROS");
+    const isSanitario =
+      tipoKey.includes("ALVARA_SANITARIO") || tipoKey.includes("SANITARIO");
+    const tpiSyncStatus = isCercon ? taxa?.tpi ?? taxa?.taxa_tpi ?? null : null;
+    const taxaBombeirosSyncStatus = isCercon
+      ? taxa?.taxa_bombeiros ?? taxa?.bombeiros ?? null
+      : null;
+    const taxaSanitariaSyncStatus = isSanitario
+      ? taxa?.sanitaria ?? taxa?.taxa_vig_sanitaria ?? null
+      : null;
 
     return {
       ...raw,
@@ -331,6 +361,9 @@ const adaptProcessosRecords = (
         raw?.status ??
         raw?.situacao,
       situacao: proc?.situacao ?? raw?.situacao ?? raw?.status,
+      tpi_sync_status: tpiSyncStatus,
+      taxa_bombeiros_sync_status: taxaBombeirosSyncStatus,
+      taxa_sanitaria_sync_status: taxaSanitariaSyncStatus,
     };
   });
 
@@ -398,6 +431,7 @@ export default function MainApp() {
     tab: AppTabKey;
     preset?: Record<string, any> | null;
   } | null>(null);
+  const contentScrollRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -478,10 +512,26 @@ export default function MainApp() {
         (item: any) => !hasCompanyReference(item) || hasActiveCompanyLink(item, companyIndexes),
       );
 
+      const taxasAdaptadas = adaptTaxasRecords(taxasLinked, companyIndexes);
+      const taxasByCompanyId = new Map<string, any>();
+      const taxasByCnpj = new Map<string, any>();
+      taxasAdaptadas.forEach((taxa) => {
+        const companyKey = String(
+          taxa?.company_id ?? taxa?.empresa_id ?? taxa?.companyId ?? taxa?.empresaId ?? "",
+        ).trim();
+        if (companyKey) {
+          taxasByCompanyId.set(companyKey, taxa);
+        }
+        const cnpjDigits = normalizeCnpjDigits(taxa?.cnpj ?? taxa?.cnpj_empresa ?? taxa?.cnpjEmpresa);
+        if (cnpjDigits) {
+          taxasByCnpj.set(cnpjDigits, taxa);
+        }
+      });
+
       setEmpresas(empresasNormalized);
       setLicencas(adaptLicencasRecords(licencasLinked, companyIndexes));
-      setTaxas(adaptTaxasRecords(taxasLinked, companyIndexes));
-      setProcessos(adaptProcessosRecords(processosLinked, companyIndexes));
+      setTaxas(taxasAdaptadas);
+      setProcessos(adaptProcessosRecords(processosLinked, companyIndexes, taxasByCompanyId, taxasByCnpj));
       setCertificados(certificadosLinked);
 
       if (kpisResponse.status === "fulfilled") {
@@ -521,6 +571,24 @@ export default function MainApp() {
     };
   }, [loadAllData]);
 
+  const loadAllDataWithScrollRestore = useCallback(async () => {
+    const scrollTop = contentScrollRef.current?.scrollTop ?? 0;
+    const ok = await loadAllData();
+    if (contentScrollRef.current) {
+      requestAnimationFrame(() => {
+        if (contentScrollRef.current) {
+          contentScrollRef.current.scrollTop = scrollTop;
+          requestAnimationFrame(() => {
+            if (contentScrollRef.current) {
+              contentScrollRef.current.scrollTop = scrollTop;
+            }
+          });
+        }
+      });
+    }
+    return ok;
+  }, [loadAllData]);
+
   const enqueueToast = useCallback((message: string) => {
     const id = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
     setToasts((prev) => [...prev, { id, message }]);
@@ -545,7 +613,7 @@ export default function MainApp() {
   useEffect(() => {
     const onRefresh = async () => {
       try {
-        await loadAllData();
+        await loadAllDataWithScrollRestore();
         enqueueToast("Dados atualizados.");
       } catch {
         enqueueToast("Falha ao atualizar dados. Use Recarregar para tentar novamente.");
@@ -553,7 +621,7 @@ export default function MainApp() {
     };
     window.addEventListener("econtrole:refresh-data", onRefresh);
     return () => window.removeEventListener("econtrole:refresh-data", onRefresh);
-  }, [enqueueToast, loadAllData]);
+  }, [enqueueToast, loadAllDataWithScrollRestore]);
 
   const handleCopy = useCallback(
     async (value?: string, message?: string) => {
@@ -814,12 +882,12 @@ export default function MainApp() {
             modoFoco={modoFoco}
             onModoFocoChange={setModoFoco}
             onReload={() => {
-              void loadAllData();
+              void loadAllDataWithScrollRestore();
             }}
             onLogout={() => void logout()}
           />
 
-          <div className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass}`}>
+          <div ref={contentScrollRef} className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass}`}>
             <main className="mx-auto max-w-[1500px] px-4 py-4 lg:px-6 lg:py-5">
               <PageTitle
                 title={pageMeta.title}
@@ -905,6 +973,7 @@ export default function MainApp() {
                     <EmpresasScreen
                       filteredEmpresas={filteredEmpresas}
                       empresas={empresas}
+                      certificados={certificados}
                       soAlertas={somenteAlertas}
                       canManageEmpresas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                       extractEmpresaId={extractEmpresaId}

@@ -5,6 +5,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.core.cnae import extract_cnae_codes
 from app.models.cnae_risk import CNAERisk
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
@@ -22,25 +23,10 @@ LICENCE_VALID_UNTIL_FIELDS = (
 )
 
 
-def _normalize_cnae_code(value: Any) -> str | None:
-    code = str(value or "").strip().upper()
-    return code or None
-
-
 def _extract_cnae_codes(profile: CompanyProfile | None) -> list[str]:
     if not profile:
         return []
-    result: set[str] = set()
-    for source in (profile.cnaes_principal, profile.cnaes_secundarios):
-        if not isinstance(source, list):
-            continue
-        for item in source:
-            if not isinstance(item, dict):
-                continue
-            code = _normalize_cnae_code(item.get("code"))
-            if code:
-                result.add(code)
-    return sorted(result)
+    return extract_cnae_codes(profile.cnaes_principal, profile.cnaes_secundarios)
 
 
 def _expiry_weight(next_expiry: date | None, today: date) -> int:

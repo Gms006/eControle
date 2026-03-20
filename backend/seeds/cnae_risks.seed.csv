@@ -16,10 +16,10 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 01.53-9-02,Criação de ovinos  inclusive para produção de lã,LOW,10,LOW,LOW,LOW,,bootstrap,true
 01.61-0-03,Serviço de preparação de terreno  cultivo e colheita,LOW,10,LOW,LOW,LOW,,bootstrap,true
 03.22-1-01,Criação de peixes em água doce,LOW,10,LOW,LOW,LOW,,bootstrap,true
-10.13-9-01,Fabricação de produtos de carne,LOW,10,LOW,LOW,LOW,,bootstrap,true
+10.13-9-01,Fabricação de produtos de carne,HIGH,55,HIGH,MEDIUM,MEDIUM,,calibrated_v1,true
 10.66-0-00,Fabricação de alimentos para animais,LOW,10,LOW,LOW,LOW,,bootstrap,true
-10.91-1-02,Fabricação de produtos de padaria e confeitaria com predominância de produção própria,LOW,10,LOW,LOW,LOW,,bootstrap,true
-10.96-1-00,Fabricação de alimentos e pratos prontos,LOW,10,LOW,LOW,LOW,,bootstrap,true
+10.91-1-02,Fabricação de produtos de padaria e confeitaria com predominância de produção própria,MEDIUM,30,MEDIUM,LOW,LOW,,calibrated_v1,true
+10.96-1-00,Fabricação de alimentos e pratos prontos,HIGH,45,HIGH,MEDIUM,LOW,,calibrated_v1,true
 11.21-6-00,Fabricação de águas envasadas,LOW,10,LOW,LOW,LOW,,bootstrap,true
 14.12-6-01,Confecção de peças do vestuário  exceto roupas íntimas e as confeccionadas sob medida,LOW,10,LOW,LOW,LOW,,bootstrap,true
 14.12-6-02,Confecção  sob medida  de peças do vestuário  exceto roupas íntimas,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -48,12 +48,12 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 33.21-0-00,Instalação de máquinas e equipamentos industriais,LOW,10,LOW,LOW,LOW,,bootstrap,true
 33.29-5-01,Serviços de montagem de móveis de qualquer material,LOW,10,LOW,LOW,LOW,,bootstrap,true
 33.29-5-99,Instalação de outros equipamentos não especificados anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
-38.11-4-00,Coleta de resíduos não-perigosos,LOW,10,LOW,LOW,LOW,,bootstrap,true
-38.21-1-00,Tratamento e disposição de resíduos não-perigosos,LOW,10,LOW,LOW,LOW,,bootstrap,true
+38.11-4-00,Coleta de resíduos não-perigosos,MEDIUM,30,MEDIUM,MEDIUM,MEDIUM,,calibrated_v1,true
+38.21-1-00,Tratamento e disposição de resíduos não-perigosos,HIGH,50,MEDIUM,HIGH,HIGH,,calibrated_v1,true
 38.32-7-00,Recuperação de materiais plásticos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 41.10-7-00,Incorporação de empreendimentos imobiliários,LOW,10,LOW,LOW,LOW,,bootstrap,true
-41.20-4-00,Construção de edifícios,LOW,10,LOW,LOW,LOW,,bootstrap,true
-42.11-1-01,Construção de rodovias e ferrovias,LOW,10,LOW,LOW,LOW,,bootstrap,true
+41.20-4-00,Construção de edifícios,MEDIUM,35,LOW,MEDIUM,MEDIUM,,calibrated_v1,true
+42.11-1-01,Construção de rodovias e ferrovias,MEDIUM,30,LOW,MEDIUM,MEDIUM,,calibrated_v1,true
 42.11-1-02,Pintura para sinalização em pistas rodoviárias e aeroportos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 42.12-0-00,Construção de obras-de-arte especiais,LOW,10,LOW,LOW,LOW,,bootstrap,true
 42.13-8-00,Obras de urbanização - ruas  praças e calçadas,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -66,7 +66,7 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 43.12-6-00,Perfurações e sondagens,LOW,10,LOW,LOW,LOW,,bootstrap,true
 43.13-4-00,Obras de terraplenagem,LOW,10,LOW,LOW,LOW,,bootstrap,true
 43.19-3-00,Serviços de preparação do terreno não especificados anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
-43.21-5-00,Instalações elétricas,LOW,10,LOW,LOW,LOW,,bootstrap,true
+43.21-5-00,Instalações elétricas,MEDIUM,30,LOW,MEDIUM,LOW,,calibrated_v1,true
 43.22-3-01,Instalações hidráulicas  sanitárias e de gás,LOW,10,LOW,LOW,LOW,,bootstrap,true
 43.22-3-02,Instalação e manutenção de sistemas centrais de ar condicionado  de ventilação e refrigeração,LOW,10,LOW,LOW,LOW,,bootstrap,true
 43.29-1-01,Instalação de painéis publicitários,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -82,7 +82,7 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 43.99-1-99,Serviços especializados para construção não especificados anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
 45.11-1-02,Comércio a varejo de automóveis  camionetas e utilitários usados,LOW,10,LOW,LOW,LOW,,bootstrap,true
 45.12-9-01,Representantes comerciais e agentes do comércio de veículos automotores,LOW,10,LOW,LOW,LOW,,bootstrap,true
-45.20-0-01,Serviços de manutenção e reparação mecânica de veículos automotores,LOW,10,LOW,LOW,LOW,,bootstrap,true
+45.20-0-01,Serviços de manutenção e reparação mecânica de veículos automotores,MEDIUM,25,LOW,MEDIUM,LOW,,calibrated_v1,true
 45.20-0-05,Serviços de lavagem  lubrificação e polimento de veículos automotores,LOW,10,LOW,LOW,LOW,,bootstrap,true
 45.30-7-01,Comércio por atacado de peças e acessórios novos para veículos automotores,LOW,10,LOW,LOW,LOW,,bootstrap,true
 45.30-7-03,Comércio a varejo de peças e acessórios novos para veículos automotores,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -115,7 +115,7 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 47.13-0-02,Lojas de variedades  exceto lojas de departamentos ou magazines,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.21-1-03,Comércio varejista de laticínios e frios,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.21-1-04,Comércio varejista de doces  balas  bombons e semelhantes,LOW,10,LOW,LOW,LOW,,bootstrap,true
-47.22-9-01,Comércio varejista de carnes - açougues,LOW,10,LOW,LOW,LOW,,bootstrap,true
+47.22-9-01,Comércio varejista de carnes - açougues,MEDIUM,30,MEDIUM,LOW,LOW,,calibrated_v1,true
 47.23-7-00,Comércio varejista de bebidas,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.24-5-00,Comércio varejista de hortifrutigranjeiros,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.29-6-01,Tabacaria,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -142,7 +142,7 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 47.61-0-03,Comércio varejista de artigos de papelaria,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.63-6-01,Comércio varejista de brinquedos e artigos recreativos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.63-6-04,Comércio varejista de artigos de caça  pesca e camping,LOW,10,LOW,LOW,LOW,,bootstrap,true
-47.71-7-01,Comércio varejista de produtos farmacêuticos  sem manipulação de fórmulas,LOW,10,LOW,LOW,LOW,,bootstrap,true
+47.71-7-01,Comércio varejista de produtos farmacêuticos  sem manipulação de fórmulas,MEDIUM,35,MEDIUM,LOW,LOW,,calibrated_v1,true
 47.72-5-00,Comércio varejista de cosméticos  produtos de perfumaria e de higiene pessoal,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.73-3-00,Comércio varejista de artigos médicos e ortopédicos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.74-1-00,Comércio varejista de artigos de óptica,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -150,27 +150,27 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 47.82-2-01,Comércio varejista de calçados,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.83-1-01,Comércio varejista de artigos de joalheria,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.83-1-02,Comércio varejista de artigos de relojoaria,LOW,10,LOW,LOW,LOW,,bootstrap,true
-47.84-9-00,Comércio varejista de gás liqüefeito de petróleo (GLP),LOW,10,LOW,LOW,LOW,,bootstrap,true
+47.84-9-00,Comércio varejista de gás liqüefeito de petróleo (GLP),HIGH,60,MEDIUM,HIGH,MEDIUM,,calibrated_v1,true
 47.89-0-01,Comércio varejista de suvenires  bijuterias e artesanatos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 47.89-0-02,Comércio varejista de plantas e flores naturais,LOW,10,LOW,LOW,LOW,,bootstrap,true
-47.89-0-04,Comércio varejista de animais vivos e de artigos e alimentos para animais de estimação,LOW,10,LOW,LOW,LOW,,bootstrap,true
-47.89-0-06,Comércio varejista de fogos de artifício e artigos pirotécnicos,LOW,10,LOW,LOW,LOW,,bootstrap,true
+47.89-0-04,Comércio varejista de animais vivos e de artigos e alimentos para animais de estimação,MEDIUM,25,MEDIUM,LOW,LOW,,calibrated_v1,true
+47.89-0-06,Comércio varejista de fogos de artifício e artigos pirotécnicos,HIGH,55,LOW,HIGH,MEDIUM,,calibrated_v1,true
 47.89-0-99,Comércio varejista de outros produtos não especificados anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
 49.21-3-02,Transporte rodoviário coletivo de passageiros  com itinerário fixo  intermunicipal em região metropolitana,LOW,10,LOW,LOW,LOW,,bootstrap,true
 49.23-0-02,Serviço de transporte de passageiros - locação de automóveis com motorista,LOW,10,LOW,LOW,LOW,,bootstrap,true
-49.30-2-01,Transporte rodoviário de carga  exceto produtos perigosos e mudanças  municipal.,LOW,10,LOW,LOW,LOW,,bootstrap,true
-49.30-2-02,Transporte rodoviário de carga  exceto produtos perigosos e mudanças  intermunicipal  interestadual e internacional,LOW,10,LOW,LOW,LOW,,bootstrap,true
-49.30-2-03,Transporte rodoviário de produtos perigosos,LOW,10,LOW,LOW,LOW,,bootstrap,true
-52.12-5-00,Carga e descarga,LOW,10,LOW,LOW,LOW,,bootstrap,true
+49.30-2-01,Transporte rodoviário de carga  exceto produtos perigosos e mudanças  municipal.,MEDIUM,30,LOW,MEDIUM,LOW,,calibrated_v1,true
+49.30-2-02,Transporte rodoviário de carga  exceto produtos perigosos e mudanças  intermunicipal  interestadual e internacional,MEDIUM,35,LOW,MEDIUM,LOW,,calibrated_v1,true
+49.30-2-03,Transporte rodoviário de produtos perigosos,HIGH,65,LOW,HIGH,HIGH,,calibrated_v1,true
+52.12-5-00,Carga e descarga,MEDIUM,25,LOW,MEDIUM,LOW,,calibrated_v1,true
 52.23-1-00,Estacionamento de veículos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 52.50-8-01,Comissaria de despachos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 52.50-8-04,Organização logística do transporte de carga,LOW,10,LOW,LOW,LOW,,bootstrap,true
-56.11-2-01,Restaurantes e similares,LOW,10,LOW,LOW,LOW,,bootstrap,true
-56.11-2-03,Lanchonetes  casas de chá  de sucos e similares,LOW,10,LOW,LOW,LOW,,bootstrap,true
-56.11-2-04,Bares e outros estabelecimentos especializados em servir bebidas  sem entretenimento,LOW,10,LOW,LOW,LOW,,bootstrap,true
-56.20-1-01,Fornecimento de alimentos preparados preponderantemente para empresas,LOW,10,LOW,LOW,LOW,,bootstrap,true
-56.20-1-02,Serviços de alimentação para eventos e recepções - bufê,LOW,10,LOW,LOW,LOW,,bootstrap,true
-56.20-1-04,Fornecimento de alimentos preparados preponderantemente para consumo domiciliar,LOW,10,LOW,LOW,LOW,,bootstrap,true
+56.11-2-01,Restaurantes e similares,HIGH,55,HIGH,MEDIUM,LOW,,calibrated_v1,true
+56.11-2-03,Lanchonetes  casas de chá  de sucos e similares,MEDIUM,40,MEDIUM,MEDIUM,LOW,,calibrated_v1,true
+56.11-2-04,Bares e outros estabelecimentos especializados em servir bebidas  sem entretenimento,MEDIUM,35,MEDIUM,MEDIUM,LOW,,calibrated_v1,true
+56.20-1-01,Fornecimento de alimentos preparados preponderantemente para empresas,HIGH,50,HIGH,MEDIUM,LOW,,calibrated_v1,true
+56.20-1-02,Serviços de alimentação para eventos e recepções - bufê,HIGH,50,HIGH,MEDIUM,LOW,,calibrated_v1,true
+56.20-1-04,Fornecimento de alimentos preparados preponderantemente para consumo domiciliar,MEDIUM,35,MEDIUM,LOW,LOW,,calibrated_v1,true
 58.11-5-00,Edição de livros,LOW,10,LOW,LOW,LOW,,bootstrap,true
 59.11-1-01,Estúdios cinematográficos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 59.11-1-02,Produção de filmes para publicidade,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -225,7 +225,7 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 78.20-5-00,Locação de mão-de-obra temporária,LOW,10,LOW,LOW,LOW,,bootstrap,true
 79.12-1-00,Operadores turísticos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 79.90-2-00,Serviços de reservas e outros serviços de turismo não especificados anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
-80.11-1-01,Atividades de vigilância e segurança privada,LOW,10,LOW,LOW,LOW,,bootstrap,true
+80.11-1-01,Atividades de vigilância e segurança privada,MEDIUM,30,LOW,HIGH,LOW,,calibrated_v1,true
 81.21-4-00,Limpeza em prédios e em domicílios,LOW,10,LOW,LOW,LOW,,bootstrap,true
 81.29-0-00,Atividades de limpeza não especificadas anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
 81.30-3-00,Atividades paisagísticas,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -245,13 +245,13 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 85.99-6-04,Treinamento em desenvolvimento profissional e gerencial,LOW,10,LOW,LOW,LOW,,bootstrap,true
 85.99-6-05,Cursos preparatórios para concursos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 85.99-6-99,Outras atividades de ensino não especificadas anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
-86.30-5-03,Atividade médica ambulatorial restrita a consultas,LOW,10,LOW,LOW,LOW,,bootstrap,true
-86.30-5-04,Atividade odontológica,LOW,10,LOW,LOW,LOW,,bootstrap,true
+86.30-5-03,Atividade médica ambulatorial restrita a consultas,MEDIUM,35,MEDIUM,LOW,LOW,,calibrated_v1,true
+86.30-5-04,Atividade odontológica,MEDIUM,35,MEDIUM,LOW,LOW,,calibrated_v1,true
 86.30-5-06,Serviços de vacinação e imunização humana,LOW,10,LOW,LOW,LOW,,bootstrap,true
 86.30-5-99,Atividades de atenção ambulatorial não especificadas anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
-86.40-2-02,Laboratórios clínicos,LOW,10,LOW,LOW,LOW,,bootstrap,true
-86.40-2-05,Serviços de diagnóstico por imagem com uso de radiação ionizante  exceto tomografia,LOW,10,LOW,LOW,LOW,,bootstrap,true
-86.40-2-99,Atividades de serviços de complementação diagnóstica e terapêutica não especificadas anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
+86.40-2-02,Laboratórios clínicos,HIGH,50,HIGH,MEDIUM,MEDIUM,,calibrated_v1,true
+86.40-2-05,Serviços de diagnóstico por imagem com uso de radiação ionizante  exceto tomografia,HIGH,55,HIGH,MEDIUM,MEDIUM,,calibrated_v1,true
+86.40-2-99,Atividades de serviços de complementação diagnóstica e terapêutica não especificadas anteriormente,MEDIUM,40,MEDIUM,LOW,LOW,,calibrated_v1,true
 86.50-0-03,Atividades de psicologia e psicanálise,LOW,10,LOW,LOW,LOW,,bootstrap,true
 86.50-0-04,Atividades de fisioterapia,LOW,10,LOW,LOW,LOW,,bootstrap,true
 86.50-0-06,Atividades de fonoaudiologia,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -266,7 +266,7 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 91.01-5-00,Atividades de bibliotecas e arquivos,LOW,10,LOW,LOW,LOW,,bootstrap,true
 91.02-3-01,Atividades de museus e de exploração de lugares e prédios históricos e atrações similares,LOW,10,LOW,LOW,LOW,,bootstrap,true
 91.03-1-00,Atividades de jardins botânicos  zoológicos  parques nacionais  reservas ecológicas e áreas de proteção ambiental,LOW,10,LOW,LOW,LOW,,bootstrap,true
-93.13-1-00,Atividades de condicionamento físico,LOW,10,LOW,LOW,LOW,,bootstrap,true
+93.13-1-00,Atividades de condicionamento físico,MEDIUM,25,LOW,MEDIUM,LOW,,calibrated_v1,true
 93.29-8-99,Outras atividades de recreação e lazer não especificadas anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
 94.12-0-99,Outras atividades associativas profissionais,LOW,10,LOW,LOW,LOW,,bootstrap,true
 94.30-8-00,Atividades de associações de defesa de direitos sociais,LOW,10,LOW,LOW,LOW,,bootstrap,true
@@ -275,4 +275,4 @@ cnae_code,cnae_text,risk_tier,base_weight,sanitary_risk,fire_risk,environmental_
 94.99-5-00,Atividades associativas não especificadas anteriormente,LOW,10,LOW,LOW,LOW,,bootstrap,true
 95.21-5-00,Reparação e manutenção de equipamentos eletroeletrônicos de uso pessoal e doméstico,LOW,10,LOW,LOW,LOW,,bootstrap,true
 95.29-1-05,Reparação de artigos do mobiliário,LOW,10,LOW,LOW,LOW,,bootstrap,true
-96.02-5-02,Atividades de estética e outros serviços de cuidados com a beleza,LOW,10,LOW,LOW,LOW,,bootstrap,true
+96.02-5-02,Atividades de estética e outros serviços de cuidados com a beleza,MEDIUM,20,LOW,LOW,LOW,,calibrated_v1,true
