@@ -296,16 +296,22 @@ Status: concluída (backend + frontend + E2E portal)
   - scraper/web crawling;
   - aplicação automática sem revisão.
 
-### S10.3b entrega 2 - consulta de bases oficiais para geração automática de sugestões `PENDING`
+### S10.3b entrega 2b - consulta de bases oficiais priorizadas para geração automática de sugestões `PENDING`
 
 - novas fontes oficiais (adaptadores dedicados):
   - `CGSIM`
   - `ANVISA`
-  - `GOIANIA` (ALF/AMMA/VISA, conforme regra objetiva disponível)
+  - `ANAPOLIS` (fonte municipal oficial prioritária)
+  - `GOIANIA` (fallback/referência municipal)
   - `CBMGO` (referência com dependência de contexto adicional)
 - saída normalizada por finding (`domain`, evidência, referência, confiança, `requires_questionnaire`);
 - orquestrador consulta 1 CNAE ou lote, consolida findings e cria sugestões pendentes;
-- regra mandatória mantida: nenhuma consulta oficial aplica direto em `cnae_risks`;
+- ANÁPOLIS passa a ser default municipal quando nenhuma fonte municipal é informada;
+- GOIANIA permanece disponível somente como fallback/referência (não prioritária);
+- ANVISA usa parser online com prioridade para IN 66/2020 e suporte semântico da RDC 153/2017;
+- CGSIM usa integração resiliente oficial (`URL principal -> /view -> índice`) com modo semi-real rastreável em caso de bloqueio HTTP 403;
+- CBMGO é fonte contextual: não fecha risco final sozinha por CNAE e mantém `requires_questionnaire=true` quando falta contexto de ocupação/edificação;
+- regra mandatória mantida: nenhuma consulta oficial aplica direto em `cnae_risks` (somente `PENDING`);
 - deduplicação: evita recriar sugestão pendente idêntica por CNAE+fonte+conteúdo.
 
 ### Backfill inicial dos snapshots de score (S10.3)
@@ -353,10 +359,12 @@ Fluxo de validação da atualização assistida do catálogo CNAE:
 2. Rodar regressão do motor: `pytest -q backend/tests/test_company_scoring.py`.
 3. Manter o fluxo E2E padrão (`tests_e2e/api` + Playwright portal) para cobertura de regressão geral.
 
-Fluxo de validação da consulta oficial (S10.3b entrega 2):
+Fluxo de validação da consulta oficial (S10.3b entrega 2b):
 1. Rodar `pytest -q backend/tests/test_cnae_official_sources.py`.
 2. Rodar `pytest -q backend/tests/test_cnae_risk_suggestions.py`.
 3. Rodar `pytest -q backend/tests/test_company_scoring.py`.
+4. Rodar E2E API padrão: `pytest -m e2e tests_e2e/api -q`.
+5. Rodar E2E portal padrão: `cd frontend && npm run test:e2e`.
 
 Fluxo operacional do catálogo CNAE (S10.3 parcial):
 1. Editar `backend/seeds/cnae_risks.seed.csv`.

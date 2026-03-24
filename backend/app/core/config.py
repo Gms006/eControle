@@ -49,6 +49,13 @@ class Settings(BaseSettings):
         ]
     )
 
+    # ------------------------------------------------------------------
+    # Agente RFB local (fallback para consulta direta à Receita Federal)
+    # ------------------------------------------------------------------
+    # URL base do processo rfb_agent.py. Altere RFB_AGENT_PORT no .env
+    # se precisar mudar a porta (padrão 8021).
+    RFB_AGENT_URL: str = "http://127.0.0.1:8021"
+
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def _split_cors_origins(cls, value):

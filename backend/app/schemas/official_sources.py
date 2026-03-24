@@ -9,7 +9,7 @@ from app.schemas.cnae_risk_suggestion import CNAERiskSuggestionOut
 
 
 OfficialDomain = Literal["general", "sanitary", "fire", "municipal", "environmental"]
-OfficialSourceName = Literal["CGSIM", "ANVISA", "GOIANIA", "CBMGO"]
+OfficialSourceName = Literal["CGSIM", "ANVISA", "ANAPOLIS", "GOIANIA", "CBMGO"]
 
 
 class OfficialSourceFinding(BaseModel):

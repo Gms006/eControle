@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -7,6 +8,7 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api.v1.api import api_router
+from app.api.v1.endpoints.lookups import ensure_rfb_agent_running, stop_rfb_agent
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.seed import ensure_seed_data
@@ -26,7 +28,15 @@ def seed_dev_data():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     seed_dev_data()
-    yield
+
+    prewarm_task = None
+    try:
+        prewarm_task = asyncio.create_task(ensure_rfb_agent_running())
+        yield
+    finally:
+        if prewarm_task and not prewarm_task.done():
+            prewarm_task.cancel()
+        stop_rfb_agent()
 
 
 app = FastAPI(

@@ -10,6 +10,7 @@ from app.models.cnae_risk_suggestion import CNAERiskSuggestion
 from app.schemas.cnae_risk_suggestion import CNAERiskSuggestionOut
 from app.schemas.official_sources import OfficialSourceError, OfficialSourceFinding, OfficialSourceName
 from app.services.cnae_risk_suggestions import create_suggestion
+from app.services.official_sources.anapolis import lookup_cnae as lookup_anapolis
 from app.services.official_sources.anvisa import lookup_cnae as lookup_anvisa
 from app.services.official_sources.cbmgo import lookup_cnae as lookup_cbmgo
 from app.services.official_sources.cgsim import lookup_cnae as lookup_cgsim
@@ -19,9 +20,12 @@ from app.services.official_sources.goiania import lookup_cnae as lookup_goiania
 OFFICIAL_SOURCE_ADAPTERS: dict[OfficialSourceName, Callable[[str], list[OfficialSourceFinding]]] = {
     "CGSIM": lookup_cgsim,
     "ANVISA": lookup_anvisa,
+    "ANAPOLIS": lookup_anapolis,
     "GOIANIA": lookup_goiania,
     "CBMGO": lookup_cbmgo,
 }
+
+_MUNICIPAL_SOURCES: set[OfficialSourceName] = {"ANAPOLIS", "GOIANIA"}
 
 
 @dataclass
@@ -104,7 +108,7 @@ def run_official_lookup_and_create_suggestions(
     cnae_codes: list[str],
     sources: list[OfficialSourceName] | None = None,
 ) -> OfficialLookupResult:
-    source_names = sources or list(OFFICIAL_SOURCE_ADAPTERS.keys())
+    source_names = _resolve_source_names(sources)
     normalized_codes: list[str] = []
     for item in cnae_codes:
         code = normalize_cnae_code(item)
@@ -141,6 +145,22 @@ def run_official_lookup_and_create_suggestions(
         skipped_duplicates=skipped_duplicates,
         source_errors=source_errors,
     )
+
+
+def _resolve_source_names(sources: list[OfficialSourceName] | None) -> list[OfficialSourceName]:
+    if sources:
+        source_names: list[OfficialSourceName] = []
+        for source in sources:
+            if source not in source_names:
+                source_names.append(source)
+    else:
+        # Municipal default prioritario para Anapolis.
+        source_names = ["CGSIM", "ANVISA", "ANAPOLIS", "CBMGO"]
+
+    if not any(source in _MUNICIPAL_SOURCES for source in source_names):
+        source_names.append("ANAPOLIS")
+
+    return source_names
 
 
 def serialize_created_suggestions(items: list[CNAERiskSuggestion]) -> list[CNAERiskSuggestionOut]:

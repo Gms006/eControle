@@ -307,9 +307,9 @@ Pendente para próxima rodada desta linha:
 - integração com fontes oficiais via scraper/web crawling;
 - automação de proposta por importador (sempre como `PENDING`, sem aplicação automática).
 
-S10.3b entrega 2 (consulta oficial para sugestões pendentes) entregue em 2026-03-20:
+S10.3b entrega 2b (consulta oficial priorizada para sugestões pendentes) entregue em 2026-03-20:
 - camada de adaptadores oficiais em `backend/app/services/official_sources/`:
-  - `cgsim.py`, `anvisa.py`, `goiania.py`, `cbmgo.py`;
+  - `anapolis.py`, `cgsim.py`, `anvisa.py`, `goiania.py`, `cbmgo.py`;
 - schema interno normalizado de findings com:
   - `cnae_code`, `domain`, `official_result`, `suggested_risk_tier`, `suggested_base_weight`,
     `source_name`, `source_reference`, `evidence_excerpt`, `confidence`, `requires_questionnaire`;
@@ -317,13 +317,21 @@ S10.3b entrega 2 (consulta oficial para sugestões pendentes) entregue em 2026-0
   - consulta por CNAE único ou lote,
   - consolida findings,
   - cria sugestões `PENDING` sem tocar em `cnae_risks`,
+  - prioriza `ANAPOLIS` como fonte municipal default quando não há fonte municipal explícita,
+  - mantém `GOIANIA` como fallback/referência (não prioritária),
   - tolera falha de fonte externa sem derrubar resposta inteira,
   - deduplica sugestões pendentes idênticas;
+- regras por fonte:
+  - `ANAPOLIS`: base municipal oficial com Lei 4.438/2025, Uso do Solo, LC 349/2016 (Anexo V) e LC 377/2018 (Anexo Único), preservando rastreabilidade normativa;
+  - `ANVISA`: parser online com prioridade na IN 66/2020 e apoio semântico da RDC 153/2017;
+  - `CGSIM`: integração resiliente de fonte oficial (`principal`, `/view`, `índice`) com modo semi-real documentado para bloqueio HTTP 403;
+  - `CBMGO`: fonte contextual (NT 01/2025 + anexo + NT 14/2025), sem fechar risco final sozinha por CNAE;
 - endpoints `ADMIN|DEV`:
   - `POST /api/v1/catalog/cnae-risk-suggestions/official/lookup`
   - `POST /api/v1/catalog/cnae-risk-suggestions/official/lookup-batch`
 - regra de segurança reforçada:
-  - consulta oficial nunca faz autoapply no catálogo produtivo.
+  - consulta oficial nunca faz autoapply no catálogo produtivo;
+  - toda saída automática desta camada permanece como sugestão `PENDING`.
 
 ## S11 - Polimento de paridade v1
 

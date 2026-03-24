@@ -99,6 +99,7 @@ eControle/
 |  |  |  |- cnae_risk_suggestions.py
 |  |  |  |- official_sources/
 |  |  |  |  |- __init__.py
+|  |  |  |  |- anapolis.py
 |  |  |  |  |- anvisa.py
 |  |  |  |  |- cgsim.py
 |  |  |  |  |- goiania.py
@@ -144,6 +145,7 @@ eControle/
 |  |- scripts/
 |  |  |- backfill_company_scores.py
 |  |  |- load_cnae_risks_seed.py
+|  |  |- rfb_agent.py
 |  |- seeds/
 |  |  |- cnae_risks.seed.csv
 |  |- tests/
@@ -179,8 +181,41 @@ eControle/
 |  |- alembic.ini
 |- frontend/
 |  |- src/
-|  |  |- api/client.ts
-|  |  |- hooks/useAuth.tsx
+|  |  |- api/
+|  |  |  |- client.ts
+|  |  |- components/
+|  |  |  |- header/
+|  |  |  |  |- HeaderMenuPro.jsx
+|  |  |  |  |- BulkSyncManager.jsx
+|  |  |  |- forms/
+|  |  |  |  |- DrawerFormPrimitives.jsx
+|  |  |  |  |- FormSideDrawer.jsx
+|  |  |  |  |- CompanyDrawer.jsx
+|  |  |  |  |- ProcessDrawer.jsx
+|  |  |  |  |- TaxDrawer.jsx
+|  |  |  |- layout/
+|  |  |  |  |- PageTitle.tsx
+|  |  |  |  |- Sidebar.tsx
+|  |  |  |  |- Topbar.tsx
+|  |  |  |- ui/
+|  |  |  |  |- OverlayModal.jsx
+|  |  |  |  |- side-drawer.jsx
+|  |  |- hooks/
+|  |  |  |- useAuth.tsx
+|  |  |  |- useCompanyForm.js
+|  |  |  |- useProcessForm.js
+|  |  |  |- useTaxForm.js
+|  |  |  |- useReceitaWsLookup.js
+|  |  |  |- useReceitaWsBulkSync.js
+|  |  |- lib/
+|  |  |  |- text.js
+|  |  |  |- masks.js
+|  |  |  |- normalization.js
+|  |  |  |- date.js
+|  |  |  |- installment.js
+|  |  |  |- status.js
+|  |  |  |- taxes.js
+|  |  |  |- constants.js
 |  |  |- pages/
 |  |  |  |- MainApp.tsx
 |  |  |  |- PainelScreen.jsx
@@ -193,8 +228,6 @@ eControle/
 |  |  |     |- Login.tsx
 |  |  |     |- ResetPassword.tsx
 |  |  |     |- SetPassword.tsx
-|  |  |- components/
-|  |  |- lib/
 |  |  |- providers/
 |  |  |- services/
 |  |  |  |- receitawsBulkSync.js
@@ -338,12 +371,14 @@ eControle/
     - edição somente quando `PENDING`
     - rejeição com marcação de revisão
   - testes dedicados em `backend/tests/test_cnae_risk_suggestions.py`
-- S10.3b entrega 2 (consulta oficial para propostas pendentes) entregue:
+- S10.3b entrega 2b (consulta oficial priorizada para propostas pendentes) entregue:
   - endpoint `backend/app/api/v1/endpoints/cnae_risk_official_sources.py` (`ADMIN|DEV`)
   - orquestrador `backend/app/services/cnae_official_suggestions.py`
   - adaptadores em `backend/app/services/official_sources/` para:
-    - `CGSIM`, `ANVISA`, `GOIANIA`, `CBMGO`
+    - `ANAPOLIS` (prioritária), `CGSIM`, `ANVISA`, `GOIANIA` (fallback/referência), `CBMGO`
   - schema de findings normalizados em `backend/app/schemas/official_sources.py`
-  - criação automática de sugestões sempre em `PENDING` (sem autoapply)
+  - criação automática de sugestões sempre em `PENDING` (sem autoapply em `cnae_risks`)
+  - `CGSIM` com integração resiliente oficial (`principal -> /view -> índice`) e rastreabilidade em modo semi-real quando houver HTTP 403
+  - `CBMGO` contextual (NT 01/2025 + anexo + NT 14/2025), sem fechamento isolado de risco final por CNAE
   - tolerância a falha por fonte + deduplicação de pendências idênticas
   - testes dedicados em `backend/tests/test_cnae_official_sources.py`

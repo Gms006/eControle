@@ -1,16 +1,15 @@
 // @ts-nocheck
-import { useMemo, useState, type ChangeEvent } from "react";
-import {
-  Bell,
-  Filter,
-  LogOut,
-  RefreshCw,
-  Search,
-  SlidersHorizontal,
-  Star,
-  UserRound,
-} from "lucide-react";
-import HeaderMenuPro from "@/components/HeaderMenuPro";
+import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+ import {
+   Bell,
+   Filter,
+   LogOut,
+   RefreshCw,
+   Search,
+   SlidersHorizontal,
+   Star,
+   UserRound,
+ } from "lucide-react";
 import { Chip } from "@/components/Chip";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { Button } from "@/components/ui/button";
@@ -46,6 +45,7 @@ export default function Topbar({
   onModoFocoChange,
   onLogout,
   onReload,
+  actions,
 }: {
   items: NavItem[];
   activeTab: AppTabKey;
@@ -64,6 +64,7 @@ export default function Topbar({
   onModoFocoChange: (value: boolean) => void;
   onLogout: () => void;
   onReload: () => void;
+  actions?: ReactNode;
 }) {
   const [openAdvancedFilters, setOpenAdvancedFilters] = useState(false);
   const activeFilterCount = useMemo(() => {
@@ -108,7 +109,7 @@ export default function Topbar({
             </Button>
 
             <div className="ml-auto flex items-center gap-2">
-              <HeaderMenuPro />
+              {actions}
               <Button size="icon" variant="secondary" title="Alertas" className="border border-white/20 bg-white/10 text-white hover:bg-white/20">
                 <Bell className="h-4 w-4" />
               </Button>

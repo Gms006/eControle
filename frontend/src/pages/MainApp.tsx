@@ -4,6 +4,7 @@ import { BellRing, Database, Filter } from "lucide-react";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import PageTitle from "@/components/layout/PageTitle";
+import HeaderMenuPro from "@/components/header/HeaderMenuPro";
 import PainelScreen from "./PainelScreen";
 import EmpresasScreen from "./EmpresasScreen";
 import LicencasScreen from "./LicencasScreen";
@@ -881,6 +882,7 @@ export default function MainApp() {
             onSomenteAlertasChange={setSomenteAlertas}
             modoFoco={modoFoco}
             onModoFocoChange={setModoFoco}
+            actions={<HeaderMenuPro />}
             onReload={() => {
               void loadAllDataWithScrollRestore();
             }}
