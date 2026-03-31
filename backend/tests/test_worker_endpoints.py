@@ -7,6 +7,7 @@ from app.models.licence_scan_run import LicenceScanRun
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.models.role import Role
 from app.models.user import User
+from app.models.tax_portal_sync_run import TaxPortalSyncRun
 
 
 def _login(client, email: str, password: str) -> str:
@@ -81,6 +82,38 @@ def _create_receitaws_run() -> str:
     finally:
         db.close()
 
+def _create_tax_portal_run() -> str:
+    db = SessionLocal()
+    try:
+        org = db.query(Org).first()
+        assert org is not None
+        admin_user = db.query(User).filter(User.email == "admin@example.com").first()
+        assert admin_user is not None
+
+        run = TaxPortalSyncRun(
+            org_id=org.id,
+            started_by_user_id=admin_user.id,
+            status="running",
+            trigger_type="manual",
+            dry_run=True,
+            municipio="ANÁPOLIS",
+            limit=5,
+            total=5,
+            processed=2,
+            ok_count=1,
+            error_count=1,
+            skipped_count=3,
+            relogin_count=1,
+            current_cnpj="12345678000199",
+            errors=[{"cnpj": "12345678000199", "error": "Erro de teste"}],
+            summary={"filtered_out_count": 3},
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        return run.id
+    finally:
+        db.close()
 
 def _create_licence_scan_run() -> str:
     db = SessionLocal()
@@ -111,6 +144,7 @@ def test_worker_health_returns_ok(client):
     assert payload["status"] == "ok"
     assert payload["db"] == "ok"
     assert "receitaws_bulk_sync" in payload["jobs_supported"]
+    assert "tax_portal_sync" in payload["jobs_supported"]
     assert "licence_scan_full" in payload["jobs_supported"]
     assert "licence_directory_watcher" in payload["watchers_supported"]
 
@@ -156,3 +190,25 @@ def test_worker_jobs_returns_licence_scan_run_status(client):
     assert payload["status"] == "running"
     assert payload["processed"] == 2
     assert payload["total"] == 4
+
+
+def test_worker_jobs_returns_tax_portal_run_status_with_summary_meta(client):
+    token = _login(client, "admin@example.com", "admin123")
+    run_id = _create_tax_portal_run()
+
+    response = client.get(f"/api/v1/worker/jobs/{run_id}", headers={"Authorization": f"Bearer {token}"})
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["job_id"] == run_id
+    assert payload["job_type"] == "tax_portal_sync"
+    assert payload["source"] == "tax_portal_sync_runs"
+    assert payload["status"] == "running"
+    assert payload["processed"] == 2
+    assert payload["total"] == 5
+    assert payload["errors"]
+    assert payload["meta"]["dry_run"] is True
+    assert payload["meta"]["trigger_type"] == "manual"
+    assert payload["meta"]["municipio"] == "anapolis"
+    assert payload["meta"]["limit"] == 5
+    assert payload["meta"]["relogin_count"] == 1
+    assert payload["meta"]["summary"]["filtered_out_count"] == 3

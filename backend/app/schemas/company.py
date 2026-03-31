@@ -9,7 +9,8 @@ from app.core.fs_dirname import normalize_fs_dirname
 class CompanyCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    cnpj: str
+    cnpj: Optional[str] = None
+    company_cpf: Optional[str] = None
     razao_social: str
     nome_fantasia: Optional[str] = None
     fs_dirname: Optional[str] = None
@@ -27,6 +28,7 @@ class CompanyUpdate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     cnpj: Optional[str] = None
+    company_cpf: Optional[str] = None
     razao_social: Optional[str] = None
     nome_fantasia: Optional[str] = None
     fs_dirname: Optional[str] = None
@@ -63,7 +65,8 @@ class CompanyOut(BaseModel):
 
     id: str
     org_id: str
-    cnpj: str
+    cnpj: Optional[str] = None
+    company_cpf: Optional[str] = None
     razao_social: str
     nome_fantasia: Optional[str] = None
     fs_dirname: Optional[str] = None
@@ -98,6 +101,7 @@ class CompanyOut(BaseModel):
 
 def enrich_company_with_profile(company):
     """Adiciona atributos do profile à instância de Company para serialização"""
+    company.company_cpf = getattr(company, "cpf", None)
     profile = getattr(company, 'profile', None)
     if profile:
         company.inscricao_estadual = profile.inscricao_estadual

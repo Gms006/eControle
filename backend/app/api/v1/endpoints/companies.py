@@ -40,6 +40,26 @@ def _normalize_cnpj(value: str) -> str:
     return digits
 
 
+def _normalize_cpf(value: str) -> str:
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) != 11:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="CPF invalido",
+        )
+    return digits
+
+
+def _normalize_company_document(cnpj: str | None, cpf: str | None) -> tuple[str | None, str | None]:
+    cnpj_value = _normalize_cnpj(cnpj) if str(cnpj or "").strip() else None
+    cpf_value = _normalize_cpf(cpf) if str(cpf or "").strip() else None
+    if not cnpj_value and not cpf_value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe CNPJ ou CPF")
+    if cnpj_value and cpf_value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe apenas um documento (CNPJ ou CPF)")
+    return cnpj_value, cpf_value
+
+
 @router.post("", response_model=CompanyOut)
 def create_company(
     payload: CompanyCreate,
@@ -48,7 +68,10 @@ def create_company(
     _user=Depends(require_roles("ADMIN", "DEV")),
 ) -> CompanyOut:
     data = payload.model_dump(exclude_none=True)
-    data["cnpj"] = _normalize_cnpj(data["cnpj"])
+    cnpj, cpf = _normalize_company_document(data.get("cnpj"), data.get("company_cpf"))
+    data["cnpj"] = cnpj
+    data["cpf"] = cpf
+    data.pop("company_cpf", None)
     if data.get("razao_social"):
         data["razao_social"] = normalize_title_case(data["razao_social"])
     if data.get("nome_fantasia"):
@@ -77,6 +100,7 @@ def list_companies(
     org: Org = Depends(get_current_org),
     user: User = Depends(require_roles("ADMIN", "DEV", "VIEW")),
     cnpj: str | None = Query(default=None),
+    cpf: str | None = Query(default=None),
     razao_social: str | None = Query(default=None),
     is_active: bool | None = Query(default=None),
     include_inactive: bool = Query(default=False),
@@ -91,6 +115,8 @@ def list_companies(
     )
     if cnpj:
         query = query.filter(Company.cnpj == _normalize_cnpj(cnpj))
+    if cpf:
+        query = query.filter(Company.cpf == _normalize_cpf(cpf))
     if razao_social:
         query = query.filter(Company.razao_social.ilike(f"%{razao_social}%"))
     if is_active is not None:
@@ -232,14 +258,20 @@ def update_company(
             detail="Company not found",
         )
     data = payload.model_dump(exclude_unset=True)
-    company_fields = {"cnpj", "razao_social", "nome_fantasia", "fs_dirname", "municipio", "uf", "is_active"}
+    company_fields = {"cnpj", "company_cpf", "razao_social", "nome_fantasia", "fs_dirname", "municipio", "uf", "is_active"}
     profile_fields = set(data.keys()) - company_fields
 
     company_data = {k: v for k, v in data.items() if k in company_fields}
     if company_data.get("is_active") is None:
         company_data.pop("is_active", None)
-    if "cnpj" in company_data and company_data["cnpj"] is not None:
-        company_data["cnpj"] = _normalize_cnpj(company_data["cnpj"])
+    has_doc_update = ("cnpj" in company_data) or ("company_cpf" in company_data)
+    if has_doc_update:
+        next_cnpj = company_data.get("cnpj", company.cnpj)
+        next_cpf = company_data.get("company_cpf", company.cpf)
+        normalized_cnpj, normalized_cpf = _normalize_company_document(next_cnpj, next_cpf)
+        company_data["cnpj"] = normalized_cnpj
+        company_data["cpf"] = normalized_cpf
+        company_data.pop("company_cpf", None)
     if "razao_social" in company_data:
         company_data["razao_social"] = normalize_title_case(company_data["razao_social"])
     if "nome_fantasia" in company_data:

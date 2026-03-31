@@ -63,3 +63,57 @@ def test_create_company_composite_with_taxes_and_licences(client):
     assert company_tax["taxa_funcionamento"] == "em_aberto"
     assert company_tax["taxa_publicidade"] == "isento"
     assert company_tax["tpi"] == "em_aberto"
+
+
+def test_create_company_composite_with_cpf(client):
+    token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/api/v1/companies/composite",
+        headers=headers,
+        json={
+            "company": {
+                "company_cpf": "123.456.789-01",
+                "razao_social": "Profissional Liberal",
+                "municipio": "ANAPOLIS",
+                "uf": "GO",
+            },
+            "profile": {
+                "porte": "ME",
+                "mei": False,
+                "endereco_fiscal": False,
+            },
+            "licences": {
+                "alvara_sanitario": True,
+                "alvara_funcionamento": True,
+                "cercon": False,
+                "licenca_ambiental": False,
+                "certidao_uso_solo": False,
+                "nao_necessita": False,
+            },
+            "taxes": {
+                "funcionamento": True,
+                "publicidade": False,
+                "vigilancia_sanitaria": False,
+                "localizacao_instalacao": False,
+                "ocupacao_area_publica": False,
+                "tpi": False,
+                "vencimento_tpi": None,
+            },
+        },
+    )
+    assert response.status_code == 200
+    company = response.json()
+    assert company["company_cpf"] == "12345678901"
+    assert company["cnpj"] is None
+
+    licences = client.get("/api/v1/licencas", headers=headers)
+    assert licences.status_code == 200
+    company_lic = next(item for item in licences.json() if item["company_id"] == company["id"])
+    assert company_lic["company_cpf"] == "12345678901"
+
+    taxes = client.get("/api/v1/taxas", headers=headers)
+    assert taxes.status_code == 200
+    company_tax = next(item for item in taxes.json() if item["company_id"] == company["id"])
+    assert company_tax["taxa_funcionamento"] == "em_aberto"

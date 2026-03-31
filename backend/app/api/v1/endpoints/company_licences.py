@@ -34,6 +34,7 @@ from app.services.licence_files import (
 )
 from app.services.licence_scan_full import run_licence_scan_full_job
 from app.services.company_scoring import recalculate_company_score
+from app.worker.watchers import process_company_licence_dir
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -61,6 +62,7 @@ def _to_company_licence_out(licence: CompanyLicence, company: Company | None) ->
         **CompanyLicenceOut.model_validate(licence).model_dump(),
         "company_name": company_name,
         "company_cnpj": getattr(company, "cnpj", None),
+        "company_cpf": getattr(company, "cpf", None),
         "company_razao_social": getattr(company, "razao_social", None),
         "company_municipio": getattr(company, "municipio", None) or licence.municipio,
         "sem_vinculo": sem_vinculo,
@@ -241,9 +243,15 @@ async def upload_company_licences_bulk(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Company fs_dirname is missing or invalid",
         )
+    fs_dirname = str(company.fs_dirname or "").strip()
+    if not fs_dirname:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Company fs_dirname is missing or invalid",
+        )
 
     root_dir = Path(settings.EMPRESAS_ROOT_DIR).resolve()
-    base_dir = (root_dir / str(company.fs_dirname) / LICENCES_SUBDIR).resolve()
+    base_dir = (root_dir / fs_dirname / LICENCES_SUBDIR).resolve()
     try:
         base_dir.relative_to(root_dir)
     except ValueError:
@@ -315,6 +323,18 @@ async def upload_company_licences_bulk(
             )
         finally:
             await upload.close()
+
+    if saved_count > 0:
+        try:
+            process_company_licence_dir(db, company, root_dir)
+        except Exception:
+            db.rollback()
+            logger.exception(
+                "licence_upload_post_scan_failed org_id=%s company_id=%s fs_dirname=%s",
+                org.id,
+                company.id,
+                company.fs_dirname,
+            )
 
     return LicenceUploadBulkResponse(
         company_id=company.id,

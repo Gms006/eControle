@@ -195,7 +195,7 @@ def run_receitaws_bulk_sync_job(run_id: str) -> None:
 
         companies = (
             db.query(Company)
-            .filter(Company.org_id == run.org_id, Company.is_active.is_(True))
+            .filter(Company.org_id == run.org_id, Company.is_active.is_(True), Company.cnpj.isnot(None))
             .order_by(Company.created_at.asc())
             .all()
         )

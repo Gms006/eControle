@@ -340,6 +340,27 @@ Status: pendente
 Objetivo:
 - Melhorias de UX, filtros avançados, paginação, ordenação e performance.
 
+### Tax Portal Sync (backend estrutural + Subfase B frontend)
+- run table `tax_portal_sync_runs`
+- service `tax_portal_sync`
+- runtime `tax_portal_runtime`
+- persistência em `company_taxes`
+- integração com `/worker/jobs`
+- script operacional `backend/scripts/run_tax_portal_sync_once.py`
+- fase backend fechada em 2026-03-26:
+  - `dry_run=false` persistindo em `company_taxes`;
+  - `dry_run=true` sem persistência;
+  - `raw.tax_portal_sync` com evidências da run;
+  - recálculo de `status_taxas`;
+  - summary da run com `field_counters`, `companies_with_debits`, `companies_marked_paid`, `filtered_out_count`, `sample_results`;
+  - testes backend adicionais cobrindo persistência/regra `*` e `Pago`/metadados de `/worker/jobs`.
+- Subfase B frontend concluída em 2026-03-26:
+  - service frontend dedicado (`start`, `active`, `status`, `cancel`);
+  - hook dedicado com polling, retomada de run ativa, loading/error e limpeza de intervalo ao desmontar;
+  - manager visual inspirado no BulkSyncManager (progresso, contadores, município, dry-run, run_id, erros recentes e resumo final);
+  - integração na `TaxasScreen` com RBAC (`ADMIN|DEV` inicia/cancela, `VIEW` sem ação);
+  - smoke E2E Playwright: `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`.
+
 ## S12 - Hardening e go-live
 
 Status: pendente

@@ -95,6 +95,7 @@ export default function HeaderMenuPro() {
           mode: detail.mode || "create",
           companyId: detail.companyId || null,
           cnpj: detail.cnpj || null,
+          cpf: detail.cpf || null,
         })
         .catch((error) => alert(error?.message || "Falha ao abrir edição da empresa."));
     };

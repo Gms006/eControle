@@ -8,14 +8,7 @@ import unicodedata
 TITLECASE_LOWER_WORDS = {"da", "de", "do", "das", "dos", "e"}
 TITLECASE_UPPER_WORDS = {"LTDA", "ME", "EPP", "S/A", "EIRELI", "MEI"}
 
-GO_MUNICIPIOS_CANONICAL = {
-    "ANAPOLIS": "ANÁPOLIS",
-    "GOIANIA": "GOIÂNIA",
-    "APARECIDA DE GOIANIA": "APARECIDA DE GOIÂNIA",
-    "PIRENOPOLIS": "PIRÊNÓPOLIS",
-    "TRINDADE": "TRINDADE",
-    "SENADOR CANEDO": "SENADOR CANEDO",
-}
+GO_MUNICIPIOS_CANONICAL = {}
 
 PROCESS_SITUACAO_LABELS = {
     "pendente": "Pendente",
@@ -101,12 +94,12 @@ def normalize_municipio(value: str | None) -> str | None:
     text = normalize_whitespace(value)
     if not text:
         return None
-    normalized = strip_accents(text).upper()
-    normalized = re.sub(r"\s*-\s*", " ", normalized)
+    normalized = strip_accents(text).lower()
+    normalized = re.sub(r"\s*-\s*", " - ", normalized)
     normalized = re.sub(r"\s+", " ", normalized).strip()
     if normalized in GO_MUNICIPIOS_CANONICAL:
         return GO_MUNICIPIOS_CANONICAL[normalized]
-    return normalize_title_case(text)
+    return normalized
 
 
 def normalize_email(value: str | None) -> str | None:

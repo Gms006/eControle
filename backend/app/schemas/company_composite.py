@@ -7,7 +7,8 @@ from app.core.fs_dirname import normalize_fs_dirname
 
 class CompositeCompany(BaseModel):
     model_config = ConfigDict(extra="forbid")
-    cnpj: str
+    cnpj: Optional[str] = None
+    company_cpf: Optional[str] = None
     razao_social: str
     nome_fantasia: Optional[str] = None
     fs_dirname: Optional[str] = None

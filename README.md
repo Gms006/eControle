@@ -2,7 +2,7 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-16)
+## Status atual do projeto (2026-03-26)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
@@ -110,7 +110,7 @@ Base: `http://localhost:8020/api/v1`
   - `POST /dev/receitaws/bulk-sync/{run_id}/cancel`
 - Worker (read-only status):
   - `GET /worker/health` (ADMIN|DEV|VIEW, inclui `jobs_supported` e `watchers_supported`)
-  - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW, suporta `receitaws_bulk_sync` e `licence_scan_full`)
+  - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW, suporta `receitaws_bulk_sync`, `tax_portal_sync` e `licence_scan_full`)
 - Catálogo CNAE (ADMIN|DEV, revisão humana obrigatória):
   - `GET /catalog/cnae-risk-suggestions`
   - `POST /catalog/cnae-risk-suggestions`
@@ -146,6 +146,28 @@ $env:ECONTROLE_PASSWORD="sua_senha"
   - minimizavel
   - fechar pede confirmacao e cancela run
   - se ja houver run ativo, menu retoma o run existente
+
+## Tax Portal Sync (Anápolis)
+
+Feature para consultar taxas no Portal do Cidadão de Anápolis em modo manual ou agendado.
+
+- job type: `tax_portal_sync`
+- execução manual: `POST /api/v1/dev/taxas/portal-sync/start`
+- acompanhamento: `GET /api/v1/dev/taxas/portal-sync/{run_id}`
+- run ativa: `GET /api/v1/dev/taxas/portal-sync/active`
+- cancelamento: `POST /api/v1/dev/taxas/portal-sync/{run_id}/cancel`
+- worker status unificado: `GET /api/v1/worker/jobs/{job_id}`
+
+Observação:
+- o fluxo funcional do portal foi preservado;
+- a feature substitui leitura/escrita em planilha por DB (`companies` + `company_taxes`).
+- backend fase atual concluída (2026-03-26): persistência real em `company_taxes`, `summary` enriquecido, `raw` com evidências da run, recálculo de `status_taxas` e testes backend.
+- Subfase B frontend concluída (2026-03-26):
+  - UI na tela de Taxas (ADMIN/DEV) com gatilho manual;
+  - manager visual com progresso, contadores, município, `dry_run`, `run_id` e últimos erros;
+  - retomada automática de run ativa ao entrar na tela;
+  - cancelamento de run ativa;
+  - smoke E2E portal: `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`.
 
 ## Watcher de licencas (S10.1b)
 
@@ -350,7 +372,7 @@ $env:ECONTROLE_PASSWORD="sua_senha"
 
 Fluxo E2E recomendado (sem ampliar spec visual):
 1. Rodar o backend E2E API.
-2. Rodar o portal E2E existente (`frontend/tests_e2e/portal/company_scoring.spec.ts` incluso).
+2. Rodar o portal E2E existente (incluindo `frontend/tests_e2e/portal/company_scoring.spec.ts` e `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`).
 3. Em cenários de ajuste de catálogo CNAE, executar antes:
    - `python backend/scripts/load_cnae_risks_seed.py --recalculate-affected`
 

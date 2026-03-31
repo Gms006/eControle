@@ -4,9 +4,10 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, ForeignKey, String, UniqueConstraint, Index, func, JSON
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
+from app.core.normalization import normalize_municipio
 
 
 class CompanyLicence(Base):
@@ -41,3 +42,7 @@ class CompanyLicence(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
+
+    @validates("municipio")
+    def _normalize_municipio_value(self, _key: str, value: str | None) -> str | None:
+        return normalize_municipio(value)

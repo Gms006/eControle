@@ -4,6 +4,7 @@ from app.core.security import hash_password
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.company import Company
+from app.models.company_licence import CompanyLicence
 from app.models.org import Org
 from app.models.role import Role
 from app.models.user import User
@@ -175,6 +176,33 @@ def test_upload_bulk_rejects_invalid_extension(client, monkeypatch, tmp_path):
     assert payload["results"][0]["ok"] is False
 
 
+def test_upload_bulk_accepts_fs_dirname_with_accent_and_symbols(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "EMPRESAS_ROOT_DIR", str(tmp_path))
+    token = _login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    org_id = _org_id(client, headers)
+
+    db = SessionLocal()
+    company = Company(
+        org_id=org_id,
+        cnpj="33345678000110",
+        razao_social="Empresa São & Filhos LTDA",
+        fs_dirname="Empresa São & Filhos LTDA",
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+    db.close()
+
+    files = [("items", ("doc.pdf", b"conteudo", "application/pdf"))]
+    multipart = _multipart_payload(company.id, files, [("CERCON", "2026-12-20")])
+    response = client.post("/api/v1/licencas/upload-bulk", headers=headers, files=multipart)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["saved_count"] == 1
+    assert payload["results"][0]["ok"] is True
+
+
 def test_upload_bulk_view_cannot_write(client, monkeypatch, tmp_path):
     monkeypatch.setattr(settings, "EMPRESAS_ROOT_DIR", str(tmp_path))
     _create_view_user()
@@ -245,3 +273,44 @@ def test_upload_bulk_uses_structured_subdir_when_available(client, monkeypatch, 
     payload = response.json()
     assert payload["saved_count"] == 1
     assert (base / "Goiânia - Filial" / "Alvará Bombeiros - Val 20.12.2026.pdf").exists()
+
+
+def test_upload_bulk_updates_projection_immediately(client, monkeypatch, tmp_path):
+    monkeypatch.setattr(settings, "EMPRESAS_ROOT_DIR", str(tmp_path))
+    token = _login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    org_id = _org_id(client, headers)
+
+    db = SessionLocal()
+    company = Company(
+        org_id=org_id,
+        cnpj="62345678000110",
+        razao_social="Empresa Upload Projecao",
+        fs_dirname="Empresa Upload Projecao",
+        municipio="Goiânia",
+    )
+    db.add(company)
+    db.commit()
+    db.refresh(company)
+    db.close()
+
+    files = [("items", ("doc.pdf", b"conteudo-projecao", "application/pdf"))]
+    multipart = _multipart_payload(company.id, files, [("CERCON", "2026-12-20")])
+    response = client.post("/api/v1/licencas/upload-bulk", headers=headers, files=multipart)
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["saved_count"] == 1
+
+    db = SessionLocal()
+    try:
+        row = (
+            db.query(CompanyLicence)
+            .filter(CompanyLicence.org_id == org_id, CompanyLicence.company_id == company.id)
+            .first()
+        )
+        assert row is not None
+        assert row.cercon == "possui"
+        assert row.cercon_valid_until is not None
+        assert row.cercon_valid_until.isoformat() == "2026-12-20"
+    finally:
+        db.close()

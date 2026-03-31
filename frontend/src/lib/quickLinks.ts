@@ -1,4 +1,6 @@
 // src/lib/quickLinks.ts
+import { removeDiacritics } from "@/lib/text";
+
 export function onlyDigits(v: string = ""): string {
   return v.replace(/\D+/g, "");
 }
@@ -94,4 +96,57 @@ export async function openCAEAnapolis(
     "_blank",
     "noopener,noreferrer",
   );
+}
+
+const PREFEITURA_PORTAL_BY_MUNICIPIO: Record<string, string> = {
+  "belo horizonte": "https://prefeitura.pbh.gov.br/",
+  ceres: "https://ceres.go.gov.br/",
+  pirenopolis: "https://pirenopolis.go.gov.br/",
+  "corumba de goias": "https://corumbadegoias.go.gov.br/",
+  niquelandia: "https://niquelandia.go.gov.br/",
+  goianesia: "https://goianesia.go.gov.br/",
+  "gameleira de goias": "https://www.gameleiradegoias.go.gov.br/home",
+  cuiaba: "https://www.cuiaba.mt.gov.br/",
+  silvania: "https://silvania.go.gov.br/",
+  anapolis: "https://www.anapolis.go.gov.br/",
+  abadiania: "https://www.abadiania.go.gov.br/",
+  "rio branco": "https://www.riobranco.ac.gov.br/",
+  uruacu: "https://uruacu.go.gov.br/",
+  goianapolis: "https://goianapolis.go.gov.br/",
+  coribe: "https://www.coribe.ba.gov.br/",
+  catalao: "https://catalao.go.gov.br/",
+  rubiataba: "https://rubiataba.go.gov.br/",
+  rialma: "https://rialma.go.gov.br/",
+  goiania: "https://www.goiania.go.gov.br/",
+  uruana: "https://uruana.go.gov.br/",
+  "abadia de goias": "https://abadiadegoias.go.gov.br/",
+  trindade: "https://trindade.go.gov.br/",
+  "valparaiso de goias": "https://valparaisodegoias.go.gov.br/",
+  neropolis: "https://neropolis.go.gov.br/",
+  itapaci: "https://itapaci.go.gov.br/",
+  alexania: "https://alexania.go.gov.br/",
+  mozarlandia: "https://mozarlandia.go.gov.br/",
+  "vila propicio": "https://vilapropicio.go.gov.br/",
+  "carmo do rio verde": "https://www.carmodorioverde.go.gov.br/",
+  jaragua: "https://jaragua.go.gov.br/",
+};
+
+const normalizeMunicipioPortalKey = (value: string = "") =>
+  removeDiacritics(String(value || "").toLowerCase())
+    .replace(/\s*-\s*[a-z]{2}\s*$/i, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+export function openPortalPrefeitura(
+  municipioRaw: string,
+  onToast?: (msg: string) => void,
+) {
+  const key = normalizeMunicipioPortalKey(municipioRaw || "");
+  const url = key ? PREFEITURA_PORTAL_BY_MUNICIPIO[key] : undefined;
+  if (!url) {
+    onToast?.("Portal da Prefeitura não mapeado para este município.");
+    return;
+  }
+  onToast?.("Abrindo portal da Prefeitura.");
+  window.open(url, "_blank", "noopener,noreferrer");
 }

@@ -14,6 +14,8 @@ export default function CompanyDrawer({ state }) {
   const { modal, form, setForm } = state;
 
   const update = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+  const isCpfDocument = form.document_type === "cpf";
+  const maskedDocument = isCpfDocument ? maskCpf(form.documento) : maskCnpj(form.documento);
 
   return (
     <FormSideDrawer
@@ -41,19 +43,38 @@ export default function CompanyDrawer({ state }) {
         <SectionCard title="Dados principais" description="Identificação e situação da empresa">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div className="md:col-span-2">
-              <label className="text-xs font-medium">CNPJ</label>
+              <label className="text-xs font-medium">Documento</label>
+              <div className="mt-1 mb-2">
+                <select
+                  className={FIELD_CLASS}
+                  value={form.document_type}
+                  onChange={(e) => {
+                    const nextType = e.target.value;
+                    update({
+                      document_type: nextType,
+                      documento: "",
+                      porte: nextType === "cpf" ? "PF" : form.porte === "PF" ? "" : form.porte,
+                      representante: nextType === "cpf" ? "" : form.representante,
+                      cpf: nextType === "cpf" ? "" : form.cpf,
+                    });
+                  }}
+                >
+                  <option value="cnpj">CNPJ</option>
+                  <option value="cpf">CPF</option>
+                </select>
+              </div>
 
               {/* Linha principal: campo CNPJ + botão Importar */}
               <div className="mt-1 flex gap-2">
                 <Input
                   className={FIELD_CLASS}
-                  value={form.cnpj}
-                  onChange={(e) => update({ cnpj: maskCnpj(e.target.value) })}
+                  value={maskedDocument}
+                  onChange={(e) => update({ documento: e.target.value })}
                 />
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded-md bg-[#0e2659] px-3 py-2 text-sm font-semibold text-white hover:bg-[#22489c] disabled:opacity-70"
-                  disabled={state.lookupLoading || state.rfbLoading}
+                  disabled={isCpfDocument || state.lookupLoading || state.rfbLoading}
                   onClick={() => state.importFromReceitaWs().catch((e) => alert(e.message))}
                 >
                   <Import className="h-4 w-4" />
@@ -67,7 +88,7 @@ export default function CompanyDrawer({ state }) {
               ) : null}
 
               {/* Botão de fallback RFB — aparece quando ReceitaWS retorna sem dados úteis */}
-              {state.showRfbButton ? (
+              {state.showRfbButton && !isCpfDocument ? (
                 <div className="mt-2 flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <button
@@ -114,7 +135,7 @@ export default function CompanyDrawer({ state }) {
             </div>
 
             <div className="md:col-span-2">
-              <label className="text-xs font-medium">Razão Social</label>
+              <label className="text-xs font-medium">{isCpfDocument ? "Nome" : "Razão Social"}</label>
               <Input
                 className={FIELD_CLASS}
                 value={form.razao_social}
@@ -153,6 +174,7 @@ export default function CompanyDrawer({ state }) {
               <Input
                 className={FIELD_CLASS}
                 value={form.porte}
+                disabled={isCpfDocument}
                 onChange={(e) => update({ porte: normalizePorteSigla(e.target.value) })}
               />
             </div>
@@ -250,23 +272,27 @@ export default function CompanyDrawer({ state }) {
 
         <SectionCard title="Contato" description="Responsáveis e canais de contato">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <div className="md:col-span-2">
-              <label className="text-xs font-medium">Representante Legal</label>
-              <Input
-                className={FIELD_CLASS}
-                value={form.representante}
-                onChange={(e) => update({ representante: e.target.value })}
-              />
-            </div>
+            {!isCpfDocument ? (
+              <>
+                <div className="md:col-span-2">
+                  <label className="text-xs font-medium">Representante Legal</label>
+                  <Input
+                    className={FIELD_CLASS}
+                    value={form.representante}
+                    onChange={(e) => update({ representante: e.target.value })}
+                  />
+                </div>
 
-            <div>
-              <label className="text-xs font-medium">CPF</label>
-              <Input
-                className={FIELD_CLASS}
-                value={form.cpf}
-                onChange={(e) => update({ cpf: maskCpf(e.target.value) })}
-              />
-            </div>
+                <div>
+                  <label className="text-xs font-medium">CPF</label>
+                  <Input
+                    className={FIELD_CLASS}
+                    value={form.cpf}
+                    onChange={(e) => update({ cpf: maskCpf(e.target.value) })}
+                  />
+                </div>
+              </>
+            ) : null}
 
             <div>
               <label className="text-xs font-medium">E-mail</label>

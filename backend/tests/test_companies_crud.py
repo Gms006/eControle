@@ -199,7 +199,7 @@ def test_companies_municipios_distinct_normalized(client):
     municipios = client.get("/api/v1/companies/municipios", headers=headers)
     assert municipios.status_code == 200
     values = municipios.json()
-    assert values.count("ANÁPOLIS") == 1
+    assert values.count("anapolis") == 1
 
 
 def test_company_isolation_between_orgs(client):
@@ -276,3 +276,51 @@ def test_view_cannot_patch_company_fs_dirname(client):
         json={"fs_dirname": "Nao Pode"},
     )
     assert view_patch.status_code == 403
+
+
+def test_admin_can_create_company_with_cpf(client):
+    admin_token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    create_response = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={
+            "company_cpf": "123.456.789-01",
+            "razao_social": "Pessoa Fisica Teste",
+            "municipio": "Anápolis",
+            "uf": "GO",
+        },
+    )
+    assert create_response.status_code == 200
+    payload = create_response.json()
+    assert payload["company_cpf"] == "12345678901"
+    assert payload["cnpj"] is None
+
+    list_response = client.get("/api/v1/companies?cpf=12345678901", headers=headers)
+    assert list_response.status_code == 200
+    assert len(list_response.json()) == 1
+    assert list_response.json()[0]["id"] == payload["id"]
+
+
+def test_create_company_requires_single_document(client):
+    admin_token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {admin_token}"}
+
+    missing_doc = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={"razao_social": "Sem Documento"},
+    )
+    assert missing_doc.status_code == 400
+
+    both_docs = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={
+            "cnpj": "12.345.678/0001-90",
+            "company_cpf": "123.456.789-01",
+            "razao_social": "Documento Duplicado",
+        },
+    )
+    assert both_docs.status_code == 400

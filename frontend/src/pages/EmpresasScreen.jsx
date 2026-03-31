@@ -13,9 +13,10 @@ import { ArrowDownAZ, ArrowUpZA, Clipboard, EllipsisVertical, ExternalLink, File
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { buildCertificadoIndex, categorizeCertificadoSituacao, resolveEmpresaCertificadoSituacao } from "@/lib/certificados";
 import { parseDateLike } from "@/lib/date";
+import { formatMunicipioDisplay } from "@/lib/normalization";
 import { cn } from "@/lib/utils";
 import { getStatusKey, hasPendingFraction, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
-import { openCartaoCNPJ, onlyDigits } from "@/lib/quickLinks";
+import { openCartaoCNPJ, onlyDigits, openPortalPrefeitura } from "@/lib/quickLinks";
 
 const VIEW_MODE_KEY = "econtrole.empresas.viewMode";
 
@@ -42,15 +43,17 @@ const resolveEmpresaIdValue = (empresa, extractEmpresaId) =>
   empresa?.company_id ??
   empresa?.companyId ??
   empresa?.id;
-const companyCnpjDigits = (item) =>
-  onlyDigits(item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? "");
+const companyDocumentDigits = (item) =>
+  onlyDigits(item?.cnpj ?? item?.company_cpf ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? "");
+const companyDocumentLabel = (item) => (item?.cnpj ? "CNPJ" : item?.company_cpf ? "CPF" : "Documento");
+const companyDocumentValue = (item) => item?.cnpj || item?.company_cpf || "";
 const findListByEmpresa = (map, empresaId, empresaCnpj) => {
   if (empresaId && map?.has(empresaId)) return map.get(empresaId) || [];
   const target = onlyDigits(empresaCnpj || "");
   if (!target) return [];
   for (const value of map?.values?.() || []) {
     const list = Array.isArray(value) ? value : [value];
-    const matched = list.filter((entry) => companyCnpjDigits(entry) === target);
+    const matched = list.filter((entry) => companyDocumentDigits(entry) === target);
     if (matched.length > 0) return matched;
   }
   return [];
@@ -60,7 +63,7 @@ const findTaxaByEmpresa = (map, empresaId, empresaCnpj) => {
   const target = onlyDigits(empresaCnpj || "");
   if (!target) return undefined;
   for (const taxa of map?.values?.() || []) {
-    if (companyCnpjDigits(taxa) === target) return taxa;
+    if (companyDocumentDigits(taxa) === target) return taxa;
   }
   return undefined;
 };
@@ -217,16 +220,22 @@ export default function EmpresasScreen({
     const empresaId = resolveEmpresaIdValue(empresa, extractEmpresaId);
     window.dispatchEvent(
       new CustomEvent("econtrole:open-company", {
-        detail: { mode: "edit", companyId: empresaId || null, cnpj: empresa?.cnpj || null },
+        detail: {
+          mode: "edit",
+          companyId: empresaId || null,
+          cnpj: empresa?.cnpj || null,
+          cpf: empresa?.company_cpf || null,
+        },
       })
     );
   }, [extractEmpresaId]);
 
   const rows = React.useMemo(() => filteredEmpresas.map((empresa) => {
     const empresaId = resolveEmpresaIdValue(empresa, extractEmpresaId);
-    const lics = findListByEmpresa(licencasByEmpresa, empresaId, empresa?.cnpj);
-    const processos = findListByEmpresa(processosByEmpresa, empresaId, empresa?.cnpj);
-    const taxa = findTaxaByEmpresa(taxasByEmpresa, empresaId, empresa?.cnpj);
+    const document = companyDocumentValue(empresa);
+    const lics = findListByEmpresa(licencasByEmpresa, empresaId, document);
+    const processos = findListByEmpresa(processosByEmpresa, empresaId, document);
+    const taxa = findTaxaByEmpresa(taxasByEmpresa, empresaId, document);
     const ativos = processos.filter((proc) => !isProcessStatusInactive(proc.status));
     const licSummary = lics.reduce((acc, lic) => {
       if (!hasRelevantStatus(lic.status)) return acc;
@@ -244,6 +253,7 @@ export default function EmpresasScreen({
     const scoreUrgenciaRaw = empresa?.score_urgencia ?? empresa?.scoreUrgencia;
     const scoreUrgencia = Number.isFinite(scoreUrgenciaRaw) ? Number(scoreUrgenciaRaw) : null;
     const scoreStatus = String(empresa?.score_status ?? empresa?.scoreStatus ?? "").trim().toUpperCase() || null;
+    const isCpfCompany = Boolean(empresa?.company_cpf) && !Boolean(empresa?.cnpj);
     return {
       empresa,
       empresaId: empresaId ? String(empresaId) : undefined,
@@ -255,6 +265,7 @@ export default function EmpresasScreen({
       scoreUrgencia,
       riscoConsolidado,
       scoreStatus,
+      isCpfCompany,
       hasUsefulCnae: usefulCnaes.length > 0,
       certificadoValido,
       flags: {
@@ -379,7 +390,7 @@ export default function EmpresasScreen({
                   <TableHead>
                     <SortButton label="Nome" active={sortBy.field === "nome"} direction={sortBy.direction} onClick={() => toggleSort("nome")} />
                   </TableHead>
-                  <TableHead>CNPJ</TableHead>
+                  <TableHead>Documento</TableHead>
                   <TableHead>Município</TableHead>
                   <TableHead>
                     <SortButton label="Status" active={sortBy.field === "status"} direction={sortBy.direction} onClick={() => toggleSort("status")} />
@@ -406,13 +417,13 @@ export default function EmpresasScreen({
               <TableBody>
                 {filteredRows.map((row) => (
                   <TableRow
-                    key={row.empresaId ?? row.empresa?.id ?? row.empresa?.cnpj}
+                    key={row.empresaId ?? row.empresa?.id ?? companyDocumentValue(row.empresa)}
                     className="hover:shadow-[inset_0_0_0_1px_rgba(37,99,235,0.15)]"
                     data-testid="company-card"
                   >
                     <TableCell className="font-medium text-slate-900">{row.empresa?.empresa || "—"}</TableCell>
-                    <TableCell>{row.empresa?.cnpj || "—"}</TableCell>
-                    <TableCell>{row.empresa?.municipio || "—"}</TableCell>
+                    <TableCell>{companyDocumentValue(row.empresa) || "—"}</TableCell>
+                    <TableCell>{formatMunicipioDisplay(row.empresa?.municipio) || "—"}</TableCell>
                     <TableCell><StatusBadge status={resolveCompanyStatus(row.empresa)} /></TableCell>
                     <TableCell data-testid="company-score-value">{Number.isFinite(row.scoreUrgencia) ? row.scoreUrgencia : "—"}</TableCell>
                     <TableCell data-testid="company-risk-badge"><Chip variant={riskChipVariant(row.riscoConsolidado)}>{formatRiskLabel(row.riscoConsolidado)}</Chip></TableCell>
@@ -433,10 +444,15 @@ export default function EmpresasScreen({
                           {canManageEmpresas ? (
                             <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(row.empresa)} />
                           ) : null}
-                          <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
+                          {row.empresa?.cnpj ? (
+                            <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
+                          ) : null}
+                          <DropdownMenuItemFancy icon={ExternalLink} title="Portal Prefeitura" description="Abrir portal da Prefeitura" onClick={() => openPortalPrefeitura(row.empresa?.municipio, toast)} />
                           {row.empresa?.email ? <DropdownMenuItemFancy icon={Mail} title="Copiar e-mail" description={row.empresa.email} onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)} /> : null}
                           {row.empresa?.telefone ? <DropdownMenuItemFancy icon={Phone} title="Copiar telefone" description={row.empresa.telefone} onClick={() => handleCopy(row.empresa.telefone, `Telefone copiado: ${row.empresa.telefone}`)} /> : null}
-                          <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar últimas CNDs" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
+                          {row.empresa?.cnpj ? (
+                            <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar últimas CNDs" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
+                          ) : null}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -449,11 +465,11 @@ export default function EmpresasScreen({
       ) : (
         <div className="grid gap-3 lg:grid-cols-2" data-testid="companies-grid">
           {filteredRows.map((row) => (
-            <Card key={row.empresaId ?? row.empresa?.id ?? row.empresa?.cnpj} className="border-subtle bg-card transition hover:border-strong hover:shadow-card-hover focus-within:ring-2 focus-within:ring-blue-300" data-testid="company-card">
+            <Card key={row.empresaId ?? row.empresa?.id ?? companyDocumentValue(row.empresa)} className="border-subtle bg-card transition hover:border-strong hover:shadow-card-hover focus-within:ring-2 focus-within:ring-blue-300" data-testid="company-card">
               <CardContent className="space-y-3 p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-3">
-                    <CompanyAvatar name={row.empresa?.empresa} seed={row.empresa?.id ?? row.empresa?.cnpj} className="h-12 w-12 rounded-2xl text-sm" />
+                    <CompanyAvatar name={row.empresa?.empresa} seed={row.empresa?.id ?? companyDocumentValue(row.empresa)} className="h-12 w-12 rounded-2xl text-sm" />
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
                         <h3 className="truncate text-base font-semibold text-primary">{row.empresa?.empresa}</h3>
@@ -463,12 +479,12 @@ export default function EmpresasScreen({
                         </Chip>
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
-                        <CopyableIdentifier label="CNPJ" value={row.empresa?.cnpj} onCopy={handleCopy} />
+                        <CopyableIdentifier label={companyDocumentLabel(row.empresa)} value={companyDocumentValue(row.empresa)} onCopy={handleCopy} />
                         <span>•</span>
                         <CopyableIdentifier label="IE" value={row.empresa?.ie} onCopy={handleCopy} />
                         <span>•</span>
                         <CopyableIdentifier label="IM" value={row.empresa?.im} onCopy={handleCopy} />
-                        <span>• {row.empresa?.municipio || "—"}</span>
+                        <span>• {formatMunicipioDisplay(row.empresa?.municipio) || "—"}</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5 text-xs">
                         <Chip>Categoria: {row.empresa?.categoria || "—"}</Chip>
@@ -498,8 +514,13 @@ export default function EmpresasScreen({
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild><Button size="sm"><Clipboard className="mr-1.5 h-3.5 w-3.5" /> Ações rápidas</Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
-                      <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
-                      <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar últimas CNDs" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
+                      {row.empresa?.cnpj ? (
+                        <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
+                      ) : null}
+                      <DropdownMenuItemFancy icon={ExternalLink} title="Portal Prefeitura" description="Abrir portal da Prefeitura" onClick={() => openPortalPrefeitura(row.empresa?.municipio, toast)} />
+                      {row.empresa?.cnpj ? (
+                        <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar últimas CNDs" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
+                      ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
                   {canManageEmpresas ? (
@@ -510,7 +531,10 @@ export default function EmpresasScreen({
                       <Button size="sm" variant="outline"><File className="mr-1.5 h-3.5 w-3.5" /> Certidões</Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
-                      <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar CNDs no backend" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
+                      {row.empresa?.cnpj ? (
+                        <DropdownMenuItemFancy icon={File} title="Atualizar certidões" description="Buscar CNDs no backend" onClick={() => ensureCNDs(row.empresa?.cnpj, { force: true })} />
+                      ) : null}
+                      {row.empresa?.cnpj ? (
                       <DropdownMenuItemFancy
                         icon={File}
                         title="Abrir última CND"
@@ -524,6 +548,8 @@ export default function EmpresasScreen({
                           else toast?.("Nenhuma CND encontrada para esta empresa.");
                         }}
                       />
+                      ) : null}
+                      {row.empresa?.cnpj ? (
                       <DropdownMenuItemFancy
                         icon={File}
                         title="Abrir última CAE"
@@ -537,6 +563,7 @@ export default function EmpresasScreen({
                           else toast?.("Nenhuma CAE encontrada para esta empresa.");
                         }}
                       />
+                      ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
@@ -544,8 +571,12 @@ export default function EmpresasScreen({
                   <summary className="cursor-pointer text-xs font-semibold uppercase tracking-wide text-muted">Mais Detalhes</summary>
                   <div className="mt-2 space-y-1 text-xs text-slate-700">
                     <p><span className="font-semibold">Responsável Fiscal:</span> {row.empresa?.responsavel_fiscal || row.empresa?.responsavelFiscal || "—"}</p>
-                    <p><span className="font-semibold">Responsável Legal:</span> {row.empresa?.proprietario_principal || row.empresa?.responsavel_legal || row.empresa?.responsavelLegal || row.empresa?.representante || "—"}</p>
-                    <p><span className="font-semibold">CPF Responsável Legal:</span> {row.empresa?.cpf || row.empresa?.cpf_responsavel_legal || row.empresa?.cpfResponsavelLegal || "—"}</p>
+                    {!row.isCpfCompany ? (
+                      <p><span className="font-semibold">Responsável Legal:</span> {row.empresa?.proprietario_principal || row.empresa?.responsavel_legal || row.empresa?.responsavelLegal || row.empresa?.representante || "—"}</p>
+                    ) : null}
+                    {!row.isCpfCompany ? (
+                      <p><span className="font-semibold">CPF Responsável Legal:</span> {row.empresa?.cpf || row.empresa?.cpf_responsavel_legal || row.empresa?.cpfResponsavelLegal || "—"}</p>
+                    ) : null}
                     <p><span className="font-semibold">Porte:</span> {row.empresa?.porte || "—"}</p>
                     {(row.empresa?.observacoes || "").trim() ? <p><span className="font-semibold">Observação:</span> {row.empresa.observacoes}</p> : null}
                     <p>

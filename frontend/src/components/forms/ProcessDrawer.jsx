@@ -4,7 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { FieldRow, SectionCard, SecondaryButton } from "@/components/forms/DrawerFormPrimitives";
 import FormSideDrawer from "@/components/ui/FormSideDrawer";
-import { maskCnpj, normalizeDigits } from "@/lib/masks";
+import { maskCnpj, maskCpf, normalizeDigits } from "@/lib/masks";
 import {
   PROCESS_CERCON_TAX_FIELDS,
   TAX_STATUS_OPTION_ITEMS,
@@ -17,6 +17,11 @@ export default function ProcessDrawer({ state }) {
   const { modal, form, setForm } = state;
 
   const update = (patch) => setForm((prev) => ({ ...prev, ...patch }));
+  const maskDocument = (value) => {
+    const digits = normalizeDigits(value || "");
+    if (digits.length <= 11) return maskCpf(digits);
+    return maskCnpj(digits);
+  };
 
   return (
     <FormSideDrawer
@@ -99,7 +104,7 @@ export default function ProcessDrawer({ state }) {
                   <option value="">Selecione</option>
                   {state.companyOptions.map((item) => (
                     <option key={item.id} value={item.id}>
-                      {(item.razao_social || "Empresa")} - {maskCnpj(item.cnpj)}
+                      {(item.razao_social || "Empresa")} - {maskDocument(item.cnpj || item.company_cpf)}
                     </option>
                   ))}
                 </select>

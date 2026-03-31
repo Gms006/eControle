@@ -191,13 +191,17 @@ def is_safe_fs_dirname(dirname: str | None) -> bool:
     value = str(dirname or "").strip()
     if not value:
         return False
+    if value in {".", ".."}:
+        return False
+    if "\x00" in value:
+        return False
     if value.startswith("/") or value.startswith("\\"):
         return False
     if ".." in value:
         return False
     if ":" in value or "\\" in value or "/" in value:
         return False
-    return bool(re.fullmatch(r"[A-Za-z0-9 _.\-]+", value))
+    return True
 
 
 def sha256_bytes(content: bytes) -> str:

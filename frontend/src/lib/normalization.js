@@ -4,15 +4,20 @@ const LOWER_WORDS = new Set(["da", "de", "do", "das", "dos", "e"]);
 const UPPER_WORDS = new Set(["LTDA", "ME", "EPP", "S/A", "EIRELI", "MEI"]);
 
 const MUNICIPIO_DISPLAY_MAP = {
+  "abadia de goias": "Abadia de Goiás",
   abadia: "Abadia",
   abadiania: "Abadiânia",
   alexania: "Alexânia",
   "aparecida de goiania": "Aparecida de Goiânia",
   anapolis: "Anápolis",
+  "belo horizonte": "Belo Horizonte",
+  coribe: "Coribe",
+  "corumba de goias": "Corumbá de Goiás",
   catalao: "Catalão",
   ceres: "Ceres",
   "carmo do rio verde": "Carmo do Rio Verde",
   corumba: "Corumbá",
+  cuiaba: "Cuiabá",
   "cuiaba - mt": "Cuiabá - MT",
   gameleira: "Gameleira de Goiás",
   "gameleira de goias": "Gameleira de Goiás",
@@ -28,6 +33,7 @@ const MUNICIPIO_DISPLAY_MAP = {
   rialma: "Rialma",
   rubiataba: "Rubiataba",
   "rio branco - ac": "Rio Branco - AC",
+  "rio branco": "Rio Branco",
   "senador canedo": "Senador Canedo",
   silvania: "Silvânia",
   trindade: "Trindade",

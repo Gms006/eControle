@@ -169,7 +169,16 @@ const toUploadLicenceType = (kind, isDefinitive) => {
   return key;
 };
 
-function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploading, companyOptions }) {
+function UploadAssistDrawer({
+  open,
+  onClose,
+  draft,
+  setDraft,
+  onConfirm,
+  onAddFiles,
+  uploading,
+  companyOptions,
+}) {
   const canSubmit = Boolean(draft?.companyId?.trim()) && (draft?.items || []).length > 0;
   return (
     <SideDrawer
@@ -179,6 +188,9 @@ function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploadi
       subtitle="Detecta tipo e validade pelo nome do arquivo. Confirme antes de enviar."
       footer={
         <div className="flex justify-end gap-2">
+          <Button variant="secondary" onClick={onAddFiles} disabled={uploading}>
+            Adicionar arquivos
+          </Button>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={onConfirm} disabled={!canSubmit || uploading}>
             {uploading ? "Enviando..." : "Enviar arquivos"}
@@ -207,6 +219,11 @@ function UploadAssistDrawer({ open, onClose, draft, setDraft, onConfirm, uploadi
             ))}
           </select>
         </div>
+        {(draft?.items || []).length > 0 ? (
+          <p className="text-xs text-slate-600">
+            Arquivos selecionados: {draft.items.length}
+          </p>
+        ) : null}
         <div className="space-y-3">
           {draft.items.map((item, index) => (
             <div key={`${item.originalFilename}-${index}`} className="rounded-xl border border-slate-200 p-3">
@@ -582,6 +599,7 @@ export default function LicencasScreen({
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadDraft, setUploadDraft] = useState({ companyId: "", items: [] });
   const fileInputRef = useRef(null);
+  const appendUploadSelectionRef = useRef(false);
 
   React.useEffect(() => {
     const preset = panelPreset?.preset;
@@ -772,6 +790,13 @@ export default function LicencasScreen({
 
   const triggerUpload = () => {
     if (!canManageLicencas || uploading) return;
+    appendUploadSelectionRef.current = false;
+    fileInputRef.current?.click();
+  };
+
+  const triggerAddUploadFiles = () => {
+    if (!canManageLicencas || uploading) return;
+    appendUploadSelectionRef.current = true;
     fileInputRef.current?.click();
   };
 
@@ -810,11 +835,7 @@ export default function LicencasScreen({
     }
   };
 
-  const onSelectFiles = async (event) => {
-    if (!canManageLicencas) return;
-    const files = Array.from(event?.target?.files || []);
-    event.target.value = "";
-    if (!files.length) return;
+  const detectUploadItems = async (files) => {
     try {
       const detectForm = new FormData();
       files.forEach((file) => detectForm.append("items", file));
@@ -823,26 +844,50 @@ export default function LicencasScreen({
         body: detectForm,
       });
       const detectedItems = Array.isArray(detectResponse?.results) ? detectResponse.results : [];
-      setUploadDraft({
-        companyId: "",
-        items: files.map((file, index) => {
-          const detected = detectedItems[index] || {};
-          return {
-            file,
-            originalFilename: file.name,
-            kind: detected.suggested_document_kind || "",
-            expiresAt: detected.suggested_expires_at || "",
-            isDefinitive: Boolean(detected.is_definitive),
-            confidence: Number(detected.confidence || 0),
-            warnings: Array.isArray(detected.warnings) ? detected.warnings : [],
-            canonicalFilename: detected.canonical_filename || null,
-          };
-        }),
+      return files.map((file, index) => {
+        const detected = detectedItems[index] || {};
+        return {
+          file,
+          originalFilename: file.name,
+          kind: detected.suggested_document_kind || "",
+          expiresAt: detected.suggested_expires_at || "",
+          isDefinitive: Boolean(detected.is_definitive),
+          confidence: Number(detected.confidence || 0),
+          warnings: Array.isArray(detected.warnings) ? detected.warnings : [],
+          canonicalFilename: detected.canonical_filename || null,
+        };
       });
-      setUploadDrawerOpen(true);
     } catch (error) {
       enqueueToast?.(error?.message || "Falha ao detectar licenças.");
+      return [];
     }
+  };
+
+  const onSelectFiles = async (event) => {
+    if (!canManageLicencas) return;
+    const files = Array.from(event?.target?.files || []);
+    event.target.value = "";
+    if (!files.length) return;
+    const detectedItems = await detectUploadItems(files);
+    if (!detectedItems.length) {
+      appendUploadSelectionRef.current = false;
+      return;
+    }
+
+    const shouldAppend = appendUploadSelectionRef.current;
+    appendUploadSelectionRef.current = false;
+    if (shouldAppend) {
+      setUploadDraft((prev) => ({
+        companyId: prev.companyId || "",
+        items: [...(prev.items || []), ...detectedItems],
+      }));
+    } else {
+      setUploadDraft({
+        companyId: "",
+        items: detectedItems,
+      });
+    }
+    setUploadDrawerOpen(true);
   };
 
   const submitAssistedUpload = async () => {
@@ -1204,6 +1249,7 @@ export default function LicencasScreen({
         draft={uploadDraft}
         setDraft={setUploadDraft}
         onConfirm={submitAssistedUpload}
+        onAddFiles={triggerAddUploadFiles}
         uploading={uploading}
         companyOptions={companyOptions}
       />

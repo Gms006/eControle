@@ -13,9 +13,10 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
+from app.core.normalization import normalize_municipio
 
 
 class CompanyProcess(Base):
@@ -60,3 +61,7 @@ class CompanyProcess(Base):
         onupdate=func.now(),
         nullable=False,
     )
+
+    @validates("municipio")
+    def _normalize_municipio_value(self, _key: str, value: str | None) -> str | None:
+        return normalize_municipio(value)

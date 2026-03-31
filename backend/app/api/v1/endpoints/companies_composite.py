@@ -35,6 +35,23 @@ def _normalize_cnpj(value: str) -> str:
     return digits
 
 
+def _normalize_cpf(value: str) -> str:
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) != 11:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="CPF invalido")
+    return digits
+
+
+def _normalize_company_document(cnpj: str | None, cpf: str | None) -> tuple[str | None, str | None]:
+    cnpj_value = _normalize_cnpj(cnpj) if str(cnpj or "").strip() else None
+    cpf_value = _normalize_cpf(cpf) if str(cpf or "").strip() else None
+    if not cnpj_value and not cpf_value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe CNPJ ou CPF")
+    if cnpj_value and cpf_value:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Informe apenas um documento (CNPJ ou CPF)")
+    return cnpj_value, cpf_value
+
+
 @router.post("/composite", response_model=CompanyOut)
 def create_company_composite(
     payload: CompanyCompositeCreate,
@@ -43,7 +60,10 @@ def create_company_composite(
     _user=Depends(require_roles("ADMIN", "DEV")),
 ) -> CompanyOut:
     c = payload.company.model_dump(exclude_none=True)
-    c["cnpj"] = _normalize_cnpj(c["cnpj"])
+    cnpj, cpf = _normalize_company_document(c.get("cnpj"), c.get("company_cpf"))
+    c["cnpj"] = cnpj
+    c["cpf"] = cpf
+    c.pop("company_cpf", None)
     c["razao_social"] = normalize_title_case(c.get("razao_social")) or c["razao_social"]
     if c.get("nome_fantasia"):
         c["nome_fantasia"] = normalize_title_case(c["nome_fantasia"])

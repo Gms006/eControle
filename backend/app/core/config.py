@@ -39,7 +39,19 @@ class Settings(BaseSettings):
     MASTER_EMAIL: str = "admin@example.com"
     MASTER_PASSWORD: str = "admin123"
     MASTER_ROLES: str = "DEV,ADMIN"
+    
+    PORTAL_CIDADAO_USUARIO: str = ""
+    PORTAL_CIDADAO_SENHA: str = ""
+    API_KEY_2CAPTCHA: str = ""
 
+    TAX_PORTAL_DEFAULT_MUNICIPIO: str = "ANÁPOLIS"
+    TAX_PORTAL_MIN_INTERVAL_SECONDS: int = 0
+    TAX_PORTAL_MAX_TENTATIVAS: int = 2
+    TAX_PORTAL_MODO_TESTE: bool = False
+    TAX_PORTAL_MODO_HEADLESS: bool = True
+    TAX_PORTAL_EXECUTABLE_PATH: str = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+    TAX_PORTAL_MAX_TENTATIVAS_CAPTCHA: int = 3
+    
     DATABASE_URL: str = Field(default_factory=_build_default_database_url)
     CERTHUB_WEBHOOK_TOKEN: str = ""
     CORS_ORIGINS: List[str] = Field(

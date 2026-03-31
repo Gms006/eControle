@@ -120,8 +120,11 @@ def process_company_licence_dir(db: Session, company: Company, root_dir: Path) -
     stats = {"processed": 0, "skipped": 0, "errors": 0}
     if not is_safe_fs_dirname(company.fs_dirname):
         return stats
+    fs_dirname = str(company.fs_dirname or "").strip()
+    if not fs_dirname:
+        return stats
 
-    base_dir = (root_dir / str(company.fs_dirname) / LICENCES_SUBDIR).resolve()
+    base_dir = (root_dir / fs_dirname / LICENCES_SUBDIR).resolve()
     try:
         base_dir.relative_to(root_dir)
     except ValueError:

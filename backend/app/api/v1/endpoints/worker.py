@@ -10,6 +10,7 @@ from app.db.session import get_db
 from app.models.org import Org
 from app.models.licence_scan_run import LicenceScanRun
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
+from app.models.tax_portal_sync_run import TaxPortalSyncRun
 from app.schemas.worker import WorkerHealthResponse, WorkerJobStatusResponse
 
 
@@ -22,7 +23,6 @@ def worker_health(
     org: Org = Depends(get_current_org),
     _user=Depends(require_roles("ADMIN", "DEV", "VIEW")),
 ) -> WorkerHealthResponse:
-    # Verifica conectividade básica com o banco.
     db.execute(text("SELECT 1"))
 
     active_receitaws = (
@@ -41,6 +41,15 @@ def worker_health(
         )
         .count()
     )
+    active_tax_portal = (
+        db.query(TaxPortalSyncRun)
+        .filter(
+            TaxPortalSyncRun.org_id == org.id,
+            TaxPortalSyncRun.status.in_(["queued", "running"]),
+        )
+        .count()
+    )
+
     last_receitaws_started_at = (
         db.query(func.max(ReceitaWSBulkSyncRun.started_at))
         .filter(ReceitaWSBulkSyncRun.org_id == org.id)
@@ -51,8 +60,22 @@ def worker_health(
         .filter(LicenceScanRun.org_id == org.id)
         .scalar()
     )
+    last_tax_portal_started_at = (
+        db.query(func.max(TaxPortalSyncRun.started_at))
+        .filter(TaxPortalSyncRun.org_id == org.id)
+        .scalar()
+    )
+
     last_job_started_at = max(
-        [value for value in [last_receitaws_started_at, last_licence_started_at] if value is not None],
+        [
+            value
+            for value in [
+                last_receitaws_started_at,
+                last_licence_started_at,
+                last_tax_portal_started_at,
+            ]
+            if value is not None
+        ],
         default=None,
     )
 
@@ -60,9 +83,9 @@ def worker_health(
         status="ok",
         db="ok",
         backend="fastapi-background-tasks",
-        jobs_supported=["receitaws_bulk_sync", "licence_scan_full"],
+        jobs_supported=["receitaws_bulk_sync", "licence_scan_full", "tax_portal_sync"],
         watchers_supported=["licence_directory_watcher"],
-        active_jobs=active_receitaws + active_licence_scan_full,
+        active_jobs=active_receitaws + active_licence_scan_full + active_tax_portal,
         last_job_started_at=last_job_started_at,
     )
 
@@ -103,6 +126,41 @@ def worker_job_status(
                 "only_missing": bool(run.only_missing),
                 "started_by_user_id": run.started_by_user_id,
                 "changes_summary": run.changes_summary or {},
+            },
+        )
+
+    tax_run = (
+        db.query(TaxPortalSyncRun)
+        .filter(
+            TaxPortalSyncRun.id == job_id,
+            TaxPortalSyncRun.org_id == org.id,
+        )
+        .first()
+    )
+    if tax_run:
+        return WorkerJobStatusResponse(
+            job_id=tax_run.id,
+            job_type="tax_portal_sync",
+            source="tax_portal_sync_runs",
+            status=tax_run.status,
+            total=int(tax_run.total or 0),
+            processed=int(tax_run.processed or 0),
+            ok_count=int(tax_run.ok_count or 0),
+            error_count=int(tax_run.error_count or 0),
+            skipped_count=int(tax_run.skipped_count or 0),
+            current_cnpj=tax_run.current_cnpj,
+            current_company_id=tax_run.current_company_id,
+            started_at=tax_run.started_at,
+            finished_at=tax_run.finished_at,
+            errors=list(tax_run.errors or [])[-5:],
+            meta={
+                "dry_run": bool(tax_run.dry_run),
+                "trigger_type": tax_run.trigger_type,
+                "municipio": tax_run.municipio,
+                "limit": tax_run.limit,
+                "relogin_count": int(tax_run.relogin_count or 0),
+                "summary": tax_run.summary or {},
+                "started_by_user_id": tax_run.started_by_user_id,
             },
         )
 

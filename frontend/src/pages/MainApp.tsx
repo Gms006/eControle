@@ -1052,6 +1052,7 @@ export default function MainApp() {
                         matchesMunicipioFilter={matchesMunicipioFilter}
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
+                        canManageTaxas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                       />
                       {errors.taxas && renderEmptyState("Erro ao carregar taxas", errors.taxas)}
                     </>

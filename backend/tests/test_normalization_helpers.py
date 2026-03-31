@@ -12,9 +12,9 @@ from app.core.normalize import (
 
 
 def test_normalize_municipio_go_aliases():
-    assert normalize_municipio("anapolis") == "ANÁPOLIS"
-    assert normalize_municipio("GOIANIA") == "GOIÂNIA"
-    assert normalize_municipio("aparecida de goiania") == "APARECIDA DE GOIÂNIA"
+    assert normalize_municipio("anapolis") == "anapolis"
+    assert normalize_municipio("GOIANIA") == "goiania"
+    assert normalize_municipio("aparecida de goiania") == "aparecida de goiania"
 
 
 def test_normalize_title_case_preserves_corporate_suffixes():

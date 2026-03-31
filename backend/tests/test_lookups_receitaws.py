@@ -38,6 +38,6 @@ def test_lookup_receitaws_uses_brasilapi_fallback(client: TestClient, monkeypatc
     payload = response.json()
     assert payload["cnpj"] == "12345678000190"
     assert payload["razao_social"] == "Empresa Fallback LTDA"
-    assert payload["municipio"] == "ANÁPOLIS"
+    assert payload["municipio"] == "anapolis"
     assert payload["uf"] == "GO"
     assert payload["status"] == "success"

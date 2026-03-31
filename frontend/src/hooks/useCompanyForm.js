@@ -18,7 +18,8 @@ import {
 import { mergeReceitaWsIntoCompanyForm, useReceitaWsLookup } from "@/hooks/useReceitaWsLookup";
 
 export const EMPTY_COMPANY_FORM = {
-  cnpj: "",
+  document_type: "cnpj",
+  documento: "",
   razao_social: "",
   nome_fantasia: "",
   fs_dirname: "",
@@ -99,15 +100,21 @@ export function useCompanyForm({ apiJson, onRefresh }) {
   }, []);
 
   const openCompany = useCallback(
-    async ({ mode = "create", companyId = null, cnpj = null }) => {
+    async ({ mode = "create", companyId = null, cnpj = null, cpf = null }) => {
       let resolvedCompanyId = companyId || null;
 
       if (mode === "edit" && !resolvedCompanyId) {
-        const digits = normalizeDigits(cnpj);
-        if (digits.length === 14) {
-          const dataByCnpj = await apiJson(`/api/v1/companies?cnpj=${digits}&limit=1`);
+        const cnpjDigits = normalizeDigits(cnpj);
+        const cpfDigits = normalizeDigits(cpf);
+        if (cnpjDigits.length === 14) {
+          const dataByCnpj = await apiJson(`/api/v1/companies?cnpj=${cnpjDigits}&limit=1`);
           if (Array.isArray(dataByCnpj) && dataByCnpj[0]?.id) {
             resolvedCompanyId = dataByCnpj[0].id;
+          }
+        } else if (cpfDigits.length === 11) {
+          const dataByCpf = await apiJson(`/api/v1/companies?cpf=${cpfDigits}&limit=1`);
+          if (Array.isArray(dataByCpf) && dataByCpf[0]?.id) {
+            resolvedCompanyId = dataByCpf[0].id;
           }
         }
       }
@@ -120,15 +127,17 @@ export function useCompanyForm({ apiJson, onRefresh }) {
         }
 
         const data = await apiJson(`/api/v1/companies/${resolvedCompanyId}`);
+        const isCpfCompany = normalizeDigits(data?.company_cpf || "").length === 11;
         const nextForm = {
           ...EMPTY_COMPANY_FORM,
-          cnpj: maskCnpj(data?.cnpj || ""),
+          document_type: isCpfCompany ? "cpf" : "cnpj",
+          documento: isCpfCompany ? maskCpf(data?.company_cpf || "") : maskCnpj(data?.cnpj || ""),
           razao_social: data?.razao_social || "",
           nome_fantasia: data?.nome_fantasia || "",
           fs_dirname: data?.fs_dirname || "",
           inscricao_municipal: data?.inscricao_municipal || "",
           inscricao_estadual: data?.inscricao_estadual || "",
-          porte: normalizePorteSigla(data?.porte || ""),
+          porte: isCpfCompany ? "PF" : normalizePorteSigla(data?.porte || ""),
           municipio: formatMunicipioDisplay(data?.municipio || ""),
           uf: data?.uf || "",
           categoria: data?.categoria || "",
@@ -157,21 +166,29 @@ export function useCompanyForm({ apiJson, onRefresh }) {
   );
 
   const importFromReceitaWs = useCallback(async () => {
-    const data = await lookupCompany(form.cnpj);
+    if (form.document_type !== "cnpj") {
+      throw new Error("Importação automática disponível apenas para CNPJ.");
+    }
+    const data = await lookupCompany(form.documento);
     setForm((prev) => mergeReceitaWsIntoCompanyForm(prev, data));
-  }, [lookupCompany, form.cnpj]);
+  }, [lookupCompany, form.documento, form.document_type]);
 
   const importFromRfb = useCallback(async () => {
-    const data = await rfbLookup(form.cnpj);
+    if (form.document_type !== "cnpj") {
+      throw new Error("Consulta RFB disponível apenas para CNPJ.");
+    }
+    const data = await rfbLookup(form.documento);
     setForm((prev) => mergeReceitaWsIntoCompanyForm(prev, data));
-  }, [rfbLookup, form.cnpj]);
+  }, [rfbLookup, form.documento, form.document_type]);
 
   const saveCompany = useCallback(async () => {
     setIsSaving(true);
 
     try {
-      const digits = normalizeDigits(form.cnpj);
-      if (digits.length !== 14) throw new Error("CNPJ inválido");
+      const digits = normalizeDigits(form.documento);
+      const isCpf = form.document_type === "cpf";
+      if (isCpf && digits.length !== 11) throw new Error("CPF inválido");
+      if (!isCpf && digits.length !== 14) throw new Error("CNPJ inválido");
       if (!form.razao_social?.trim()) throw new Error("Razão social obrigatória");
       if (hasInvalidFsDirname(form.fs_dirname)) {
         throw new Error("Apelido (Pasta) inválido: não use '..', '/', '\\' ou ':'");
@@ -187,7 +204,8 @@ export function useCompanyForm({ apiJson, onRefresh }) {
           method: "POST",
           body: JSON.stringify({
             company: {
-              cnpj: digits,
+              cnpj: isCpf ? null : digits,
+              company_cpf: isCpf ? digits : null,
               razao_social: normalizeTitleCase(form.razao_social),
               nome_fantasia: normalizeTitleCase(form.nome_fantasia) || null,
               fs_dirname: normalizeFsDirname(form.fs_dirname) || null,
@@ -198,7 +216,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
             profile: {
               inscricao_municipal: form.inscricao_municipal || null,
               inscricao_estadual: form.inscricao_estadual || null,
-              porte: normalizePorteSigla(form.porte) || null,
+              porte: isCpf ? "PF" : normalizePorteSigla(form.porte) || null,
               categoria: categoriaFinal || null,
               proprietario_principal: form.representante || null,
               responsavel_fiscal: form.responsavel_fiscal || null,
@@ -226,6 +244,8 @@ export function useCompanyForm({ apiJson, onRefresh }) {
         await apiJson(`/api/v1/companies/${modal.companyId}`, {
           method: "PATCH",
           body: JSON.stringify({
+            cnpj: isCpf ? null : digits,
+            company_cpf: isCpf ? digits : null,
             razao_social: normalizeTitleCase(form.razao_social),
             nome_fantasia: normalizeTitleCase(form.nome_fantasia) || null,
             fs_dirname: normalizeFsDirname(form.fs_dirname) || null,
@@ -234,7 +254,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
             is_active: form.is_active !== false,
             inscricao_municipal: form.inscricao_municipal || null,
             inscricao_estadual: form.inscricao_estadual || null,
-            porte: normalizePorteSigla(form.porte) || null,
+            porte: isCpf ? "PF" : normalizePorteSigla(form.porte) || null,
             categoria: categoriaFinal || null,
             proprietario_principal: normalizeTitleCase(form.representante) || null,
             responsavel_fiscal: form.responsavel_fiscal || null,

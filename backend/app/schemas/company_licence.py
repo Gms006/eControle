@@ -36,6 +36,7 @@ class CompanyLicenceOut(BaseModel):
     justificativa_nao_exigido: Optional[str] = None
     company_name: Optional[str] = None
     company_cnpj: Optional[str] = None
+    company_cpf: Optional[str] = None
     company_razao_social: Optional[str] = None
     company_municipio: Optional[str] = None
     sem_vinculo: bool = False

@@ -16,6 +16,7 @@ from app.api.v1.endpoints import (
     company_taxes,
     company_taxes_patch,
     dev_receitaws_bulk_sync,
+    dev_tax_portal_sync,
     grupos,
     ingest,
     lookups,
@@ -54,5 +55,7 @@ api_router.include_router(cnae_risk_official_sources.router, prefix="/catalog/cn
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin"])
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 api_router.include_router(dev_receitaws_bulk_sync.router, prefix="/dev", tags=["dev"])
+api_router.include_router(dev_tax_portal_sync.router, prefix="/dev", tags=["dev"])
+api_router.include_router(worker.router)
 api_router.include_router(worker.router)
 api_router.include_router(webhook_certhub_router)

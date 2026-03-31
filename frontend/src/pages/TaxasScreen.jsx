@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import { Chip } from "@/components/Chip";
+import TaxPortalSyncManager from "@/components/header/TaxPortalSyncManager";
+import { useTaxPortalSync } from "@/hooks/useTaxPortalSync";
 import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants";
 import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
@@ -230,12 +232,27 @@ function LinhaTipoTaxa({ label, status, statusDisplay, vencimento, envioPendente
   );
 }
 
-function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, matchesQuery, handleCopy }) {
+function TaxasScreen({
+  taxas,
+  modoFoco,
+  soAlertas,
+  matchesMunicipioFilter,
+  matchesQuery,
+  handleCopy,
+  canManageTaxas = false,
+}) {
   const [viewMode, setViewMode] = useState("empresas");
   const [selectedTipo, setSelectedTipo] = useState("__ALL__");
   const [queueFilter, setQueueFilter] = useState(null);
   const [sortByTipo, setSortByTipo] = useState({});
   const [sortEmpresas, setSortEmpresas] = useState({ field: "empresa", direction: "asc" });
+  const handleTaxPortalSyncRefresh = useCallback(() => {
+    window.dispatchEvent(new CustomEvent("econtrole:refresh-data", { detail: { source: "tax-portal-sync" } }));
+  }, []);
+  const taxPortalSync = useTaxPortalSync({
+    canManage: canManageTaxas,
+    onRefresh: handleTaxPortalSyncRefresh,
+  });
 
   const taxaTipos = useMemo(
     () => TAXA_COLUMNS.filter((column) => column.key !== "status_geral"),
@@ -367,6 +384,27 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
 
   return (
     <div className="space-y-3">
+      {canManageTaxas ? (
+        <Card className="border-subtle bg-card">
+          <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Tax Portal Sync (Anápolis)</p>
+              <p className="text-xs text-slate-600">
+                Execute o sync manual em lote com acompanhamento de progresso e retomada automática de run ativa.
+              </p>
+            </div>
+            <Button
+              type="button"
+              size="sm"
+              data-testid="tax-portal-sync-open"
+              onClick={() => void taxPortalSync.requestOpen()}
+            >
+              Iniciar Tax Portal Sync
+            </Button>
+          </CardContent>
+        </Card>
+      ) : null}
+
       <Card className="border-subtle bg-surface">
         <CardContent className="space-y-3 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -668,6 +706,8 @@ function TaxasScreen({ taxas, modoFoco, soAlertas, matchesMunicipioFilter, match
           })}
         </div>
       )}
+
+      <TaxPortalSyncManager sync={taxPortalSync} />
     </div>
   );
 }
