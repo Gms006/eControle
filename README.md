@@ -2,11 +2,11 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-03-26)
+## Status atual do projeto (2026-04-02)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
-- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída + S10.3 parcial com calibragem de catálogo e base de atualização assistida em andamento).
+- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída + S10.3 parcial com calibragem de catálogo e base de atualização assistida em andamento; S10.4 Notification Center MVP entregue; S10.5/Fase C de notificações operacionais entregue).
 - S9/S11/S12: planejados.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
@@ -91,6 +91,11 @@ Base: `http://localhost:8020/api/v1`
   - criacao de `DIVERSOS` com empresa nao cadastrada permitida com `company_id=null` + `company_cnpj` + `company_razao_social`
 - Situacoes de processos: `/processos/situacoes`
 - Alertas: `/alertas`, `/alertas/tendencia`
+- Notificacoes:
+  - `GET /notificacoes` (ADMIN|DEV|VIEW, feed por organizacao)
+  - `GET /notificacoes/unread-count` (ADMIN|DEV|VIEW)
+  - `POST /notificacoes/{id}/read` (ADMIN|DEV|VIEW)
+  - `POST /notificacoes/scan-operacional` (ADMIN|DEV, dispara scan operacional com run)
 - Certificados:
   - `GET /certificados` (lista do mirror)
   - `POST /certificados/sync` (ADMIN|DEV)
@@ -110,7 +115,78 @@ Base: `http://localhost:8020/api/v1`
   - `POST /dev/receitaws/bulk-sync/{run_id}/cancel`
 - Worker (read-only status):
   - `GET /worker/health` (ADMIN|DEV|VIEW, inclui `jobs_supported` e `watchers_supported`)
-  - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW, suporta `receitaws_bulk_sync`, `tax_portal_sync` e `licence_scan_full`)
+  - `GET /worker/jobs/{job_id}` (ADMIN|DEV|VIEW, suporta `receitaws_bulk_sync`, `tax_portal_sync`, `licence_scan_full` e `notification_operational_scan`)
+
+Notification Center MVP (S10.4):
+- persistencia em `notification_events` com dedupe por `unique(org_id, dedupe_key)`;
+- feed por org (sem inbox por usuario nesta fase);
+- emissao inicial ao final de jobs:
+  - `licence_scan_full`
+  - `receitaws_bulk_sync`
+  - `tax_portal_sync`
+- frontend:
+  - contador de nao lidas no sino da Topbar;
+  - painel com ultimas notificacoes;
+  - acao de marcar como lida;
+  - navegacao por `route_path` quando fornecida.
+
+Notification Center Fase C (S10.5):
+- regras operacionais automáticas por scan:
+  - `LIC_BOMBEIROS_BD5`: CERCON/Bombeiros em janela de 5 dias úteis antes do vencimento;
+  - `LIC_ALVARA_D30`: Alvará de Funcionamento em janela de 30 dias corridos;
+  - `LIC_SANITARIO_D30`: Alvará Sanitário em janela de 30 dias corridos;
+  - `LIC_AMBIENTAL_BD30`: Licença Ambiental em janela de 30 dias úteis;
+  - `PROC_STALE_BD7`: processo com 7 dias úteis sem atualização;
+  - `PROC_STALE_BD15`: processo com 15 dias úteis sem atualização.
+- referência de processo:
+  - `updated_at` como fonte principal;
+  - fallback em `data_solicitacao`.
+- idempotência/dedupe:
+  - reprocessamento não duplica notificações (`dedupe_key` determinística por regra/entidade/janela).
+- observabilidade:
+  - novo tipo de job no worker: `notification_operational_scan`.
+
+Rotina diária (agendamento externo Windows):
+- abordagem oficial desta fase: **scheduler externo** chamando endpoint existente (sem scheduler embutido no backend);
+- scripts operacionais:
+  - `scripts/ops/run_notification_operational_scan.ps1`
+  - `scripts/ops/run_notification_operational_scan.cmd`
+- fluxo do script:
+  1. autentica em `/api/v1/auth/login`
+  2. dispara `POST /api/v1/notificacoes/scan-operacional`
+  3. captura `run_id`
+  4. faz polling em `GET /api/v1/worker/jobs/{run_id}` até status final
+  5. retorna `exit 0` apenas em `completed`; `exit 1` em `failed`/`cancelled`/timeout/erro HTTP
+- variáveis suportadas:
+  - `ECONTROLE_BASE_URL` (default `http://localhost:8020/api/v1`)
+  - `ECONTROLE_EMAIL`
+  - `ECONTROLE_PASSWORD`
+  - `ECONTROLE_SCAN_TIMEOUT_SECONDS` (default `1800`)
+  - `ECONTROLE_SCAN_POLL_INTERVAL_SECONDS` (default `10`)
+  - opcional: `ECONTROLE_SCAN_CONFIG_FILE` (`.env` local não versionado, formato `KEY=VALUE`)
+- log:
+  - default: `%ProgramData%\eControle\logs\notification_operational_scan.log`
+
+Exemplo de execução manual (PowerShell):
+```powershell
+$env:ECONTROLE_BASE_URL="http://localhost:8020/api/v1"
+$env:ECONTROLE_EMAIL="seu_email"
+$env:ECONTROLE_PASSWORD="sua_senha"
+$env:ECONTROLE_SCAN_TIMEOUT_SECONDS="1800"
+$env:ECONTROLE_SCAN_POLL_INTERVAL_SECONDS="10"
+.\scripts\ops\run_notification_operational_scan.ps1
+```
+
+Exemplo de Task Scheduler (ação):
+```text
+Program/script: C:\ProgramData\eControle\ops\run_notification_operational_scan.cmd
+```
+
+Rollback operacional:
+- desabilitar/remover tarefa no Task Scheduler;
+- remover os arquivos:
+  - `scripts/ops/run_notification_operational_scan.ps1`
+  - `scripts/ops/run_notification_operational_scan.cmd`
 - Catálogo CNAE (ADMIN|DEV, revisão humana obrigatória):
   - `GET /catalog/cnae-risk-suggestions`
   - `POST /catalog/cnae-risk-suggestions`
@@ -372,9 +448,11 @@ $env:ECONTROLE_PASSWORD="sua_senha"
 
 Fluxo E2E recomendado (sem ampliar spec visual):
 1. Rodar o backend E2E API.
-2. Rodar o portal E2E existente (incluindo `frontend/tests_e2e/portal/company_scoring.spec.ts` e `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`).
+2. Rodar o portal E2E existente (incluindo `frontend/tests_e2e/portal/company_scoring.spec.ts`, `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts` e `frontend/tests_e2e/portal/notifications_center.smoke.spec.ts`).
 3. Em cenários de ajuste de catálogo CNAE, executar antes:
    - `python backend/scripts/load_cnae_risks_seed.py --recalculate-affected`
+4. Para validar Fase C de notificações operacionais via API:
+   - `pytest -m e2e tests_e2e/api/test_notifications_operational_scan_e2e.py -q`
 
 Fluxo de validação da atualização assistida do catálogo CNAE:
 1. Rodar `pytest -q backend/tests/test_cnae_risk_suggestions.py`.

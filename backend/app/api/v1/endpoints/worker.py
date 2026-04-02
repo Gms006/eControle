@@ -9,6 +9,7 @@ from app.core.security import require_roles
 from app.db.session import get_db
 from app.models.org import Org
 from app.models.licence_scan_run import LicenceScanRun
+from app.models.notification_operational_scan_run import NotificationOperationalScanRun
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.models.tax_portal_sync_run import TaxPortalSyncRun
 from app.schemas.worker import WorkerHealthResponse, WorkerJobStatusResponse
@@ -49,6 +50,14 @@ def worker_health(
         )
         .count()
     )
+    active_notification_operational_scan = (
+        db.query(NotificationOperationalScanRun)
+        .filter(
+            NotificationOperationalScanRun.org_id == org.id,
+            NotificationOperationalScanRun.status.in_(["queued", "running"]),
+        )
+        .count()
+    )
 
     last_receitaws_started_at = (
         db.query(func.max(ReceitaWSBulkSyncRun.started_at))
@@ -65,6 +74,11 @@ def worker_health(
         .filter(TaxPortalSyncRun.org_id == org.id)
         .scalar()
     )
+    last_notification_operational_scan_started_at = (
+        db.query(func.max(NotificationOperationalScanRun.started_at))
+        .filter(NotificationOperationalScanRun.org_id == org.id)
+        .scalar()
+    )
 
     last_job_started_at = max(
         [
@@ -73,6 +87,7 @@ def worker_health(
                 last_receitaws_started_at,
                 last_licence_started_at,
                 last_tax_portal_started_at,
+                last_notification_operational_scan_started_at,
             ]
             if value is not None
         ],
@@ -83,9 +98,9 @@ def worker_health(
         status="ok",
         db="ok",
         backend="fastapi-background-tasks",
-        jobs_supported=["receitaws_bulk_sync", "licence_scan_full", "tax_portal_sync"],
+        jobs_supported=["receitaws_bulk_sync", "licence_scan_full", "tax_portal_sync", "notification_operational_scan"],
         watchers_supported=["licence_directory_watcher"],
-        active_jobs=active_receitaws + active_licence_scan_full + active_tax_portal,
+        active_jobs=active_receitaws + active_licence_scan_full + active_tax_portal + active_notification_operational_scan,
         last_job_started_at=last_job_started_at,
     )
 
@@ -161,6 +176,38 @@ def worker_job_status(
                 "relogin_count": int(tax_run.relogin_count or 0),
                 "summary": tax_run.summary or {},
                 "started_by_user_id": tax_run.started_by_user_id,
+            },
+        )
+
+    notification_scan_run = (
+        db.query(NotificationOperationalScanRun)
+        .filter(
+            NotificationOperationalScanRun.id == job_id,
+            NotificationOperationalScanRun.org_id == org.id,
+        )
+        .first()
+    )
+    if notification_scan_run:
+        errors = []
+        if notification_scan_run.last_error:
+            errors.append({"error": notification_scan_run.last_error})
+        return WorkerJobStatusResponse(
+            job_id=notification_scan_run.id,
+            job_type="notification_operational_scan",
+            source="notification_operational_scan_runs",
+            status=notification_scan_run.status,
+            total=int(notification_scan_run.total or 0),
+            processed=int(notification_scan_run.processed or 0),
+            ok_count=int(notification_scan_run.emitted_count or 0),
+            error_count=int(notification_scan_run.error_count or 0),
+            skipped_count=int(notification_scan_run.deduped_count or 0),
+            current_cnpj=None,
+            current_company_id=None,
+            started_at=notification_scan_run.started_at,
+            finished_at=notification_scan_run.finished_at,
+            errors=errors,
+            meta={
+                "started_by_user_id": notification_scan_run.started_by_user_id,
             },
         )
 

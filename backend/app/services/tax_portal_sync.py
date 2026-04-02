@@ -17,6 +17,7 @@ from app.models.company import Company
 from app.models.company_profile import CompanyProfile
 from app.models.company_tax import CompanyTax
 from app.models.tax_portal_sync_run import TaxPortalSyncRun
+from app.services.notifications import emit_org_notification
 from app.services.tax_portal_runtime import (
     PORTAL_URL,
     consultar_cnpj,
@@ -305,6 +306,52 @@ def apply_tax_portal_result_to_company_tax(
     }
 
 
+def _emit_tax_portal_run_notification(run: TaxPortalSyncRun, db: Session) -> None:
+    severity = "info"
+    if run.status == "failed":
+        severity = "error"
+    elif run.status == "cancelled":
+        severity = "warning"
+
+    title = "Tax Portal Sync finalizado"
+    if run.status == "failed":
+        title = "Tax Portal Sync com falha"
+    elif run.status == "cancelled":
+        title = "Tax Portal Sync cancelado"
+
+    message = (
+        f"Run {run.id} finalizada com status {run.status}. "
+        f"Processadas {int(run.processed or 0)}/{int(run.total or 0)} empresas. "
+        f"OK={int(run.ok_count or 0)} Erros={int(run.error_count or 0)} Ignoradas={int(run.skipped_count or 0)}."
+    )
+    emit_org_notification(
+        db,
+        org_id=run.org_id,
+        user_id=run.started_by_user_id,
+        event_type="job.tax_portal_sync.finished",
+        severity=severity,
+        title=title,
+        message=message,
+        dedupe_key=f"job:tax_portal_sync:{run.id}:{run.status}",
+        entity_type="tax_portal_sync_run",
+        entity_id=run.id,
+        route_path="/painel?tab=taxas",
+        metadata_json={
+            "run_id": run.id,
+            "status": run.status,
+            "total": int(run.total or 0),
+            "processed": int(run.processed or 0),
+            "ok_count": int(run.ok_count or 0),
+            "error_count": int(run.error_count or 0),
+            "skipped_count": int(run.skipped_count or 0),
+            "dry_run": bool(run.dry_run),
+            "municipio": run.municipio,
+            "limit": run.limit,
+        },
+        commit=False,
+    )
+
+
 def run_tax_portal_sync_job(run_id: str) -> None:
     if sys.platform.startswith("win") and hasattr(asyncio, "WindowsProactorEventLoopPolicy"):
         asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
@@ -340,6 +387,7 @@ async def _run_tax_portal_sync_job_async(run_id: str) -> None:
         if not companies:
             run.status = "completed"
             run.finished_at = _now_utc()
+            _emit_tax_portal_run_notification(run, db)
             db.commit()
             return
 
@@ -358,6 +406,7 @@ async def _run_tax_portal_sync_job_async(run_id: str) -> None:
                     run.finished_at = _now_utc()
                     run.current_cnpj = None
                     run.current_company_id = None
+                    _emit_tax_portal_run_notification(run, db)
                     db.commit()
                     return
 
@@ -439,6 +488,7 @@ async def _run_tax_portal_sync_job_async(run_id: str) -> None:
         run.finished_at = _now_utc()
         run.current_cnpj = None
         run.current_company_id = None
+        _emit_tax_portal_run_notification(run, db)
         db.commit()
 
     except Exception as exc:
@@ -458,6 +508,7 @@ async def _run_tax_portal_sync_job_async(run_id: str) -> None:
                 }
             )
             failed_run.errors = errors[-MAX_ERROR_ITEMS:]
+            _emit_tax_portal_run_notification(failed_run, db)
             db.commit()
     finally:
         db.close()

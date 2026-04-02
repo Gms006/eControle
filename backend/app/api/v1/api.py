@@ -21,7 +21,9 @@ from app.api.v1.endpoints import (
     ingest,
     lookups,
     meta,
+    notifications,
     orgs,
+    relatorios,
     worker,
 )
 from app.api.v1.endpoints.webhook_certhub import router as webhook_certhub_router
@@ -48,6 +50,8 @@ api_router.include_router(lookups.router, prefix="/lookups", tags=["lookups"])
 api_router.include_router(meta.router, prefix="/meta", tags=["meta"])
 api_router.include_router(grupos.router, prefix="/grupos", tags=["grupos"])
 api_router.include_router(alertas.router, prefix="/alertas", tags=["alertas"])
+api_router.include_router(notifications.router, prefix="/notificacoes", tags=["notificacoes"])
+api_router.include_router(relatorios.router, prefix="/relatorios", tags=["relatorios"])
 
 api_router.include_router(certificados.router, prefix="/certificados", tags=["certificados"])
 api_router.include_router(cnae_risk_suggestions.router, prefix="/catalog/cnae-risk-suggestions", tags=["catalog"])
@@ -56,6 +60,5 @@ api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admi
 api_router.include_router(ingest.router, prefix="/ingest", tags=["ingest"])
 api_router.include_router(dev_receitaws_bulk_sync.router, prefix="/dev", tags=["dev"])
 api_router.include_router(dev_tax_portal_sync.router, prefix="/dev", tags=["dev"])
-api_router.include_router(worker.router)
 api_router.include_router(worker.router)
 api_router.include_router(webhook_certhub_router)

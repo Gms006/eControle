@@ -29,7 +29,6 @@ class CompanyProfile(Base):
     inscricao_estadual: Mapped[str | None] = mapped_column(String(64), nullable=True)
     inscricao_municipal: Mapped[str | None] = mapped_column(String(64), nullable=True)
     situacao: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    debito_prefeitura: Mapped[str | None] = mapped_column(String(512), nullable=True)
     certificado_digital: Mapped[str | None] = mapped_column(String(255), nullable=True)
     observacoes: Mapped[str | None] = mapped_column(Text, nullable=True)
     proprietario_principal: Mapped[str | None] = mapped_column(String(255), nullable=True)

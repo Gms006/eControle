@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { BellRing, Database, Filter } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import PageTitle from "@/components/layout/PageTitle";
@@ -404,6 +405,7 @@ const renderEmptyState = (title: string, message: string) => (
 
 export default function MainApp() {
   const { logout } = useAuth();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<AppTabKey>(() => {
     if (typeof window === "undefined") return "painel";
     const stored = window.localStorage.getItem("econtrole.tab");
@@ -609,6 +611,46 @@ export default function MainApp() {
       });
     },
     [],
+  );
+
+  const handleNotificationRouteNavigate = useCallback(
+    (routePath: string) => {
+      if (!routePath || typeof routePath !== "string") return;
+
+      const TAB_KEYS: AppTabKey[] = [
+        "painel",
+        "empresas",
+        "licencas",
+        "taxas",
+        "processos",
+        "certificados",
+      ];
+      const extractTab = (path: string): AppTabKey | null => {
+        try {
+          const url = new URL(path, window.location.origin);
+          const fromQuery = String(url.searchParams.get("tab") || "").trim() as AppTabKey;
+          if (TAB_KEYS.includes(fromQuery)) return fromQuery;
+          const segments = url.pathname.split("/").filter(Boolean);
+          const last = (segments[segments.length - 1] || "").trim() as AppTabKey;
+          if (TAB_KEYS.includes(last)) return last;
+        } catch {
+          const simple = routePath.replace(/^\/+/, "").split(/[/?#]/)[0] as AppTabKey;
+          if (TAB_KEYS.includes(simple)) return simple;
+        }
+        return null;
+      };
+
+      const tab = extractTab(routePath);
+      if (tab) {
+        setTab(tab);
+      }
+      if (routePath.startsWith("/painel")) {
+        navigate(routePath);
+      } else if (!tab) {
+        navigate("/painel");
+      }
+    },
+    [navigate],
   );
 
   useEffect(() => {
@@ -887,6 +929,7 @@ export default function MainApp() {
               void loadAllDataWithScrollRestore();
             }}
             onLogout={() => void logout()}
+            onNotificationRouteNavigate={handleNotificationRouteNavigate}
           />
 
           <div ref={contentScrollRef} className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass}`}>

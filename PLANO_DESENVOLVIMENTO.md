@@ -1,6 +1,6 @@
 # Plano de Desenvolvimento - eControle v2 (Rebuild)
 
-Data de referência: 2026-03-09
+Data de referência: 2026-04-02
 
 ## Visão geral
 
@@ -9,7 +9,8 @@ Status global: domínio principal operacional, ingest JSON ativo, integração C
 - Concluído: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
 - Concluído: S8
 - Entrega adicional concluída: bulk sync ReceitaWS (DEV)
-- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída)
+- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída; S10.4 Notification Center MVP concluído; S10.5 Fase C de notificações operacionais concluída)
+- Operacionalização concluída: rotina diária por agendamento externo Windows para scan operacional de notificações
 - Pendente: S9, S11, S12
 
 ## S0 - Kickoff e congelamento do baseline
@@ -332,6 +333,103 @@ S10.3b entrega 2b (consulta oficial priorizada para sugestões pendentes) entreg
 - regra de segurança reforçada:
   - consulta oficial nunca faz autoapply no catálogo produtivo;
   - toda saída automática desta camada permanece como sugestão `PENDING`.
+
+### S10.4 - Notification Center MVP (feed por organização)
+
+Status: concluído (2026-04-02)
+
+Escopo entregue:
+- nova tabela `notification_events` com:
+  - `read_at` nullable para controle de não lidas;
+  - dedupe por `unique(org_id, dedupe_key)`;
+  - índices para feed e unread count por org.
+- endpoints `ADMIN|DEV|VIEW`:
+  - `GET /api/v1/notificacoes`
+  - `GET /api/v1/notificacoes/unread-count`
+  - `POST /api/v1/notificacoes/{id}/read`
+- serviço backend reutilizável para emissão idempotente:
+  - `backend/app/services/notifications.py`
+- emissão inicial integrada ao fim de jobs:
+  - `licence_scan_full`
+  - `receitaws_bulk_sync`
+  - `tax_portal_sync`
+- frontend:
+  - sino da Topbar com contador real de não lidas;
+  - painel simples com últimas notificações;
+  - marcar como lida;
+  - navegação por `route_path` quando disponível.
+- correção técnica no mesmo patch:
+  - remoção de inclusão duplicada de `worker.router` em `backend/app/api/v1/api.py`.
+
+Fora de escopo nesta fase:
+- inbox por usuário;
+- dismiss/delete/retention;
+- regras de vencimento por dias úteis;
+- varredura periódica de negócio para alertas de prazo.
+
+### S10.5 - Notification Center Fase C (regras operacionais automáticas)
+
+Status: concluído (2026-04-02)
+
+Escopo entregue:
+- utilitário de dias úteis:
+  - `backend/app/services/business_days.py`
+- serviço de scan operacional:
+  - `backend/app/services/notification_operational_scan.py`
+- endpoint manual:
+  - `POST /api/v1/notificacoes/scan-operacional` (`ADMIN|DEV`)
+- integração de observabilidade com worker/jobs:
+  - novo tipo de job `notification_operational_scan`
+  - run table `notification_operational_scan_runs`
+  - `worker/health` e `worker/jobs/{job_id}` atualizados
+- regras automáticas implementadas:
+  - licenças:
+    - CERCON/Bombeiros: `LIC_BOMBEIROS_BD5`
+    - Alvará Funcionamento: `LIC_ALVARA_D30`
+    - Alvará Sanitário: `LIC_SANITARIO_D30`
+    - Licença Ambiental: `LIC_AMBIENTAL_BD30`
+  - processos:
+    - 7 dias úteis sem atualização: `PROC_STALE_BD7`
+    - 15 dias úteis sem atualização: `PROC_STALE_BD15`
+- referência de última movimentação de processo:
+  - `updated_at` (principal)
+  - fallback em `data_solicitacao`
+- dedupe/idempotência:
+  - `dedupe_key` determinística por regra + entidade + janela
+  - reprocessamento do scan sem duplicar notificações
+
+Testes desta fase:
+- `backend/tests/test_business_days.py`
+- `backend/tests/test_notification_rules.py`
+- ampliação de:
+  - `backend/tests/test_notifications_endpoints.py`
+  - `backend/tests/test_worker_endpoints.py`
+- E2E API adicional:
+  - `tests_e2e/api/test_notifications_operational_scan_e2e.py`
+
+### S10.5b - Operacionalização diária do scan (scheduler externo Windows)
+
+Status: concluído (2026-04-02)
+
+Decisão aplicada:
+- não implementar scheduler interno no backend nesta fase;
+- usar endpoint existente `POST /api/v1/notificacoes/scan-operacional` com script externo.
+
+Entregues:
+- script PowerShell operacional:
+  - `scripts/ops/run_notification_operational_scan.ps1`
+- wrapper para Task Scheduler:
+  - `scripts/ops/run_notification_operational_scan.cmd`
+- comportamento:
+  - login em `/api/v1/auth/login`
+  - trigger de scan
+  - polling de `worker/jobs/{run_id}` até término
+  - `exit 0` em `completed`
+  - `exit 1` em `failed`/`cancelled`/timeout/erro HTTP
+  - log em arquivo com timestamp, `run_id`, status final e resumo
+- configuração:
+  - por variáveis de ambiente
+  - opcional por arquivo local não versionado (`KEY=VALUE`)
 
 ## S11 - Polimento de paridade v1
 

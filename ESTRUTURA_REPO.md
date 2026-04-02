@@ -1,6 +1,6 @@
 # Estrutura do Repositorio - eControle v2
 
-Data de referencia: 2026-03-26
+Data de referencia: 2026-04-02
 
 ## Visao geral
 
@@ -35,6 +35,7 @@ eControle/
 |  |  |  |  |- ingest.py
 |  |  |  |  |- lookups.py
 |  |  |  |  |- meta.py
+|  |  |  |  |- notifications.py
 |  |  |  |  |- orgs.py
 |  |  |  |  |- worker.py
 |  |  |  |  |- webhook\_certhub.py
@@ -59,6 +60,8 @@ eControle/
 |  |  |  |- company\_licence.py
 |  |  |  |- licence\_scan\_run.py
 |  |  |  |- licence\_file\_event.py
+|  |  |  |- notification\_event.py
+|  |  |  |- notification\_operational\_scan\_run.py
 |  |  |  |- company\_process.py
 |  |  |  |- company\_profile.py
 |  |  |  |- company\_tax.py
@@ -82,6 +85,7 @@ eControle/
 |  |  |  |- cnae\_risk\_suggestion.py
 |  |  |  |- official\_sources.py
 |  |  |  |- org.py
+|  |  |  |- notification.py
 |  |  |  |- token.py
 |  |  |  |- user.py
 |  |  |  |- worker.py
@@ -111,6 +115,8 @@ eControle/
 |  |  |  |- licence\_fs\_paths.py
 |  |  |  |- licence\_files.py
 |  |  |  |- licence\_scan\_full.py
+|  |  |  |- notifications.py
+|  |  |  |- notification\_operational\_scan.py
 |  |  |  |- receitaws\_bulk\_sync.py
 |  |  |  |- tax\_portal\_runtime.py
 |  |  |  |- tax\_portal\_sync.py
@@ -148,6 +154,11 @@ eControle/
 |  |  |- 20260313\_0020\_create\_cnae\_risks\_and\_profile\_scores.py
 |  |  |- 20260320\_0021\_create\_cnae\_risk\_suggestions.py
 |  |  |- 20260325\_0022\_create\_tax\_portal\_sync\_runs.py
+|  |  |- 20260327\_0023\_normalize\_municipio\_lower\_ascii.py
+|  |  |- 20260327\_0024\_add\_cpf\_to\_companies.py
+|  |  |- 20260401\_0025\_drop\_unused\_company\_profile\_columns.py
+|  |  |- 20260402\_0026\_create\_notification\_events.py
+|  |  |- 20260402\_0027\_create\_notification\_operational\_scan\_runs.py
 |  |- scripts/
 |  |  |- backfill\_company\_scores.py
 |  |  |- load\_cnae\_risks\_seed.py
@@ -183,6 +194,10 @@ eControle/
 |  |  |- test\_processes\_canonical.py
 |  |  |- test\_receitaws\_bulk\_sync.py
 |  |  |- test\_tax\_portal\_sync.py
+|  |  |- test\_notifications\_service.py
+|  |  |- test\_notifications\_endpoints.py
+|  |  |- test\_business\_days.py
+|  |  |- test\_notification\_rules.py
 |  |  |- test\_worker\_endpoints.py
 |  |- main.py
 |  |- pytest.ini
@@ -206,6 +221,8 @@ eControle/
 |  |  |  |  |- PageTitle.tsx
 |  |  |  |  |- Sidebar.tsx
 |  |  |  |  |- Topbar.tsx
+|  |  |  |- notifications/
+|  |  |  |  |- NotificationPanel.jsx
 |  |  |  |- ui/
 |  |  |  |  |- OverlayModal.jsx
 |  |  |  |  |- side-drawer.jsx
@@ -240,6 +257,7 @@ eControle/
 |  |  |     |- SetPassword.tsx
 |  |  |- providers/
 |  |  |- services/
+|  |  |  |- notifications.js
 |  |  |  |- receitawsBulkSync.js
 |  |  |  |- taxPortalSync.js
 |  |- tests\_e2e/portal/
@@ -250,6 +268,7 @@ eControle/
 |  |  |- regression\_drawers.spec.ts
 |  |  |- taxas\_envio\_methods.smoke.spec.ts
 |  |  |- taxas\_tax\_portal\_sync.smoke.spec.ts
+|  |  |- notifications\_center.smoke.spec.ts
 |  |- package.json
 |  |- vite.config.ts
 |  |- playwright.config.ts
@@ -261,6 +280,8 @@ eControle/
 |  |- ops/
 |  |  |- certhub\_mirror\_sync.ps1
 |  |  |- run\_certhub\_mirror\_sync.cmd
+|  |  |- run\_notification\_operational\_scan.ps1
+|  |  |- run\_notification\_operational\_scan.cmd
 |  |- datasets/
 |     |- companies\_json\_creator.py
 |     |- licences\_json\_creator.py
@@ -269,6 +290,7 @@ eControle/
 |     |- \*\_ingest\_model.json
 |- tests\_e2e/api/
 |  |- test\_api\_ingest\_e2e.py
+|  |- test\_notifications\_operational\_scan\_e2e.py
 |- docs/
 |  |- BASELINE\_V1.md
 |  |- INTEGRATION\_CONTRACTS.md
@@ -331,6 +353,54 @@ eControle/
 
   * `GET /api/v1/worker/health` valida DB e resume jobs/watchers suportados
   * `GET /api/v1/worker/jobs/{job\_id}` consulta status/progresso do job (`receitaws\_bulk\_sync\_runs`, `tax\_portal\_sync\_runs` e `licence\_scan\_runs`)
+  * ajuste aplicado em 2026-04-02: remoção de `include_router(worker.router)` duplicado em `backend/app/api/v1/api.py`
+* Notification Center MVP (S10.4) entregue em 2026-04-02:
+
+  * tabela `notification_events` + migration `20260402_0026_create_notification_events.py`
+  * serviço de emissão idempotente `backend/app/services/notifications.py`
+  * endpoints `backend/app/api/v1/endpoints/notifications.py`:
+    - `GET /api/v1/notificacoes`
+    - `GET /api/v1/notificacoes/unread-count`
+    - `POST /api/v1/notificacoes/{id}/read`
+  * integração inicial de emissão no fim dos jobs:
+    - `backend/app/services/licence_scan_full.py`
+    - `backend/app/services/receitaws_bulk_sync.py`
+    - `backend/app/services/tax_portal_sync.py`
+  * frontend com sino + painel:
+    - `frontend/src/components/layout/Topbar.tsx`
+    - `frontend/src/components/notifications/NotificationPanel.jsx`
+    - `frontend/src/services/notifications.js`
+* Notification Center Fase C (S10.5) entregue em 2026-04-02:
+
+  * utilitário de dias úteis: `backend/app/services/business_days.py`
+  * scan operacional: `backend/app/services/notification_operational_scan.py`
+  * endpoint manual: `POST /api/v1/notificacoes/scan-operacional` (`ADMIN|DEV`)
+  * run table:
+    - `notification_operational_scan_runs`
+    - migration `backend/alembic/versions/20260402_0027_create_notification_operational_scan_runs.py`
+  * integração no worker:
+    - `jobs_supported` inclui `notification_operational_scan`
+    - `/worker/jobs/{job_id}` resolve status de run operacional
+  * regras automáticas:
+    - `LIC_BOMBEIROS_BD5`
+    - `LIC_ALVARA_D30`
+    - `LIC_SANITARIO_D30`
+    - `LIC_AMBIENTAL_BD30`
+    - `PROC_STALE_BD7`
+    - `PROC_STALE_BD15`
+* Operacionalização diária do scan de notificações (S10.5b):
+
+  * estratégia oficial: scheduler externo Windows (sem scheduler interno no FastAPI)
+  * script operacional:
+    - `scripts/ops/run_notification_operational_scan.ps1`
+  * wrapper Task Scheduler:
+    - `scripts/ops/run_notification_operational_scan.cmd`
+  * o script usa endpoint já existente:
+    - `POST /api/v1/notificacoes/scan-operacional`
+    - `GET /api/v1/worker/jobs/{run_id}`
+  * resultado operacional:
+    - `exit 0` quando `completed`
+    - `exit 1` em falha/cancelamento/timeout
 * Tax Portal Sync (backend + frontend Subfase B concluídos em 2026-03-26):
 
   * endpoint DEV-only: `backend/app/api/v1/endpoints/dev_tax_portal_sync.py`

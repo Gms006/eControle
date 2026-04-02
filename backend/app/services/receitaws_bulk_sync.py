@@ -18,6 +18,7 @@ from app.models.company import Company
 from app.models.company_profile import CompanyProfile
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.services.company_scoring import recalculate_company_score
+from app.services.notifications import emit_org_notification
 
 
 MAX_ERROR_ITEMS = 50
@@ -185,6 +186,51 @@ def _extract_digits(cnpj: str) -> str:
     return re.sub(r"\D", "", cnpj or "")
 
 
+def _emit_receitaws_run_notification(run: ReceitaWSBulkSyncRun, db: Session) -> None:
+    severity = "info"
+    if run.status == "failed":
+        severity = "error"
+    elif run.status == "cancelled":
+        severity = "warning"
+
+    title = "ReceitaWS bulk sync finalizado"
+    if run.status == "failed":
+        title = "ReceitaWS bulk sync com falha"
+    elif run.status == "cancelled":
+        title = "ReceitaWS bulk sync cancelado"
+
+    message = (
+        f"Run {run.id} finalizada com status {run.status}. "
+        f"Processadas {int(run.processed or 0)}/{int(run.total or 0)} empresas. "
+        f"OK={int(run.ok_count or 0)} Erros={int(run.error_count or 0)} Ignoradas={int(run.skipped_count or 0)}."
+    )
+    emit_org_notification(
+        db,
+        org_id=run.org_id,
+        user_id=run.started_by_user_id,
+        event_type="job.receitaws_bulk_sync.finished",
+        severity=severity,
+        title=title,
+        message=message,
+        dedupe_key=f"job:receitaws_bulk_sync:{run.id}:{run.status}",
+        entity_type="receitaws_bulk_sync_run",
+        entity_id=run.id,
+        route_path="/painel?tab=empresas",
+        metadata_json={
+            "run_id": run.id,
+            "status": run.status,
+            "total": int(run.total or 0),
+            "processed": int(run.processed or 0),
+            "ok_count": int(run.ok_count or 0),
+            "error_count": int(run.error_count or 0),
+            "skipped_count": int(run.skipped_count or 0),
+            "dry_run": bool(run.dry_run),
+            "only_missing": bool(run.only_missing),
+        },
+        commit=False,
+    )
+
+
 def run_receitaws_bulk_sync_job(run_id: str) -> None:
     db: Session = SessionLocal()
     min_interval = float(getattr(settings, "RECEITAWS_MIN_INTERVAL_SECONDS", 20))
@@ -212,6 +258,7 @@ def run_receitaws_bulk_sync_job(run_id: str) -> None:
                 return
             if run.status == "cancelled":
                 run.finished_at = _now_utc()
+                _emit_receitaws_run_notification(run, db)
                 db.commit()
                 return
 
@@ -289,6 +336,7 @@ def run_receitaws_bulk_sync_job(run_id: str) -> None:
         run.finished_at = _now_utc()
         run.current_cnpj = None
         run.current_company_id = None
+        _emit_receitaws_run_notification(run, db)
         db.commit()
     except Exception:
         db.rollback()
@@ -301,6 +349,7 @@ def run_receitaws_bulk_sync_job(run_id: str) -> None:
             errors = list(failed_run.errors or [])
             errors.append({"error": "Falha interna ao executar job", "at": _now_utc().isoformat()})
             failed_run.errors = errors[-MAX_ERROR_ITEMS:]
+            _emit_receitaws_run_notification(failed_run, db)
             db.commit()
     finally:
         db.close()

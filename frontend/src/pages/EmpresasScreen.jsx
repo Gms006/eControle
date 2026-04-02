@@ -6,10 +6,11 @@ import { SideDrawer } from "@/components/ui/side-drawer";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItemFancy, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Chip } from "@/components/Chip";
+import ExportModal from "@/components/ExportModal";
 import CompanyAvatar from "@/components/common/CompanyAvatar";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
-import { ArrowDownAZ, ArrowUpZA, Clipboard, EllipsisVertical, ExternalLink, File, Mail, PencilLine, Phone, SlidersHorizontal } from "lucide-react";
+import { ArrowDownAZ, ArrowUpZA, Clipboard, EllipsisVertical, ExternalLink, File, FileSpreadsheet, Mail, PencilLine, Phone, SlidersHorizontal } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { buildCertificadoIndex, categorizeCertificadoSituacao, resolveEmpresaCertificadoSituacao } from "@/lib/certificados";
 import { parseDateLike } from "@/lib/date";
@@ -180,6 +181,7 @@ export default function EmpresasScreen({
   const toast = (msg) => enqueueToast?.(msg);
   const [viewMode, setViewMode] = React.useState(() => (typeof window !== "undefined" && window.localStorage.getItem(VIEW_MODE_KEY) === "detailed" ? "detailed" : "compact"));
   const [openFilters, setOpenFilters] = React.useState(false);
+  const [openExport, setOpenExport] = React.useState(false);
   const [kpiFilter, setKpiFilter] = React.useState(null);
   const [statusFilter, setStatusFilter] = React.useState("ativa");
   const [riskFilter, setRiskFilter] = React.useState("todos");
@@ -331,6 +333,9 @@ export default function EmpresasScreen({
             <span className="text-sm text-muted">{filteredRows.length} de {empresas.length} empresas exibidas</span>
             <div className="flex items-center gap-2">
               {soAlertas ? <Chip variant="warning">Modo alertas ativo</Chip> : null}
+              <Button size="sm" variant="outline" className="border-subtle" onClick={() => setOpenExport(true)}>
+                <FileSpreadsheet className="mr-1 h-3.5 w-3.5" /> Exportar relatório
+              </Button>
               <Button size="sm" variant="outline" className="border-subtle" onClick={() => setOpenFilters(true)}>
                 <SlidersHorizontal className="mr-1 h-3.5 w-3.5" /> Filtros avançados
               </Button>
@@ -640,6 +645,7 @@ export default function EmpresasScreen({
           ]}
         />
       </SideDrawer>
+      <ExportModal open={openExport} onClose={() => setOpenExport(false)} enqueueToast={enqueueToast} />
     </div>
   );
 }

@@ -146,6 +146,7 @@ def test_worker_health_returns_ok(client):
     assert "receitaws_bulk_sync" in payload["jobs_supported"]
     assert "tax_portal_sync" in payload["jobs_supported"]
     assert "licence_scan_full" in payload["jobs_supported"]
+    assert "notification_operational_scan" in payload["jobs_supported"]
     assert "licence_directory_watcher" in payload["watchers_supported"]
 
 

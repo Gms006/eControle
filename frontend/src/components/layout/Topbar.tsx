@@ -1,5 +1,5 @@
 // @ts-nocheck
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
  import {
    Bell,
    Filter,
@@ -24,6 +24,12 @@ import {
 } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { type AppTabKey, type NavItem } from "@/lib/theme";
+import NotificationPanel from "@/components/notifications/NotificationPanel";
+import {
+  contarNotificacoesNaoLidas,
+  listarNotificacoes,
+  marcarNotificacaoComoLida,
+} from "@/services/notifications";
 
 type SearchFieldOption = { key: string; label: string };
 
@@ -45,6 +51,7 @@ export default function Topbar({
   onModoFocoChange,
   onLogout,
   onReload,
+  onNotificationRouteNavigate,
   actions,
 }: {
   items: NavItem[];
@@ -64,9 +71,15 @@ export default function Topbar({
   onModoFocoChange: (value: boolean) => void;
   onLogout: () => void;
   onReload: () => void;
+  onNotificationRouteNavigate?: (routePath: string) => void;
   actions?: ReactNode;
 }) {
   const [openAdvancedFilters, setOpenAdvancedFilters] = useState(false);
+  const [openNotifications, setOpenNotifications] = useState(false);
+  const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const notificationsRef = useRef<HTMLDivElement | null>(null);
   const activeFilterCount = useMemo(() => {
     let count = 0;
     if (searchField !== "all") count += 1;
@@ -75,6 +88,76 @@ export default function Topbar({
     if (modoFoco) count += 1;
     return count;
   }, [modoFoco, municipio, searchField, somenteAlertas]);
+
+  const loadUnreadCount = async () => {
+    try {
+      const payload = await contarNotificacoesNaoLidas();
+      setUnreadCount(Number(payload?.unread_count || 0));
+    } catch {
+      // no-op: keep current value if endpoint is temporarily unavailable
+    }
+  };
+
+  const loadNotifications = async () => {
+    setNotificationsLoading(true);
+    try {
+      const payload = await listarNotificacoes({ limit: 20, offset: 0 });
+      setNotifications(Array.isArray(payload?.items) ? payload.items : []);
+    } catch {
+      setNotifications([]);
+    } finally {
+      setNotificationsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadUnreadCount();
+    const interval = window.setInterval(() => {
+      void loadUnreadCount();
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
+    if (!openNotifications) return;
+    void loadNotifications();
+  }, [openNotifications]);
+
+  useEffect(() => {
+    if (!openNotifications) return;
+    const onDocClick = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (!notificationsRef.current?.contains(target)) {
+        setOpenNotifications(false);
+      }
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [openNotifications]);
+
+  const handleMarkRead = async (item: any) => {
+    if (!item?.id) return;
+    try {
+      await marcarNotificacaoComoLida(item.id);
+      setNotifications((prev) =>
+        prev.map((entry) => (entry.id === item.id ? { ...entry, read_at: new Date().toISOString() } : entry)),
+      );
+      setUnreadCount((prev) => Math.max(0, prev - 1));
+    } catch {
+      // no-op
+    }
+  };
+
+  const handleOpenNotification = async (item: any) => {
+    if (!item) return;
+    if (!item.read_at) {
+      await handleMarkRead(item);
+    }
+    if (item.route_path) {
+      onNotificationRouteNavigate?.(item.route_path);
+      setOpenNotifications(false);
+    }
+  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-certhub-blue/60 bg-certhub-navy text-brand-navy-foreground backdrop-blur">
@@ -110,9 +193,34 @@ export default function Topbar({
 
             <div className="ml-auto flex items-center gap-2">
               {actions}
-              <Button size="icon" variant="secondary" title="Alertas" className="border border-white/20 bg-white/10 text-white hover:bg-white/20">
-                <Bell className="h-4 w-4" />
-              </Button>
+              <div className="relative" ref={notificationsRef}>
+                <Button
+                  size="icon"
+                  variant="secondary"
+                  title="Notificacoes"
+                  className="relative border border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  onClick={() => setOpenNotifications((prev) => !prev)}
+                  data-testid="topbar-notifications-button"
+                >
+                  <Bell className="h-4 w-4" />
+                  {unreadCount > 0 ? (
+                    <span
+                      className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
+                      data-testid="topbar-notifications-unread"
+                    >
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  ) : null}
+                </Button>
+                <NotificationPanel
+                  open={openNotifications}
+                  loading={notificationsLoading}
+                  notifications={notifications}
+                  unreadCount={unreadCount}
+                  onMarkRead={handleMarkRead}
+                  onNavigate={handleOpenNotification}
+                />
+              </div>
               <Button size="icon" variant="secondary" title="Favoritos" className="border border-white/20 bg-white/10 text-white hover:bg-white/20">
                 <Star className="h-4 w-4" />
               </Button>
