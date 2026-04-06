@@ -25,6 +25,8 @@ from app.models.org import Org
 from app.models.user import User
 from app.schemas.auth import PasswordConfirmRequest
 from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate, enrich_company_with_profile
+from app.schemas.company_overview import CompanyOverviewResponse
+from app.services.company_overview import build_company_overview
 from app.services.company_scoring import recalculate_company_score
 
 router = APIRouter()
@@ -185,6 +187,22 @@ def list_companies_municipios(
     values = [row[0] for row in query.all() if row[0]]
     normalized = sorted({normalize_municipio(value) for value in values if normalize_municipio(value)})
     return normalized
+
+
+@router.get("/{company_id}/overview", response_model=CompanyOverviewResponse)
+def get_company_overview(
+    company_id: str,
+    db: Session = Depends(get_db),
+    org: Org = Depends(get_current_org),
+    _user=Depends(require_roles("ADMIN", "DEV", "VIEW")),
+) -> CompanyOverviewResponse:
+    overview = build_company_overview(db, org.id, company_id)
+    if not overview:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Company not found",
+        )
+    return overview
 
 
 @router.get("/{company_id}", response_model=CompanyOut)
