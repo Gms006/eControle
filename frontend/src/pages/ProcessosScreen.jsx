@@ -29,6 +29,7 @@ import { isProcessStatusActiveOrPending, resolveProcessoTipo } from "@/lib/statu
 import { fetchJson } from "@/lib/api";
 import { cn } from "@/lib/utils";
 import { formatMunicipioDisplay } from "@/lib/normalization";
+import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { getPriorityTypeFields, getTypeFields } from "@/lib/processTypeFields";
 import { getProcessUrgency, URGENCY_BUCKETS } from "@/lib/processUrgency";
 
@@ -783,7 +784,9 @@ export default function ProcessosScreen({
                           Urgência {Math.max(0, Math.round(proc.urgencyScore))}
                         </Chip>
                       </div>
-                      <p className="text-base font-semibold leading-tight text-slate-900">{proc?.empresa || "—"}</p>
+                      <p className="text-base font-semibold leading-tight text-slate-900">
+                        <CopyableCompanyName value={proc?.empresa} onCopy={handleCopy} size="base" />
+                      </p>
                     </div>
                     <div className="flex flex-col items-end gap-2 text-right">
                       {maskedCnpj && maskedCnpj !== "—" && (

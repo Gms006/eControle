@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
+import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { Chip } from "@/components/Chip";
 import TaxPortalSyncManager from "@/components/header/TaxPortalSyncManager";
 import { useTaxPortalSync } from "@/hooks/useTaxPortalSync";
@@ -499,7 +500,7 @@ function TaxasScreen({
                   <CardContent className="space-y-3 p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 space-y-1">
-                        <h3 className="truncate text-sm font-semibold text-primary">{taxa.empresa || "—"}</h3>
+                        <CopyableCompanyName value={taxa.empresa} onCopy={handleCopy} size="base" />
                         <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                           {taxa.cnpj && handleCopy ? (
                             <CopyableIdentifier label="CNPJ" value={taxa.cnpj} onCopy={handleCopy} />
@@ -657,7 +658,9 @@ function TaxasScreen({
                           const statusDisplay = getDisplayStatusForField(taxa, tipo.key);
                           return (
                             <TableRow key={`${taxa.__taxa_key}-${tipo.key}`}>
-                              <TableCell className="font-medium">{taxa.empresa || "—"}</TableCell>
+                              <TableCell className="font-medium">
+                                <CopyableCompanyName value={taxa.empresa} onCopy={handleCopy} size="base" />
+                              </TableCell>
                               <TableCell>
                                 {hasRelevantStatus(status) ? (
                                   <StatusBadge status={statusDisplay ?? status} />

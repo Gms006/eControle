@@ -77,8 +77,11 @@ export default function Topbar({
   const [openAdvancedFilters, setOpenAdvancedFilters] = useState(false);
   const [openNotifications, setOpenNotifications] = useState(false);
   const [notificationsLoading, setNotificationsLoading] = useState(false);
+  const [notificationsLoadingMore, setNotificationsLoadingMore] = useState(false);
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [totalUnread, setTotalUnread] = useState(0);
+  const [notificationsOffset, setNotificationsOffset] = useState(0);
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const activeFilterCount = useMemo(() => {
     let count = 0;
@@ -100,13 +103,31 @@ export default function Topbar({
 
   const loadNotifications = async () => {
     setNotificationsLoading(true);
+    setNotificationsOffset(0);
     try {
-      const payload = await listarNotificacoes({ limit: 20, offset: 0 });
+      const payload = await listarNotificacoes({ limit: 100, offset: 0 });
       setNotifications(Array.isArray(payload?.items) ? payload.items : []);
+      setTotalUnread(Number(payload?.total || 0));
     } catch {
       setNotifications([]);
+      setTotalUnread(0);
     } finally {
       setNotificationsLoading(false);
+    }
+  };
+
+  const loadMoreNotifications = async () => {
+    setNotificationsLoadingMore(true);
+    try {
+      const nextOffset = notificationsOffset + 100;
+      const payload = await listarNotificacoes({ limit: 100, offset: nextOffset });
+      const newItems = Array.isArray(payload?.items) ? payload.items : [];
+      setNotifications((prev) => [...prev, ...newItems]);
+      setNotificationsOffset(nextOffset);
+    } catch {
+      // no-op
+    } finally {
+      setNotificationsLoadingMore(false);
     }
   };
 
@@ -198,14 +219,14 @@ export default function Topbar({
                   size="icon"
                   variant="secondary"
                   title="Notificacoes"
-                  className="relative border border-white/20 bg-white/10 text-white hover:bg-white/20"
+                  className="relative border border-white/20 bg-white/10 text-white hover:bg-white/20 transition-all"
                   onClick={() => setOpenNotifications((prev) => !prev)}
                   data-testid="topbar-notifications-button"
                 >
                   <Bell className="h-4 w-4" />
                   {unreadCount > 0 ? (
                     <span
-                      className="absolute -right-1 -top-1 min-w-[18px] rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white"
+                      className="absolute -right-2 -top-2 min-w-[22px] h-[22px] rounded-full bg-gradient-to-br from-rose-500 to-rose-600 px-1.5 text-[11px] font-bold text-white shadow-lg shadow-rose-500/50 flex items-center justify-center border border-white/30 animate-pulse"
                       data-testid="topbar-notifications-unread"
                     >
                       {unreadCount > 99 ? "99+" : unreadCount}
@@ -219,6 +240,10 @@ export default function Topbar({
                   unreadCount={unreadCount}
                   onMarkRead={handleMarkRead}
                   onNavigate={handleOpenNotification}
+                  onLoadMore={loadMoreNotifications}
+                  hasMore={(notifications.length) < totalUnread}
+                  loadingMore={notificationsLoadingMore}
+                  totalUnread={totalUnread}
                 />
               </div>
               <Button size="icon" variant="secondary" title="Favoritos" className="border border-white/20 bg-white/10 text-white hover:bg-white/20">

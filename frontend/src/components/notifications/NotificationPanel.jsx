@@ -17,9 +17,9 @@ const formatDateTime = (value) => {
 
 const severityClass = (severity) => {
   const normalized = String(severity || "").toLowerCase();
-  if (normalized === "error") return "bg-rose-100 text-rose-700 border-rose-200";
-  if (normalized === "warning") return "bg-amber-100 text-amber-700 border-amber-200";
-  return "bg-sky-100 text-sky-700 border-sky-200";
+  if (normalized === "error") return "bg-rose-50 text-rose-900 border-rose-300 font-semibold";
+  if (normalized === "warning") return "bg-amber-50 text-amber-900 border-amber-300 font-semibold";
+  return "bg-sky-50 text-sky-900 border-sky-300 font-semibold";
 };
 
 export default function NotificationPanel({
@@ -29,6 +29,10 @@ export default function NotificationPanel({
   unreadCount,
   onMarkRead,
   onNavigate,
+  onLoadMore,
+  hasMore,
+  loadingMore,
+  totalUnread,
 }) {
   const [activeTab, setActiveTab] = useState("unread");
   const unreadItems = useMemo(
@@ -48,10 +52,10 @@ export default function NotificationPanel({
       className="absolute right-0 top-12 z-50 w-[min(420px,calc(100vw-24px))] rounded-2xl border border-slate-200 bg-white p-3 text-slate-900 shadow-2xl"
       data-testid="notifications-panel"
     >
-      <div className="mb-2 flex items-center justify-between">
-        <div className="text-sm font-semibold">Notificacoes</div>
-        <div className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700" data-testid="notifications-unread-pill">
-          Nao lidas: {unreadCount}
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-base font-bold text-slate-900">Notificacoes</div>
+        <div className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-900 border border-rose-200" data-testid="notifications-unread-pill">
+          {unreadCount} nao lida{unreadCount !== 1 ? 's' : ''}
         </div>
       </div>
       <div className="mb-2 flex items-center gap-2">
@@ -94,24 +98,24 @@ export default function NotificationPanel({
             return (
               <div
                 key={item.id}
-                className={`rounded-xl border p-3 ${unread ? "border-slate-300 bg-white" : "border-slate-200 bg-slate-50"}`}
+                className={`rounded-xl border p-3 transition-colors ${unread ? "border-slate-300 bg-slate-50 hover:bg-white" : "border-slate-200 bg-slate-100 hover:bg-slate-150"}`}
                 data-testid="notification-item"
               >
                 <div className="mb-1 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className={`rounded-full border px-2 py-0.5 text-[11px] font-semibold ${severityClass(item.severity)}`}>
                         {String(item.severity || "info").toUpperCase()}
                       </span>
                       {unread ? <span className="h-2 w-2 rounded-full bg-emerald-500" aria-label="Nao lida" /> : null}
                     </div>
-                    <div className="mt-1 text-sm font-semibold">{item.title || "Notificacao"}</div>
-                    <div className="mt-1 text-xs text-slate-600">{item.message || "Sem mensagem."}</div>
+                    <div className="mt-2 text-sm font-bold text-slate-900">{item.title || "Notificacao"}</div>
+                    <div className="mt-1 text-xs text-slate-700 leading-relaxed">{item.message || "Sem mensagem."}</div>
                   </div>
                   <Bell className="h-4 w-4 shrink-0 text-slate-400" />
                 </div>
-                <div className="mt-2 flex items-center justify-between gap-2">
-                  <div className="text-[11px] text-slate-500">{formatDateTime(item.created_at)}</div>
+                <div className="mt-3 flex items-center justify-between gap-2">
+                  <div className="text-[11px] text-slate-600 font-medium">{formatDateTime(item.created_at)}</div>
                   <div className="flex items-center gap-2">
                     {item.route_path ? (
                       <Button
@@ -141,6 +145,21 @@ export default function NotificationPanel({
               </div>
             );
           })}
+          {activeTab === "unread" && hasMore ? (
+            <div className="pt-2 pb-1">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                className="w-full h-8 text-xs font-medium"
+                onClick={() => onLoadMore?.()}
+                disabled={loadingMore}
+                data-testid="notification-load-more"
+              >
+                {loadingMore ? "Carregando..." : `Carregar mais (${totalUnread - visibleItems.length} restantes)`}
+              </Button>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

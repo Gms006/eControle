@@ -1,6 +1,6 @@
 # Estrutura do Repositorio - eControle v2
 
-Data de referencia: 2026-04-02
+Data de referencia: 2026-04-08
 
 ## Visao geral
 
@@ -19,6 +19,7 @@ eControle/
 |  |  |  |  |- alertas.py
 |  |  |  |  |- auth.py
 |  |  |  |  |- certificados.py
+|  |  |  |  |- copilot.py
 |  |  |  |  |- cnae\_risk\_official\_sources.py
 |  |  |  |  |- cnae\_risk\_suggestions.py
 |  |  |  |  |- companies.py
@@ -65,6 +66,7 @@ eControle/
 |  |  |  |- company\_process.py
 |  |  |  |- company\_profile.py
 |  |  |  |- company\_tax.py
+|  |  |  |- copilot.py
 |  |  |  |- ingest\_run.py
 |  |  |  |- org.py
 |  |  |  |- refresh\_token.py
@@ -83,6 +85,7 @@ eControle/
 |  |  |  |- company\_profile.py
 |  |  |  |- company\_tax.py
 |  |  |  |- cnae\_risk\_suggestion.py
+|  |  |  |- copilot.py
 |  |  |  |- official\_sources.py
 |  |  |  |- org.py
 |  |  |  |- notification.py
@@ -104,6 +107,11 @@ eControle/
 |  |  |  |- company\_scoring.py
 |  |  |  |- cnae\_official\_suggestions.py
 |  |  |  |- cnae\_risk\_suggestions.py
+|  |  |  |- copilot.py
+|  |  |  |- copilot\_document\_analysis.py
+|  |  |  |- copilot\_domain\_qa.py
+|  |  |  |- copilot\_provider.py
+|  |  |  |- copilot\_simulation.py
 |  |  |  |- official\_sources/
 |  |  |  |  |- \_\_init\_\_.py
 |  |  |  |  |- anapolis.py
@@ -176,6 +184,8 @@ eControle/
 |  |  |- test\_companies\_crud.py
 |  |  |- test\_company\_licences\_endpoint.py
 |  |  |- test\_company\_taxes\_patch.py
+|  |  |- test\_copilot\_endpoints.py
+|  |  |- test\_copilot\_provider.py
 |  |  |- test\_company\_scoring.py
 |  |  |- test\_cnae\_official\_sources.py
 |  |  |- test\_cnae\_risk\_suggestions.py
@@ -223,6 +233,8 @@ eControle/
 |  |  |  |  |- Topbar.tsx
 |  |  |  |- notifications/
 |  |  |  |  |- NotificationPanel.jsx
+|  |  |  |- copilot/
+|  |  |  |  |- CopilotWidget.jsx
 |  |  |  |- ui/
 |  |  |  |  |- OverlayModal.jsx
 |  |  |  |  |- side-drawer.jsx
@@ -234,6 +246,7 @@ eControle/
 |  |  |  |- useReceitaWsLookup.js
 |  |  |  |- useReceitaWsBulkSync.js
 |  |  |  |- useTaxPortalSync.js
+|  |  |  |- useCopilotWidget.js
 |  |  |- lib/
 |  |  |  |- text.js
 |  |  |  |- masks.js
@@ -260,6 +273,7 @@ eControle/
 |  |  |  |- notifications.js
 |  |  |  |- receitawsBulkSync.js
 |  |  |  |- taxPortalSync.js
+|  |  |  |- copilot.js
 |  |- tests\_e2e/portal/
 |  |  |- company\_scoring.spec.ts
 |  |  |- login\_empresas.smoke.spec.ts
@@ -269,6 +283,7 @@ eControle/
 |  |  |- taxas\_envio\_methods.smoke.spec.ts
 |  |  |- taxas\_tax\_portal\_sync.smoke.spec.ts
 |  |  |- notifications\_center.smoke.spec.ts
+|  |  |- copilot\_widget.smoke.spec.ts
 |  |- package.json
 |  |- vite.config.ts
 |  |- playwright.config.ts
@@ -401,6 +416,30 @@ eControle/
   * resultado operacional:
     - `exit 0` quando `completed`
     - `exit 1` em falha/cancelamento/timeout
+* Copiloto eControle S11.1 (read-only) refinado em 2026-04-08:
+
+  * endpoint backend dedicado:
+    - `POST /api/v1/copilot/respond` (`ADMIN|DEV|VIEW`, multipart com `document` opcional)
+  * serviço central:
+    - `backend/app/services/copilot.py`
+    - `backend/app/services/copilot_domain_qa.py` (categoria `DUVIDAS_DIVERSAS`)
+    - abstração de provider em `backend/app/services/copilot_provider.py`
+      - provider principal `gemini` (`gemini-2.5-flash`) com fallback opcional `ollama` (`gemma3:4b`)
+      - tratamento controlado de timeout/auth/rate-limit/indisponibilidade
+      - logs de provider tentado/usado, web search e fallback (sem vazamento de segredos)
+    - pipeline documental hardened em `backend/app/services/copilot_document_analysis.py`:
+      - PDF: extração de texto + tentativa de renderização de páginas
+      - classificação em conjunto fechado de tipos do domínio
+      - `NAO_CONCLUSIVO` quando faltar evidência
+    - `DUVIDAS_DIVERSAS` com uso controlado de web search/grounding e retorno de fontes/citações quando disponíveis
+  * frontend global:
+    - widget flutuante em `frontend/src/components/copilot/CopilotWidget.jsx`
+    - estado persistido em localStorage + fluxo guiado categoria -> (empresa quando necessário) -> input
+    - indicador discreto `Resposta com busca externa` + fontes clicáveis quando houver grounding
+  * cobertura:
+    - backend: `backend/tests/test_copilot_endpoints.py`
+    - backend unit/provider: `backend/tests/test_copilot_provider.py`
+    - portal E2E: `frontend/tests_e2e/portal/copilot_widget.smoke.spec.ts`
 * Tax Portal Sync (backend + frontend Subfase B concluídos em 2026-03-26):
 
   * endpoint DEV-only: `backend/app/api/v1/endpoints/dev_tax_portal_sync.py`

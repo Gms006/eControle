@@ -22,6 +22,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/StatusBadge";
 import InlineBadge from "@/components/InlineBadge";
+import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { fetchJson } from "@/lib/api";
 import { formatCnpj } from "@/lib/text";
 import { formatStatusDisplay, getStatusKey, isAlertStatus, resolveLicencaTipo } from "@/lib/status";
@@ -1090,14 +1091,14 @@ export default function LicencasScreen({
                     <div key={`${item.id}-${idx}`} className="rounded-xl border border-slate-200 p-3">
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold">{item.empresa_display}</span>
+                          <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />
                           <StatusBadge
                             status={formatStatusWithDate(item)}
                           />
                           {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
                           <Chip variant={resolveLicencaTipo(item.tipo).variant}>{resolveLicencaTipo(item.tipo).label}</Chip>
                           <Chip data-testid="licencas-score-urgencia" variant="outline">
-                            Score: {Number.isFinite(item?.score_urgencia) ? item.score_urgencia : "—"}
+                            Score: {Number.isFinite(item?.score_urgencia) ? item.score_urgencia : "—"}}
                             <ScoreLegendInfo />
                           </Chip>
                           <Chip data-testid="licencas-score-risk" variant={scoreRiskChipVariant(item?.risco_consolidado)}>
@@ -1216,7 +1217,7 @@ export default function LicencasScreen({
                         <TableRow key={`${item.id}-${idx}`}>
                           <TableCell>
                             <div className="flex items-center gap-2">
-                              <span className="font-medium">{item.empresa_display}</span>
+                              <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />
                               {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
                             </div>
                           </TableCell>

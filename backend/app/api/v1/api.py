@@ -5,6 +5,7 @@ from app.api.v1.endpoints import (
     alertas,
     auth,
     certificados,
+    copilot,
     cnae_risk_official_sources,
     cnae_risk_suggestions,
     companies,
@@ -54,6 +55,7 @@ api_router.include_router(notifications.router, prefix="/notificacoes", tags=["n
 api_router.include_router(relatorios.router, prefix="/relatorios", tags=["relatorios"])
 
 api_router.include_router(certificados.router, prefix="/certificados", tags=["certificados"])
+api_router.include_router(copilot.router, prefix="/copilot", tags=["copilot"])
 api_router.include_router(cnae_risk_suggestions.router, prefix="/catalog/cnae-risk-suggestions", tags=["catalog"])
 api_router.include_router(cnae_risk_official_sources.router, prefix="/catalog/cnae-risk-suggestions/official", tags=["catalog"])
 api_router.include_router(admin_users.router, prefix="/admin/users", tags=["admin"])

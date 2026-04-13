@@ -10,6 +10,7 @@ import ExportModal from "@/components/ExportModal";
 import CompanyAvatar from "@/components/common/CompanyAvatar";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
+import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { ArrowDownAZ, ArrowUpZA, Clipboard, EllipsisVertical, ExternalLink, File, FileSpreadsheet, Mail, PencilLine, Phone, SlidersHorizontal } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { buildCertificadoIndex, categorizeCertificadoSituacao, resolveEmpresaCertificadoSituacao } from "@/lib/certificados";
@@ -18,6 +19,8 @@ import { formatMunicipioDisplay } from "@/lib/normalization";
 import { cn } from "@/lib/utils";
 import { getStatusKey, hasPendingFraction, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
 import { openCartaoCNPJ, onlyDigits, openPortalPrefeitura } from "@/lib/quickLinks";
+import useCompanyOverview from "@/hooks/useCompanyOverview";
+import CompanyOverviewDrawer from "@/components/companies/CompanyOverviewDrawer";
 
 const VIEW_MODE_KEY = "econtrole.empresas.viewMode";
 
@@ -164,6 +167,14 @@ const ORDER_OPTIONS = [
   { value: "status", label: "Status", defaultDir: "asc" },
   { value: "risco", label: "Risco", defaultDir: "desc" },
 ];
+const KPI_BUTTON_THEME = {
+  debitos: "border-blue-300 bg-blue-100 text-blue-900",
+  semCertificado: "border-indigo-300 bg-indigo-100 text-indigo-900",
+  taxasPendentes: "border-sky-300 bg-sky-100 text-sky-900",
+  licencasVencendo: "border-blue-400 bg-blue-50 text-blue-900",
+  processosAndamento: "border-indigo-400 bg-indigo-50 text-indigo-900",
+  criticos7dias: "border-slate-400 bg-slate-100 text-slate-900",
+};
 
 export default function EmpresasScreen({
   filteredEmpresas,
@@ -187,7 +198,10 @@ export default function EmpresasScreen({
   const [riskFilter, setRiskFilter] = React.useState("todos");
   const [sortBy, setSortBy] = React.useState({ field: "score", direction: "desc" });
   const [cndCache, setCndCache] = React.useState({});
+  const [openOverview, setOpenOverview] = React.useState(false);
+  const [overviewCompany, setOverviewCompany] = React.useState(null);
   const cndRef = React.useRef(cndCache);
+  const overviewState = useCompanyOverview(openOverview, overviewCompany?.id);
 
   React.useEffect(() => {
     cndRef.current = cndCache;
@@ -231,6 +245,16 @@ export default function EmpresasScreen({
       })
     );
   }, [extractEmpresaId]);
+
+  const openOverviewEmpresa = React.useCallback((empresa, empresaId) => {
+    const resolvedId = empresaId || resolveEmpresaIdValue(empresa, extractEmpresaId);
+    if (!resolvedId) {
+      toast?.("Empresa sem identificador para abrir visão geral.");
+      return;
+    }
+    setOverviewCompany({ ...(empresa || {}), id: String(resolvedId) });
+    setOpenOverview(true);
+  }, [extractEmpresaId, toast]);
 
   const rows = React.useMemo(() => filteredEmpresas.map((empresa) => {
     const empresaId = resolveEmpresaIdValue(empresa, extractEmpresaId);
@@ -333,21 +357,21 @@ export default function EmpresasScreen({
             <span className="text-sm text-muted">{filteredRows.length} de {empresas.length} empresas exibidas</span>
             <div className="flex items-center gap-2">
               {soAlertas ? <Chip variant="warning">Modo alertas ativo</Chip> : null}
-              <Button size="sm" variant="outline" className="border-subtle" onClick={() => setOpenExport(true)}>
+              <Button size="sm" variant="outline" className="border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200" onClick={() => setOpenExport(true)}>
                 <FileSpreadsheet className="mr-1 h-3.5 w-3.5" /> Exportar relatório
               </Button>
-              <Button size="sm" variant="outline" className="border-subtle" onClick={() => setOpenFilters(true)}>
+              <Button size="sm" variant="outline" className="border-slate-400 bg-slate-900 text-white hover:bg-slate-800" onClick={() => setOpenFilters(true)}>
                 <SlidersHorizontal className="mr-1 h-3.5 w-3.5" /> Filtros avançados
               </Button>
-              <div className="inline-flex items-center rounded-xl border border-subtle bg-card p-1">
-                <button type="button" onClick={() => setViewMode("compact")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", viewMode === "compact" ? "bg-slate-900 text-white" : "text-slate-600")}>Compacto</button>
-                <button type="button" onClick={() => setViewMode("detailed")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", viewMode === "detailed" ? "bg-slate-900 text-white" : "text-slate-600")}>Detalhado</button>
+              <div className="inline-flex items-center rounded-xl border border-indigo-300 bg-indigo-50 p-1">
+                <button type="button" onClick={() => setViewMode("compact")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition", viewMode === "compact" ? "bg-indigo-700 text-white" : "bg-white text-indigo-700 hover:bg-indigo-100")}>Compacto</button>
+                <button type="button" onClick={() => setViewMode("detailed")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition", viewMode === "detailed" ? "bg-indigo-700 text-white" : "bg-white text-indigo-700 hover:bg-indigo-100")}>Detalhado</button>
               </div>
             </div>
           </div>
           <div className="mt-3 flex flex-wrap gap-2">
             {kpis.map((item) => (
-              <button key={item.key} type="button" onClick={() => setKpiFilter((prev) => (prev === item.key ? null : item.key))} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", kpiFilter === item.key ? "border-blue-200 bg-blue-50 text-blue-800" : "border-subtle bg-card text-slate-600")}>
+              <button key={item.key} type="button" onClick={() => setKpiFilter((prev) => (prev === item.key ? null : item.key))} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", kpiFilter === item.key ? "border-blue-300 bg-blue-100 text-blue-900" : KPI_BUTTON_THEME[item.key] || "border-slate-300 bg-slate-100 text-slate-700")}>
                 {item.label} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px]">{counts[item.key] || 0}</span>
               </button>
             ))}
@@ -374,8 +398,8 @@ export default function EmpresasScreen({
                   }}
                   className={cn(
                     "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
-                    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                    isActive ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm" : "",
+                    "border-indigo-300 bg-indigo-50 text-indigo-900 hover:bg-indigo-100",
+                    isActive ? "border-indigo-600 bg-indigo-700 text-white shadow-sm hover:bg-indigo-700" : "",
                   )}
                 >
                   <span>{option.label}</span>
@@ -441,11 +465,12 @@ export default function EmpresasScreen({
                     </TableCell>
                     <TableCell><Chip variant={row.taxaPendencias > 0 ? "warning" : "neutral"}>{row.taxaPendencias}</Chip></TableCell>
                     <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button size="icon" variant="outline"><EllipsisVertical className="h-4 w-4" /></Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                          <Button size="icon" variant="outline" className="border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200"><EllipsisVertical className="h-4 w-4" /></Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-72">
+                          <DropdownMenuItemFancy icon={ExternalLink} title="Abrir" description="Abrir central operacional da empresa" onClick={() => openOverviewEmpresa(row.empresa, row.empresaId)} />
                           {canManageEmpresas ? (
                             <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(row.empresa)} />
                           ) : null}
@@ -477,7 +502,9 @@ export default function EmpresasScreen({
                     <CompanyAvatar name={row.empresa?.empresa} seed={row.empresa?.id ?? companyDocumentValue(row.empresa)} className="h-12 w-12 rounded-2xl text-sm" />
                     <div className="min-w-0 space-y-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="truncate text-base font-semibold text-primary">{row.empresa?.empresa}</h3>
+                        <div className="truncate">
+                          <CopyableCompanyName value={row.empresa?.empresa} onCopy={handleCopy} size="base" className="text-primary" />
+                        </div>
                         <StatusBadge status={resolveCompanyStatus(row.empresa)} />
                         <Chip variant={row.flags.debitos ? "warning" : "success"}>
                           {row.flags.debitos ? "Possui débitos" : "Sem débitos"}
@@ -501,8 +528,8 @@ export default function EmpresasScreen({
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    {row.empresa?.email ? <Button size="icon" variant="outline" title="Copiar e-mail" onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)}><Mail className="h-4 w-4" /></Button> : null}
-                    {row.empresa?.telefone ? <Button size="icon" variant="outline" title="Copiar telefone" onClick={() => handleCopy(row.empresa.telefone, `Telefone copiado: ${row.empresa.telefone}`)}><Phone className="h-4 w-4" /></Button> : null}
+                    {row.empresa?.email ? <Button size="icon" variant="outline" className="border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200" title="Copiar e-mail" onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)}><Mail className="h-4 w-4" /></Button> : null}
+                    {row.empresa?.telefone ? <Button size="icon" variant="outline" className="border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200" title="Copiar telefone" onClick={() => handleCopy(row.empresa.telefone, `Telefone copiado: ${row.empresa.telefone}`)}><Phone className="h-4 w-4" /></Button> : null}
                   </div>
                 </div>
                 <div className="grid grid-cols-3 gap-2">
@@ -517,8 +544,9 @@ export default function EmpresasScreen({
                 </div>
                 <div className="flex flex-wrap items-center gap-2 border-t border-subtle pt-3">
                   <DropdownMenu>
-                    <DropdownMenuTrigger asChild><Button size="sm"><Clipboard className="mr-1.5 h-3.5 w-3.5" /> Ações rápidas</Button></DropdownMenuTrigger>
+                    <DropdownMenuTrigger asChild><Button size="sm" className="bg-indigo-700 text-white hover:bg-indigo-800"><Clipboard className="mr-1.5 h-3.5 w-3.5" /> Ações rápidas</Button></DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
+                      <DropdownMenuItemFancy icon={ExternalLink} title="Abrir" description="Abrir central operacional da empresa" onClick={() => openOverviewEmpresa(row.empresa, row.empresaId)} />
                       {row.empresa?.cnpj ? (
                         <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
                       ) : null}
@@ -528,12 +556,13 @@ export default function EmpresasScreen({
                       ) : null}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => openOverviewEmpresa(row.empresa, row.empresaId)} data-testid="company-open-button"><ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir</Button>
                   {canManageEmpresas ? (
-                    <Button size="sm" variant="outline" onClick={() => openEditEmpresa(row.empresa)} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
+                    <Button size="sm" variant="outline" className="border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200" onClick={() => openEditEmpresa(row.empresa)} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
                   ) : null}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button size="sm" variant="outline"><File className="mr-1.5 h-3.5 w-3.5" /> Certidões</Button>
+                      <Button size="sm" variant="outline" className="border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200"><File className="mr-1.5 h-3.5 w-3.5" /> Certidões</Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-72">
                       {row.empresa?.cnpj ? (
@@ -617,8 +646,8 @@ export default function EmpresasScreen({
         title="Filtros avançados da aba"
         footer={
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" className="border-subtle" onClick={() => { setStatusFilter("ativa"); setRiskFilter("todos"); setKpiFilter(null); }}>Limpar</Button>
-            <Button type="button" onClick={() => setOpenFilters(false)}>Aplicar</Button>
+            <Button type="button" variant="outline" className="border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200" onClick={() => { setStatusFilter("ativa"); setRiskFilter("todos"); setKpiFilter(null); }}>Limpar</Button>
+            <Button type="button" className="bg-slate-900 text-white hover:bg-slate-800" onClick={() => setOpenFilters(false)}>Aplicar</Button>
           </div>
         }
       >
@@ -645,6 +674,17 @@ export default function EmpresasScreen({
           ]}
         />
       </SideDrawer>
+      <CompanyOverviewDrawer
+        open={openOverview}
+        onClose={() => {
+          setOpenOverview(false);
+          setOverviewCompany(null);
+        }}
+        company={overviewCompany}
+        state={overviewState}
+        onEditCompany={canManageEmpresas ? openEditEmpresa : undefined}
+        onCopy={handleCopy}
+      />
       <ExportModal open={openExport} onClose={() => setOpenExport(false)} enqueueToast={enqueueToast} />
     </div>
   );
@@ -656,7 +696,7 @@ function SimpleFilterRow({ label, value, onChange, options, testIdPrefix }) {
       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
       <div className="flex flex-wrap gap-2">
         {options.map((option) => (
-          <button key={option.value} type="button" data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined} onClick={() => onChange(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", value === option.value ? "border-blue-200 bg-blue-50 text-blue-800" : "border-subtle bg-card text-slate-600")}>{option.label}</button>
+          <button key={option.value} type="button" data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined} onClick={() => onChange(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", value === option.value ? "border-indigo-600 bg-indigo-700 text-white" : "border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200")}>{option.label}</button>
         ))}
       </div>
     </div>
@@ -676,7 +716,7 @@ function MiniCounter({ title, main, sub1, sub2 }) {
 
 function SortButton({ label, active, direction, onClick, dataTestId }) {
   return (
-    <button type="button" data-testid={dataTestId} className="inline-flex items-center gap-1 font-semibold text-muted hover:text-slate-800" onClick={onClick}>
+    <button type="button" data-testid={dataTestId} className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold transition", active ? "border-indigo-600 bg-indigo-700 text-white" : "border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200")} onClick={onClick}>
       {label}
       {active ? (direction === "asc" ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />) : null}
     </button>

@@ -2,12 +2,13 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-04-02)
+## Status atual do projeto (2026-04-08)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
 - S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída + S10.3 parcial com calibragem de catálogo e base de atualização assistida em andamento; S10.4 Notification Center MVP entregue; S10.5/Fase C de notificações operacionais entregue).
-- S9/S11/S12: planejados.
+- S11: em andamento (S11.1 Copiloto eControle migrado para Gemini 2.5 Flash com fallback Ollama opcional).
+- S9/S12: planejados.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
 
 Arquivos de acompanhamento:
@@ -56,6 +57,16 @@ Campos principais:
 - `RECEITAWS_MIN_INTERVAL_SECONDS` (default `20`)
 - `RECEITAWS_RATE_LIMIT_BACKOFF_SECONDS` (default `60`)
 - `EMPRESAS_ROOT_DIR` (default `G:/EMPRESAS`) para upload/watcher de licencas
+- Copiloto eControle (S11.1):
+  - `COPILOT_PROVIDER` (default `gemini`)
+  - `COPILOT_PROVIDER_MODEL` (default `gemini-2.5-flash`)
+  - `COPILOT_PROVIDER_TIMEOUT_SECONDS` (default `60`)
+  - `GEMINI_API_KEY` (obrigatória para provider Gemini)
+  - `COPILOT_PROVIDER_ENABLE_WEB_SEARCH` (default `true`; ativa grounding de forma controlada em `DUVIDAS_DIVERSAS`)
+  - `COPILOT_FALLBACK_PROVIDER` (default `ollama`)
+  - `COPILOT_FALLBACK_BASE_URL` (default `http://127.0.0.1:11434`)
+  - `COPILOT_FALLBACK_MODEL` (default `gemma3:4b`)
+  - `COPILOT_FALLBACK_TIMEOUT_SECONDS` (default `60`)
 - CertHub / Certificados (S8):
   - `CERTHUB_BASE_URL`
   - `CERTHUB_API_TOKEN` (opcional, dependendo do CertHub)
@@ -104,6 +115,11 @@ Base: `http://localhost:8020/api/v1`
   - `POST /integracoes/certhub/webhook` (auth por `Authorization: Bearer <CERTHUB_WEBHOOK_TOKEN>`)
   - modos suportados: `upsert`, `delete`, `full`
 - Lookups: `/lookups/receitaws/{cnpj}` (provedor primario ReceitaWS com fallback automatico para BrasilAPI)
+- Copiloto eControle (read-only; ADMIN|DEV|VIEW):
+  - `POST /copilot/respond`
+    - categorias: `COMPANY_SUMMARY`, `DOCUMENT_ANALYSIS`, `RISK_SIMULATION`, `DUVIDAS_DIVERSAS`
+    - `multipart/form-data`: `category`, `company_id` (opcional para `DUVIDAS_DIVERSAS`), `message`, `document` (opcional)
+    - sem persistência automática: não grava banco, não aprova, não atualiza score persistido, não dispara jobs
 - Meta: `/meta/enums`
 - Grupos: `/grupos`
 - Admin usuarios: `/admin/users`
@@ -448,7 +464,7 @@ $env:ECONTROLE_PASSWORD="sua_senha"
 
 Fluxo E2E recomendado (sem ampliar spec visual):
 1. Rodar o backend E2E API.
-2. Rodar o portal E2E existente (incluindo `frontend/tests_e2e/portal/company_scoring.spec.ts`, `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts` e `frontend/tests_e2e/portal/notifications_center.smoke.spec.ts`).
+2. Rodar o portal E2E existente (incluindo `frontend/tests_e2e/portal/company_scoring.spec.ts`, `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`, `frontend/tests_e2e/portal/notifications_center.smoke.spec.ts` e `frontend/tests_e2e/portal/copilot_widget.smoke.spec.ts`).
 3. Em cenários de ajuste de catálogo CNAE, executar antes:
    - `python backend/scripts/load_cnae_risks_seed.py --recalculate-affected`
 4. Para validar Fase C de notificações operacionais via API:
@@ -512,3 +528,52 @@ npm run test:e2e
 ## Licenca
 
 Uso interno (Neto Contabilidade).
+## Copiloto eControle (S11.1)
+
+- Widget global no portal (canto inferior direito) com launcher flutuante, abrir/minimizar/fechar e estado persistido em `localStorage`.
+- Fluxo guiado obrigatório:
+  1. escolher categoria
+  2. escolher empresa (obrigatório em `COMPANY_SUMMARY`, `DOCUMENT_ANALYSIS` e `RISK_SIMULATION`)
+  3. liberar input manual e chips de exemplo
+- Categorias MVP:
+  - Entender empresa
+  - Analisar documento
+  - Simular impacto no risco
+  - Dúvidas diversas
+- Regra de categoria `Dúvidas diversas`:
+  - pode perguntar sem empresa;
+  - quando a pergunta depende de empresa específica, o backend retorna `requires_company=true` e a UI volta para seleção de empresa.
+  - quando a pergunta exige atualização normativa/fonte oficial, o backend pode usar web search/grounding no Gemini e retornar fontes clicáveis.
+- Resposta estruturada por seções (resumo, evidências, pendências, impacto, próximas ações, alertas) + ações rápidas clicáveis.
+- Regra de segurança:
+  - escopo fechado no domínio eControle;
+  - feature read-only (`ADMIN`, `DEV`, `VIEW`);
+  - não persiste alterações automaticamente.
+- Refino de análise documental:
+  - não classifica por nome de arquivo;
+  - PDF passa por extração de texto e tentativa de renderização das primeiras páginas antes da inferência;
+  - classificação restrita ao conjunto fechado do domínio:
+    - `CND_MUNICIPAL`, `CND_ESTADUAL`, `CND_FEDERAL`, `ALVARA_FUNCIONAMENTO`,
+      `ALVARA_SANITARIO`, `LICENCA_AMBIENTAL`, `CERTIFICADO_BOMBEIROS`,
+      `USO_DO_SOLO`, `OUTRO`, `NAO_CONCLUSIVO`;
+  - hardening de prompt: sem expansão arbitrária de siglas, exigência de evidências e retorno `NAO_CONCLUSIVO` quando faltar base factual.
+
+Provider principal e fallback:
+- Primário: Gemini 2.5 Flash (`COPILOT_PROVIDER=gemini`).
+- Fallback opcional: Ollama local (`COPILOT_FALLBACK_PROVIDER=ollama`, `gemma3:4b`).
+- Ordem de execução:
+  1. tenta Gemini;
+  2. em falha controlada (configuração, timeout, indisponibilidade), tenta fallback local se habilitado;
+  3. se ambos falharem, retorna erro controlado no endpoint com mensagem amigável.
+
+Como obter/configurar `GEMINI_API_KEY`:
+1. Gerar chave no Google AI Studio/Google AI para Gemini API.
+2. Configurar no `.env` local:
+   - `GEMINI_API_KEY=<sua_chave>`
+3. Nunca versionar a chave.
+
+Validação local recomendada do Copiloto:
+1. Backend:
+   - `pytest -q backend/tests/test_copilot_provider.py backend/tests/test_copilot_endpoints.py`
+2. Frontend E2E smoke:
+   - `cd frontend && npm run test:e2e -- tests_e2e/portal/copilot_widget.smoke.spec.ts`

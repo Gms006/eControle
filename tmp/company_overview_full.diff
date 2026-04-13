@@ -1,0 +1,1482 @@
+diff --git a/backend/app/api/v1/endpoints/companies.py b/backend/app/api/v1/endpoints/companies.py
+index 951d309..7ca4841 100644
+--- a/backend/app/api/v1/endpoints/companies.py
++++ b/backend/app/api/v1/endpoints/companies.py
+@@ -25,6 +25,8 @@ from app.models.org import Org
+ from app.models.user import User
+ from app.schemas.auth import PasswordConfirmRequest
+ from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate, enrich_company_with_profile
++from app.schemas.company_overview import CompanyOverviewResponse
++from app.services.company_overview import build_company_overview
+ from app.services.company_scoring import recalculate_company_score
+ 
+ router = APIRouter()
+@@ -187,6 +189,22 @@ def list_companies_municipios(
+     return normalized
+ 
+ 
++@router.get("/{company_id}/overview", response_model=CompanyOverviewResponse)
++def get_company_overview(
++    company_id: str,
++    db: Session = Depends(get_db),
++    org: Org = Depends(get_current_org),
++    _user=Depends(require_roles("ADMIN", "DEV", "VIEW")),
++) -> CompanyOverviewResponse:
++    overview = build_company_overview(db, org.id, company_id)
++    if not overview:
++        raise HTTPException(
++            status_code=status.HTTP_404_NOT_FOUND,
++            detail="Company not found",
++        )
++    return overview
++
++
+ @router.get("/{company_id}", response_model=CompanyOut)
+ def get_company(
+     company_id: str,
+diff --git a/backend/app/schemas/company_overview.py b/backend/app/schemas/company_overview.py
+new file mode 100644
+index 0000000..e0b9ba5
+--- /dev/null
++++ b/backend/app/schemas/company_overview.py
+@@ -0,0 +1,109 @@
++from __future__ import annotations
++
++from datetime import date, datetime
++
++from pydantic import BaseModel, ConfigDict
++
++from app.schemas.company import CompanyOut
++
++
++class CompanyOverviewScore(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    risk_tier: str | None = None
++    score_urgencia: int | None = None
++    score_status: str | None = None
++    score_updated_at: datetime | None = None
++
++
++class CompanyOverviewCertificate(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    exists: bool
++    status: str
++    validade: datetime | None = None
++    cert_id: str | None = None
++    fingerprint: str | None = None
++    updated_at: datetime | None = None
++
++
++class CompanyOverviewSummaryNextDueItem(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    kind: str
++    label: str
++    due_date: date | datetime | None = None
++    status: str | None = None
++    urgency: str = "info"
++
++
++class CompanyOverviewSummary(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    pending_taxes_count: int = 0
++    critical_licences_count: int = 0
++    open_processes_count: int = 0
++    certificate_status: str = "NOT_FOUND"
++    next_due_items: list[CompanyOverviewSummaryNextDueItem] = []
++    has_alerts: bool = False
++    risk_tier: str | None = None
++    score_urgencia: int | None = None
++    score_status: str | None = None
++
++
++class CompanyOverviewTaxItem(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    id: str
++    tipo: str
++    competencia: str | None = None
++    vencimento: date | datetime | None = None
++    valor: str | None = None
++    status: str | None = None
++    urgency: str = "info"
++
++
++class CompanyOverviewLicenceItem(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    tipo: str
++    validade: date | None = None
++    status: str | None = None
++    origem: str | None = None
++    critical: bool = False
++
++
++class CompanyOverviewProcessItem(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    id: str
++    titulo: str
++    protocolo: str
++    situacao: str | None = None
++    ultima_atualizacao: datetime | None = None
++    responsavel: str | None = None
++    stalled: bool = False
++
++
++class CompanyOverviewTimelineItem(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    kind: str
++    title: str
++    description: str | None = None
++    happened_at: date | datetime | None = None
++    severity: str = "info"
++
++
++class CompanyOverviewResponse(BaseModel):
++    model_config = ConfigDict(from_attributes=True)
++
++    company: CompanyOut
++    profile: dict
++    score: CompanyOverviewScore
++    certificate: CompanyOverviewCertificate
++    summary: CompanyOverviewSummary
++    taxes: list[CompanyOverviewTaxItem]
++    licences: list[CompanyOverviewLicenceItem]
++    processes: list[CompanyOverviewProcessItem]
++    timeline: list[CompanyOverviewTimelineItem]
+diff --git a/backend/app/services/company_overview.py b/backend/app/services/company_overview.py
+new file mode 100644
+index 0000000..ff6bef0
+--- /dev/null
++++ b/backend/app/services/company_overview.py
+@@ -0,0 +1,438 @@
++from __future__ import annotations
++
++import re
++from datetime import date, datetime, timedelta, timezone
++from typing import Any
++
++from sqlalchemy.orm import Session, joinedload
++
++from app.models.certificate_mirror import CertificateMirror
++from app.models.company import Company
++from app.models.company_licence import CompanyLicence
++from app.models.company_process import CompanyProcess
++from app.models.company_profile import CompanyProfile
++from app.models.company_tax import CompanyTax
++from app.schemas.company import CompanyOut, enrich_company_with_profile
++from app.schemas.company_overview import (
++    CompanyOverviewCertificate,
++    CompanyOverviewLicenceItem,
++    CompanyOverviewProcessItem,
++    CompanyOverviewResponse,
++    CompanyOverviewScore,
++    CompanyOverviewSummary,
++    CompanyOverviewSummaryNextDueItem,
++    CompanyOverviewTaxItem,
++    CompanyOverviewTimelineItem,
++)
++
++TAX_FIELD_META = (
++    ("taxa_funcionamento", "Taxa de Funcionamento"),
++    ("taxa_publicidade", "Taxa de Publicidade"),
++    ("taxa_vig_sanitaria", "Taxa de Vigilância Sanitária"),
++    ("iss", "ISS"),
++    ("taxa_localiz_instalacao", "Taxa de Localização/Instalação"),
++    ("taxa_ocup_area_publica", "Taxa de Ocupação de Área Pública"),
++    ("taxa_bombeiros", "Taxa de Bombeiros"),
++    ("tpi", "TPI"),
++)
++LICENCE_FIELD_META = (
++    ("alvara_vig_sanitaria", "Alvará Vigilância Sanitária", "alvara_vig_sanitaria_valid_until"),
++    ("cercon", "Cercon", "cercon_valid_until"),
++    ("alvara_funcionamento", "Alvará Funcionamento", "alvara_funcionamento_valid_until"),
++    ("licenca_ambiental", "Licença Ambiental", "licenca_ambiental_valid_until"),
++    ("certidao_uso_solo", "Certidão de Uso do Solo", "certidao_uso_solo_valid_until"),
++)
++PROCESS_CLOSED_KEYS = ("conclu", "encerr", "final", "arquiv")
++
++
++def _now_utc() -> datetime:
++    return datetime.now(timezone.utc)
++
++
++def _status_key(value: str | None) -> str:
++    return re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
++
++
++def _is_pending_status(value: str | None) -> bool:
++    key = _status_key(value)
++    if not key:
++        return False
++    if "regular" in key or "isento" in key or "quitad" in key or "pago" in key:
++        return False
++    if "pend" in key or "abert" in key or "venc" in key or "irregular" in key:
++        return True
++    return False
++
++
++def _is_closed_process(value: str | None) -> bool:
++    key = _status_key(value)
++    return any(token in key for token in PROCESS_CLOSED_KEYS)
++
++
++def _parse_date_like(value: Any) -> date | None:
++    if isinstance(value, datetime):
++        return value.date()
++    if isinstance(value, date):
++        return value
++    if not value:
++        return None
++    text = str(value).strip()
++    if not text:
++        return None
++    for fmt in ("%Y-%m-%d", "%d/%m/%Y", "%Y/%m/%d", "%d-%m-%Y"):
++        try:
++            return datetime.strptime(text[:10], fmt).date()
++        except ValueError:
++            continue
++    return None
++
++
++def _tax_due_from_raw(raw: dict[str, Any], field: str) -> date | None:
++    keys = (
++        f"vencimento_{field}",
++        f"validade_{field}",
++        f"due_{field}",
++        f"{field}_vencimento",
++        f"{field}_validade",
++    )
++    for key in keys:
++        parsed = _parse_date_like(raw.get(key))
++        if parsed:
++            return parsed
++    return None
++
++
++def _tax_value_from_raw(raw: dict[str, Any], field: str) -> str | None:
++    for key in (f"valor_{field}", f"{field}_valor"):
++        value = raw.get(key)
++        if value is None:
++            continue
++        text = str(value).strip()
++        if text:
++            return text
++    return None
++
++
++def _tax_competencia_from_raw(raw: dict[str, Any], field: str) -> str | None:
++    for key in (f"competencia_{field}", f"{field}_competencia"):
++        value = raw.get(key)
++        if value is None:
++            continue
++        text = str(value).strip()
++        if text:
++            return text
++    return None
++
++
++def _tax_urgency(status: str | None, due_date: date | None) -> str:
++    today = date.today()
++    if _is_pending_status(status):
++        if due_date and due_date < today:
++            return "critical"
++        if due_date and due_date <= today + timedelta(days=7):
++            return "warning"
++        return "warning"
++    if due_date and due_date < today:
++        return "warning"
++    return "ok"
++
++
++def _licence_critical(status: str | None, validade: date | None) -> bool:
++    key = _status_key(status)
++    if "vencid" in key:
++        return True
++    if validade:
++        days = (validade - date.today()).days
++        return days <= 30
++    return False
++
++
++def _certificate_status(cert: CertificateMirror | None) -> str:
++    if not cert:
++        return "NOT_FOUND"
++    today = date.today()
++    cert_due = cert.not_after.date() if cert.not_after else None
++    if cert_due and cert_due < today:
++        return "EXPIRED"
++    if cert_due and cert_due <= today + timedelta(days=30):
++        return "EXPIRING"
++    return "VALID"
++
++
++def _profile_payload(profile: CompanyProfile | None) -> dict[str, Any]:
++    if not profile:
++        return {}
++    return {
++        "inscricao_estadual": profile.inscricao_estadual,
++        "inscricao_municipal": profile.inscricao_municipal,
++        "porte": profile.porte,
++        "status_empresa": profile.status_empresa,
++        "categoria": profile.categoria,
++        "situacao": profile.situacao,
++        "certificado_digital": profile.certificado_digital,
++        "observacoes": profile.observacoes,
++        "proprietario_principal": profile.proprietario_principal,
++        "cpf": profile.cpf,
++        "telefone": profile.telefone,
++        "email": profile.email,
++        "responsavel_fiscal": profile.responsavel_fiscal,
++        "cnaes_principal": profile.cnaes_principal,
++        "cnaes_secundarios": profile.cnaes_secundarios,
++        "raw": profile.raw if isinstance(profile.raw, dict) else {},
++    }
++
++
++def _company_with_profile(db: Session, org_id: str, company_id: str) -> Company | None:
++    return (
++        db.query(Company)
++        .options(joinedload(Company.profile))
++        .outerjoin(CompanyProfile, (Company.id == CompanyProfile.company_id) & (Company.org_id == CompanyProfile.org_id))
++        .filter(Company.id == company_id, Company.org_id == org_id)
++        .first()
++    )
++
++
++def _sort_ts(value: date | datetime | None) -> float:
++    if isinstance(value, datetime):
++        return value.timestamp()
++    if isinstance(value, date):
++        return datetime(value.year, value.month, value.day, tzinfo=timezone.utc).timestamp()
++    return float("-inf")
++
++
++def build_company_overview(db: Session, org_id: str, company_id: str) -> CompanyOverviewResponse | None:
++    company = _company_with_profile(db, org_id, company_id)
++    if not company:
++        return None
++
++    profile = company.profile
++    tax = db.query(CompanyTax).filter(CompanyTax.org_id == org_id, CompanyTax.company_id == company.id).first()
++    licence = (
++        db.query(CompanyLicence)
++        .filter(CompanyLicence.org_id == org_id, CompanyLicence.company_id == company.id)
++        .first()
++    )
++    processes = (
++        db.query(CompanyProcess)
++        .filter(CompanyProcess.org_id == org_id, CompanyProcess.company_id == company.id)
++        .order_by(CompanyProcess.updated_at.desc())
++        .limit(10)
++        .all()
++    )
++    cert = (
++        db.query(CertificateMirror)
++        .filter(CertificateMirror.org_id == org_id, CertificateMirror.company_id == company.id)
++        .order_by(CertificateMirror.not_after.is_(None), CertificateMirror.not_after.desc(), CertificateMirror.updated_at.desc())
++        .first()
++    )
++
++    raw_tax = tax.raw if tax and isinstance(tax.raw, dict) else {}
++    taxes: list[CompanyOverviewTaxItem] = []
++    for field, label in TAX_FIELD_META:
++        if not tax:
++            break
++        status_value = getattr(tax, field, None)
++        due_date = _tax_due_from_raw(raw_tax, field)
++        if field == "tpi" and not due_date:
++            due_date = _parse_date_like(getattr(tax, "vencimento_tpi", None))
++        value = _tax_value_from_raw(raw_tax, field)
++        competencia = _tax_competencia_from_raw(raw_tax, field)
++        if status_value is None and due_date is None and value is None and competencia is None:
++            continue
++        taxes.append(
++            CompanyOverviewTaxItem(
++                id=f"{tax.id}:{field}",
++                tipo=label,
++                competencia=competencia,
++                vencimento=due_date,
++                valor=value,
++                status=status_value,
++                urgency=_tax_urgency(status_value, due_date),
++            )
++        )
++
++    taxes.sort(
++        key=lambda item: (
++            0 if item.urgency == "critical" else 1 if item.urgency == "warning" else 2,
++            _parse_date_like(item.vencimento) or date.max,
++        )
++    )
++    taxes = taxes[:8]
++
++    licences: list[CompanyOverviewLicenceItem] = []
++    raw_lic = licence.raw if licence and isinstance(licence.raw, dict) else {}
++    for field, label, valid_field in LICENCE_FIELD_META:
++        if not licence:
++            break
++        status_value = getattr(licence, field, None)
++        validade = getattr(licence, valid_field, None)
++        origem = raw_lic.get(f"source_kind_{field}")
++        if status_value is None and validade is None and origem is None:
++            continue
++        licences.append(
++            CompanyOverviewLicenceItem(
++                tipo=label,
++                validade=validade,
++                status=status_value,
++                origem=origem,
++                critical=_licence_critical(status_value, validade),
++            )
++        )
++
++    licences.sort(key=lambda item: (0 if item.critical else 1, item.validade or date.max))
++    licences = licences[:8]
++
++    overview_processes: list[CompanyOverviewProcessItem] = []
++    for proc in processes:
++        raw = proc.raw if isinstance(proc.raw, dict) else {}
++        extra = proc.extra if isinstance(proc.extra, dict) else {}
++        responsavel = extra.get("responsavel") or raw.get("responsavel")
++        updated_at = proc.updated_at
++        stalled = not _is_closed_process(proc.situacao) and bool(
++            updated_at and updated_at.date() < (date.today() - timedelta(days=45))
++        )
++        title = str(proc.operacao or extra.get("assunto") or proc.process_type or "Processo")
++        overview_processes.append(
++            CompanyOverviewProcessItem(
++                id=proc.id,
++                titulo=title,
++                protocolo=proc.protocolo,
++                situacao=proc.situacao,
++                ultima_atualizacao=updated_at,
++                responsavel=responsavel,
++                stalled=stalled,
++            )
++        )
++
++    cert_status = _certificate_status(cert)
++    certificate = CompanyOverviewCertificate(
++        exists=bool(cert),
++        status=cert_status,
++        validade=(cert.not_after if cert else None),
++        cert_id=(cert.cert_id if cert else None),
++        fingerprint=(cert.sha1_fingerprint if cert else None),
++        updated_at=(cert.updated_at if cert else None),
++    )
++
++    pending_taxes_count = sum(1 for item in taxes if item.urgency in {"warning", "critical"})
++    critical_licences_count = sum(1 for item in licences if item.critical)
++    open_processes_count = sum(1 for item in overview_processes if not _is_closed_process(item.situacao))
++    has_alerts = pending_taxes_count > 0 or critical_licences_count > 0 or any(p.stalled for p in overview_processes)
++    if cert_status in {"EXPIRED", "EXPIRING", "NOT_FOUND"}:
++        has_alerts = True
++
++    next_due_items: list[CompanyOverviewSummaryNextDueItem] = []
++    for tax_item in taxes:
++        due = _parse_date_like(tax_item.vencimento)
++        if not due:
++            continue
++        next_due_items.append(
++            CompanyOverviewSummaryNextDueItem(
++                kind="tax",
++                label=tax_item.tipo,
++                due_date=due,
++                status=tax_item.status,
++                urgency=tax_item.urgency,
++            )
++        )
++    for lic_item in licences:
++        if not lic_item.validade:
++            continue
++        next_due_items.append(
++            CompanyOverviewSummaryNextDueItem(
++                kind="licence",
++                label=lic_item.tipo,
++                due_date=lic_item.validade,
++                status=lic_item.status,
++                urgency="critical" if lic_item.critical else "ok",
++            )
++        )
++    if certificate.validade:
++        next_due_items.append(
++            CompanyOverviewSummaryNextDueItem(
++                kind="certificate",
++                label="Certificado digital",
++                due_date=certificate.validade,
++                status=certificate.status,
++                urgency="critical" if certificate.status == "EXPIRED" else ("warning" if certificate.status == "EXPIRING" else "ok"),
++            )
++        )
++    next_due_items.sort(key=lambda item: _parse_date_like(item.due_date) or date.max)
++    next_due_items = next_due_items[:6]
++
++    timeline: list[CompanyOverviewTimelineItem] = []
++    for item in next_due_items[:4]:
++        timeline.append(
++            CompanyOverviewTimelineItem(
++                kind=f"due_{item.kind}",
++                title=f"Próximo vencimento: {item.label}",
++                description=item.status,
++                happened_at=item.due_date,
++                severity=item.urgency,
++            )
++        )
++    if overview_processes:
++        latest_proc = overview_processes[0]
++        timeline.append(
++            CompanyOverviewTimelineItem(
++                kind="process_update",
++                title=f"Processo atualizado: {latest_proc.titulo}",
++                description=latest_proc.situacao,
++                happened_at=latest_proc.ultima_atualizacao,
++                severity="warning" if latest_proc.stalled else "info",
++            )
++        )
++    if certificate.updated_at:
++        timeline.append(
++            CompanyOverviewTimelineItem(
++                kind="certificate_update",
++                title="Atualização de certificado",
++                description=certificate.status,
++                happened_at=certificate.updated_at,
++                severity="critical" if certificate.status == "EXPIRED" else "info",
++            )
++        )
++    if profile and profile.score_updated_at:
++        timeline.append(
++            CompanyOverviewTimelineItem(
++                kind="score_update",
++                title="Score atualizado",
++                description=profile.score_status,
++                happened_at=profile.score_updated_at,
++                severity="info",
++            )
++        )
++    timeline.sort(key=lambda item: _sort_ts(item.happened_at), reverse=True)
++    timeline = timeline[:12]
++
++    score = CompanyOverviewScore(
++        risk_tier=profile.risco_consolidado if profile else None,
++        score_urgencia=profile.score_urgencia if profile else None,
++        score_status=profile.score_status if profile else None,
++        score_updated_at=profile.score_updated_at if profile else None,
++    )
++    summary = CompanyOverviewSummary(
++        pending_taxes_count=pending_taxes_count,
++        critical_licences_count=critical_licences_count,
++        open_processes_count=open_processes_count,
++        certificate_status=certificate.status,
++        next_due_items=next_due_items,
++        has_alerts=has_alerts,
++        risk_tier=score.risk_tier,
++        score_urgencia=score.score_urgencia,
++        score_status=score.score_status,
++    )
++
++    company = enrich_company_with_profile(company)
++    company.situacao_debito = "Possui Débito" if pending_taxes_count > 0 else "Sem Débitos"
++    return CompanyOverviewResponse(
++        company=CompanyOut.model_validate(company),
++        profile=_profile_payload(profile),
++        score=score,
++        certificate=certificate,
++        summary=summary,
++        taxes=taxes,
++        licences=licences,
++        processes=overview_processes,
++        timeline=timeline,
++    )
+diff --git a/backend/tests/test_company_overview.py b/backend/tests/test_company_overview.py
+new file mode 100644
+index 0000000..1423d0c
+--- /dev/null
++++ b/backend/tests/test_company_overview.py
+@@ -0,0 +1,212 @@
++from __future__ import annotations
++
++from datetime import date, datetime, timedelta, timezone
++
++from app.db.session import SessionLocal
++from app.models.certificate_mirror import CertificateMirror
++from app.models.company import Company
++from app.models.company_licence import CompanyLicence
++from app.models.company_process import CompanyProcess
++from app.models.company_profile import CompanyProfile
++from app.models.company_tax import CompanyTax
++from app.models.org import Org
++
++
++def _login(client, email: str = "admin@example.com", password: str = "admin123") -> str:
++    response = client.post("/api/v1/auth/login", json={"email": email, "password": password})
++    assert response.status_code == 200
++    return response.json()["access_token"]
++
++
++def _default_org_id() -> str:
++    db = SessionLocal()
++    try:
++        org = db.query(Org).first()
++        assert org is not None
++        return org.id
++    finally:
++        db.close()
++
++
++def _create_company_full(org_id: str) -> str:
++    db = SessionLocal()
++    try:
++        company = Company(
++            org_id=org_id,
++            cnpj="12345678000199",
++            razao_social="Empresa Overview Ltda",
++            nome_fantasia="Overview",
++            municipio="Anápolis",
++            uf="GO",
++        )
++        db.add(company)
++        db.flush()
++
++        db.add(
++            CompanyProfile(
++                org_id=org_id,
++                company_id=company.id,
++                status_empresa="ativa",
++                risco_consolidado="HIGH",
++                score_urgencia=88,
++                score_status="OK",
++                telefone="62999999999",
++                email="contato@overview.test",
++            )
++        )
++        db.add(
++            CompanyTax(
++                org_id=org_id,
++                company_id=company.id,
++                taxa_funcionamento="em_aberto",
++                taxa_publicidade="regular",
++                tpi="pendente",
++                vencimento_tpi=(date.today() + timedelta(days=5)).isoformat(),
++                raw={
++                    "vencimento_taxa_funcionamento": (date.today() - timedelta(days=2)).isoformat(),
++                    "valor_taxa_funcionamento": "500,00",
++                    "competencia_taxa_funcionamento": "2026-03",
++                },
++            )
++        )
++        db.add(
++            CompanyLicence(
++                org_id=org_id,
++                company_id=company.id,
++                alvara_vig_sanitaria="vencido",
++                alvara_vig_sanitaria_valid_until=date.today() - timedelta(days=1),
++                cercon="possui",
++                cercon_valid_until=date.today() + timedelta(days=25),
++                raw={"source_kind_alvara_vig_sanitaria": "dated"},
++            )
++        )
++        db.add(
++            CompanyProcess(
++                org_id=org_id,
++                company_id=company.id,
++                process_type="DIVERSOS",
++                protocolo="PROC-001",
++                operacao="Renovação",
++                situacao="pendente",
++            )
++        )
++        db.add(
++            CertificateMirror(
++                org_id=org_id,
++                company_id=company.id,
++                cert_id="cert-1",
++                sha1_fingerprint="AA:BB:CC",
++                not_after=datetime.now(timezone.utc) + timedelta(days=15),
++            )
++        )
++        db.commit()
++        return company.id
++    finally:
++        db.close()
++
++
++def _create_company_partial(org_id: str) -> str:
++    db = SessionLocal()
++    try:
++        company = Company(
++            org_id=org_id,
++            cnpj="22345678000199",
++            razao_social="Empresa Parcial",
++            municipio="Anápolis",
++            uf="GO",
++        )
++        db.add(company)
++        db.flush()
++        db.add(CompanyProfile(org_id=org_id, company_id=company.id))
++        db.commit()
++        return company.id
++    finally:
++        db.close()
++
++
++def _create_other_org_company() -> str:
++    db = SessionLocal()
++    try:
++        org = Org(name="Overview Other Org", slug="overview-other-org")
++        db.add(org)
++        db.flush()
++        company = Company(org_id=org.id, cnpj="99345678000199", razao_social="Outra Org")
++        db.add(company)
++        db.commit()
++        return company.id
++    finally:
++        db.close()
++
++
++def test_company_overview_returns_200_same_org(client):
++    token = _login(client)
++    org_id = _default_org_id()
++    company_id = _create_company_full(org_id)
++
++    response = client.get(
++        f"/api/v1/companies/{company_id}/overview",
++        headers={"Authorization": f"Bearer {token}"},
++    )
++    assert response.status_code == 200
++    payload = response.json()
++    assert payload["company"]["id"] == company_id
++    assert payload["summary"]["pending_taxes_count"] >= 1
++    assert payload["summary"]["critical_licences_count"] >= 1
++    assert payload["summary"]["open_processes_count"] >= 1
++    assert payload["certificate"]["exists"] is True
++    assert payload["summary"]["risk_tier"] == "HIGH"
++
++
++def test_company_overview_returns_404_not_found(client):
++    token = _login(client)
++    response = client.get(
++        "/api/v1/companies/00000000-0000-0000-0000-000000000000/overview",
++        headers={"Authorization": f"Bearer {token}"},
++    )
++    assert response.status_code == 404
++
++
++def test_company_overview_blocks_cross_org(client):
++    token = _login(client)
++    other_company_id = _create_other_org_company()
++    response = client.get(
++        f"/api/v1/companies/{other_company_id}/overview",
++        headers={"Authorization": f"Bearer {token}"},
++    )
++    assert response.status_code == 404
++
++
++def test_company_overview_handles_partial_data(client):
++    token = _login(client)
++    org_id = _default_org_id()
++    company_id = _create_company_partial(org_id)
++    response = client.get(
++        f"/api/v1/companies/{company_id}/overview",
++        headers={"Authorization": f"Bearer {token}"},
++    )
++    assert response.status_code == 200
++    payload = response.json()
++    assert payload["company"]["id"] == company_id
++    assert payload["certificate"]["exists"] is False
++    assert payload["taxes"] == []
++    assert payload["licences"] == []
++    assert payload["processes"] == []
++    assert payload["summary"]["pending_taxes_count"] == 0
++    assert payload["summary"]["critical_licences_count"] == 0
++    assert payload["summary"]["open_processes_count"] == 0
++
++
++def test_company_overview_optional_fields_keep_nulls(client):
++    token = _login(client)
++    org_id = _default_org_id()
++    company_id = _create_company_partial(org_id)
++    response = client.get(
++        f"/api/v1/companies/{company_id}/overview",
++        headers={"Authorization": f"Bearer {token}"},
++    )
++    assert response.status_code == 200
++    payload = response.json()
++    assert payload["score"]["risk_tier"] is None
++    assert payload["score"]["score_urgencia"] is None
++    assert payload["score"]["score_status"] is None
++    assert payload["certificate"]["validade"] is None
+diff --git a/frontend/src/components/companies/CompanyOverviewDrawer.jsx b/frontend/src/components/companies/CompanyOverviewDrawer.jsx
+new file mode 100644
+index 0000000..7d71163
+--- /dev/null
++++ b/frontend/src/components/companies/CompanyOverviewDrawer.jsx
+@@ -0,0 +1,281 @@
++import React from "react";
++import { AlertTriangle, Building2, Clock3, FileClock, Files, FolderOpen, RefreshCw, ShieldCheck, UserRound } from "lucide-react";
++import { SideDrawer } from "@/components/ui/side-drawer";
++import { Card, CardContent } from "@/components/ui/card";
++import { Button } from "@/components/ui/button";
++import { Chip } from "@/components/Chip";
++import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
++import { toUiBrDate } from "@/lib/date";
++
++const statusVariant = (status) => {
++  const key = String(status || "").toUpperCase();
++  if (key.includes("HIGH") || key.includes("EXPIRED")) return "danger";
++  if (key.includes("MEDIUM") || key.includes("EXPIRING")) return "warning";
++  if (key.includes("LOW") || key.includes("VALID")) return "success";
++  return "neutral";
++};
++
++const urgencyVariant = (value) => {
++  if (value === "critical") return "danger";
++  if (value === "warning") return "warning";
++  if (value === "ok") return "success";
++  return "neutral";
++};
++
++const EmptyBlock = ({ text = "Sem dados disponíveis." }) => (
++  <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-100/70 px-4 py-6 text-sm text-slate-600">{text}</div>
++);
++
++const KpiCard = ({ label, value, icon }) => (
++  <Card className="border-slate-200 bg-white">
++    <CardContent className="flex items-start justify-between p-3">
++      <div>
++        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{label}</p>
++        <p className="mt-1 text-2xl font-semibold text-slate-900">{value ?? "—"}</p>
++      </div>
++      <span className="rounded-lg bg-slate-100 p-2 text-slate-600">{icon}</span>
++    </CardContent>
++  </Card>
++);
++
++const OverviewSkeleton = () => (
++  <div className="space-y-3 animate-pulse">
++    <div className="h-20 rounded-2xl bg-slate-200" />
++    <div className="grid gap-3 md:grid-cols-2">
++      <div className="h-16 rounded-2xl bg-slate-200" />
++      <div className="h-16 rounded-2xl bg-slate-200" />
++    </div>
++    <div className="h-64 rounded-2xl bg-slate-200" />
++  </div>
++);
++
++export default function CompanyOverviewDrawer({ open, onClose, company, state, onEditCompany }) {
++  const [tab, setTab] = React.useState("geral");
++  const { data, loading, error, refetch } = state;
++
++  React.useEffect(() => {
++    if (!open) setTab("geral");
++  }, [open]);
++
++  const overview = data || {};
++  const companyPayload = overview.company || company || {};
++  const summary = overview.summary || {};
++  const certificate = overview.certificate || {};
++  const score = overview.score || {};
++  const profile = overview.profile || {};
++  const taxes = Array.isArray(overview.taxes) ? overview.taxes : [];
++  const licences = Array.isArray(overview.licences) ? overview.licences : [];
++  const processes = Array.isArray(overview.processes) ? overview.processes : [];
++  const timeline = Array.isArray(overview.timeline) ? overview.timeline : [];
++
++  return (
++    <SideDrawer
++      open={open}
++      onClose={onClose}
++      subtitle="Empresas"
++      title="Central Operacional"
++      className="md:w-[78vw] md:max-w-[1200px]"
++      footer={
++        <div className="flex items-center justify-between gap-2">
++          <Button type="button" variant="outline" className="border-blue-200 bg-blue-50 text-blue-800 hover:bg-blue-100" onClick={refetch}>
++            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Atualizar
++          </Button>
++          <div className="flex gap-2">
++            {onEditCompany ? (
++              <Button type="button" variant="outline" className="border-emerald-200 bg-emerald-50 text-emerald-800 hover:bg-emerald-100" onClick={() => onEditCompany(companyPayload)}>
++                Editar empresa
++              </Button>
++            ) : null}
++            <Button type="button" className="bg-slate-900 text-white hover:bg-slate-800" onClick={onClose}>Fechar</Button>
++          </div>
++        </div>
++      }
++    >
++      <div data-testid="company-overview-drawer" className="space-y-4">
++        <Card className="border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-700 text-white">
++          <CardContent className="space-y-3 p-4">
++            <div className="flex flex-wrap items-start justify-between gap-3">
++              <div>
++                <h3 className="text-lg font-semibold">{companyPayload?.razao_social || companyPayload?.empresa || "Empresa"}</h3>
++                <p className="text-sm text-slate-200">{companyPayload?.nome_fantasia || "—"}</p>
++                <p className="text-xs text-slate-300">{companyPayload?.cnpj || companyPayload?.company_cpf || "Documento não informado"}</p>
++              </div>
++              <div className="flex flex-wrap gap-1.5">
++                <Chip variant={statusVariant(score?.risk_tier)}>Risco: {score?.risk_tier || "—"}</Chip>
++                <Chip variant={statusVariant(score?.score_status)}>Score: {score?.score_status || "—"}</Chip>
++                <Chip variant={statusVariant(certificate?.status)}>Certificado: {certificate?.status || "NOT_FOUND"}</Chip>
++              </div>
++            </div>
++            <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
++              <KpiCard label="Taxas pendentes" value={summary.pending_taxes_count ?? 0} icon={<Files className="h-4 w-4" />} />
++              <KpiCard label="Licenças críticas" value={summary.critical_licences_count ?? 0} icon={<AlertTriangle className="h-4 w-4" />} />
++              <KpiCard label="Processos abertos" value={summary.open_processes_count ?? 0} icon={<FolderOpen className="h-4 w-4" />} />
++              <KpiCard label="Alertas ativos" value={summary.has_alerts ? "Sim" : "Não"} icon={<FileClock className="h-4 w-4" />} />
++              <KpiCard label="Score urgência" value={summary.score_urgencia ?? "—"} icon={<Clock3 className="h-4 w-4" />} />
++            </div>
++          </CardContent>
++        </Card>
++
++        {loading ? <OverviewSkeleton /> : null}
++        {!loading && error ? (
++          <Card className="border-red-200 bg-red-50">
++            <CardContent className="flex flex-col gap-2 p-4 text-sm text-red-700">
++              <p>{error}</p>
++              <Button type="button" variant="outline" className="w-fit border-red-200 bg-white text-red-700 hover:bg-red-100" onClick={refetch}>Tentar novamente</Button>
++            </CardContent>
++          </Card>
++        ) : null}
++
++        {!loading && !error ? (
++          <Tabs value={tab} onValueChange={setTab}>
++            <TabsList className="bg-slate-100">
++              <TabsTrigger value="geral">Visão geral</TabsTrigger>
++              <TabsTrigger value="cadastro">Cadastro</TabsTrigger>
++              <TabsTrigger value="taxas">Taxas</TabsTrigger>
++              <TabsTrigger value="licencas">Licenças</TabsTrigger>
++              <TabsTrigger value="processos">Processos</TabsTrigger>
++              <TabsTrigger value="timeline">Timeline</TabsTrigger>
++            </TabsList>
++
++            <TabsContent value="geral" className="mt-3 space-y-3" data-testid="company-overview-section-summary">
++              <Card className="border-slate-200 bg-white">
++                <CardContent className="space-y-2 p-4">
++                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Próximos vencimentos</p>
++                  {Array.isArray(summary.next_due_items) && summary.next_due_items.length > 0 ? (
++                    <div className="space-y-2">
++                      {summary.next_due_items.map((item, idx) => (
++                        <div key={`${item.kind}-${idx}`} className="flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 p-2.5 text-sm">
++                          <div>
++                            <p className="font-medium text-slate-800">{item.label}</p>
++                            <p className="text-xs text-slate-500">{item.status || "Sem status"}</p>
++                          </div>
++                          <div className="flex items-center gap-2">
++                            <Chip variant={urgencyVariant(item.urgency)}>{item.urgency || "info"}</Chip>
++                            <span className="text-xs text-slate-600">{toUiBrDate(item.due_date) || "—"}</span>
++                          </div>
++                        </div>
++                      ))}
++                    </div>
++                  ) : (
++                    <EmptyBlock text="Nenhum vencimento relevante no momento." />
++                  )}
++                </CardContent>
++              </Card>
++            </TabsContent>
++
++            <TabsContent value="cadastro" className="mt-3" data-testid="company-overview-section-cadastro">
++              <Card className="border-slate-200 bg-white">
++                <CardContent className="grid gap-2 p-4 text-sm text-slate-700 md:grid-cols-2">
++                  <p><strong>Razão social:</strong> {companyPayload?.razao_social || companyPayload?.empresa || "—"}</p>
++                  <p><strong>Nome fantasia:</strong> {companyPayload?.nome_fantasia || "—"}</p>
++                  <p><strong>CNPJ/CPF:</strong> {companyPayload?.cnpj || companyPayload?.company_cpf || "—"}</p>
++                  <p><strong>Município:</strong> {companyPayload?.municipio || "—"}</p>
++                  <p><strong>Status:</strong> {profile?.status_empresa || profile?.situacao || "—"}</p>
++                  <p><strong>Porte:</strong> {profile?.porte || "—"}</p>
++                  <p><strong>Responsável fiscal:</strong> {profile?.responsavel_fiscal || "—"}</p>
++                  <p><strong>Contato:</strong> {profile?.telefone || profile?.email || "—"}</p>
++                </CardContent>
++              </Card>
++            </TabsContent>
++
++            <TabsContent value="taxas" className="mt-3" data-testid="company-overview-section-taxes">
++              <div className="space-y-2">
++                {taxes.length > 0 ? taxes.map((item) => (
++                  <Card key={item.id} className="border-slate-200 bg-white">
++                    <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
++                      <div>
++                        <p className="font-medium text-slate-800">{item.tipo}</p>
++                        <p className="text-xs text-slate-500">Competência: {item.competencia || "—"}</p>
++                      </div>
++                      <div className="flex flex-wrap items-center gap-2">
++                        <Chip variant={urgencyVariant(item.urgency)}>{item.status || "Sem status"}</Chip>
++                        <span className="text-xs text-slate-600">Venc.: {toUiBrDate(item.vencimento) || "—"}</span>
++                        <span className="text-xs text-slate-600">Valor: {item.valor || "—"}</span>
++                      </div>
++                    </CardContent>
++                  </Card>
++                )) : <EmptyBlock text="Sem taxas relevantes para esta empresa." />}
++              </div>
++            </TabsContent>
++
++            <TabsContent value="licencas" className="mt-3" data-testid="company-overview-section-licences">
++              <div className="space-y-2">
++                {licences.length > 0 ? licences.map((item, idx) => (
++                  <Card key={`${item.tipo}-${idx}`} className="border-slate-200 bg-white">
++                    <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
++                      <div>
++                        <p className="font-medium text-slate-800">{item.tipo}</p>
++                        <p className="text-xs text-slate-500">Origem: {item.origem || "—"}</p>
++                      </div>
++                      <div className="flex flex-wrap items-center gap-2">
++                        <Chip variant={item.critical ? "danger" : "success"}>{item.status || "Sem status"}</Chip>
++                        <span className="text-xs text-slate-600">Validade: {toUiBrDate(item.validade) || "—"}</span>
++                      </div>
++                    </CardContent>
++                  </Card>
++                )) : <EmptyBlock text="Sem licenças encontradas para esta empresa." />}
++              </div>
++            </TabsContent>
++
++            <TabsContent value="processos" className="mt-3" data-testid="company-overview-section-processes">
++              <div className="space-y-2">
++                {processes.length > 0 ? processes.map((item) => (
++                  <Card key={item.id} className="border-slate-200 bg-white">
++                    <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm">
++                      <div>
++                        <p className="font-medium text-slate-800">{item.titulo}</p>
++                        <p className="text-xs text-slate-500">{item.protocolo}</p>
++                      </div>
++                      <div className="flex flex-wrap items-center gap-2">
++                        <Chip variant={item.stalled ? "warning" : "info"}>{item.situacao || "Sem situação"}</Chip>
++                        <span className="text-xs text-slate-600">Atualização: {toUiBrDate(item.ultima_atualizacao) || "—"}</span>
++                        {item.responsavel ? <Chip variant="neutral"><UserRound className="mr-1 h-3 w-3" /> {item.responsavel}</Chip> : null}
++                      </div>
++                    </CardContent>
++                  </Card>
++                )) : <EmptyBlock text="Sem processos em andamento para esta empresa." />}
++              </div>
++            </TabsContent>
++
++            <TabsContent value="timeline" className="mt-3" data-testid="company-overview-section-timeline">
++              <div className="space-y-2">
++                {timeline.length > 0 ? timeline.map((item, idx) => (
++                  <Card key={`${item.kind}-${idx}`} className="border-slate-200 bg-white">
++                    <CardContent className="flex items-start justify-between gap-2 p-3 text-sm">
++                      <div className="min-w-0">
++                        <p className="font-medium text-slate-800">{item.title}</p>
++                        <p className="text-xs text-slate-500">{item.description || "—"}</p>
++                      </div>
++                      <div className="flex flex-col items-end gap-1">
++                        <Chip variant={urgencyVariant(item.severity)}>{item.severity || "info"}</Chip>
++                        <span className="text-xs text-slate-600">{toUiBrDate(item.happened_at) || "—"}</span>
++                      </div>
++                    </CardContent>
++                  </Card>
++                )) : <EmptyBlock text="Sem eventos recentes para exibir." />}
++              </div>
++            </TabsContent>
++          </Tabs>
++        ) : null}
++
++        {!loading && !error && !data ? (
++          <Card className="border-slate-200 bg-white">
++            <CardContent className="p-6 text-center text-slate-600">
++              <Building2 className="mx-auto mb-2 h-5 w-5" />
++              Nenhum dado de overview encontrado para esta empresa.
++            </CardContent>
++          </Card>
++        ) : null}
++
++        {!loading && !error && data && !certificate.exists ? (
++          <Card className="border-amber-200 bg-amber-50">
++            <CardContent className="flex items-center gap-2 p-3 text-sm text-amber-800">
++              <ShieldCheck className="h-4 w-4" />
++              Empresa sem certificado vinculado no momento.
++            </CardContent>
++          </Card>
++        ) : null}
++      </div>
++    </SideDrawer>
++  );
++}
+diff --git a/frontend/src/hooks/useCompanyOverview.js b/frontend/src/hooks/useCompanyOverview.js
+new file mode 100644
+index 0000000..81aad38
+--- /dev/null
++++ b/frontend/src/hooks/useCompanyOverview.js
+@@ -0,0 +1,37 @@
++import React from "react";
++import { obterEmpresaOverview } from "@/services/empresas";
++
++export function useCompanyOverview(open, companyId) {
++  const [data, setData] = React.useState(null);
++  const [loading, setLoading] = React.useState(false);
++  const [error, setError] = React.useState("");
++
++  const refetch = React.useCallback(async () => {
++    if (!open || !companyId) return;
++    setLoading(true);
++    setError("");
++    try {
++      const payload = await obterEmpresaOverview(companyId);
++      setData(payload || null);
++    } catch (err) {
++      setData(null);
++      setError(err instanceof Error ? err.message : "Falha ao carregar visão geral da empresa.");
++    } finally {
++      setLoading(false);
++    }
++  }, [companyId, open]);
++
++  React.useEffect(() => {
++    if (!open || !companyId) {
++      setData(null);
++      setError("");
++      setLoading(false);
++      return;
++    }
++    refetch();
++  }, [open, companyId, refetch]);
++
++  return { data, loading, error, refetch, setData };
++}
++
++export default useCompanyOverview;
+diff --git a/frontend/src/pages/EmpresasScreen.jsx b/frontend/src/pages/EmpresasScreen.jsx
+index 8a15d50..a76c387 100644
+--- a/frontend/src/pages/EmpresasScreen.jsx
++++ b/frontend/src/pages/EmpresasScreen.jsx
+@@ -18,6 +18,8 @@ import { formatMunicipioDisplay } from "@/lib/normalization";
+ import { cn } from "@/lib/utils";
+ import { getStatusKey, hasPendingFraction, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
+ import { openCartaoCNPJ, onlyDigits, openPortalPrefeitura } from "@/lib/quickLinks";
++import useCompanyOverview from "@/hooks/useCompanyOverview";
++import CompanyOverviewDrawer from "@/components/companies/CompanyOverviewDrawer";
+ 
+ const VIEW_MODE_KEY = "econtrole.empresas.viewMode";
+ 
+@@ -164,6 +166,14 @@ const ORDER_OPTIONS = [
+   { value: "status", label: "Status", defaultDir: "asc" },
+   { value: "risco", label: "Risco", defaultDir: "desc" },
+ ];
++const KPI_BUTTON_THEME = {
++  debitos: "border-amber-300 bg-amber-100 text-amber-900",
++  semCertificado: "border-violet-300 bg-violet-100 text-violet-900",
++  taxasPendentes: "border-orange-300 bg-orange-100 text-orange-900",
++  licencasVencendo: "border-rose-300 bg-rose-100 text-rose-900",
++  processosAndamento: "border-cyan-300 bg-cyan-100 text-cyan-900",
++  criticos7dias: "border-red-300 bg-red-100 text-red-900",
++};
+ 
+ export default function EmpresasScreen({
+   filteredEmpresas,
+@@ -187,7 +197,10 @@ export default function EmpresasScreen({
+   const [riskFilter, setRiskFilter] = React.useState("todos");
+   const [sortBy, setSortBy] = React.useState({ field: "score", direction: "desc" });
+   const [cndCache, setCndCache] = React.useState({});
++  const [openOverview, setOpenOverview] = React.useState(false);
++  const [overviewCompany, setOverviewCompany] = React.useState(null);
+   const cndRef = React.useRef(cndCache);
++  const overviewState = useCompanyOverview(openOverview, overviewCompany?.id);
+ 
+   React.useEffect(() => {
+     cndRef.current = cndCache;
+@@ -232,6 +245,16 @@ export default function EmpresasScreen({
+     );
+   }, [extractEmpresaId]);
+ 
++  const openOverviewEmpresa = React.useCallback((empresa, empresaId) => {
++    const resolvedId = empresaId || resolveEmpresaIdValue(empresa, extractEmpresaId);
++    if (!resolvedId) {
++      toast?.("Empresa sem identificador para abrir visão geral.");
++      return;
++    }
++    setOverviewCompany({ ...(empresa || {}), id: String(resolvedId) });
++    setOpenOverview(true);
++  }, [extractEmpresaId, toast]);
++
+   const rows = React.useMemo(() => filteredEmpresas.map((empresa) => {
+     const empresaId = resolveEmpresaIdValue(empresa, extractEmpresaId);
+     const document = companyDocumentValue(empresa);
+@@ -333,21 +356,21 @@ export default function EmpresasScreen({
+             <span className="text-sm text-muted">{filteredRows.length} de {empresas.length} empresas exibidas</span>
+             <div className="flex items-center gap-2">
+               {soAlertas ? <Chip variant="warning">Modo alertas ativo</Chip> : null}
+-              <Button size="sm" variant="outline" className="border-subtle" onClick={() => setOpenExport(true)}>
++              <Button size="sm" variant="outline" className="border-sky-300 bg-sky-100 text-sky-900 hover:bg-sky-200" onClick={() => setOpenExport(true)}>
+                 <FileSpreadsheet className="mr-1 h-3.5 w-3.5" /> Exportar relatório
+               </Button>
+-              <Button size="sm" variant="outline" className="border-subtle" onClick={() => setOpenFilters(true)}>
++              <Button size="sm" variant="outline" className="border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200" onClick={() => setOpenFilters(true)}>
+                 <SlidersHorizontal className="mr-1 h-3.5 w-3.5" /> Filtros avançados
+               </Button>
+-              <div className="inline-flex items-center rounded-xl border border-subtle bg-card p-1">
+-                <button type="button" onClick={() => setViewMode("compact")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", viewMode === "compact" ? "bg-slate-900 text-white" : "text-slate-600")}>Compacto</button>
+-                <button type="button" onClick={() => setViewMode("detailed")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium", viewMode === "detailed" ? "bg-slate-900 text-white" : "text-slate-600")}>Detalhado</button>
++              <div className="inline-flex items-center rounded-xl border border-indigo-300 bg-indigo-50 p-1">
++                <button type="button" onClick={() => setViewMode("compact")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition", viewMode === "compact" ? "bg-indigo-700 text-white" : "bg-white text-indigo-700 hover:bg-indigo-100")}>Compacto</button>
++                <button type="button" onClick={() => setViewMode("detailed")} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition", viewMode === "detailed" ? "bg-indigo-700 text-white" : "bg-white text-indigo-700 hover:bg-indigo-100")}>Detalhado</button>
+               </div>
+             </div>
+           </div>
+           <div className="mt-3 flex flex-wrap gap-2">
+             {kpis.map((item) => (
+-              <button key={item.key} type="button" onClick={() => setKpiFilter((prev) => (prev === item.key ? null : item.key))} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", kpiFilter === item.key ? "border-blue-200 bg-blue-50 text-blue-800" : "border-subtle bg-card text-slate-600")}>
++              <button key={item.key} type="button" onClick={() => setKpiFilter((prev) => (prev === item.key ? null : item.key))} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", kpiFilter === item.key ? "border-blue-300 bg-blue-100 text-blue-900" : KPI_BUTTON_THEME[item.key] || "border-slate-300 bg-slate-100 text-slate-700")}>
+                 {item.label} <span className="ml-1 rounded-full bg-slate-100 px-1.5 py-0.5 text-[11px]">{counts[item.key] || 0}</span>
+               </button>
+             ))}
+@@ -374,8 +397,8 @@ export default function EmpresasScreen({
+                   }}
+                   className={cn(
+                     "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
+-                    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
+-                    isActive ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm" : "",
++                    "border-indigo-300 bg-indigo-50 text-indigo-900 hover:bg-indigo-100",
++                    isActive ? "border-indigo-600 bg-indigo-700 text-white shadow-sm hover:bg-indigo-700" : "",
+                   )}
+                 >
+                   <span>{option.label}</span>
+@@ -441,11 +464,12 @@ export default function EmpresasScreen({
+                     </TableCell>
+                     <TableCell><Chip variant={row.taxaPendencias > 0 ? "warning" : "neutral"}>{row.taxaPendencias}</Chip></TableCell>
+                     <TableCell className="text-right">
+-                      <DropdownMenu>
+-                        <DropdownMenuTrigger asChild>
+-                          <Button size="icon" variant="outline"><EllipsisVertical className="h-4 w-4" /></Button>
++                        <DropdownMenu>
++                          <DropdownMenuTrigger asChild>
++                          <Button size="icon" variant="outline" className="border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200"><EllipsisVertical className="h-4 w-4" /></Button>
+                         </DropdownMenuTrigger>
+                         <DropdownMenuContent align="end" className="w-72">
++                          <DropdownMenuItemFancy icon={ExternalLink} title="Abrir" description="Abrir central operacional da empresa" onClick={() => openOverviewEmpresa(row.empresa, row.empresaId)} />
+                           {canManageEmpresas ? (
+                             <DropdownMenuItemFancy icon={PencilLine} title="Editar empresa" description="Abrir cadastro da empresa" onClick={() => openEditEmpresa(row.empresa)} />
+                           ) : null}
+@@ -501,8 +525,8 @@ export default function EmpresasScreen({
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-1">
+-                    {row.empresa?.email ? <Button size="icon" variant="outline" title="Copiar e-mail" onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)}><Mail className="h-4 w-4" /></Button> : null}
+-                    {row.empresa?.telefone ? <Button size="icon" variant="outline" title="Copiar telefone" onClick={() => handleCopy(row.empresa.telefone, `Telefone copiado: ${row.empresa.telefone}`)}><Phone className="h-4 w-4" /></Button> : null}
++                    {row.empresa?.email ? <Button size="icon" variant="outline" className="border-emerald-300 bg-emerald-100 text-emerald-800 hover:bg-emerald-200" title="Copiar e-mail" onClick={() => handleCopy(row.empresa.email, `E-mail copiado: ${row.empresa.email}`)}><Mail className="h-4 w-4" /></Button> : null}
++                    {row.empresa?.telefone ? <Button size="icon" variant="outline" className="border-cyan-300 bg-cyan-100 text-cyan-800 hover:bg-cyan-200" title="Copiar telefone" onClick={() => handleCopy(row.empresa.telefone, `Telefone copiado: ${row.empresa.telefone}`)}><Phone className="h-4 w-4" /></Button> : null}
+                   </div>
+                 </div>
+                 <div className="grid grid-cols-3 gap-2">
+@@ -517,8 +541,9 @@ export default function EmpresasScreen({
+                 </div>
+                 <div className="flex flex-wrap items-center gap-2 border-t border-subtle pt-3">
+                   <DropdownMenu>
+-                    <DropdownMenuTrigger asChild><Button size="sm"><Clipboard className="mr-1.5 h-3.5 w-3.5" /> Ações rápidas</Button></DropdownMenuTrigger>
++                    <DropdownMenuTrigger asChild><Button size="sm" className="bg-indigo-700 text-white hover:bg-indigo-800"><Clipboard className="mr-1.5 h-3.5 w-3.5" /> Ações rápidas</Button></DropdownMenuTrigger>
+                     <DropdownMenuContent align="end" className="w-72">
++                      <DropdownMenuItemFancy icon={ExternalLink} title="Abrir" description="Abrir central operacional da empresa" onClick={() => openOverviewEmpresa(row.empresa, row.empresaId)} />
+                       {row.empresa?.cnpj ? (
+                         <DropdownMenuItemFancy icon={ExternalLink} title="Cartão CNPJ" description="Abrir site da RFB" onClick={() => openCartaoCNPJ(row.empresa?.cnpj, toast)} />
+                       ) : null}
+@@ -528,12 +553,13 @@ export default function EmpresasScreen({
+                       ) : null}
+                     </DropdownMenuContent>
+                   </DropdownMenu>
++                  <Button size="sm" className="bg-teal-700 text-white hover:bg-teal-800" onClick={() => openOverviewEmpresa(row.empresa, row.empresaId)} data-testid="company-open-button"><ExternalLink className="mr-1.5 h-3.5 w-3.5" /> Abrir</Button>
+                   {canManageEmpresas ? (
+-                    <Button size="sm" variant="outline" onClick={() => openEditEmpresa(row.empresa)} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
++                    <Button size="sm" variant="outline" className="border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200" onClick={() => openEditEmpresa(row.empresa)} data-testid="company-edit-button"><PencilLine className="mr-1.5 h-3.5 w-3.5" /> Editar</Button>
+                   ) : null}
+                   <DropdownMenu>
+                     <DropdownMenuTrigger asChild>
+-                      <Button size="sm" variant="outline"><File className="mr-1.5 h-3.5 w-3.5" /> Certidões</Button>
++                      <Button size="sm" variant="outline" className="border-blue-300 bg-blue-100 text-blue-900 hover:bg-blue-200"><File className="mr-1.5 h-3.5 w-3.5" /> Certidões</Button>
+                     </DropdownMenuTrigger>
+                     <DropdownMenuContent align="end" className="w-72">
+                       {row.empresa?.cnpj ? (
+@@ -617,8 +643,8 @@ export default function EmpresasScreen({
+         title="Filtros avançados da aba"
+         footer={
+           <div className="flex justify-end gap-2">
+-            <Button type="button" variant="outline" className="border-subtle" onClick={() => { setStatusFilter("ativa"); setRiskFilter("todos"); setKpiFilter(null); }}>Limpar</Button>
+-            <Button type="button" onClick={() => setOpenFilters(false)}>Aplicar</Button>
++            <Button type="button" variant="outline" className="border-slate-300 bg-slate-100 text-slate-800 hover:bg-slate-200" onClick={() => { setStatusFilter("ativa"); setRiskFilter("todos"); setKpiFilter(null); }}>Limpar</Button>
++            <Button type="button" className="bg-indigo-700 text-white hover:bg-indigo-800" onClick={() => setOpenFilters(false)}>Aplicar</Button>
+           </div>
+         }
+       >
+@@ -645,6 +671,16 @@ export default function EmpresasScreen({
+           ]}
+         />
+       </SideDrawer>
++      <CompanyOverviewDrawer
++        open={openOverview}
++        onClose={() => {
++          setOpenOverview(false);
++          setOverviewCompany(null);
++        }}
++        company={overviewCompany}
++        state={overviewState}
++        onEditCompany={canManageEmpresas ? openEditEmpresa : undefined}
++      />
+       <ExportModal open={openExport} onClose={() => setOpenExport(false)} enqueueToast={enqueueToast} />
+     </div>
+   );
+@@ -656,7 +692,7 @@ function SimpleFilterRow({ label, value, onChange, options, testIdPrefix }) {
+       <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">{label}</p>
+       <div className="flex flex-wrap gap-2">
+         {options.map((option) => (
+-          <button key={option.value} type="button" data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined} onClick={() => onChange(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold", value === option.value ? "border-blue-200 bg-blue-50 text-blue-800" : "border-subtle bg-card text-slate-600")}>{option.label}</button>
++          <button key={option.value} type="button" data-testid={testIdPrefix ? `${testIdPrefix}-${option.value}` : undefined} onClick={() => onChange(option.value)} className={cn("rounded-full border px-3 py-1.5 text-xs font-semibold transition", value === option.value ? "border-indigo-600 bg-indigo-700 text-white" : "border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200")}>{option.label}</button>
+         ))}
+       </div>
+     </div>
+@@ -676,7 +712,7 @@ function MiniCounter({ title, main, sub1, sub2 }) {
+ 
+ function SortButton({ label, active, direction, onClick, dataTestId }) {
+   return (
+-    <button type="button" data-testid={dataTestId} className="inline-flex items-center gap-1 font-semibold text-muted hover:text-slate-800" onClick={onClick}>
++    <button type="button" data-testid={dataTestId} className={cn("inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-semibold transition", active ? "border-indigo-600 bg-indigo-700 text-white" : "border-indigo-300 bg-indigo-100 text-indigo-900 hover:bg-indigo-200")} onClick={onClick}>
+       {label}
+       {active ? (direction === "asc" ? <ArrowDownAZ className="h-3.5 w-3.5" /> : <ArrowUpZA className="h-3.5 w-3.5" />) : null}
+     </button>
+diff --git a/frontend/src/services/empresas.js b/frontend/src/services/empresas.js
+index b07de1f..ace57b6 100644
+--- a/frontend/src/services/empresas.js
++++ b/frontend/src/services/empresas.js
+@@ -23,6 +23,10 @@ export const obterEmpresa = async (empresaId) => {
+   return fetchJson(`/api/v1/companies/${empresaId}`);
+ };
+ 
++export const obterEmpresaOverview = async (empresaId) => {
++  return fetchJson(`/api/v1/companies/${empresaId}/overview`, { transform: (payload) => payload });
++};
++
+ export const criarEmpresa = async (payload) => {
+   return fetchJson("/api/v1/companies", { method: "POST", body: payload });
+ };
+diff --git a/frontend/tests_e2e/portal/company_overview.spec.ts b/frontend/tests_e2e/portal/company_overview.spec.ts
+new file mode 100644
+index 0000000..7a45c39
+--- /dev/null
++++ b/frontend/tests_e2e/portal/company_overview.spec.ts
+@@ -0,0 +1,123 @@
++import { expect, test } from "@playwright/test";
++
++async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
++  await page.addInitScript(() => {
++    window.localStorage.setItem("access_token", "mock-token");
++    window.localStorage.setItem("econtrole.empresas.viewMode", "detailed");
++  });
++
++  const companies = [
++    {
++      id: "company-1",
++      org_id: "org-1",
++      cnpj: "11.111.111/0001-11",
++      razao_social: "Empresa Overview Ltda",
++      nome_fantasia: "Overview",
++      municipio: "Anápolis",
++      situacao: "ativa",
++      score_urgencia: 88,
++      risco_consolidado: "HIGH",
++      score_status: "OK",
++      cnaes_principal: [{ code: "47.11-3-02", text: "Comércio varejista" }],
++    },
++  ];
++
++  const overview = {
++    company: companies[0],
++    profile: {
++      status_empresa: "ativa",
++      porte: "ME",
++      responsavel_fiscal: "Maria Fiscal",
++      telefone: "62999999999",
++      email: "fiscal@overview.test",
++    },
++    score: {
++      risk_tier: "HIGH",
++      score_urgencia: 88,
++      score_status: "OK",
++      score_updated_at: "2026-03-01T10:00:00Z",
++    },
++    certificate: {
++      exists: true,
++      status: "EXPIRING",
++      validade: "2026-04-20T10:00:00Z",
++      cert_id: "cert-1",
++      fingerprint: "AA:BB",
++      updated_at: "2026-03-21T11:00:00Z",
++    },
++    summary: {
++      pending_taxes_count: 2,
++      critical_licences_count: 1,
++      open_processes_count: 1,
++      certificate_status: "EXPIRING",
++      next_due_items: [{ kind: "tax", label: "Taxa de Funcionamento", due_date: "2026-04-10", status: "em_aberto", urgency: "warning" }],
++      has_alerts: true,
++      risk_tier: "HIGH",
++      score_urgencia: 88,
++      score_status: "OK",
++    },
++    taxes: [{ id: "tax-1:taxa_funcionamento", tipo: "Taxa de Funcionamento", competencia: "2026-03", vencimento: "2026-04-10", valor: "500,00", status: "em_aberto", urgency: "warning" }],
++    licences: [{ tipo: "Alvará Vigilância Sanitária", validade: "2026-04-15", status: "vencendo", origem: "dated", critical: true }],
++    processes: [{ id: "proc-1", titulo: "Renovação", protocolo: "PROC-01", situacao: "pendente", ultima_atualizacao: "2026-03-31T10:00:00Z", responsavel: "Analista", stalled: false }],
++    timeline: [{ kind: "due_tax", title: "Próximo vencimento: Taxa de Funcionamento", description: "em_aberto", happened_at: "2026-04-10", severity: "warning" }],
++  };
++
++  await page.route("**/api/v1/**", async (route) => {
++    const request = route.request();
++    const url = new URL(request.url());
++    const path = url.pathname;
++    const method = request.method();
++
++    const fulfillJson = (payload: unknown, status = 200) =>
++      route.fulfill({
++        status,
++        contentType: "application/json",
++        body: JSON.stringify(payload),
++      });
++
++    if (path === "/api/v1/auth/me" && method === "GET") {
++      return fulfillJson({
++        id: "user-1",
++        org_id: "org-1",
++        email: "admin@mock.local",
++        roles: [{ name: "ADMIN" }],
++      });
++    }
++    if (path === "/api/v1/companies/municipios" && method === "GET") return fulfillJson(["Anápolis"]);
++    if (path === "/api/v1/companies" && method === "GET") return fulfillJson(companies);
++    if (path === "/api/v1/companies/company-1/overview" && method === "GET") return fulfillJson(overview);
++    if (path === "/api/v1/licencas" && method === "GET") return fulfillJson([]);
++    if (path === "/api/v1/taxas" && method === "GET") return fulfillJson([]);
++    if (path === "/api/v1/processos" && method === "GET") return fulfillJson([]);
++    if (path === "/api/v1/certificados" && method === "GET") return fulfillJson([]);
++    if (path === "/api/v1/grupos/kpis" && method === "GET") return fulfillJson({});
++    return fulfillJson({});
++  });
++}
++
++test("abre overview da empresa e renderiza blocos principais", async ({ page }) => {
++  await setupMockApi(page);
++  await page.goto("/painel");
++
++  await page.getByTestId("nav-tab-empresas").first().click();
++  await expect(page.getByTestId("companies-summary")).toBeVisible();
++  await page.getByTestId("company-open-button").first().click();
++
++  await expect(page.getByTestId("company-overview-drawer")).toBeVisible();
++  await expect(page.getByTestId("company-overview-section-summary")).toBeVisible();
++
++  await page.getByRole("tab", { name: "Cadastro" }).click();
++  await expect(page.getByTestId("company-overview-section-cadastro")).toBeVisible();
++
++  await page.getByRole("tab", { name: "Taxas" }).click();
++  await expect(page.getByTestId("company-overview-section-taxes")).toBeVisible();
++
++  await page.getByRole("tab", { name: "Licenças" }).click();
++  await expect(page.getByTestId("company-overview-section-licences")).toBeVisible();
++
++  await page.getByRole("tab", { name: "Processos" }).click();
++  await expect(page.getByTestId("company-overview-section-processes")).toBeVisible();
++
++  await page.getByRole("tab", { name: "Timeline" }).click();
++  await expect(page.getByTestId("company-overview-section-timeline")).toBeVisible();
++});

@@ -1,6 +1,6 @@
 # Plano de Desenvolvimento - eControle v2 (Rebuild)
 
-Data de referência: 2026-04-02
+Data de referência: 2026-04-08
 
 ## Visão geral
 
@@ -11,7 +11,8 @@ Status global: domínio principal operacional, ingest JSON ativo, integração C
 - Entrega adicional concluída: bulk sync ReceitaWS (DEV)
 - Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída; S10.4 Notification Center MVP concluído; S10.5 Fase C de notificações operacionais concluída)
 - Operacionalização concluída: rotina diária por agendamento externo Windows para scan operacional de notificações
-- Pendente: S9, S11, S12
+- Em andamento: S11 (S11.1 Copiloto eControle MVP read-only concluída + migração para Gemini 2.5 Flash com fallback Ollama opcional)
+- Pendente: S9, S12
 
 ## S0 - Kickoff e congelamento do baseline
 
@@ -433,10 +434,116 @@ Entregues:
 
 ## S11 - Polimento de paridade v1
 
-Status: pendente
+Status: em andamento
 
 Objetivo:
 - Melhorias de UX, filtros avançados, paginação, ordenação e performance.
+
+### S11.1 - Copiloto eControle (widget de chat guiado read-only)
+
+Status: concluído (2026-04-07) + refinado (2026-04-08)
+
+Objetivo:
+- Entregar MVP funcional de copiloto no portal com fluxo guiado por categoria e empresa, sem modo chatbot genérico e sem persistência automática.
+
+Escopo entregue:
+- Backend:
+  - endpoint `POST /api/v1/copilot/respond` (`ADMIN|DEV|VIEW`);
+  - categorias suportadas:
+    - `COMPANY_SUMMARY`
+    - `DOCUMENT_ANALYSIS`
+    - `RISK_SIMULATION`
+    - `DUVIDAS_DIVERSAS`
+  - serviço central `backend/app/services/copilot.py` com:
+    - resumo de empresa baseado em dados reais do domínio (overview, taxas, licenças, processos, score);
+    - simulação em memória (sem persistência);
+    - análise documental assistiva com upload opcional e comparação orientativa.
+  - refinamento S11.1:
+    - categoria `DUVIDAS_DIVERSAS` com roteamento entre dúvida geral x dúvida dependente de empresa;
+    - `company_id` opcional no endpoint para dúvidas gerais;
+    - retorno `requires_company=true` quando pergunta exigir contexto da empresa e ela não estiver selecionada;
+    - hardening da análise documental:
+      - não classificar por nome de arquivo;
+      - pipeline de PDF com extração de texto e tentativa de renderização;
+      - classificação restrita a tipos permitidos;
+      - sem expansão arbitrária de siglas;
+      - retorno `NAO_CONCLUSIVO` com motivo quando faltar evidência factual.
+  - migração de provider em `backend/app/services/copilot_provider.py`:
+    - principal: `gemini` (`gemini-2.5-flash`) via SDK oficial `google-genai`;
+    - fallback opcional: `ollama` local (`gemma3:4b`);
+    - ordem: Gemini -> fallback local -> erro controlado quando ambos falham;
+    - envs suportadas:
+      - `COPILOT_PROVIDER`, `COPILOT_PROVIDER_MODEL`, `COPILOT_PROVIDER_TIMEOUT_SECONDS`
+      - `GEMINI_API_KEY`, `COPILOT_PROVIDER_ENABLE_WEB_SEARCH`
+      - `COPILOT_FALLBACK_PROVIDER`, `COPILOT_FALLBACK_BASE_URL`, `COPILOT_FALLBACK_MODEL`, `COPILOT_FALLBACK_TIMEOUT_SECONDS`
+  - `DUVIDAS_DIVERSAS` com web search/grounding controlada:
+    - ativa principalmente em perguntas regulatórias/temporais ou com pedido explícito de fonte;
+    - evita busca externa quando o pedido é claramente baseado em dados internos da empresa;
+    - retorna `grounding_used` e `sources` quando houver referências do provider.
+- Frontend:
+  - widget global flutuante no shell (`frontend/src/components/copilot/CopilotWidget.jsx`);
+  - estados abrir/minimizar/fechar + persistência em `localStorage`;
+  - fluxo guiado obrigatório: categoria -> empresa (quando necessário) -> input manual;
+  - busca de empresa com debounce (`frontend/src/hooks/useCopilotWidget.js`);
+  - exemplos por categoria, upload em análise documental, respostas estruturadas e quick actions;
+  - categoria `DUVIDAS_DIVERSAS` com input liberado sem empresa para perguntas gerais e bloqueio orientado quando empresa for necessária;
+  - indicação visual discreta de busca externa (`Resposta com busca externa`) e lista de fontes clicáveis quando houver grounding;
+  - tratamento amigável de erros de provider (chave ausente, timeout, indisponibilidade, quota, fallback esgotado).
+- Segurança de produto:
+  - escopo fechado em operações eControle;
+  - feature read-only (sem gravação automática, sem jobs, sem mutações de cadastros).
+
+Critérios de aceite atendidos:
+- [x] Widget global funcional no portal
+- [x] Fluxo guiado por categorias
+- [x] Empresa obrigatória antes de input manual nas categorias que exigem empresa
+- [x] Resposta útil para resumo de empresa
+- [x] Simulação de risco em memória
+- [x] Categoria `DUVIDAS_DIVERSAS` funcional sem empresa para perguntas gerais
+- [x] Análise documental sem adivinhação por nome de arquivo
+- [x] Classificação documental em conjunto fechado com evidências e `NAO_CONCLUSIVO` quando necessário
+- [x] Análise documental com degradação controlada sem provider
+- [x] RBAC `ADMIN|DEV|VIEW`
+- [x] Sem persistência automática de alterações pelo copiloto
+
+Testes adicionados/atualizados:
+- Backend:
+  - `backend/tests/test_copilot_endpoints.py`
+  - `backend/tests/test_copilot_provider.py`
+  - cobertura:
+    - categoria inválida
+    - empresa inexistente/fora da org
+    - `DUVIDAS_DIVERSAS` sem empresa para pergunta geral
+    - `DUVIDAS_DIVERSAS` orientando seleção de empresa quando necessário
+    - resposta estruturada de resumo
+    - simulação sem persistência
+    - análise documental não dependente só do nome do arquivo
+    - caso de CND sem expansão inventada (ex.: evitar “Compliance Normativo”)
+    - classificação restrita ao conjunto permitido + `NAO_CONCLUSIVO`
+    - degradação sem provider configurado
+    - stub/mock de provider para análise documental
+    - seleção de provider (primário Gemini, fallback Ollama, erro final quando ambos falham)
+    - leitura de envs do provider e fallback
+    - `DUVIDAS_DIVERSAS` com sinalização de grounding/fontes
+    - erro controlado para chave Gemini ausente e timeout de provider
+    - autorização `VIEW`
+- Portal E2E:
+  - `frontend/tests_e2e/portal/copilot_widget.smoke.spec.ts`
+  - cobertura:
+    - widget visível após login
+    - abrir/minimizar
+    - categorias (inclui `DUVIDAS_DIVERSAS`)
+    - bloqueio de input até selecionar empresa nas categorias aplicáveis
+    - `DUVIDAS_DIVERSAS` perguntando sem empresa
+    - retorno que exige empresa e exibição da etapa de seleção
+    - indicação de busca externa e fontes clicáveis quando backend sinaliza grounding
+    - fluxo de resumo estruturado
+    - fluxo de simulação
+    - fluxo de documento com upload e tratamento de aviso
+    - erro amigável quando provider falha.
+
+Pendências explícitas:
+- Execução completa da suíte Playwright (`npm run test:e2e`) pode ultrapassar o timeout da automação local; manter validação por subconjunto impactado quando necessário.
 
 ### Tax Portal Sync (backend estrutural + Subfase B frontend)
 - run table `tax_portal_sync_runs`

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { formatMunicipioDisplay, normalizeMunicipio } from "@/lib/normalization";
 import { toCanonicalIsoDate } from "@/lib/date";
 import {
@@ -133,6 +133,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
   const [cerconTaxInstallmentDraft, setCerconTaxInstallmentDraft] = useState({});
   const [cerconTaxInstallmentError, setCerconTaxInstallmentError] = useState({});
   const [cerconTaxPendingObservationDraft, setCerconTaxPendingObservationDraft] = useState({});
+  const cerconCreateSeedRef = useRef("");
 
   const loadCompanyOptions = useCallback(async () => {
     const data = await apiJson("/api/v1/companies?limit=1000");
@@ -180,6 +181,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
 
   const closeProcessModal = useCallback(() => {
     setModal(EMPTY_MODAL);
+    cerconCreateSeedRef.current = "";
     setCerconTaxStatusDraft({});
     setCerconTaxInstallmentDraft({});
     setCerconTaxInstallmentError({});
@@ -242,6 +244,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
       setModal({ open: true, mode, processId: processId || null });
 
       if (mode === "edit" && processId) {
+        cerconCreateSeedRef.current = "";
         const data = await apiJson(`/api/v1/processos/${processId}`);
         const processType = data?.process_type || "DIVERSOS";
         let extra = data?.extra || {};
@@ -289,6 +292,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
       }
 
       setForm(EMPTY_PROCESS_FORM);
+      cerconCreateSeedRef.current = "";
       initializeCerconDraft({});
     },
     [apiJson, fetchCompanyTaxByCompanyId, initializeCerconDraft, loadCompanyOptions],
@@ -329,6 +333,9 @@ export function useProcessForm({ apiJson, onRefresh }) {
     if (modal.mode !== "create") return;
     if (form.process_type !== "CERCON") return;
     if (!form.company_id) return;
+    const seedKey = `${form.company_id}:${form.process_type}:${modal.mode}:${modal.open ? "1" : "0"}`;
+    if (cerconCreateSeedRef.current === seedKey) return;
+    cerconCreateSeedRef.current = seedKey;
 
     let active = true;
 
@@ -348,17 +355,27 @@ export function useProcessForm({ apiJson, onRefresh }) {
             taxRaw?.tpi_observacao_pendente ?? "",
         };
 
-        setForm((prev) => ({ ...prev, extra: nextExtra }));
+        setForm((prev) => {
+          const currentExtra = prev.extra || {};
+          const same =
+            currentExtra.taxa_bombeiros_sync_status === nextExtra.taxa_bombeiros_sync_status &&
+            currentExtra.tpi_sync_status === nextExtra.tpi_sync_status &&
+            currentExtra.taxa_bombeiros_sync_status_observacao_pendente ===
+              nextExtra.taxa_bombeiros_sync_status_observacao_pendente &&
+            currentExtra.tpi_sync_status_observacao_pendente === nextExtra.tpi_sync_status_observacao_pendente;
+          if (same) return prev;
+          return { ...prev, extra: nextExtra };
+        });
         initializeCerconDraft(nextExtra);
       } catch {
-        // silencioso
+        cerconCreateSeedRef.current = "";
       }
     })();
 
     return () => {
       active = false;
     };
-  }, [fetchCompanyTaxByCompanyId, form.company_id, form.extra, form.process_type, initializeCerconDraft, modal.mode, modal.open]);
+  }, [fetchCompanyTaxByCompanyId, form.company_id, form.process_type, initializeCerconDraft, modal.mode, modal.open]);
 
   const saveProcess = useCallback(async () => {
     setIsSaving(true);

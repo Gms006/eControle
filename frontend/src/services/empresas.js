@@ -23,6 +23,10 @@ export const obterEmpresa = async (empresaId) => {
   return fetchJson(`/api/v1/companies/${empresaId}`);
 };
 
+export const obterEmpresaOverview = async (empresaId) => {
+  return fetchJson(`/api/v1/companies/${empresaId}/overview`, { transform: (payload) => payload });
+};
+
 export const criarEmpresa = async (payload) => {
   return fetchJson("/api/v1/companies", { method: "POST", body: payload });
 };

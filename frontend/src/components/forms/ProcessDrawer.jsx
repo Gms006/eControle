@@ -383,6 +383,7 @@ export default function ProcessDrawer({ state }) {
           <FieldRow label="Observação">
             <Textarea
               rows={5}
+              data-testid="process-obs"
               value={form.obs}
               onChange={(e) => update({ obs: e.target.value })}
             />

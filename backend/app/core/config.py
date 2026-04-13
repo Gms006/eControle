@@ -67,6 +67,19 @@ class Settings(BaseSettings):
     # URL base do processo rfb_agent.py. Altere RFB_AGENT_PORT no .env
     # se precisar mudar a porta (padrão 8021).
     RFB_AGENT_URL: str = "http://127.0.0.1:8021"
+    COPILOT_PROVIDER: str = "gemini"
+    COPILOT_PROVIDER_MODEL: str = "gemini-2.5-flash"
+    COPILOT_PROVIDER_TIMEOUT_SECONDS: int = 60
+    COPILOT_PROVIDER_ENABLE_WEB_SEARCH: bool = True
+    GEMINI_API_KEY: str = ""
+    COPILOT_FALLBACK_PROVIDER: str = "ollama"
+    COPILOT_FALLBACK_BASE_URL: str = "http://127.0.0.1:11434"
+    COPILOT_FALLBACK_MODEL: str = "gemma3:4b"
+    COPILOT_FALLBACK_TIMEOUT_SECONDS: int = 60
+
+    # campos legados mantidos por compatibilidade; evitar uso novo
+    COPILOT_PROVIDER_BASE_URL: str = ""
+    COPILOT_PROVIDER_API_KEY: str = ""
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod

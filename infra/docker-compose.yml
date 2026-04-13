@@ -1,6 +1,28 @@
 name: econtrole
 
 services:
+  backend:
+    image: python:3.11-slim
+    container_name: econtrole-backend
+    working_dir: /app
+    volumes:
+      - ../:/app
+    env_file:
+      - ../.env
+    command: >
+      sh -c "pip install -r /app/requirements.txt &&
+      cd /app/backend &&
+      uvicorn main:app --host 0.0.0.0 --port 8020 --reload"
+    ports:
+      - "8020:8020"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_started
+
   postgres:
     image: postgres:16-alpine
     container_name: econtrole-postgres
@@ -31,6 +53,22 @@ services:
       interval: 5s
       timeout: 3s
       retries: 20
+
+  ollama:
+    image: ollama/ollama
+    container_name: econtrole-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - C:\Users\Maria.clara\.ollama:/root/.ollama
+    # Para ambientes sem GPU, mantenha deploy desabilitado ou remova este bloco.
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
 
 volumes:
   econtrole_pgdata:

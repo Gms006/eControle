@@ -743,11 +743,14 @@ const DEFAULT_TRANSFORMS = {
 };
 
 const request = async (path, options = {}) => {
-  const { method = "GET", headers, query, body } = options;
+  const { method = "GET", headers, query, body, signal } = options;
   const endpointPath = resolveEndpointPath(path);
   const url = buildAbsoluteUrl(endpointPath, query);
   const finalHeaders = buildHeaders(headers);
   const requestInit = { method, headers: finalHeaders };
+  if (signal) {
+    requestInit.signal = signal;
+  }
 
   if (body !== undefined && body !== null) {
     if (body instanceof FormData || body instanceof Blob || body instanceof ArrayBuffer) {
