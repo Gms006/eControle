@@ -566,6 +566,102 @@ Pendências explícitas:
   - integração na `TaxasScreen` com RBAC (`ADMIN|DEV` inicia/cancela, `VIEW` sem ação);
   - smoke E2E Playwright: `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`.
 
+## Patch Regulatório 1 (2026-04-23)
+
+Status: concluído
+
+Escopo entregue:
+- modelagem explícita de domínio em banco/ORM/contracts:
+  - `company_licences.alvara_funcionamento_kind`
+  - `company_profiles.sanitary_complexity`
+  - `company_profiles.address_usage_type`
+  - `company_profiles.address_location_type`
+- enums e normalização centralizados em `backend/app/core/regulatory.py`
+- migration/backfill conservador:
+  - `backend/alembic/versions/20260423_0030_add_regulatory_domain_fields.py`
+- endpoints atualizados:
+  - `backend/app/api/v1/endpoints/companies.py`
+  - `backend/app/api/v1/endpoints/companies_composite.py`
+  - `backend/app/api/v1/endpoints/company_licences.py`
+  - `backend/app/api/v1/endpoints/meta.py`
+- watcher e upload assistido passam a persistir `alvara_funcionamento_kind` explicitamente em `company_licences`
+- overview passa a expor os novos campos no backend e de forma simples no portal
+
+Backfill aplicado:
+- `alvara_funcionamento_kind`
+  - usa `raw.source_document_kind_alvara_funcionamento` quando o tipo detectado é confiável
+  - usa `DEFINITIVO` quando `raw.source_kind_alvara_funcionamento == "definitivo"`
+  - fallback para `PENDENTE_REVISAO` nos casos ambíguos
+- `sanitary_complexity`
+  - default `PENDENTE_REVISAO`
+- `address_usage_type`
+  - `FISCAL` apenas quando `raw.endereco_fiscal == true`
+  - demais casos em `PENDENTE_REVISAO`
+- `address_location_type`
+  - default `PENDENTE_REVISAO`
+
+Fora de escopo mantido:
+- regra completa de score regulatório
+- regra completa de notificações regulatórias
+- heurística final de invalidação do alvará definitivo por processo
+- bloqueios operacionais complexos no frontend
+
+Validação adicionada:
+- backend:
+  - `backend/tests/test_regulatory_migration_backfill.py`
+  - `backend/tests/test_companies_composite.py`
+  - `backend/tests/test_companies_crud.py`
+  - `backend/tests/test_company_licences_endpoint.py`
+  - `backend/tests/test_licence_watcher.py`
+  - `backend/tests/test_company_overview.py`
+  - `backend/tests/test_processes_canonical.py`
+- portal E2E:
+  - `frontend/tests_e2e/portal/company_overview.spec.ts`
+  - `frontend/tests_e2e/portal/regression_drawers.spec.ts`
+
+## Patch Regulatório 2 (2026-04-23)
+
+Status: concluído
+
+Escopo entregue:
+- serviço central de regra em `backend/app/services/licence_regulatory_rules.py`
+- invalidação conservadora de alvará definitivo por alteração cadastral com base em:
+  - `process_type`
+  - `orgao`
+  - `operacao`
+  - `obs`
+  - `updated_at`
+- score ajustado para:
+  - não usar alvará definitivo válido como ausência de licença;
+  - introduzir `OK_DEFINITIVE` e `DEFINITIVE_INVALIDATED`;
+  - ignorar renovação periódica do alvará quando `alvara_funcionamento_kind = DEFINITIVO`
+- notificações operacionais ajustadas para:
+  - ignorar `LIC_ALVARA_D30` no caso de definitivo;
+  - emitir `LIC_DEFINITIVO_INVALIDADO` quando houver invalidação conservadora
+- overview atualizado para expor:
+  - `regulatory`
+  - `regulatory_status`
+  - `invalidated_reasons`
+  - `invalidating_process_ref`
+  - `requires_new_licence_request`
+- portal ajustado de forma incremental no drawer de overview e labels de score
+
+Fora de escopo mantido:
+- bloqueio operacional por vistoria/endereço
+- workflow humano completo de revisão
+- heurísticas amplas além da regra textual conservadora
+- automações extras fora de score/notificações/overview
+
+Validação adicionada:
+- backend:
+  - `backend/tests/test_licence_regulatory_rules.py`
+  - `backend/tests/test_company_scoring.py`
+  - `backend/tests/test_notification_rules.py`
+  - `backend/tests/test_company_overview.py`
+- portal E2E:
+  - `frontend/tests_e2e/portal/company_overview.spec.ts`
+  - regressão mantida em `frontend/tests_e2e/portal/regression_drawers.spec.ts`
+
 ## S12 - Hardening e go-live
 
 Status: pendente

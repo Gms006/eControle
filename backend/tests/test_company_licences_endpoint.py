@@ -108,6 +108,41 @@ def test_patch_licenca_item_requires_reason_when_nao_exigido(client):
     assert row["justificativa_nao_exigido"] == "Atividade sem exigencia sanitária municipal."
 
 
+def test_patch_alvara_funcionamento_persists_explicit_kind(client):
+    token = _login(client)
+    headers = {"Authorization": f"Bearer {token}"}
+    org_id = _org_id(client, headers)
+
+    db = SessionLocal()
+    company = Company(org_id=org_id, cnpj="22345678000111", razao_social="Empresa Funcionamento")
+    db.add(company)
+    db.flush()
+    licence = CompanyLicence(
+        org_id=org_id,
+        company_id=company.id,
+        alvara_funcionamento="possui",
+        alvara_funcionamento_kind="PENDENTE_REVISAO",
+        raw={},
+    )
+    db.add(licence)
+    db.commit()
+
+    response = client.patch(
+        f"/api/v1/licencas/{licence.id}/item",
+        headers=headers,
+        json={
+            "field": "alvara_funcionamento",
+            "status": "possui",
+            "validade": "2027-12-31",
+            "alvara_funcionamento_kind": "CONDICIONADO",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["alvara_funcionamento_kind"] == "CONDICIONADO"
+    assert payload["raw"]["alvara_funcionamento_kind"] == "CONDICIONADO"
+
+
 def test_scan_full_creates_run_and_updates_progress(client, tmp_path, monkeypatch):
     token = _login(client)
     headers = {"Authorization": f"Bearer {token}"}

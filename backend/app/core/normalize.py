@@ -26,6 +26,15 @@ PROCESS_SITUACAO_LABELS = {
     "cancelado": "Cancelado",
 }
 
+PROCESS_TYPE_ALIASES = {
+    "USO_SOLO": "USO_DO_SOLO",
+    "CERTIDAO_USO_SOLO": "USO_DO_SOLO",
+    "CERTIDAO_DE_USO_DO_SOLO": "USO_DO_SOLO",
+    "AMBIENTAL": "LICENCA_AMBIENTAL",
+    "LICENCA_AMBIENTE": "LICENCA_AMBIENTAL",
+    "ALVARA_VIG_SANITARIA": "ALVARA_SANITARIO",
+}
+
 GENERIC_STATUS_LABELS = {
     "possui": "Possui",
     "definitivo": "Definitivo",
@@ -229,6 +238,17 @@ def normalize_process_situacao(value: str | None, *, strict: bool = True) -> str
         PROCESS_SITUACAO_ACCEPT_MAP,
         strict=strict,
     )
+
+
+def normalize_process_type(value: str | None) -> str | None:
+    text = normalize_whitespace(value)
+    if not text:
+        return None
+    key = strip_accents(text).upper()
+    key = re.sub(r"[^A-Z0-9]+", "_", key).strip("_")
+    if not key:
+        return None
+    return PROCESS_TYPE_ALIASES.get(key, key)
 
 
 def normalize_generic_status(value: str | None, *, strict: bool = False) -> str | None:

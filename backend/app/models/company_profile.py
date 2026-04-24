@@ -6,6 +6,11 @@ from datetime import datetime
 from sqlalchemy import DateTime, ForeignKey, String, Text, UniqueConstraint, Index, func, JSON, Integer
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.core.regulatory import (
+    DEFAULT_ADDRESS_LOCATION_TYPE,
+    DEFAULT_ADDRESS_USAGE_TYPE,
+    DEFAULT_SANITARY_COMPLEXITY,
+)
 from app.db.base import Base
 
 
@@ -42,6 +47,15 @@ class CompanyProfile(Base):
     score_urgencia: Mapped[int | None] = mapped_column(Integer, nullable=True)
     score_status: Mapped[str | None] = mapped_column(String(32), nullable=True)
     score_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sanitary_complexity: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=DEFAULT_SANITARY_COMPLEXITY, server_default=DEFAULT_SANITARY_COMPLEXITY
+    )
+    address_usage_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=DEFAULT_ADDRESS_USAGE_TYPE, server_default=DEFAULT_ADDRESS_USAGE_TYPE
+    )
+    address_location_type: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=DEFAULT_ADDRESS_LOCATION_TYPE, server_default=DEFAULT_ADDRESS_LOCATION_TYPE
+    )
     raw: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

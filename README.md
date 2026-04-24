@@ -2,11 +2,11 @@
 
 Portal interno da Neto Contabilidade para operacao de empresas, licencas/certidoes, taxas e processos.
 
-## Status atual do projeto (2026-04-08)
+## Status atual do projeto (2026-04-23)
 
 - S0 a S7: concluidos.
 - S8: concluido (mirror local + sync CertHub + health + webhook receptor CertHub).
-- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída + S10.3 parcial com calibragem de catálogo e base de atualização assistida em andamento; S10.4 Notification Center MVP entregue; S10.5/Fase C de notificações operacionais entregue).
+- S10: em andamento (S10.1a + S10.1b + S10.2 concluídos; S10.2a/Patch 1 regulatório entregue com modelagem explícita de alvará/complexidade sanitária/endereço; S10.3 fase 3 concluída + S10.3 parcial com calibragem de catálogo e base de atualização assistida em andamento; S10.4 Notification Center MVP entregue; S10.5/Fase C de notificações operacionais entregue).
 - S11: em andamento (S11.1 Copiloto eControle migrado para Gemini 2.5 Flash com fallback Ollama opcional).
 - S9/S12: planejados.
 - Feature adicional entregue: bulk sync ReceitaWS DEV-only com job e progresso.
@@ -91,6 +91,7 @@ Base: `http://localhost:8020/api/v1`
 - Companies:
   - `/companies` (CRUD + listagem)
   - `/companies/composite` (criacao composta company + profile + licencas/taxas opcionais)
+  - `/companies/{id}/overview` (overview consolidado da empresa)
   - `/companies/municipios`
 - Company Profile: `/profiles`
 - Licencas: `/licencas`
@@ -303,6 +304,56 @@ Observação:
 - Status em colunas de licença ficam apenas canônicos (sem sufixos `*_val_*`).
 - Evidências continuam em `raw.validade_*` e `raw.validade_*_br`.
 
+### Patch 1 regulatório (2026-04-23)
+
+- Novas fontes de verdade explícitas:
+  - `company_licences.alvara_funcionamento_kind`
+  - `company_profiles.sanitary_complexity`
+  - `company_profiles.address_usage_type`
+  - `company_profiles.address_location_type`
+- Backfill conservador:
+  - `alvara_funcionamento_kind` usa `raw.source_document_kind_alvara_funcionamento` quando confiável;
+  - fallback para `DEFINITIVO` quando `raw.source_kind_alvara_funcionamento == "definitivo"`;
+  - ausência de confiança suficiente cai em `PENDENTE_REVISAO`;
+  - `sanitary_complexity` e `address_location_type` iniciam em `PENDENTE_REVISAO`;
+  - `address_usage_type` usa `FISCAL` apenas quando `raw.endereco_fiscal == true`.
+- Watcher e upload assistido agora persistem `alvara_funcionamento_kind` explicitamente em `company_licences`, mantendo `raw` apenas como evidência complementar.
+- Company drawer e edição rápida de licenças passam a expor os novos campos no portal.
+- Regras regulatórias de score/notificações/invalidação por processo continuam fora deste patch.
+
+### Patch 2 regulatório (2026-04-23)
+
+- Serviço central novo: `backend/app/services/licence_regulatory_rules.py`.
+- Regra derivada conservadora para alvará de funcionamento `DEFINITIVO`:
+  - identifica se a empresa possui alvará definitivo;
+  - procura processo potencialmente invalidante com contexto forte de alteração em prefeitura;
+  - só invalida quando `obs` traz indício textual claro para `CNAE`, `RAZAO_SOCIAL`, `NOME_FANTASIA` ou `ENDERECO`.
+- Score:
+  - `company_scoring.py` deixa de classificar alvará definitivo válido como `NO_LICENCE`;
+  - novos status:
+    - `OK_DEFINITIVE`
+    - `DEFINITIVE_INVALIDATED`
+  - `alvara_funcionamento_valid_until` deixa de participar da lógica periódica quando o alvará é `DEFINITIVO`.
+- Notificações operacionais:
+  - `LIC_ALVARA_D30` passa a ser ignorada para alvará definitivo;
+  - nova regra `LIC_DEFINITIVO_INVALIDADO` orienta solicitar novo alvará quando houver invalidação conservadora.
+- Overview:
+  - `GET /api/v1/companies/{id}/overview` expõe bloco derivado `regulatory`;
+  - item de licença de funcionamento agora inclui:
+    - `regulatory_status`
+    - `invalidated_reasons`
+    - `invalidating_process_ref`
+    - `requires_new_licence_request`
+- Portal:
+  - `CompanyOverviewDrawer.jsx` mostra status regulatório do alvará definitivo, motivos, processo relacionado e exigência de novo pedido;
+  - labels de score em `EmpresasScreen.jsx` e `LicencasScreen.jsx` reconhecem `OK_DEFINITIVE` e `DEFINITIVE_INVALIDATED`.
+
+Enums expostos em `GET /api/v1/meta/enums`:
+- `alvara_funcionamento_kinds`
+- `sanitary_complexities`
+- `address_usage_types`
+- `address_location_types`
+
 ## Entregas adicionais pos-S10.2
 
 - Processos `DIVERSOS` para empresa nao cadastrada:
@@ -481,6 +532,14 @@ Fluxo de validação da consulta oficial (S10.3b entrega 2b):
 3. Rodar `pytest -q backend/tests/test_company_scoring.py`.
 4. Rodar E2E API padrão: `pytest -m e2e tests_e2e/api -q`.
 5. Rodar E2E portal padrão: `cd frontend && npm run test:e2e`.
+
+Validação específica do Patch 1 regulatório:
+1. `pytest -q backend/tests/test_regulatory_migration_backfill.py backend/tests/test_companies_composite.py backend/tests/test_companies_crud.py backend/tests/test_company_licences_endpoint.py backend/tests/test_licence_watcher.py backend/tests/test_company_overview.py backend/tests/test_processes_canonical.py`
+2. `cd frontend && npm run test:e2e -- tests_e2e/portal/company_overview.spec.ts tests_e2e/portal/regression_drawers.spec.ts`
+
+Validação específica do Patch 2 regulatório:
+1. `pytest -q backend/tests/test_licence_regulatory_rules.py backend/tests/test_company_scoring.py backend/tests/test_notification_rules.py backend/tests/test_company_overview.py`
+2. `cd frontend && npm run test:e2e -- tests_e2e/portal/company_overview.spec.ts tests_e2e/portal/regression_drawers.spec.ts`
 
 Fluxo operacional do catálogo CNAE (S10.3 parcial):
 1. Editar `backend/seeds/cnae_risks.seed.csv`.

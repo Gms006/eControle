@@ -14,6 +14,7 @@ from app.core.normalize import (  # noqa: F401
     normalize_document_digits,
     normalize_email,
     normalize_municipio,
+    normalize_process_type,
     normalize_process_situacao,
     normalize_status,
     normalize_title_case,

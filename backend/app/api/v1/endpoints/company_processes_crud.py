@@ -47,8 +47,7 @@ def create_process(
         exclude_none=True,
         exclude={"company_cnpj", "company_razao_social", "empresa_nao_cadastrada"},
     )
-    process_type = str(data.get("process_type") or "").strip().upper()
-    data["process_type"] = process_type
+    process_type = str(data.get("process_type") or "").strip()
 
     if payload.company_id:
         company = (

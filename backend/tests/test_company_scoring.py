@@ -1,12 +1,13 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 import app.worker.watchers as watcher_module
 from app.db.session import SessionLocal
 from app.models.cnae_risk import CNAERisk
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
+from app.models.company_process import CompanyProcess
 from app.models.company_profile import CompanyProfile
 from app.models.org import Org
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
@@ -254,6 +255,142 @@ def test_company_score_mapped_cnae_with_overdue_licence_increases_score(client):
         assert profile is not None
         assert profile.risco_consolidado == "HIGH"
         assert profile.score_urgencia == 80
+    finally:
+        db.close()
+
+
+def test_company_score_definitive_alvara_is_not_treated_as_no_licence(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        _ensure_cnae_risk(db, "56.11-2-01", risk_tier="MEDIUM", base_weight=35)
+        company = Company(org_id=org.id, cnpj="41414141000141", razao_social="Definitivo Valido")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "56.11-2-01", "text": "Restaurantes"}],
+                raw={},
+            )
+        )
+        db.add(
+            CompanyLicence(
+                org_id=org.id,
+                company_id=company.id,
+                alvara_funcionamento="definitivo",
+                alvara_funcionamento_kind="DEFINITIVO",
+                alvara_funcionamento_valid_until=date.today() + timedelta(days=15),
+            )
+        )
+        db.flush()
+
+        result = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert result["score_status"] == "OK_DEFINITIVE"
+        assert result["nearest_licence_expiry"] is None
+        assert result["peso_vencimento"] == 0
+        assert result["score_urgencia"] == 35
+    finally:
+        db.close()
+
+
+def test_company_score_marks_definitive_invalidated_by_clear_process(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        _ensure_cnae_risk(db, "56.11-2-01", risk_tier="HIGH", base_weight=45)
+        company = Company(org_id=org.id, cnpj="42424242000142", razao_social="Definitivo Invalidado")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "56.11-2-01", "text": "Restaurantes"}],
+                raw={},
+            )
+        )
+        licence = CompanyLicence(
+            org_id=org.id,
+            company_id=company.id,
+            alvara_funcionamento="definitivo",
+            alvara_funcionamento_kind="DEFINITIVO",
+        )
+        db.add(licence)
+        db.flush()
+        db.add(
+            CompanyProcess(
+                org_id=org.id,
+                company_id=company.id,
+                process_type="DIVERSOS",
+                protocolo="ALT-042",
+                orgao="Prefeitura",
+                operacao="Alteração",
+                obs="Alteração de CNAE e razão social.",
+                updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            )
+        )
+        db.flush()
+
+        result = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert result["score_status"] == "DEFINITIVE_INVALIDATED"
+        assert result["peso_regulatorio"] == 50
+        assert result["score_urgencia"] == 95
+        assert result["regulatory_status"]["invalidated_reasons"] == ["CNAE", "RAZAO_SOCIAL"]
+        assert result["regulatory_status"]["requires_new_licence_request"] is True
+    finally:
+        db.close()
+
+
+def test_company_score_does_not_invalidate_definitive_on_ambiguous_process(client):
+    db = SessionLocal()
+    try:
+        org = _first_org(db)
+        _ensure_cnae_risk(db, "56.11-2-01", risk_tier="LOW", base_weight=10)
+        company = Company(org_id=org.id, cnpj="43434343000143", razao_social="Definitivo Ambiguo")
+        db.add(company)
+        db.flush()
+        db.add(
+            CompanyProfile(
+                org_id=org.id,
+                company_id=company.id,
+                cnaes_principal=[{"code": "56.11-2-01", "text": "Restaurantes"}],
+                raw={},
+            )
+        )
+        db.add(
+            CompanyLicence(
+                org_id=org.id,
+                company_id=company.id,
+                alvara_funcionamento="definitivo",
+                alvara_funcionamento_kind="DEFINITIVO",
+            )
+        )
+        db.flush()
+        db.add(
+            CompanyProcess(
+                org_id=org.id,
+                company_id=company.id,
+                process_type="DIVERSOS",
+                protocolo="ALT-AMB",
+                orgao="Prefeitura",
+                operacao="Alteração",
+                obs="Alteração cadastral em andamento.",
+                updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            )
+        )
+        db.flush()
+
+        result = recalculate_company_score(db, org.id, company.id)
+        db.commit()
+
+        assert result["score_status"] == "OK_DEFINITIVE"
+        assert result["regulatory_status"]["definitive_alvara_invalidated"] is False
     finally:
         db.close()
 

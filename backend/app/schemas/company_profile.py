@@ -3,6 +3,12 @@ from typing import Optional
 
 from pydantic import BaseModel, ConfigDict
 
+from app.core.regulatory import (
+    DEFAULT_ADDRESS_LOCATION_TYPE,
+    DEFAULT_ADDRESS_USAGE_TYPE,
+    DEFAULT_SANITARY_COMPLEXITY,
+)
+
 
 class CompanyProfileOut(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -30,6 +36,9 @@ class CompanyProfileOut(BaseModel):
     score_urgencia: Optional[int] = None
     score_status: Optional[str] = None
     score_updated_at: Optional[datetime] = None
+    sanitary_complexity: Optional[str] = DEFAULT_SANITARY_COMPLEXITY
+    address_usage_type: Optional[str] = DEFAULT_ADDRESS_USAGE_TYPE
+    address_location_type: Optional[str] = DEFAULT_ADDRESS_LOCATION_TYPE
     raw: Optional[dict] = None
     created_at: datetime
     updated_at: datetime

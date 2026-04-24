@@ -59,6 +59,10 @@ def test_meta_enums_exposes_process_status_labels(client):
     assert isinstance(payload.get("operacoes_diversos"), list)
     assert isinstance(payload.get("orgaos_diversos"), list)
     assert isinstance(payload.get("alvaras_funcionamento"), list)
+    assert isinstance(payload.get("alvara_funcionamento_kinds"), list)
+    assert isinstance(payload.get("sanitary_complexities"), list)
+    assert isinstance(payload.get("address_usage_types"), list)
+    assert isinstance(payload.get("address_location_types"), list)
     assert isinstance(payload.get("servicos_sanitarios"), list)
     assert isinstance(payload.get("notificacoes_sanitarias"), list)
 
@@ -133,3 +137,70 @@ def test_process_without_company_requires_diversos(client):
         },
     )
     assert response.status_code == 422
+
+
+def test_process_type_aliases_are_canonicalized_on_create(client):
+    token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    company = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={
+            "cnpj": "12.345.678/0001-68",
+            "razao_social": "Empresa Processo Alias",
+            "municipio": "ANAPOLIS",
+            "uf": "GO",
+        },
+    )
+    assert company.status_code == 200
+
+    created = client.post(
+        "/api/v1/processos",
+        headers=headers,
+        json={
+            "company_id": company.json()["id"],
+            "process_type": "USO_SOLO",
+            "protocolo": "P-2026-ALIASES-0001",
+            "situacao": "pendente",
+        },
+    )
+    assert created.status_code == 200
+    assert created.json()["process_type"] == "USO_DO_SOLO"
+
+
+def test_process_type_aliases_are_canonicalized_on_update(client):
+    token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    company = client.post(
+        "/api/v1/companies",
+        headers=headers,
+        json={
+            "cnpj": "12.345.678/0001-69",
+            "razao_social": "Empresa Processo Alias Update",
+            "municipio": "ANAPOLIS",
+            "uf": "GO",
+        },
+    )
+    assert company.status_code == 200
+
+    created = client.post(
+        "/api/v1/processos",
+        headers=headers,
+        json={
+            "company_id": company.json()["id"],
+            "process_type": "DIVERSOS",
+            "protocolo": "P-2026-ALIASES-0002",
+            "situacao": "pendente",
+        },
+    )
+    assert created.status_code == 200
+
+    updated = client.patch(
+        f"/api/v1/processos/{created.json()['id']}",
+        headers=headers,
+        json={"process_type": "AMBIENTAL"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["process_type"] == "LICENCA_AMBIENTAL"

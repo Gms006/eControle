@@ -12,6 +12,10 @@ from app.models.company_process import CompanyProcess
 from app.models.notification_event import NotificationEvent
 from app.models.notification_operational_scan_run import NotificationOperationalScanRun
 from app.services.business_days import business_days_between
+from app.services.licence_regulatory_rules import (
+    evaluate_definitive_alvara_regulatory_status,
+    format_invalidating_reason_label,
+)
 from app.services.notifications import emit_org_notification
 
 
@@ -103,6 +107,18 @@ def run_notification_operational_scan(
     emitted_count = 0
     deduped_count = 0
     processed = 0
+    process_rows = (
+        db.query(CompanyProcess, Company)
+        .outerjoin(
+            Company,
+            (Company.id == CompanyProcess.company_id) & (Company.org_id == CompanyProcess.org_id),
+        )
+        .filter(CompanyProcess.org_id == org_id)
+        .all()
+    )
+    processes_by_company: dict[str, list[CompanyProcess]] = {}
+    for process, _company in process_rows:
+        processes_by_company.setdefault(process.company_id, []).append(process)
 
     licence_rows = (
         db.query(CompanyLicence, Company)
@@ -116,7 +132,52 @@ def run_notification_operational_scan(
     for licence, company in licence_rows:
         processed += 1
         company_label = (company.razao_social if company else None) or f"empresa {licence.company_id}"
+        regulatory_payload = evaluate_definitive_alvara_regulatory_status(
+            licence=licence,
+            processes=processes_by_company.get(licence.company_id, []),
+        )
+        has_definitive_alvara = bool(regulatory_payload["has_definitive_alvara"])
+        if regulatory_payload["definitive_alvara_invalidated"]:
+            process_ref = str(regulatory_payload["invalidating_process_ref"] or "sem_referencia")
+            dedupe_key = f"notif:{org_id}:{licence.id}:LIC_DEFINITIVO_INVALIDADO:{process_ref}"
+            if _already_emitted(db, org_id, dedupe_key):
+                deduped_count += 1
+            else:
+                reasons = list(regulatory_payload["invalidated_reasons"])
+                reasons_label = ", ".join(format_invalidating_reason_label(reason) for reason in reasons)
+                process_label = (
+                    f" Processo relacionado: {process_ref}."
+                    if process_ref and process_ref != "sem_referencia"
+                    else ""
+                )
+                emit_org_notification(
+                    db,
+                    org_id=org_id,
+                    event_type="operational.licence.regulatory",
+                    severity="error",
+                    title="Alvará definitivo invalidado por alteração cadastral",
+                    message=(
+                        f"{company_label}: alvará definitivo invalidado por {reasons_label.lower()}."
+                        f"{process_label} Solicitar novo alvará de funcionamento."
+                    ),
+                    dedupe_key=dedupe_key,
+                    entity_type="company_licence",
+                    entity_id=licence.id,
+                    route_path="/painel?tab=licencas",
+                    metadata_json={
+                        "rule_code": "LIC_DEFINITIVO_INVALIDADO",
+                        "company_id": licence.company_id,
+                        "invalidated_reasons": reasons,
+                        "invalidating_process_id": regulatory_payload["invalidating_process_id"],
+                        "invalidating_process_ref": regulatory_payload["invalidating_process_ref"],
+                        "requires_new_licence_request": True,
+                    },
+                    commit=False,
+                )
+                emitted_count += 1
         for rule in LICENCE_RULES:
+            if rule["valid_until_field"] == "alvara_funcionamento_valid_until" and has_definitive_alvara:
+                continue
             due_date = getattr(licence, rule["valid_until_field"])
             if not isinstance(due_date, date):
                 continue
@@ -163,15 +224,6 @@ def run_notification_operational_scan(
             )
             emitted_count += 1
 
-    process_rows = (
-        db.query(CompanyProcess, Company)
-        .outerjoin(
-            Company,
-            (Company.id == CompanyProcess.company_id) & (Company.org_id == CompanyProcess.org_id),
-        )
-        .filter(CompanyProcess.org_id == org_id)
-        .all()
-    )
     for process, company in process_rows:
         processed += 1
         process_status = normalize_process_situacao(process.situacao, strict=False)

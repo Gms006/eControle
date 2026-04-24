@@ -23,6 +23,9 @@ from app.schemas.company_licence import (
     LicenceUploadBulkResponse,
     LicenceUploadItemResult,
 )
+from app.core.regulatory import (
+    DEFAULT_ALVARA_FUNCIONAMENTO_KIND,
+)
 from app.services.licence_detection import parse_filename_to_suggestion
 from app.services.licence_fs_paths import resolve_target_dir
 from app.services.licence_files import (
@@ -111,8 +114,15 @@ def patch_company_licence_item(
 
     setattr(licence, payload.field, payload.status)
     setattr(licence, f"{payload.field}_valid_until", parse_iso_date(payload.validade) if payload.validade else None)
+    if payload.field == "alvara_funcionamento":
+        if payload.alvara_funcionamento_kind:
+            licence.alvara_funcionamento_kind = payload.alvara_funcionamento_kind
+        elif payload.status == "definitivo":
+            licence.alvara_funcionamento_kind = "DEFINITIVO"
+        else:
+            licence.alvara_funcionamento_kind = licence.alvara_funcionamento_kind or DEFAULT_ALVARA_FUNCIONAMENTO_KIND
 
-    raw = licence.raw if isinstance(licence.raw, dict) else {}
+    raw = dict(licence.raw) if isinstance(licence.raw, dict) else {}
     if payload.validade:
         raw[f"validade_{payload.field}"] = payload.validade
     if payload.observacao is not None:
@@ -140,6 +150,8 @@ def patch_company_licence_item(
         raw[f"validade_{payload.field}_br"] = f"{day}/{month}/{year}"
 
     licence.municipio = normalize_municipio(licence.municipio)
+    if payload.field == "alvara_funcionamento":
+        raw["alvara_funcionamento_kind"] = licence.alvara_funcionamento_kind
     licence.raw = raw
 
     db.flush()

@@ -10,6 +10,8 @@ from app.models.cnae_risk import CNAERisk
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
 from app.models.company_profile import CompanyProfile
+from app.models.company_process import CompanyProcess
+from app.services.licence_regulatory_rules import evaluate_definitive_alvara_regulatory_status
 
 
 RISK_PRIORITY = {"LOW": 1, "MEDIUM": 2, "HIGH": 3}
@@ -44,14 +46,20 @@ def _expiry_weight(next_expiry: date | None, today: date) -> int:
     return 0
 
 
-def _pick_nearest_licence_expiry(licence: CompanyLicence | None) -> date | None:
+def _pick_nearest_licence_expiry(
+    licence: CompanyLicence | None,
+    *,
+    ignore_alvara_funcionamento_periodic: bool = False,
+) -> date | None:
     if not licence:
         return None
-    valid_dates = [
-        value
-        for value in (getattr(licence, field, None) for field in LICENCE_VALID_UNTIL_FIELDS)
-        if isinstance(value, date)
-    ]
+    valid_dates: list[date] = []
+    for field in LICENCE_VALID_UNTIL_FIELDS:
+        if ignore_alvara_funcionamento_periodic and field == "alvara_funcionamento_valid_until":
+            continue
+        value = getattr(licence, field, None)
+        if isinstance(value, date):
+            valid_dates.append(value)
     if not valid_dates:
         return None
     return min(valid_dates)
@@ -94,15 +102,32 @@ def recalculate_company_score(db: Session, org_id: str, company_id: str) -> dict
         .filter(CompanyLicence.org_id == org_id, CompanyLicence.company_id == company_id)
         .first()
     )
-    nearest_expiry = _pick_nearest_licence_expiry(licence)
-    peso_vencimento = _expiry_weight(nearest_expiry, date.today())
+    processes = (
+        db.query(CompanyProcess)
+        .filter(CompanyProcess.org_id == org_id, CompanyProcess.company_id == company_id)
+        .all()
+    )
+    regulatory_status = evaluate_definitive_alvara_regulatory_status(licence=licence, processes=processes)
+    definitive_invalidated = bool(regulatory_status["definitive_alvara_invalidated"])
+    has_definitive_alvara = bool(regulatory_status["has_definitive_alvara"])
 
-    score_urgencia = maior_base_weight + peso_vencimento
+    nearest_expiry = _pick_nearest_licence_expiry(
+        licence,
+        ignore_alvara_funcionamento_periodic=has_definitive_alvara,
+    )
+    peso_vencimento = _expiry_weight(nearest_expiry, date.today())
+    peso_regulatorio = 50 if definitive_invalidated else 0
+
+    score_urgencia = maior_base_weight + max(peso_vencimento, peso_regulatorio)
 
     if not cnae_codes:
         score_status = "NO_CNAE"
     elif not cnae_rows:
         score_status = "UNMAPPED_CNAE"
+    elif definitive_invalidated:
+        score_status = "DEFINITIVE_INVALIDATED"
+    elif has_definitive_alvara:
+        score_status = "OK_DEFINITIVE"
     elif nearest_expiry is None:
         score_status = "NO_LICENCE"
     else:
@@ -129,4 +154,6 @@ def recalculate_company_score(db: Session, org_id: str, company_id: str) -> dict
         "matched_cnaes": len(cnae_rows),
         "nearest_licence_expiry": nearest_expiry.isoformat() if nearest_expiry else None,
         "peso_vencimento": peso_vencimento,
+        "peso_regulatorio": peso_regulatorio,
+        "regulatory_status": regulatory_status,
     }

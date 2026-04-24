@@ -107,3 +107,73 @@ def test_notification_rules_generate_events_and_dedupe(client):
         assert other_org_count == 0
     finally:
         db.close()
+
+
+def test_notification_rules_ignore_periodic_renewal_for_valid_definitive_alvara(client):
+    base_date = datetime(2026, 4, 6, 12, 0, tzinfo=timezone.utc).date()
+
+    db = SessionLocal()
+    try:
+        org = db.query(Org).first()
+        assert org is not None
+        company = _create_company(db, org.id, "31")
+        db.add(
+            CompanyLicence(
+                org_id=org.id,
+                company_id=company.id,
+                alvara_funcionamento="definitivo",
+                alvara_funcionamento_kind="DEFINITIVO",
+                alvara_funcionamento_valid_until=base_date + timedelta(days=10),
+            )
+        )
+        db.commit()
+
+        summary = run_notification_operational_scan(db, org_id=org.id, base_date=base_date)
+        assert summary["emitted_count"] == 0
+        events = db.query(NotificationEvent).filter(NotificationEvent.org_id == org.id).all()
+        assert events == []
+    finally:
+        db.close()
+
+
+def test_notification_rules_emit_specific_alert_for_invalidated_definitive_alvara(client):
+    base_date = datetime(2026, 4, 6, 12, 0, tzinfo=timezone.utc).date()
+
+    db = SessionLocal()
+    try:
+        org = db.query(Org).first()
+        assert org is not None
+        company = _create_company(db, org.id, "32")
+        licence = CompanyLicence(
+            org_id=org.id,
+            company_id=company.id,
+            alvara_funcionamento="definitivo",
+            alvara_funcionamento_kind="DEFINITIVO",
+            alvara_funcionamento_valid_until=base_date + timedelta(days=10),
+        )
+        db.add(licence)
+        db.flush()
+        db.add(
+            CompanyProcess(
+                org_id=org.id,
+                company_id=company.id,
+                process_type="DIVERSOS",
+                protocolo="ALT-032",
+                orgao="Prefeitura",
+                operacao="Alteração",
+                obs="Alteração de endereço e nome fantasia.",
+                updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            )
+        )
+        db.commit()
+
+        summary = run_notification_operational_scan(db, org_id=org.id, base_date=base_date)
+        assert summary["emitted_count"] == 1
+        event = db.query(NotificationEvent).filter(NotificationEvent.org_id == org.id).first()
+        assert event is not None
+        assert event.metadata_json["rule_code"] == "LIC_DEFINITIVO_INVALIDADO"
+        assert event.metadata_json["requires_new_licence_request"] is True
+        assert "novo alvará" in event.message.lower()
+        assert "LIC_ALVARA_D30" not in event.dedupe_key
+    finally:
+        db.close()

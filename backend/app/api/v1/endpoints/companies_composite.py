@@ -12,6 +12,11 @@ from app.core.normalization import (
     normalize_spaces,
     normalize_title_case,
 )
+from app.core.regulatory import (
+    DEFAULT_ADDRESS_LOCATION_TYPE,
+    DEFAULT_ADDRESS_USAGE_TYPE,
+    DEFAULT_SANITARY_COMPLEXITY,
+)
 from app.core.org_context import get_current_org
 from app.core.security import require_roles
 from app.db.session import get_db
@@ -84,6 +89,9 @@ def create_company_composite(
     p = payload.profile.model_dump(exclude_none=True)
     mei = bool(p.pop("mei", False))
     endereco_fiscal = bool(p.pop("endereco_fiscal", False))
+    sanitary_complexity = p.pop("sanitary_complexity", None) or DEFAULT_SANITARY_COMPLEXITY
+    address_usage_type = p.pop("address_usage_type", None) or ("FISCAL" if endereco_fiscal else DEFAULT_ADDRESS_USAGE_TYPE)
+    address_location_type = p.pop("address_location_type", None) or DEFAULT_ADDRESS_LOCATION_TYPE
     if "email" in p:
         p["email"] = normalize_email(p.get("email"))
     if "telefone" in p:
@@ -97,7 +105,15 @@ def create_company_composite(
         p["categoria"] = f"Fiscal - {categoria}"
 
     profile_raw = {"mei": mei, "endereco_fiscal": endereco_fiscal}
-    profile = CompanyProfile(org_id=org.id, company_id=company.id, raw=profile_raw, **p)
+    profile = CompanyProfile(
+        org_id=org.id,
+        company_id=company.id,
+        sanitary_complexity=sanitary_complexity,
+        address_usage_type=address_usage_type,
+        address_location_type=address_location_type,
+        raw=profile_raw,
+        **p,
+    )
     db.add(profile)
 
     # Licenças opcionais
@@ -110,6 +126,7 @@ def create_company_composite(
                 municipio=company.municipio,
                 alvara_vig_sanitaria="nao_exigido",
                 alvara_funcionamento="nao_exigido",
+                alvara_funcionamento_kind="PENDENTE_REVISAO",
                 cercon="nao_exigido",
                 licenca_ambiental="nao_exigido",
                 certidao_uso_solo="nao_exigido",
@@ -125,6 +142,7 @@ def create_company_composite(
                 municipio=company.municipio,
                 alvara_vig_sanitaria=_lic(l.get("alvara_sanitario", False)),
                 alvara_funcionamento=_lic(l.get("alvara_funcionamento", False)),
+                alvara_funcionamento_kind="PENDENTE_REVISAO",
                 cercon=_lic(l.get("cercon", False)),
                 licenca_ambiental=_lic(l.get("licenca_ambiental", False)),
                 certidao_uso_solo=_lic(l.get("certidao_uso_solo", False)),

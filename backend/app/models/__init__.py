@@ -2,6 +2,7 @@ from app.db.base import Base
 from app.models.cnae_risk import CNAERisk
 from app.models.cnae_risk_suggestion import CNAERiskSuggestion
 from app.models.certificate_mirror import CertificateMirror
+from app.models.dashboard_saved_view import DashboardSavedView
 from app.models.company import Company
 from app.models.company_licence import CompanyLicence
 from app.models.company_process import CompanyProcess
@@ -24,6 +25,7 @@ __all__ = [
     "CNAERisk",
     "CNAERiskSuggestion",
     "CertificateMirror",
+    "DashboardSavedView",
     "Company",
     "CompanyProfile",
     "CompanyLicence",

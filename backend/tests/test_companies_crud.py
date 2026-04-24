@@ -156,13 +156,23 @@ def test_admin_can_create_and_update_company(client):
     update_response = client.patch(
         f"/api/v1/companies/{company['id']}",
         headers={"Authorization": f"Bearer {admin_token}"},
-        json={"razao_social": "Empresa Alpha Atualizada", "fs_dirname": "Empresa Alpha Pasta 2", "is_active": False},
+        json={
+            "razao_social": "Empresa Alpha Atualizada",
+            "fs_dirname": "Empresa Alpha Pasta 2",
+            "is_active": False,
+            "sanitary_complexity": "ALTA",
+            "address_usage_type": "MISTO",
+            "address_location_type": "ENDERECO_PROPRIO",
+        },
     )
     assert update_response.status_code == 200
     updated = update_response.json()
     assert updated["razao_social"] == "Empresa Alpha Atualizada"
     assert updated["fs_dirname"] == "Empresa Alpha Pasta 2"
     assert updated["is_active"] is False
+    assert updated["sanitary_complexity"] == "ALTA"
+    assert updated["address_usage_type"] == "MISTO"
+    assert updated["address_location_type"] == "ENDERECO_PROPRIO"
 
     list_default = client.get(
         "/api/v1/companies",

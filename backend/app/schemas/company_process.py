@@ -6,6 +6,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from app.core.normalize import (
     PROCESS_SITUACAO_LABELS,
     normalize_date_br,
+    normalize_process_type,
     normalize_process_situacao,
 )
 
@@ -54,6 +55,14 @@ class CompanyProcessCreate(BaseModel):
     obs: Optional[str] = None
     extra: Optional[dict] = None
 
+    @field_validator("process_type", mode="before")
+    @classmethod
+    def validate_process_type(cls, value: str | None) -> str:
+        normalized = normalize_process_type(value)
+        if not normalized:
+            raise ValueError("process_type is required")
+        return normalized
+
     @field_validator("situacao", mode="before")
     @classmethod
     def validate_situacao(cls, value: str | None) -> str | None:
@@ -89,6 +98,16 @@ class CompanyProcessUpdate(BaseModel):
     situacao: Optional[str] = None
     obs: Optional[str] = None
     extra: Optional[dict] = None
+
+    @field_validator("process_type", mode="before")
+    @classmethod
+    def validate_process_type(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        normalized = normalize_process_type(value)
+        if not normalized:
+            raise ValueError("process_type is required")
+        return normalized
 
     @field_validator("situacao", mode="before")
     @classmethod

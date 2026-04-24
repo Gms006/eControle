@@ -3,6 +3,11 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.core.fs_dirname import normalize_fs_dirname
+from app.core.regulatory import (
+    normalize_address_location_type,
+    normalize_address_usage_type,
+    normalize_sanitary_complexity,
+)
 
 
 class CompositeCompany(BaseModel):
@@ -38,6 +43,24 @@ class CompositeProfile(BaseModel):
     cnaes_secundarios: Optional[list[dict]] = None
     mei: bool = False
     endereco_fiscal: bool = False
+    sanitary_complexity: Optional[str] = None
+    address_usage_type: Optional[str] = None
+    address_location_type: Optional[str] = None
+
+    @field_validator("sanitary_complexity")
+    @classmethod
+    def validate_sanitary_complexity(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_sanitary_complexity(value)
+
+    @field_validator("address_usage_type")
+    @classmethod
+    def validate_address_usage_type(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_address_usage_type(value)
+
+    @field_validator("address_location_type")
+    @classmethod
+    def validate_address_location_type(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_address_location_type(value)
 
 
 class CompositeLicences(BaseModel):

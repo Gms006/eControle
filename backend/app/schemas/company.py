@@ -4,6 +4,14 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from app.core.fs_dirname import normalize_fs_dirname
+from app.core.regulatory import (
+    DEFAULT_ADDRESS_LOCATION_TYPE,
+    DEFAULT_ADDRESS_USAGE_TYPE,
+    DEFAULT_SANITARY_COMPLEXITY,
+    normalize_address_location_type,
+    normalize_address_usage_type,
+    normalize_sanitary_complexity,
+)
 
 
 class CompanyCreate(BaseModel):
@@ -53,11 +61,29 @@ class CompanyUpdate(BaseModel):
     cnaes_secundarios: Optional[list[dict]] = None
     mei: Optional[bool] = None
     endereco_fiscal: Optional[bool] = None
+    sanitary_complexity: Optional[str] = None
+    address_usage_type: Optional[str] = None
+    address_location_type: Optional[str] = None
 
     @field_validator("fs_dirname")
     @classmethod
     def validate_fs_dirname(cls, value: Optional[str]) -> Optional[str]:
         return normalize_fs_dirname(value)
+
+    @field_validator("sanitary_complexity")
+    @classmethod
+    def validate_sanitary_complexity(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_sanitary_complexity(value)
+
+    @field_validator("address_usage_type")
+    @classmethod
+    def validate_address_usage_type(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_address_usage_type(value)
+
+    @field_validator("address_location_type")
+    @classmethod
+    def validate_address_location_type(cls, value: Optional[str]) -> Optional[str]:
+        return normalize_address_location_type(value)
 
 
 class CompanyOut(BaseModel):
@@ -97,6 +123,11 @@ class CompanyOut(BaseModel):
     score_urgencia: Optional[int] = None
     score_status: Optional[str] = None
     score_updated_at: Optional[datetime] = None
+    sanitary_complexity: Optional[str] = DEFAULT_SANITARY_COMPLEXITY
+    address_usage_type: Optional[str] = DEFAULT_ADDRESS_USAGE_TYPE
+    address_location_type: Optional[str] = DEFAULT_ADDRESS_LOCATION_TYPE
+    mei: Optional[bool] = None
+    endereco_fiscal: Optional[bool] = None
 
 
 def enrich_company_with_profile(company):
@@ -123,8 +154,14 @@ def enrich_company_with_profile(company):
         company.score_urgencia = profile.score_urgencia
         company.score_status = profile.score_status
         company.score_updated_at = profile.score_updated_at
+        company.sanitary_complexity = profile.sanitary_complexity
+        company.address_usage_type = profile.address_usage_type
+        company.address_location_type = profile.address_location_type
         raw = profile.raw if isinstance(profile.raw, dict) else {}
         company.mei = bool(raw.get("mei")) if "mei" in raw else None
-        company.endereco_fiscal = bool(raw.get("endereco_fiscal")) if "endereco_fiscal" in raw else None
+        if company.address_usage_type and company.address_usage_type != DEFAULT_ADDRESS_USAGE_TYPE:
+            company.endereco_fiscal = company.address_usage_type == "FISCAL"
+        else:
+            company.endereco_fiscal = bool(raw.get("endereco_fiscal")) if "endereco_fiscal" in raw else None
     return company
 

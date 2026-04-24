@@ -24,6 +24,10 @@ from app.services.licence_files import (
     sha256_bytes,
 )
 from app.services.company_scoring import recalculate_company_score
+from app.core.regulatory import (
+    DEFAULT_ALVARA_FUNCIONAMENTO_KIND,
+    infer_alvara_funcionamento_kind,
+)
 
 
 logger = logging.getLogger("app.worker.watchers")
@@ -74,12 +78,22 @@ def _upsert_licence_projection(
 
     next_valid_until = _parse_raw_date(expiry_iso)
     status_value = "definitivo" if source_kind == "definitivo" else "possui"
+    next_alvara_kind = None
+    if licence_field == "alvara_funcionamento":
+        next_alvara_kind = infer_alvara_funcionamento_kind(
+            source_document_kind=source_document_kind,
+            source_kind=source_kind,
+        )
     current_status = getattr(row, licence_field)
     current_valid_until = getattr(row, f"{licence_field}_valid_until")
     changed = current_status != status_value or current_valid_until != next_valid_until
 
     setattr(row, licence_field, status_value)
     setattr(row, f"{licence_field}_valid_until", next_valid_until)
+    if licence_field == "alvara_funcionamento":
+        if getattr(row, "alvara_funcionamento_kind", None) != next_alvara_kind:
+            changed = True
+        row.alvara_funcionamento_kind = next_alvara_kind or DEFAULT_ALVARA_FUNCIONAMENTO_KIND
     if expiry_iso:
         next_validade_br = datetime.strptime(expiry_iso, "%Y-%m-%d").strftime("%d/%m/%Y")
         if raw.get(f"validade_{licence_field}") != expiry_iso:
@@ -112,6 +126,10 @@ def _upsert_licence_projection(
         if raw.get(f"source_group_{licence_field}") != source_group:
             changed = True
         raw[f"source_group_{licence_field}"] = source_group
+    if licence_field == "alvara_funcionamento":
+        if raw.get("alvara_funcionamento_kind") != row.alvara_funcionamento_kind:
+            changed = True
+        raw["alvara_funcionamento_kind"] = row.alvara_funcionamento_kind
     row.raw = raw
     return changed
 

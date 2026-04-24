@@ -116,7 +116,9 @@ def test_watcher_prefers_definitive_then_larger_expiry(client, tmp_path, monkeyp
         )
         assert refreshed is not None
         assert refreshed.alvara_funcionamento == "definitivo"
+        assert refreshed.alvara_funcionamento_kind == "DEFINITIVO"
         assert refreshed.raw.get("source_kind_alvara_funcionamento") == "definitivo"
+        assert refreshed.raw.get("alvara_funcionamento_kind") == "DEFINITIVO"
         assert refreshed.alvara_funcionamento_valid_until is None
         assert refreshed.raw.get("validade_alvara_funcionamento") is None
         assert refreshed.alvara_vig_sanitaria == "definitivo"

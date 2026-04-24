@@ -48,6 +48,7 @@ eControle/
 |  |  |  |- normalize.py
 |  |  |  |- normalization.py
 |  |  |  |- org\_context.py
+|  |  |  |- regulatory.py
 |  |  |  |- seed.py
 |  |  |  |- security.py
 |  |  |- db/
@@ -65,6 +66,7 @@ eControle/
 |  |  |  |- notification\_operational\_scan\_run.py
 |  |  |  |- company\_process.py
 |  |  |  |- company\_profile.py
+|  |  |  |- company\_overview.py
 |  |  |  |- company\_tax.py
 |  |  |  |- copilot.py
 |  |  |  |- ingest\_run.py
@@ -122,6 +124,7 @@ eControle/
 |  |  |  |- licence\_detection.py
 |  |  |  |- licence\_fs\_paths.py
 |  |  |  |- licence\_files.py
+|  |  |  |- licence\_regulatory\_rules.py
 |  |  |  |- licence\_scan\_full.py
 |  |  |  |- notifications.py
 |  |  |  |- notification\_operational\_scan.py
@@ -167,6 +170,9 @@ eControle/
 |  |  |- 20260401\_0025\_drop\_unused\_company\_profile\_columns.py
 |  |  |- 20260402\_0026\_create\_notification\_events.py
 |  |  |- 20260402\_0027\_create\_notification\_operational\_scan\_runs.py
+|  |  |- 20260414\_0028\_create\_dashboard\_saved\_views.py
+|  |  |- 20260416\_0029\_normalize\_company\_process\_types.py
+|  |  |- 20260423\_0030\_add\_regulatory\_domain\_fields.py
 |  |- scripts/
 |  |  |- backfill\_company\_scores.py
 |  |  |- load\_cnae\_risks\_seed.py
@@ -198,10 +204,12 @@ eControle/
 |  |  |- test\_licencas\_detect.py
 |  |  |- test\_licencas\_upload\_bulk.py
 |  |  |- test\_licence\_migration\_backfill.py
+|  |  |- test\_licence\_regulatory\_rules.py
 |  |  |- test\_lookups\_receitaws.py
 |  |  |- test\_normalization\_helpers.py
 |  |  |- test\_org\_context.py
 |  |  |- test\_processes\_canonical.py
+|  |  |- test\_regulatory\_migration\_backfill.py
 |  |  |- test\_receitaws\_bulk\_sync.py
 |  |  |- test\_tax\_portal\_sync.py
 |  |  |- test\_notifications\_service.py
@@ -276,6 +284,7 @@ eControle/
 |  |  |  |- copilot.js
 |  |- tests\_e2e/portal/
 |  |  |- company\_scoring.spec.ts
+|  |  |- company\_overview.spec.ts
 |  |  |- login\_empresas.smoke.spec.ts
 |  |  |- licencas\_upload\_action.smoke.spec.ts
 |  |  |- company\_import\_save.smoke.spec.ts
@@ -470,6 +479,51 @@ eControle/
   * `frontend/src/pages/LicencasScreen.jsx` usa drawer assistido (sem `window.prompt`)
   * `POST /api/v1/licencas/scan-full` executa scan manual em lote com `BackgroundTasks`
   * tabela `licence\_scan\_runs` persiste progresso (`queued/running/done/error`)
+* Patch regulatório 1 entregue em 2026-04-23:
+
+  * migration `backend/alembic/versions/20260423_0030_add_regulatory_domain_fields.py`
+  * fonte de verdade explícita:
+    - `company_licences.alvara_funcionamento_kind`
+    - `company_profiles.sanitary_complexity`
+    - `company_profiles.address_usage_type`
+    - `company_profiles.address_location_type`
+  * normalização central em `backend/app/core/regulatory.py`
+  * watcher persiste `alvara_funcionamento_kind` explicitamente no projection row
+  * `GET /api/v1/meta/enums` expõe:
+    - `alvara_funcionamento_kinds`
+    - `sanitary_complexities`
+    - `address_usage_types`
+    - `address_location_types`
+  * portal atualizado:
+    - `frontend/src/components/forms/CompanyDrawer.jsx`
+    - `frontend/src/pages/LicencasScreen.jsx`
+    - `frontend/src/components/companies/CompanyOverviewDrawer.jsx`
+* Patch regulatório 2 entregue em 2026-04-23:
+
+  * serviço central:
+    - `backend/app/services/licence_regulatory_rules.py`
+  * score:
+    - `backend/app/services/company_scoring.py`
+    - novos status `OK_DEFINITIVE` e `DEFINITIVE_INVALIDATED`
+    - alvará definitivo deixa de participar da lógica periódica de renovação
+  * notificações:
+    - `backend/app/services/notification_operational_scan.py`
+    - nova regra `LIC_DEFINITIVO_INVALIDADO`
+    - `LIC_ALVARA_D30` ignorada quando `alvara_funcionamento_kind = DEFINITIVO`
+  * overview:
+    - `backend/app/services/company_overview.py`
+    - `backend/app/schemas/company_overview.py`
+    - novo bloco derivado `regulatory`
+  * portal:
+    - `frontend/src/components/companies/CompanyOverviewDrawer.jsx`
+    - `frontend/src/pages/EmpresasScreen.jsx`
+    - `frontend/src/pages/LicencasScreen.jsx`
+  * testes adicionados/ajustados:
+    - `backend/tests/test_licence_regulatory_rules.py`
+    - `backend/tests/test_company_scoring.py`
+    - `backend/tests/test_notification_rules.py`
+    - `backend/tests/test_company_overview.py`
+    - `frontend/tests_e2e/portal/company_overview.spec.ts`
 * S10.2 (incremental fs\_dirname):
 
   * schema/validacao de `companies.fs\_dirname` em `backend/app/schemas/company.py` e `backend/app/schemas/company\_composite.py`

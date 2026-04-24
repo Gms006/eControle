@@ -11,6 +11,11 @@ from app.core.normalization import (
     normalize_municipio,
     normalize_title_case,
 )
+from app.core.regulatory import (
+    DEFAULT_ADDRESS_LOCATION_TYPE,
+    DEFAULT_ADDRESS_USAGE_TYPE,
+    DEFAULT_SANITARY_COMPLEXITY,
+)
 from app.core.org_context import get_current_org
 from app.core.security import require_roles, verify_password
 from app.models.certificate_mirror import CertificateMirror
@@ -30,6 +35,38 @@ from app.services.company_overview import build_company_overview
 from app.services.company_scoring import recalculate_company_score
 
 router = APIRouter()
+
+
+def _sync_profile_regulatory_fields(
+    profile: CompanyProfile,
+    *,
+    mei: bool | None = None,
+    endereco_fiscal: bool | None = None,
+    sanitary_complexity: str | None = None,
+    address_usage_type: str | None = None,
+    address_location_type: str | None = None,
+) -> None:
+    raw = dict(profile.raw) if isinstance(profile.raw, dict) else {}
+    if mei is not None:
+        raw["mei"] = bool(mei)
+    if endereco_fiscal is not None:
+        raw["endereco_fiscal"] = bool(endereco_fiscal)
+    if sanitary_complexity is not None:
+        profile.sanitary_complexity = sanitary_complexity
+    elif not getattr(profile, "sanitary_complexity", None):
+        profile.sanitary_complexity = DEFAULT_SANITARY_COMPLEXITY
+    if address_usage_type is not None:
+        profile.address_usage_type = address_usage_type
+        raw["endereco_fiscal"] = address_usage_type == "FISCAL"
+    elif endereco_fiscal is not None:
+        profile.address_usage_type = "FISCAL" if endereco_fiscal else DEFAULT_ADDRESS_USAGE_TYPE
+    elif not getattr(profile, "address_usage_type", None):
+        profile.address_usage_type = DEFAULT_ADDRESS_USAGE_TYPE
+    if address_location_type is not None:
+        profile.address_location_type = address_location_type
+    elif not getattr(profile, "address_location_type", None):
+        profile.address_location_type = DEFAULT_ADDRESS_LOCATION_TYPE
+    profile.raw = raw or None
 
 
 def _normalize_cnpj(value: str) -> str:
@@ -304,7 +341,20 @@ def update_company(
         if not profile:
             profile = CompanyProfile(org_id=org.id, company_id=company.id)
             db.add(profile)
+        mei = data["mei"] if "mei" in data else None
+        endereco_fiscal = data["endereco_fiscal"] if "endereco_fiscal" in data else None
+        sanitary_complexity = data.get("sanitary_complexity")
+        address_usage_type = data.get("address_usage_type")
+        address_location_type = data.get("address_location_type")
         for key in profile_fields:
+            if key in {
+                "mei",
+                "endereco_fiscal",
+                "sanitary_complexity",
+                "address_usage_type",
+                "address_location_type",
+            }:
+                continue
             value = data[key]
             if key == "telefone":
                 value = extract_primary_phone_digits(value)
@@ -317,6 +367,14 @@ def update_company(
             elif key == "responsavel_fiscal":
                 value = normalize_title_case(value)
             setattr(profile, key, value)
+        _sync_profile_regulatory_fields(
+            profile,
+            mei=mei,
+            endereco_fiscal=endereco_fiscal,
+            sanitary_complexity=sanitary_complexity,
+            address_usage_type=address_usage_type,
+            address_location_type=address_location_type,
+        )
         db.flush()
         recalculate_company_score(db, org.id, company.id)
     try:

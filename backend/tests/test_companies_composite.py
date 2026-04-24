@@ -49,12 +49,16 @@ def test_create_company_composite_with_taxes_and_licences(client):
     assert response.status_code == 200
     company_id = response.json()["id"]
     assert response.json()["fs_dirname"] == "Empresa Composite Pasta"
+    assert response.json()["sanitary_complexity"] == "PENDENTE_REVISAO"
+    assert response.json()["address_usage_type"] == "PENDENTE_REVISAO"
+    assert response.json()["address_location_type"] == "PENDENTE_REVISAO"
 
     licences = client.get("/api/v1/licencas", headers=headers)
     assert licences.status_code == 200
     company_lic = next(item for item in licences.json() if item["company_id"] == company_id)
     assert company_lic["alvara_vig_sanitaria"] == "sujeito"
     assert company_lic["alvara_funcionamento"] == "isento"
+    assert company_lic["alvara_funcionamento_kind"] == "PENDENTE_REVISAO"
     assert company_lic["cercon"] == "sujeito"
 
     taxes = client.get("/api/v1/taxas", headers=headers)
@@ -83,6 +87,9 @@ def test_create_company_composite_with_cpf(client):
                 "porte": "ME",
                 "mei": False,
                 "endereco_fiscal": False,
+                "sanitary_complexity": "MEDIA",
+                "address_usage_type": "ADMINISTRATIVO",
+                "address_location_type": "ESCRITORIO_CONTABIL",
             },
             "licences": {
                 "alvara_sanitario": True,
@@ -107,6 +114,9 @@ def test_create_company_composite_with_cpf(client):
     company = response.json()
     assert company["company_cpf"] == "12345678901"
     assert company["cnpj"] is None
+    assert company["sanitary_complexity"] == "MEDIA"
+    assert company["address_usage_type"] == "ADMINISTRATIVO"
+    assert company["address_location_type"] == "ESCRITORIO_CONTABIL"
 
     licences = client.get("/api/v1/licencas", headers=headers)
     assert licences.status_code == 200

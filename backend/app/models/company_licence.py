@@ -8,6 +8,7 @@ from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from app.db.base import Base
 from app.core.normalization import normalize_municipio
+from app.core.regulatory import DEFAULT_ALVARA_FUNCIONAMENTO_KIND
 
 
 class CompanyLicence(Base):
@@ -29,6 +30,9 @@ class CompanyLicence(Base):
     cercon: Mapped[str | None] = mapped_column(String(64), nullable=True)
     cercon_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     alvara_funcionamento: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    alvara_funcionamento_kind: Mapped[str] = mapped_column(
+        String(32), nullable=False, default=DEFAULT_ALVARA_FUNCIONAMENTO_KIND, server_default=DEFAULT_ALVARA_FUNCIONAMENTO_KIND
+    )
     alvara_funcionamento_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)
     licenca_ambiental: Mapped[str | None] = mapped_column(String(64), nullable=True)
     licenca_ambiental_valid_until: Mapped[date | None] = mapped_column(Date, nullable=True)

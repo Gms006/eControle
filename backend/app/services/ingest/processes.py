@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from sqlalchemy.orm import Session
 
-from app.core.normalization import normalize_date_br, normalize_municipio, normalize_process_situacao
+from app.core.normalization import (
+    normalize_date_br,
+    normalize_municipio,
+    normalize_process_situacao,
+    normalize_process_type,
+)
 from app.models.company import Company
 from app.models.company_process import CompanyProcess
 from app.services.ingest.utils import normalize_cnpj, null_if_marker, sanitize_text_tree
@@ -15,7 +20,7 @@ def upsert_processes(db: Session, org_id: str, items: list[dict]) -> tuple[int, 
 
     for item in items:
         cnpj = normalize_cnpj(item.get("cnpj", ""))
-        ptype = (item.get("process_type") or "").strip()
+        ptype = normalize_process_type(item.get("process_type"))
         protocolo = (item.get("protocolo") or "").strip()
         if not cnpj or not ptype or not protocolo:
             skipped += 1

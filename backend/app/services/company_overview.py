@@ -16,6 +16,7 @@ from app.schemas.company import CompanyOut, enrich_company_with_profile
 from app.schemas.company_overview import (
     CompanyOverviewCertificate,
     CompanyOverviewLicenceItem,
+    CompanyOverviewRegulatoryStatus,
     CompanyOverviewProcessItem,
     CompanyOverviewResponse,
     CompanyOverviewScore,
@@ -23,6 +24,10 @@ from app.schemas.company_overview import (
     CompanyOverviewSummaryNextDueItem,
     CompanyOverviewTaxItem,
     CompanyOverviewTimelineItem,
+)
+from app.services.licence_regulatory_rules import (
+    evaluate_definitive_alvara_regulatory_status,
+    format_invalidating_reason_label,
 )
 
 TAX_FIELD_META = (
@@ -137,7 +142,14 @@ def _tax_urgency(status: str | None, due_date: date | None) -> str:
     return "ok"
 
 
-def _licence_critical(status: str | None, validade: date | None) -> bool:
+def _licence_critical(
+    status: str | None,
+    validade: date | None,
+    *,
+    regulatory_invalidated: bool = False,
+) -> bool:
+    if regulatory_invalidated:
+        return True
     key = _status_key(status)
     if "vencid" in key:
         return True
@@ -178,6 +190,9 @@ def _profile_payload(profile: CompanyProfile | None) -> dict[str, Any]:
         "responsavel_fiscal": profile.responsavel_fiscal,
         "cnaes_principal": profile.cnaes_principal,
         "cnaes_secundarios": profile.cnaes_secundarios,
+        "sanitary_complexity": profile.sanitary_complexity,
+        "address_usage_type": profile.address_usage_type,
+        "address_location_type": profile.address_location_type,
         "raw": profile.raw if isinstance(profile.raw, dict) else {},
     }
 
@@ -219,6 +234,8 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
         .limit(10)
         .all()
     )
+    regulatory_payload = evaluate_definitive_alvara_regulatory_status(licence=licence, processes=processes)
+    definitive_invalidated = bool(regulatory_payload["definitive_alvara_invalidated"])
     cert = (
         db.query(CertificateMirror)
         .filter(CertificateMirror.org_id == org_id, CertificateMirror.company_id == company.id)
@@ -275,7 +292,16 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
                 validade=validade,
                 status=status_value,
                 origem=origem,
-                critical=_licence_critical(status_value, validade),
+                alvara_funcionamento_kind=(licence.alvara_funcionamento_kind if field == "alvara_funcionamento" else None),
+                regulatory_status=(str(regulatory_payload["regulatory_status"]) if field == "alvara_funcionamento" else None),
+                invalidated_reasons=(list(regulatory_payload["invalidated_reasons"]) if field == "alvara_funcionamento" else []),
+                invalidating_process_ref=(str(regulatory_payload["invalidating_process_ref"]) if field == "alvara_funcionamento" and regulatory_payload["invalidating_process_ref"] else None),
+                requires_new_licence_request=(bool(regulatory_payload["requires_new_licence_request"]) if field == "alvara_funcionamento" else False),
+                critical=_licence_critical(
+                    status_value,
+                    validade,
+                    regulatory_invalidated=(field == "alvara_funcionamento" and definitive_invalidated),
+                ),
             )
         )
 
@@ -317,7 +343,12 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
     pending_taxes_count = sum(1 for item in taxes if item.urgency in {"warning", "critical"})
     critical_licences_count = sum(1 for item in licences if item.critical)
     open_processes_count = sum(1 for item in overview_processes if not _is_closed_process(item.situacao))
-    has_alerts = pending_taxes_count > 0 or critical_licences_count > 0 or any(p.stalled for p in overview_processes)
+    has_alerts = (
+        pending_taxes_count > 0
+        or critical_licences_count > 0
+        or any(p.stalled for p in overview_processes)
+        or definitive_invalidated
+    )
     if cert_status in {"EXPIRED", "EXPIRING", "NOT_FOUND"}:
         has_alerts = True
 
@@ -336,6 +367,8 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
             )
         )
     for lic_item in licences:
+        if lic_item.alvara_funcionamento_kind == "DEFINITIVO":
+            continue
         if not lic_item.validade:
             continue
         next_due_items.append(
@@ -361,6 +394,23 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
     next_due_items = next_due_items[:6]
 
     timeline: list[CompanyOverviewTimelineItem] = []
+    if definitive_invalidated:
+        timeline.append(
+            CompanyOverviewTimelineItem(
+                kind="definitive_alvara_invalidated",
+                title="Alvará definitivo requer novo pedido",
+                description=", ".join(
+                    format_invalidating_reason_label(str(item))
+                    for item in regulatory_payload["invalidated_reasons"]
+                )
+                or None,
+                happened_at=next(
+                    (proc.updated_at for proc in processes if proc.id == regulatory_payload["invalidating_process_id"]),
+                    None,
+                ),
+                severity="critical",
+            )
+        )
     for item in next_due_items[:4]:
         timeline.append(
             CompanyOverviewTimelineItem(
@@ -421,6 +471,7 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
         risk_tier=score.risk_tier,
         score_urgencia=score.score_urgencia,
         score_status=score.score_status,
+        requires_new_licence_request=bool(regulatory_payload["requires_new_licence_request"]),
     )
 
     company = enrich_company_with_profile(company)
@@ -429,6 +480,7 @@ def build_company_overview(db: Session, org_id: str, company_id: str) -> Company
         company=CompanyOut.model_validate(company),
         profile=_profile_payload(profile),
         score=score,
+        regulatory=CompanyOverviewRegulatoryStatus.model_validate(regulatory_payload),
         certificate=certificate,
         summary=summary,
         taxes=taxes,

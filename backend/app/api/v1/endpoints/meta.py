@@ -1,6 +1,12 @@
 from fastapi import APIRouter, Depends
 
 from app.core.normalize import PROCESS_SITUACAO_LABELS
+from app.core.regulatory import (
+    ADDRESS_LOCATION_TYPE_VALUES,
+    ADDRESS_USAGE_TYPE_VALUES,
+    ALVARA_FUNCIONAMENTO_KIND_VALUES,
+    SANITARY_COMPLEXITY_VALUES,
+)
 from app.core.security import require_roles
 
 
@@ -53,6 +59,22 @@ def list_enums(
         {"value": "ambiental_uso_do_solo", "label": "Ambiental/Uso do Solo"},
         {"value": "visa", "label": "Visa"},
     ]
+    alvara_funcionamento_kinds = [
+        {"value": value, "label": value.replace("_", " ").title()}
+        for value in ALVARA_FUNCIONAMENTO_KIND_VALUES
+    ]
+    sanitary_complexities = [
+        {"value": value, "label": value.replace("_", " ").title()}
+        for value in SANITARY_COMPLEXITY_VALUES
+    ]
+    address_usage_types = [
+        {"value": value, "label": value.replace("_", " ").title()}
+        for value in ADDRESS_USAGE_TYPE_VALUES
+    ]
+    address_location_types = [
+        {"value": value, "label": value.replace("_", " ").title()}
+        for value in ADDRESS_LOCATION_TYPE_VALUES
+    ]
 
     return {
         "display_style": "title",
@@ -63,6 +85,10 @@ def list_enums(
         "operacoes_diversos": operacoes_diversos,
         "orgaos_diversos": orgaos_diversos,
         "alvaras_funcionamento": alvaras_funcionamento,
+        "alvara_funcionamento_kinds": alvara_funcionamento_kinds,
+        "sanitary_complexities": sanitary_complexities,
+        "address_usage_types": address_usage_types,
+        "address_location_types": address_location_types,
         "servicos_sanitarios": servicos_sanitarios,
         "notificacoes_sanitarias": notificacoes_sanitarias,
         "categorias_contato": categorias_contato,

@@ -4,6 +4,10 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.normalize import normalize_date_br, normalize_generic_status
+from app.core.regulatory import (
+    DEFAULT_ALVARA_FUNCIONAMENTO_KIND,
+    normalize_alvara_funcionamento_kind,
+)
 
 
 LICENCE_FIELDS = (
@@ -27,6 +31,7 @@ class CompanyLicenceOut(BaseModel):
     cercon: Optional[str] = None
     cercon_valid_until: Optional[date] = None
     alvara_funcionamento: Optional[str] = None
+    alvara_funcionamento_kind: Optional[str] = DEFAULT_ALVARA_FUNCIONAMENTO_KIND
     alvara_funcionamento_valid_until: Optional[date] = None
     licenca_ambiental: Optional[str] = None
     licenca_ambiental_valid_until: Optional[date] = None
@@ -51,6 +56,7 @@ class CompanyLicenceItemUpdate(BaseModel):
     field: str
     status: str
     validade: Optional[str] = None
+    alvara_funcionamento_kind: Optional[str] = None
     motivo_nao_exigido: Optional[str] = None
     justificativa_nao_exigido: Optional[str] = None
     observacao: Optional[str] = None
@@ -78,6 +84,11 @@ class CompanyLicenceItemUpdate(BaseModel):
     def validate_validade(cls, value: str | None) -> str | None:
         return normalize_date_br(value, strict=False)
 
+    @field_validator("alvara_funcionamento_kind")
+    @classmethod
+    def validate_alvara_funcionamento_kind(cls, value: str | None) -> str | None:
+        return normalize_alvara_funcionamento_kind(value)
+
     @model_validator(mode="after")
     def validate_nao_exigido_fields(self):
         if self.status == "nao_exigido":
@@ -85,6 +96,8 @@ class CompanyLicenceItemUpdate(BaseModel):
                 raise ValueError("motivo_nao_exigido is required when status is nao_exigido")
             if not str(self.justificativa_nao_exigido or "").strip():
                 raise ValueError("justificativa_nao_exigido is required when status is nao_exigido")
+        if self.field != "alvara_funcionamento" and self.alvara_funcionamento_kind is not None:
+            raise ValueError("alvara_funcionamento_kind is only supported for alvara_funcionamento")
         return self
 
 

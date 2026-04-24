@@ -52,6 +52,9 @@ def _create_company_full(org_id: str) -> str:
                 score_status="OK",
                 telefone="62999999999",
                 email="contato@overview.test",
+                sanitary_complexity="MEDIA",
+                address_usage_type="MISTO",
+                address_location_type="ENDERECO_PROPRIO",
             )
         )
         db.add(
@@ -77,6 +80,8 @@ def _create_company_full(org_id: str) -> str:
                 alvara_vig_sanitaria_valid_until=date.today() - timedelta(days=1),
                 cercon="possui",
                 cercon_valid_until=date.today() + timedelta(days=25),
+                alvara_funcionamento="definitivo",
+                alvara_funcionamento_kind="DEFINITIVO",
                 raw={"source_kind_alvara_vig_sanitaria": "dated"},
             )
         )
@@ -155,6 +160,13 @@ def test_company_overview_returns_200_same_org(client):
     assert payload["summary"]["open_processes_count"] >= 1
     assert payload["certificate"]["exists"] is True
     assert payload["summary"]["risk_tier"] == "HIGH"
+    assert payload["profile"]["sanitary_complexity"] == "MEDIA"
+    assert payload["profile"]["address_usage_type"] == "MISTO"
+    assert payload["profile"]["address_location_type"] == "ENDERECO_PROPRIO"
+    assert any(item["alvara_funcionamento_kind"] == "DEFINITIVO" for item in payload["licences"])
+    assert payload["regulatory"]["has_definitive_alvara"] is True
+    assert payload["regulatory"]["definitive_alvara_invalidated"] is False
+    assert payload["summary"]["requires_new_licence_request"] is False
 
 
 def test_company_overview_returns_404_not_found(client):
@@ -210,3 +222,50 @@ def test_company_overview_optional_fields_keep_nulls(client):
     assert payload["score"]["score_urgencia"] is None
     assert payload["score"]["score_status"] is None
     assert payload["certificate"]["validade"] is None
+    assert payload["regulatory"]["has_definitive_alvara"] is False
+    assert payload["regulatory"]["requires_new_licence_request"] is False
+
+
+def test_company_overview_exposes_invalidated_definitive_alvara(client):
+    token = _login(client)
+    org_id = _default_org_id()
+    company_id = _create_company_full(org_id)
+
+    db = SessionLocal()
+    try:
+        company = db.query(Company).filter(Company.id == company_id).first()
+        assert company is not None
+        db.add(
+            CompanyProcess(
+                org_id=org_id,
+                company_id=company_id,
+                process_type="DIVERSOS",
+                protocolo="ALT-OV-001",
+                orgao="Prefeitura",
+                operacao="Alteração",
+                obs="Alteração de CNAE e endereço.",
+                updated_at=datetime.now(timezone.utc) + timedelta(minutes=1),
+            )
+        )
+        db.commit()
+    finally:
+        db.close()
+
+    response = client.get(
+        f"/api/v1/companies/{company_id}/overview",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["regulatory"]["has_definitive_alvara"] is True
+    assert payload["regulatory"]["definitive_alvara_invalidated"] is True
+    assert payload["regulatory"]["invalidated_reasons"] == ["CNAE", "ENDERECO"]
+    assert payload["regulatory"]["invalidating_process_ref"] == "ALT-OV-001"
+    assert payload["regulatory"]["requires_new_licence_request"] is True
+    assert payload["summary"]["requires_new_licence_request"] is True
+    assert any(
+        item["tipo"] == "Alvará Funcionamento"
+        and item["regulatory_status"] == "INVALIDATED"
+        and item["requires_new_licence_request"] is True
+        for item in payload["licences"]
+    )

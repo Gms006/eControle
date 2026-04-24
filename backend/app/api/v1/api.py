@@ -8,6 +8,7 @@ from app.api.v1.endpoints import (
     copilot,
     cnae_risk_official_sources,
     cnae_risk_suggestions,
+    dashboard_views,
     companies,
     companies_composite,
     company_licences,
@@ -52,6 +53,7 @@ api_router.include_router(meta.router, prefix="/meta", tags=["meta"])
 api_router.include_router(grupos.router, prefix="/grupos", tags=["grupos"])
 api_router.include_router(alertas.router, prefix="/alertas", tags=["alertas"])
 api_router.include_router(notifications.router, prefix="/notificacoes", tags=["notificacoes"])
+api_router.include_router(dashboard_views.router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(relatorios.router, prefix="/relatorios", tags=["relatorios"])
 
 api_router.include_router(certificados.router, prefix="/certificados", tags=["certificados"])

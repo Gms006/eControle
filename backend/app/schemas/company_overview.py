@@ -49,6 +49,7 @@ class CompanyOverviewSummary(BaseModel):
     risk_tier: str | None = None
     score_urgencia: int | None = None
     score_status: str | None = None
+    requires_new_licence_request: bool = False
 
 
 class CompanyOverviewTaxItem(BaseModel):
@@ -70,7 +71,24 @@ class CompanyOverviewLicenceItem(BaseModel):
     validade: date | None = None
     status: str | None = None
     origem: str | None = None
+    alvara_funcionamento_kind: str | None = None
+    regulatory_status: str | None = None
+    invalidated_reasons: list[str] = []
+    invalidating_process_ref: str | None = None
+    requires_new_licence_request: bool = False
     critical: bool = False
+
+
+class CompanyOverviewRegulatoryStatus(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    has_definitive_alvara: bool = False
+    definitive_alvara_invalidated: bool = False
+    regulatory_status: str = "NOT_APPLICABLE"
+    invalidated_reasons: list[str] = []
+    invalidating_process_id: str | None = None
+    invalidating_process_ref: str | None = None
+    requires_new_licence_request: bool = False
 
 
 class CompanyOverviewProcessItem(BaseModel):
@@ -101,6 +119,7 @@ class CompanyOverviewResponse(BaseModel):
     company: CompanyOut
     profile: dict
     score: CompanyOverviewScore
+    regulatory: CompanyOverviewRegulatoryStatus
     certificate: CompanyOverviewCertificate
     summary: CompanyOverviewSummary
     taxes: list[CompanyOverviewTaxItem]
