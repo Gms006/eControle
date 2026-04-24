@@ -32,6 +32,9 @@ export const EMPTY_COMPANY_FORM = {
   is_active: true,
   mei: false,
   endereco_fiscal: false,
+  sanitary_complexity: "PENDENTE_REVISAO",
+  address_usage_type: "PENDENTE_REVISAO",
+  address_location_type: "PENDENTE_REVISAO",
   representante: "",
   responsavel_fiscal: "",
   cpf: "",
@@ -144,6 +147,9 @@ export function useCompanyForm({ apiJson, onRefresh }) {
           is_active: data?.is_active !== false,
           mei: data?.mei === true,
           endereco_fiscal: data?.endereco_fiscal === true,
+          sanitary_complexity: data?.sanitary_complexity || "PENDENTE_REVISAO",
+          address_usage_type: data?.address_usage_type || (data?.endereco_fiscal === true ? "FISCAL" : "PENDENTE_REVISAO"),
+          address_location_type: data?.address_location_type || "PENDENTE_REVISAO",
           representante: data?.proprietario_principal || "",
           responsavel_fiscal: data?.responsavel_fiscal || "",
           cpf: maskCpf(data?.cpf || ""),
@@ -195,9 +201,10 @@ export function useCompanyForm({ apiJson, onRefresh }) {
       }
 
       const categoriaFinal =
-        form.endereco_fiscal && form.categoria && !form.categoria.startsWith("Fiscal -")
+        form.address_usage_type === "FISCAL" && form.categoria && !form.categoria.startsWith("Fiscal -")
           ? `Fiscal - ${form.categoria}`
           : form.categoria;
+      const enderecoFiscal = form.address_usage_type === "FISCAL";
 
       if (modal.mode === "create") {
         await apiJson("/api/v1/companies/composite", {
@@ -227,7 +234,10 @@ export function useCompanyForm({ apiJson, onRefresh }) {
               cnaes_principal: form.cnaes_principal || [],
               cnaes_secundarios: form.cnaes_secundarios || [],
               mei: !!form.mei,
-              endereco_fiscal: !!form.endereco_fiscal,
+              endereco_fiscal: enderecoFiscal,
+              sanitary_complexity: form.sanitary_complexity || "PENDENTE_REVISAO",
+              address_usage_type: form.address_usage_type || "PENDENTE_REVISAO",
+              address_location_type: form.address_location_type || "PENDENTE_REVISAO",
             },
             licences: form.add_licences
               ? form.licences
@@ -264,6 +274,11 @@ export function useCompanyForm({ apiJson, onRefresh }) {
             observacoes: form.observacoes || null,
             cnaes_principal: form.cnaes_principal || [],
             cnaes_secundarios: form.cnaes_secundarios || [],
+            mei: !!form.mei,
+            endereco_fiscal: enderecoFiscal,
+            sanitary_complexity: form.sanitary_complexity || "PENDENTE_REVISAO",
+            address_usage_type: form.address_usage_type || "PENDENTE_REVISAO",
+            address_location_type: form.address_location_type || "PENDENTE_REVISAO",
           }),
         });
       }

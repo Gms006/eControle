@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { BellRing, Database, Filter } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Sidebar from "@/components/layout/Sidebar";
 import Topbar from "@/components/layout/Topbar";
 import PageTitle from "@/components/layout/PageTitle";
 import HeaderMenuPro from "@/components/header/HeaderMenuPro";
 import CopilotWidget from "@/components/copilot/CopilotWidget";
+import { SideDrawer } from "@/components/ui/side-drawer";
 import PainelScreen from "./PainelScreen";
 import EmpresasScreen from "./EmpresasScreen";
 import LicencasScreen from "./LicencasScreen";
@@ -160,7 +160,9 @@ const hasActiveCompanyLink = (item: any, indexes: { byId: Map<string, any>; byCn
   if (cnpjDigits) {
     return indexes.byCnpj.has(cnpjDigits);
   }
-  return false;
+  // Permitir itens com referência a empresa mesmo que não estejam no índice
+  // (pode ser empresa órfã ou problema temporário de sincronização)
+  return Boolean(companyId || cnpjDigits || item?.empresa || item?.cnpj);
 };
 
 const isUnregisteredDiversosProcess = (item: any) => {
@@ -183,7 +185,20 @@ const enrichWithCompany = (
   indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
 ) => {
   const company = getCompanyFromIndexes(item, indexes);
+  const itemKey = getEmpresaKey(item);
   const empresaId = getEmpresaKey(item) ?? getEmpresaKey(company);
+  
+  // Debug para primeira taxa
+  if (item?.id === "989d85c6-ec63-496d-ac1e-1f48c162316d") {
+    console.log("DEBUG [enrichWithCompany] Taxa específica:", {
+      itemKey,
+      companyFound: !!company,
+      empresaId,
+      item_company_id: item?.company_id,
+      company_obj: company ? { id: company.id, empresa: company.empresa } : null,
+    });
+  }
+  
   const fallbackEmpresa = item?.company_name ?? item?.company_razao_social ?? item?.empresa ?? item?.razao_social;
   const empresaNome =
     fallbackEmpresa ??
@@ -203,9 +218,27 @@ const enrichWithCompany = (
   };
 };
 
-const adaptTaxasRecords = (taxas: any[], indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) =>
-  taxas.map((taxa) => {
+const adaptTaxasRecords = (taxas: any[], indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
+  console.log("DEBUG [adaptTaxasRecords]: Iniciando com", taxas.length, "taxas. Índice tem", indexes.byId.size, "empresas por ID");
+  
+  return taxas.map((taxa, idx) => {
     const enriched = enrichWithCompany(taxa, indexes);
+    
+    // Log detalhado para a primeira taxa
+    if (idx === 0) {
+      console.log("DEBUG [adaptTaxasRecords] Taxa[0] - Antes:", {
+        company_id: taxa.company_id,
+        empresa: taxa.empresa,
+        cnpj: taxa.cnpj,
+      });
+      console.log("DEBUG [adaptTaxasRecords] Taxa[0] - Depois:", {
+        company_id: enriched.company_id,
+        empresa: enriched.empresa,
+        cnpj: enriched.cnpj,
+        municipio: enriched.municipio,
+      });
+    }
+    
     return {
       ...enriched,
       func: taxa?.func ?? taxa?.taxa_funcionamento,
@@ -218,6 +251,7 @@ const adaptTaxasRecords = (taxas: any[], indexes: { byId: Map<string, any>; byCn
       status_geral: taxa?.status_geral ?? taxa?.status_taxas,
     };
   });
+};
 
 const LICENSE_FIELD_MAP = [
   { field: "alvara_vig_sanitaria", tipo: "Sanitária" },
@@ -430,6 +464,9 @@ export default function MainApp() {
   const [currentRoles, setCurrentRoles] = useState<string[]>([]);
 
   const [toasts, setToasts] = useState<{ id: string; message: string }[]>([]);
+  const [jobsDrawerOpen, setJobsDrawerOpen] = useState(false);
+  const [workerHealth, setWorkerHealth] = useState<any | null>(null);
+  const [workerHealthLoading, setWorkerHealthLoading] = useState(false);
   const [panelNavigation, setPanelNavigation] = useState<{
     id: number;
     tab: AppTabKey;
@@ -465,6 +502,23 @@ export default function MainApp() {
     setLoading(true);
     setErrors({});
     try {
+      const fetchAllPages = async (
+        fetchPage: (query: { limit: number; offset: number; page: number }) => Promise<any>,
+        limit = 1000,
+        maxPages = 50,
+      ) => {
+        const allItems: any[] = [];
+        let offset = 0;
+        for (let page = 0; page < maxPages; page += 1) {
+          const payload = await fetchPage({ limit, offset, page: page + 1 });
+          const items = normalizeItems(payload);
+          allItems.push(...items);
+          if (items.length < limit) break;
+          offset += limit;
+        }
+        return allItems;
+      };
+
       const [
         empresasResponse,
         licencasResponse,
@@ -475,11 +529,16 @@ export default function MainApp() {
         municipiosResponse,
         meResponse,
       ] = await Promise.allSettled([
-        listarEmpresas({ limit: 1000 }),
-        fetchJson("/api/v1/licencas", { query: { limit: 1000 } }),
-        fetchJson("/api/v1/taxas", { query: { limit: 1000 } }),
-        fetchJson("/api/v1/processos", { query: { limit: 1000 } }),
-        fetchJson("/api/v1/certificados", { query: { limit: 1000 } }),
+        fetchAllPages(
+          ({ limit, offset, page }) =>
+            listarEmpresas({ limit, size: limit, offset, page, include_inactive: true }),
+          1000,
+          100,
+        ),
+        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/licencas", { query: { limit, offset } })),
+        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/taxas", { query: { limit, offset } })),
+        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/processos", { query: { limit, offset } })),
+        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/certificados", { query: { limit, offset } })),
         listarGruposKPIs({}),
         fetchJson("/api/v1/companies/municipios"),
         fetchJson("/api/v1/auth/me"),
@@ -498,25 +557,55 @@ export default function MainApp() {
       };
 
       const empresasRaw = readCollection(empresasResponse, "empresas");
-      const empresasNormalized = empresasRaw.map(normalizeEmpresaRecord);
+      console.log("DEBUG: empresasRaw count:", empresasRaw.length);
+      if (empresasRaw.length > 0) console.log("DEBUG: primeiro empresa raw:", empresasRaw[0]);
+      
+      const empresasNormalized = Array.from(
+        empresasRaw
+          .map(normalizeEmpresaRecord)
+          .reduce((acc: Map<string, any>, empresa: any) => {
+            const key =
+              String(
+                empresa?.empresa_id ??
+                  empresa?.id ??
+                  empresa?.company_id ??
+                  normalizeCnpjDigits(empresa?.cnpj) ??
+                  Math.random(),
+              ).trim() || Math.random().toString(36);
+            if (!acc.has(key)) acc.set(key, empresa);
+            return acc;
+          }, new Map<string, any>())
+          .values(),
+      );
+      console.log("DEBUG: empresasNormalized count:", empresasNormalized.length);
+      if (empresasNormalized.length > 0) console.log("DEBUG: primeira empresa normalized:", empresasNormalized[0]);
+      
       const companyIndexes = buildCompanyIndex(empresasNormalized);
+      console.log("DEBUG: companyIndexes.byId size:", companyIndexes.byId.size, "byCnpj size:", companyIndexes.byCnpj.size);
 
       const licencasRaw = readCollection(licencasResponse, "licencas");
       const taxasRaw = readCollection(taxasResponse, "taxas");
       const processosRaw = readCollection(processosResponse, "processos");
       const certificadosRaw = readCollection(certificadosResponse, "certificados");
+      
+      // DEBUG: Log para identificar problema
+      if (taxasRaw.length > 0) {
+        console.log("DEBUG: taxasRaw count:", taxasRaw.length);
+        console.log("DEBUG: primeira taxa:", taxasRaw[0]);
+      }
+      
       const licencasLinked = licencasRaw.filter((item: any) => hasActiveCompanyLink(item, companyIndexes));
       const taxasLinked = taxasRaw.filter((item: any) => hasActiveCompanyLink(item, companyIndexes));
-      const processosLinked = processosRaw.filter(
-        (item: any) =>
-          hasActiveCompanyLink(item, companyIndexes) ||
-          isUnregisteredDiversosProcess(item),
-      );
+      
+      console.log("DEBUG: taxasLinked count:", taxasLinked.length, "de", taxasRaw.length);
+      
+      const processosLinked = processosRaw;
       const certificadosLinked = certificadosRaw.filter(
         (item: any) => !hasCompanyReference(item) || hasActiveCompanyLink(item, companyIndexes),
       );
 
       const taxasAdaptadas = adaptTaxasRecords(taxasLinked, companyIndexes);
+      console.log("DEBUG: primeira taxa após adapt:", taxasAdaptadas[0]);
       const taxasByCompanyId = new Map<string, any>();
       const taxasByCnpj = new Map<string, any>();
       taxasAdaptadas.forEach((taxa) => {
@@ -652,6 +741,41 @@ export default function MainApp() {
       }
     },
     [navigate],
+  );
+
+  const loadWorkerHealth = useCallback(async () => {
+    setWorkerHealthLoading(true);
+    try {
+      const payload = await fetchJson("/api/v1/worker/health");
+      setWorkerHealth(payload ?? null);
+    } catch {
+      setWorkerHealth(null);
+    } finally {
+      setWorkerHealthLoading(false);
+    }
+  }, []);
+
+  const handleSidebarOperationAction = useCallback(
+    (action: "notifications" | "critical_queues" | "saved_views" | "automation_jobs") => {
+      if (action === "notifications") {
+        window.dispatchEvent(new CustomEvent("econtrole:open-notifications"));
+        return;
+      }
+      if (action === "critical_queues") {
+        setTab("painel");
+        setSomenteAlertas(true);
+        window.dispatchEvent(new CustomEvent("econtrole:painel-focus", { detail: { target: "critical_queues" } }));
+        return;
+      }
+      if (action === "saved_views") {
+        setTab("painel");
+        window.dispatchEvent(new CustomEvent("econtrole:painel-focus", { detail: { target: "saved_views" } }));
+        return;
+      }
+      setJobsDrawerOpen(true);
+      void loadWorkerHealth();
+    },
+    [loadWorkerHealth],
   );
 
   useEffect(() => {
@@ -891,24 +1015,80 @@ export default function MainApp() {
 
   const backgroundClass = TAB_BACKGROUNDS[tab as keyof typeof TAB_BACKGROUNDS] || "bg-slate-50";
   const pageMeta = TAB_TITLES[tab];
+  const topbarContext = useMemo(() => {
+    if (tab === "empresas") {
+      return {
+        breadcrumb: "Empresas / Cadastro",
+        title: "Gestão de empresas",
+        subtitle: "Visão operacional com filtros persistentes e ações rápidas.",
+      };
+    }
+    if (tab === "licencas") {
+      return {
+        breadcrumb: "Licenças / Visão geral",
+        title: "Controle de licenças",
+        subtitle: "Gestão operacional com subabas, filtros dinâmicos e monitoramento de vencimentos.",
+      };
+    }
+    if (tab === "taxas") {
+      return {
+        breadcrumb: "Taxas / Visão geral",
+        title: "Gestão de taxas municipais",
+        subtitle: "Matriz semafórica por empresa com filtros persistentes e ação contextual.",
+      };
+    }
+    if (tab === "processos") {
+      return {
+        breadcrumb: "Processos / Kanban",
+        title: "Processos regulatórios",
+        subtitle: "",
+      };
+    }
+    return {
+      breadcrumb: "Painel / Hoje",
+      title: APP_NAV_ITEMS.find((item) => item.key === tab)?.label || "Painel",
+      subtitle: APP_NAV_ITEMS.find((item) => item.key === tab)?.description || "Visão operacional",
+    };
+  }, [tab]);
   const activeNav = APP_NAV_ITEMS.find((item) => item.key === tab);
   const pageChips = [
     { label: activeNav?.label || "Tela", variant: "info" as const },
     ...(somenteAlertas ? [{ label: "Somente alertas", variant: "warn" as const }] : []),
     ...(modoFoco ? [{ label: "Modo foco", variant: "ok" as const }] : []),
   ];
+  const panelHeaderStats = useMemo(
+    () => ({
+      datasets: `${empresas.length}/${licencas.length}/${taxas.length}`,
+      filtro: municipio === "Todos" ? "Todos" : municipio,
+      alertas: somenteAlertas ? "Filtrados" : "Todos",
+    }),
+    [empresas.length, licencas.length, taxas.length, municipio, somenteAlertas],
+  );
+  const operationCounts = useMemo(
+    () => ({
+      notifications: Object.keys(errors || {}).length,
+      critical_queues:
+        filteredLicencas.filter((item) => isAlertStatus(item?.status)).length +
+        processosNormalizados.filter((item) => isProcessStatusActiveOrPending(item?.status)).length,
+      saved_views: 0,
+      automation_jobs: Number(workerHealth?.active_jobs || 0),
+    }),
+    [errors, filteredLicencas, processosNormalizados, workerHealth?.active_jobs],
+  );
 
   return (
-    <div className="h-screen overflow-hidden bg-app">
-      <div className="flex h-screen">
+    <div className="ec-shell-root h-screen overflow-hidden bg-app">
+      <div className="ec-shell-layout flex h-screen">
         <Sidebar
           items={APP_NAV_ITEMS}
           activeTab={tab}
           onTabChange={setTab}
+          onOperationAction={handleSidebarOperationAction}
+          operationCounts={operationCounts}
           onLogout={() => void logout()}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col">
+        <div className="ec-shell-main flex min-w-0 flex-1 flex-col">
           <Topbar
             items={APP_NAV_ITEMS}
             activeTab={tab}
@@ -931,45 +1111,19 @@ export default function MainApp() {
             }}
             onLogout={() => void logout()}
             onNotificationRouteNavigate={handleNotificationRouteNavigate}
+            panelHeaderStats={panelHeaderStats}
+            headerContext={topbarContext}
           />
 
-          <div ref={contentScrollRef} className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass}`}>
-            <main className="mx-auto max-w-[1500px] px-4 py-4 lg:px-6 lg:py-5">
-              <PageTitle
-                title={pageMeta.title}
-                subtitle={pageMeta.subtitle}
-                chips={pageChips}
-                right={
-                  <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-subtle bg-card px-3 py-2 text-right shadow-sm">
-                      <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        <Database className="h-3.5 w-3.5" /> Dados
-                      </div>
-                      <div className="text-sm font-semibold text-slate-900">
-                        {empresas.length}/{licencas.length}/{taxas.length}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-subtle bg-card px-3 py-2 text-right shadow-sm">
-                      <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        <Filter className="h-3.5 w-3.5" /> Filtros
-                      </div>
-                      <div className="text-sm font-semibold text-slate-900">
-                        {municipio === "Todos" ? "Todos" : municipio}
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-subtle bg-card px-3 py-2 text-right shadow-sm">
-                      <div className="flex items-center justify-end gap-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                        <BellRing className="h-3.5 w-3.5" /> Alertas
-                      </div>
-                      <div className="text-sm font-semibold text-slate-900">
-                        {somenteAlertas ? "Filtrados" : "Todos"}
-                      </div>
-                    </div>
-                  </div>
-                }
-              />
+          <div ref={contentScrollRef} className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass} ec-shell-content`}>
+            <main className="mx-auto max-w-[1600px] px-4 py-4 lg:px-6 lg:py-5">
+              {tab !== "painel" && tab !== "empresas" && tab !== "licencas" && tab !== "taxas" && tab !== "processos" ? (
+                <PageTitle
+                  title={pageMeta.title}
+                  subtitle={pageMeta.subtitle}
+                  chips={pageChips}
+                />
+              ) : null}
 
               {/* TODO: o conteúdo da aba vem aqui embaixo (tabelas, cards etc) */}
 
@@ -992,6 +1146,8 @@ export default function MainApp() {
                       query={query}
                       municipio={municipio}
                       soAlertas={somenteAlertas}
+                      modoFoco={modoFoco}
+                      currentRoles={currentRoles}
                       kpis={kpis}
                       empresas={empresas}
                       licencas={licencas}
@@ -1091,12 +1247,19 @@ export default function MainApp() {
                     <>
                       <TaxasScreen
                         taxas={taxas}
+                        empresas={empresas}
+                        certificados={certificados}
                         modoFoco={modoFoco}
                         soAlertas={somenteAlertas}
                         matchesMunicipioFilter={matchesMunicipioFilter}
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
                         canManageTaxas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
+                        companyHasAlert={companyHasAlert}
+                        activeTab={tab}
+                        onTabChange={setTab}
+                        municipio={municipio}
+                        query={query}
                       />
                       {errors.taxas && renderEmptyState("Erro ao carregar taxas", errors.taxas)}
                     </>
@@ -1114,12 +1277,21 @@ export default function MainApp() {
                     <>
                       <ProcessosScreen
                         processosNormalizados={processosNormalizados}
+                        empresas={empresas}
+                        certificados={certificados}
                         modoFoco={modoFoco}
                         soAlertas={somenteAlertas}
                         matchesMunicipioFilter={matchesMunicipioFilter}
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
                         panelPreset={panelNavigation?.tab === "processos" ? panelNavigation : null}
+                        activeTab={tab}
+                        onTabChange={setTab}
+                        query={query}
+                        onQueryChange={setQuery}
+                        municipio={municipio}
+                        searchField={searchField}
+                        canManageProcessos={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                       />
                       {errors.processos && renderEmptyState("Erro ao carregar processos", errors.processos)}
                     </>
@@ -1143,7 +1315,53 @@ export default function MainApp() {
           ))}
         </div>
       )}
-      <CopilotWidget roles={currentRoles} onNavigateRoute={handleNotificationRouteNavigate} />
+      <SideDrawer
+        open={jobsDrawerOpen}
+        onClose={() => setJobsDrawerOpen(false)}
+        subtitle="Operação"
+        title="Automação / Jobs"
+        className=""
+        footer={(
+          <div className="flex justify-end">
+            <button type="button" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50" onClick={() => void loadWorkerHealth()}>
+              Atualizar status
+            </button>
+          </div>
+        )}
+      >
+        {workerHealthLoading ? <p className="text-sm text-slate-500">Carregando status do worker...</p> : null}
+        {!workerHealthLoading && !workerHealth ? (
+          <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
+            Não foi possível carregar o status do worker.
+          </div>
+        ) : null}
+        {!workerHealthLoading && workerHealth ? (
+          <div className="space-y-3 text-sm">
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Backend</p>
+              <p className="font-semibold text-slate-900">{String(workerHealth.backend || "-")}</p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
+                <p className="font-semibold text-slate-900">{String(workerHealth.status || "-")}</p>
+              </div>
+              <div className="rounded-xl border border-slate-200 bg-white p-3">
+                <p className="text-xs uppercase tracking-wide text-slate-500">Jobs ativos</p>
+                <p className="font-semibold text-slate-900">{Number(workerHealth.active_jobs || 0)}</p>
+              </div>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white p-3">
+              <p className="text-xs uppercase tracking-wide text-slate-500">Suportados</p>
+              <p className="text-slate-700">{Array.isArray(workerHealth.jobs_supported) ? workerHealth.jobs_supported.join(", ") : "-"}</p>
+            </div>
+          </div>
+        ) : null}
+      </SideDrawer>
+      <CopilotWidget roles={currentRoles as any} onNavigateRoute={handleNotificationRouteNavigate} />
     </div>
   );
 }
+
+
+

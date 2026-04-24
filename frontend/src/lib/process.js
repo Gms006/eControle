@@ -44,6 +44,8 @@ const PROCESS_EXTRA_COLUMNS = {
   uso_do_solo: [
     { key: "inscricao_imobiliaria", label: "Inscrição Imobiliária", copyable: true },
   ],
+  licenca_ambiental: [{ key: "operacao", label: "Operação" }],
+  ambiental: [{ key: "operacao", label: "Operação" }],
   sanitario: [
     { key: "taxa", label: "Taxa" },
     { key: "servico", label: "Serviço" },
@@ -150,3 +152,4 @@ export const resolveProcessExtraColumns = (proc) => {
 
   return extras;
 };
+

@@ -84,3 +84,44 @@ export const parsePtDate = (value) => {
 
 export const formatMonthLabel = (date) =>
   new Intl.DateTimeFormat("pt-BR", { month: "short" }).format(date);
+
+const SMALL_WORDS = new Set(["de", "da", "do", "das", "dos", "e", "em", "na", "no", "para"]);
+const TOKEN_MAP = {
+  cnae: "CNAE",
+  tpi: "TPI",
+  cercon: "CERCON",
+  uso: "Uso",
+  solo: "Solo",
+  alvara: "Alvara",
+  sanitario: "Sanitario",
+  sanitaria: "Sanitaria",
+  ambiental: "Ambiental",
+  analise: "Analise",
+  nao: "Nao",
+  possui: "Possui",
+  vencido: "Vencido",
+  vencendo: "Vencendo",
+  aguardando: "Aguardando",
+};
+
+const capitalizeToken = (token, index) => {
+  const lower = token.toLowerCase();
+  if (index > 0 && SMALL_WORDS.has(lower)) return lower;
+  const mapped = TOKEN_MAP[lower];
+  if (mapped) return mapped;
+  return `${lower.charAt(0).toUpperCase()}${lower.slice(1)}`;
+};
+
+export const formatCanonicalLabel = (value, fallback = "—") => {
+  const text = normalizeText(value).trim();
+  if (!text) return fallback;
+  const cleaned = removeDiacritics(text)
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return fallback;
+  return cleaned
+    .split(" ")
+    .map((token, index) => capitalizeToken(token, index))
+    .join(" ");
+};

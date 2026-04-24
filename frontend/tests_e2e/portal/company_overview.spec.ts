@@ -17,7 +17,7 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
       situacao: "ativa",
       score_urgencia: 88,
       risco_consolidado: "HIGH",
-      score_status: "OK",
+      score_status: "DEFINITIVE_INVALIDATED",
       cnaes_principal: [{ code: "47.11-3-02", text: "Comércio varejista" }],
     },
   ];
@@ -30,12 +30,24 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
       responsavel_fiscal: "Maria Fiscal",
       telefone: "62999999999",
       email: "fiscal@overview.test",
+      sanitary_complexity: "MEDIA",
+      address_usage_type: "MISTO",
+      address_location_type: "ENDERECO_PROPRIO",
     },
     score: {
       risk_tier: "HIGH",
       score_urgencia: 88,
-      score_status: "OK",
+      score_status: "DEFINITIVE_INVALIDATED",
       score_updated_at: "2026-03-01T10:00:00Z",
+    },
+    regulatory: {
+      has_definitive_alvara: true,
+      definitive_alvara_invalidated: true,
+      regulatory_status: "INVALIDATED",
+      invalidated_reasons: ["CNAE", "ENDERECO"],
+      invalidating_process_id: "proc-9",
+      invalidating_process_ref: "ALT-001",
+      requires_new_licence_request: true,
     },
     certificate: {
       exists: true,
@@ -47,19 +59,51 @@ async function setupMockApi(page: Parameters<typeof test>[0]["page"]) {
     },
     summary: {
       pending_taxes_count: 2,
-      critical_licences_count: 1,
+      critical_licences_count: 2,
       open_processes_count: 1,
       certificate_status: "EXPIRING",
-      next_due_items: [{ kind: "tax", label: "Taxa de Funcionamento", due_date: "2026-04-10", status: "em_aberto", urgency: "warning" }],
+      next_due_items: [
+        { kind: "tax", label: "Taxa de Funcionamento", due_date: "2026-04-10", status: "em_aberto", urgency: "warning" },
+      ],
       has_alerts: true,
       risk_tier: "HIGH",
       score_urgencia: 88,
-      score_status: "OK",
+      score_status: "DEFINITIVE_INVALIDATED",
+      requires_new_licence_request: true,
     },
-    taxes: [{ id: "tax-1:taxa_funcionamento", tipo: "Taxa de Funcionamento", competencia: "2026-03", vencimento: "2026-04-10", valor: "500,00", status: "em_aberto", urgency: "warning" }],
-    licences: [{ tipo: "Alvará Vigilância Sanitária", validade: "2026-04-15", status: "vencendo", origem: "dated", critical: true }],
-    processes: [{ id: "proc-1", titulo: "Renovação", protocolo: "PROC-01", situacao: "pendente", ultima_atualizacao: "2026-03-31T10:00:00Z", responsavel: "Analista", stalled: false }],
-    timeline: [{ kind: "due_tax", title: "Próximo vencimento: Taxa de Funcionamento", description: "em_aberto", happened_at: "2026-04-10", severity: "warning" }],
+    taxes: [
+      {
+        id: "tax-1:taxa_funcionamento",
+        tipo: "Taxa de Funcionamento",
+        competencia: "2026-03",
+        vencimento: "2026-04-10",
+        valor: "500,00",
+        status: "em_aberto",
+        urgency: "warning",
+      },
+    ],
+    licences: [
+      { tipo: "Alvará Vigilância Sanitária", validade: "2026-04-15", status: "vencendo", origem: "dated", critical: true },
+      {
+        tipo: "Alvará Funcionamento",
+        validade: null,
+        status: "definitivo",
+        origem: "definitivo",
+        alvara_funcionamento_kind: "DEFINITIVO",
+        regulatory_status: "INVALIDATED",
+        invalidated_reasons: ["CNAE", "ENDERECO"],
+        invalidating_process_ref: "ALT-001",
+        requires_new_licence_request: true,
+        critical: true,
+      },
+    ],
+    processes: [
+      { id: "proc-1", titulo: "Renovação", protocolo: "PROC-01", situacao: "pendente", ultima_atualizacao: "2026-03-31T10:00:00Z", responsavel: "Analista", stalled: false },
+    ],
+    timeline: [
+      { kind: "definitive_alvara_invalidated", title: "Alvará definitivo requer novo pedido", description: "CNAE, Endereço", happened_at: "2026-04-11T10:00:00Z", severity: "critical" },
+      { kind: "due_tax", title: "Próximo vencimento: Taxa de Funcionamento", description: "em_aberto", happened_at: "2026-04-10", severity: "warning" },
+    ],
   };
 
   await page.route("**/api/v1/**", async (route) => {
@@ -105,19 +149,29 @@ test("abre overview da empresa e renderiza blocos principais", async ({ page }) 
 
   await expect(page.getByTestId("company-overview-drawer")).toBeVisible();
   await expect(page.getByTestId("company-overview-section-summary")).toBeVisible();
+  const drawer = page.getByTestId("company-overview-drawer");
 
-  await page.getByRole("tab", { name: "Cadastro" }).click();
+  await expect(drawer.getByText(/^Definitivo invalidado$/).first()).toBeVisible();
+  await expect(drawer.getByText("Solicitar novo alvará")).toBeVisible();
+
+  await drawer.getByRole("button", { name: "Cadastro" }).click();
   await expect(page.getByTestId("company-overview-section-cadastro")).toBeVisible();
+  await expect(page.getByText("Misto")).toBeVisible();
+  await expect(page.getByText("Endereco Proprio")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Taxas" }).click();
+  await drawer.getByRole("button", { name: "Taxas" }).click();
   await expect(page.getByTestId("company-overview-section-taxes")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Licenças" }).click();
+  await drawer.getByRole("button", { name: "Licenças" }).click();
   await expect(page.getByTestId("company-overview-section-licences")).toBeVisible();
+  await expect(page.getByText("Tipo: Definitivo")).toBeVisible();
+  await expect(page.getByText("Novo pedido: obrigatório")).toBeVisible();
+  await expect(page.getByText("Motivos: Cnae, Endereco")).toBeVisible();
+  await expect(page.getByText("Processo: ALT-001")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Processos" }).click();
+  await drawer.getByRole("button", { name: "Processos" }).click();
   await expect(page.getByTestId("company-overview-section-processes")).toBeVisible();
 
-  await page.getByRole("tab", { name: "Timeline" }).click();
+  await drawer.getByRole("button", { name: "Timeline" }).click();
   await expect(page.getByTestId("company-overview-section-timeline")).toBeVisible();
 });

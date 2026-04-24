@@ -60,6 +60,15 @@ const FIELD_CONFIG_BY_TYPE = {
   USO_DO_SOLO: [
     { key: "inscricao_imobiliaria", label: "Inscrição imobiliária", priority: "high", format: "identifier" },
   ],
+  USO_SOLO: [
+    { key: "inscricao_imobiliaria", label: "Inscrição imobiliária", priority: "high", format: "identifier" },
+  ],
+  LICENCA_AMBIENTAL: [
+    { key: "operacao", label: "Operação", priority: "high", format: "caps" },
+  ],
+  AMBIENTAL: [
+    { key: "operacao", label: "Operação", priority: "high", format: "caps" },
+  ],
   SANITARIO: [
     { key: "servico", label: "Serviço", priority: "high", format: "caps" },
     { key: "notificacao", label: "Notificação", priority: "medium", format: "caps" },

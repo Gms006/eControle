@@ -153,7 +153,7 @@ export default function HeaderMenuPro() {
             <Button
               size="sm"
               title="Criar novo"
-              className="border border-white/30 bg-white text-xs text-certhub-navy hover:bg-slate-100"
+              className="border border-certhub-navy/30 bg-certhub-navy text-xs text-white hover:bg-opacity-90"
             >
               + Novo
             </Button>

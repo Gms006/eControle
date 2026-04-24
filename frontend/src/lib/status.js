@@ -1,4 +1,4 @@
-import { normalizeText, normalizeTextLower, removeDiacritics } from "@/lib/text";
+import { formatCanonicalLabel, normalizeText, normalizeTextLower, removeDiacritics } from "@/lib/text";
 import { deriveStatusFromInstallment, formatInstallment, parseInstallment } from "@/lib/installment";
 
 /**
@@ -539,3 +539,22 @@ export const isProcessStatusActiveOrPending = (status) => {
   if (hasPendingFraction(status)) return true;
   return PROCESS_FOCUS_KEYWORDS.some((keyword) => k.includes(keyword));
 };
+
+
+export const formatTechnicalStatusLabel = (value) => formatStatusDisplay(value);
+
+export const formatProcessTypeLabel = (value) => {
+  const resolved = resolveProcessoTipo(value);
+  return resolved?.label || formatCanonicalLabel(value);
+};
+
+export const formatLicenceTypeLabel = (value) => {
+  const resolved = resolveLicencaTipo(value);
+  return resolved?.label || formatCanonicalLabel(value);
+};
+
+export const formatTaxTypeLabel = (value) => {
+  const resolved = resolveTaxaTipo(value);
+  return resolved?.label || formatCanonicalLabel(value);
+};
+

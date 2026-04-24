@@ -10,6 +10,29 @@ import { maskCnpj, maskCpf, maskPhone, normalizePorteSigla, hasInvalidFsDirname 
 const FIELD_CLASS =
   "w-full rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-indigo-200";
 
+const SANITARY_COMPLEXITY_OPTIONS = [
+  { value: "BAIXA", label: "Baixa" },
+  { value: "MEDIA", label: "Média" },
+  { value: "ALTA", label: "Alta" },
+  { value: "NAO_APLICAVEL", label: "Não aplicável" },
+  { value: "PENDENTE_REVISAO", label: "Pendente revisão" },
+];
+
+const ADDRESS_USAGE_OPTIONS = [
+  { value: "FISCAL", label: "Fiscal" },
+  { value: "ADMINISTRATIVO", label: "Administrativo" },
+  { value: "OPERACIONAL", label: "Operacional" },
+  { value: "MISTO", label: "Misto" },
+  { value: "PENDENTE_REVISAO", label: "Pendente revisão" },
+];
+
+const ADDRESS_LOCATION_OPTIONS = [
+  { value: "ESCRITORIO_CONTABIL", label: "Escritório contábil" },
+  { value: "ENDERECO_PROPRIO", label: "Endereço próprio" },
+  { value: "ENDERECO_TERCEIRO", label: "Endereço de terceiro" },
+  { value: "PENDENTE_REVISAO", label: "Pendente revisão" },
+];
+
 export default function CompanyDrawer({ state }) {
   const { modal, form, setForm } = state;
 
@@ -257,15 +280,58 @@ export default function CompanyDrawer({ state }) {
                 />
                 MEI?
               </label>
+            </div>
+            <div>
+              <label className="text-xs font-medium">Complexidade Sanitária</label>
+              <select
+                aria-label="Complexidade Sanitária"
+                className={FIELD_CLASS}
+                value={form.sanitary_complexity}
+                onChange={(e) => update({ sanitary_complexity: e.target.value })}
+              >
+                {SANITARY_COMPLEXITY_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.endereco_fiscal}
-                  onChange={(e) => update({ endereco_fiscal: e.target.checked })}
-                />
-                Endereço Fiscal/Holding?
-              </label>
+            <div>
+              <label className="text-xs font-medium">Uso do Endereço</label>
+              <select
+                aria-label="Uso do Endereço"
+                className={FIELD_CLASS}
+                value={form.address_usage_type}
+                onChange={(e) =>
+                  update({
+                    address_usage_type: e.target.value,
+                    endereco_fiscal: e.target.value === "FISCAL",
+                  })
+                }
+              >
+                {ADDRESS_USAGE_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="md:col-span-2">
+              <label className="text-xs font-medium">Local/Natureza do Endereço</label>
+              <select
+                aria-label="Local/Natureza do Endereço"
+                className={FIELD_CLASS}
+                value={form.address_location_type}
+                onChange={(e) => update({ address_location_type: e.target.value })}
+              >
+                {ADDRESS_LOCATION_OPTIONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </SectionCard>

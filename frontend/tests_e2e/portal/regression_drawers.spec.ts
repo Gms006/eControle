@@ -4,6 +4,7 @@ type Captures = {
   companyPatches: Array<Record<string, unknown>>;
   taxPatches: Array<Record<string, unknown>>;
   processPatches: Array<Record<string, unknown>>;
+  licencePatches: Array<Record<string, unknown>>;
 };
 
 async function setupMockApi(
@@ -19,6 +20,7 @@ async function setupMockApi(
     companyPatches: [],
     taxPatches: [],
     processPatches: [],
+    licencePatches: [],
   };
   const role = options?.role ?? "ADMIN";
 
@@ -36,6 +38,9 @@ async function setupMockApi(
     inscricao_estadual: "456",
     categoria: "Serviços",
     observacoes: "Observação antiga",
+    sanitary_complexity: "PENDENTE_REVISAO",
+    address_usage_type: "PENDENTE_REVISAO",
+    address_location_type: "PENDENTE_REVISAO",
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
   };
@@ -140,6 +145,32 @@ async function setupMockApi(
         operacoes_diversos: [{ value: "abertura", label: "Abertura" }],
         orgaos_diversos: [{ value: "prefeitura", label: "Prefeitura" }],
         alvaras_funcionamento: [{ value: "sujeito", label: "Sujeito" }],
+        alvara_funcionamento_kinds: [
+          { value: "DEFINITIVO", label: "Definitivo" },
+          { value: "CONDICIONADO", label: "Condicionado" },
+          { value: "PROVISORIO", label: "Provisório" },
+          { value: "PENDENTE_REVISAO", label: "Pendente Revisão" },
+        ],
+        sanitary_complexities: [
+          { value: "BAIXA", label: "Baixa" },
+          { value: "MEDIA", label: "Média" },
+          { value: "ALTA", label: "Alta" },
+          { value: "NAO_APLICAVEL", label: "Não Aplicável" },
+          { value: "PENDENTE_REVISAO", label: "Pendente Revisão" },
+        ],
+        address_usage_types: [
+          { value: "FISCAL", label: "Fiscal" },
+          { value: "ADMINISTRATIVO", label: "Administrativo" },
+          { value: "OPERACIONAL", label: "Operacional" },
+          { value: "MISTO", label: "Misto" },
+          { value: "PENDENTE_REVISAO", label: "Pendente Revisão" },
+        ],
+        address_location_types: [
+          { value: "ESCRITORIO_CONTABIL", label: "Escritório Contábil" },
+          { value: "ENDERECO_PROPRIO", label: "Endereço Próprio" },
+          { value: "ENDERECO_TERCEIRO", label: "Endereço de Terceiro" },
+          { value: "PENDENTE_REVISAO", label: "Pendente Revisão" },
+        ],
         servicos_sanitarios: [{ value: "licenciamento", label: "Licenciamento" }],
         notificacoes_sanitarias: [{ value: "sem_notificacao", label: "Sem Notificação" }],
       });
@@ -162,6 +193,10 @@ async function setupMockApi(
 
     if (path === "/api/v1/licencas" && method === "GET") {
       return fulfillJson(licencasPayload);
+    }
+    if (/^\/api\/v1\/licencas\/[^/]+\/item$/.test(path) && method === "PATCH") {
+      captures.licencePatches.push(body);
+      return fulfillJson({ ...licencasPayload[0], ...body });
     }
     if (path === "/api/v1/taxas" && method === "GET") {
       return fulfillJson(taxasPayload);
@@ -230,11 +265,11 @@ test.describe("Portal regression drawers", () => {
     });
     await page.goto("/painel");
     await page.getByRole("button", { name: /^Licenças/i }).first().click();
-    await page.getByRole("button", { name: "Matriz por empresa" }).click();
+    await page.getByRole("button", { name: "Por Tipo" }).click();
 
-    await expect(page.getByText("Possui - 09/03/2027")).toBeVisible();
+    await expect(page.getByText("09/03/2027")).toBeVisible();
     await expect(page.getByText("03/09/2027")).toHaveCount(0);
-    await expect(page.getByText("Possui - Definitivo")).toBeVisible();
+    await expect(page.getByText("Pendente revisão")).toBeVisible();
   });
 
   test("certificados renderiza dado real e aciona deep link de instalar", async ({ page }) => {
@@ -308,6 +343,26 @@ test.describe("Portal regression drawers", () => {
     await expect(obs).toHaveValue("Observação antiga");
   });
 
+  test("edita campos regulatórios estruturados da empresa", async ({ page }) => {
+    const captures = await setupMockApi(page);
+    await page.goto("/painel");
+
+    await page.getByRole("button", { name: /^Empresas/i }).first().click();
+    await page.evaluate(() => {
+      window.dispatchEvent(new CustomEvent("econtrole:open-company", { detail: { mode: "edit", companyId: "company-1" } }));
+    });
+
+    await page.getByLabel("Complexidade Sanitária").selectOption("ALTA");
+    await page.getByLabel("Uso do Endereço").selectOption("OPERACIONAL");
+    await page.getByLabel("Local/Natureza do Endereço").selectOption("ENDERECO_PROPRIO");
+    await page.getByRole("button", { name: "Salvar" }).first().click();
+
+    await expect.poll(() => captures.companyPatches.length).toBe(1);
+    expect(captures.companyPatches[0]?.sanitary_complexity).toBe("ALTA");
+    expect(captures.companyPatches[0]?.address_usage_type).toBe("OPERACIONAL");
+    expect(captures.companyPatches[0]?.address_location_type).toBe("ENDERECO_PROPRIO");
+  });
+
   test("edita Apelido (Pasta) da empresa e confirma persistência ao reabrir", async ({ page }) => {
     const captures = await setupMockApi(page);
     await page.goto("/painel");
@@ -377,5 +432,40 @@ test.describe("Portal regression drawers", () => {
 
     await expect.poll(() => captures.processPatches.length).toBe(1);
     expect(captures.processPatches[0]?.obs).toBe("OBS atualizada via E2E");
+  });
+
+  test("edita licença de funcionamento com tipo explícito do alvará", async ({ page }) => {
+    const captures = await setupMockApi(page, {
+      licencas: [
+        {
+          id: "lic-1",
+          licence_id: "lic-1",
+          licence_field: "alvara_funcionamento",
+          org_id: "org-1",
+          company_id: "company-1",
+          company_name: "Empresa Mock Ltda",
+          company_razao_social: "Empresa Mock Ltda",
+          company_cnpj: "12.345.678/0001-90",
+          company_municipio: "Anápolis",
+          tipo: "FUNCIONAMENTO",
+          status: "nao_possui",
+          valid_until: null,
+          alvara_funcionamento_kind: "PENDENTE_REVISAO",
+          raw: {
+            source_kind_alvara_funcionamento: "dated",
+          },
+        },
+      ],
+    });
+    await page.goto("/painel");
+    await page.getByRole("button", { name: /^Licenças/i }).first().click();
+    await page.getByRole("button", { name: "Detalhes" }).first().click();
+    await expect(page.getByText("Edição rápida de licença")).toBeVisible();
+    await page.getByLabel("Tipo do alvará").click();
+    await page.getByRole("option", { name: "Condicionado" }).click();
+    await page.getByRole("button", { name: "Salvar" }).last().click();
+
+    await expect.poll(() => captures.licencePatches.length).toBe(1);
+    expect(captures.licencePatches[0]?.alvara_funcionamento_kind).toBe("CONDICIONADO");
   });
 });

@@ -1,17 +1,26 @@
-import React, { useMemo, useRef, useState } from "react";
+﻿import React, { useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import {
+  AlertTriangle,
+  ArrowUpDown,
   BookDown,
   ChartBarIncreasing,
+  ChevronDown,
   Clipboard,
+  Clock3,
   FileDown,
   FileMinus,
   Info,
+  LayoutGrid,
+  Logs,
   MapPin,
+  ScrollText,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Chip } from "@/components/Chip";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { Input } from "@/components/ui/input";
@@ -21,11 +30,11 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/StatusBadge";
-import InlineBadge from "@/components/InlineBadge";
 import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { fetchJson } from "@/lib/api";
 import { formatCnpj } from "@/lib/text";
 import { formatStatusDisplay, getStatusKey, isAlertStatus, resolveLicencaTipo } from "@/lib/status";
+import { cn } from "@/lib/utils";
 
 const TIPOS = [
   { key: "SANITARIA", label: "Sanitária", field: "alvara_vig_sanitaria" },
@@ -33,6 +42,14 @@ const TIPOS = [
   { key: "FUNCIONAMENTO", label: "Funcionamento", field: "alvara_funcionamento" },
   { key: "USO_DO_SOLO", label: "Uso do Solo", field: "certidao_uso_solo" },
   { key: "AMBIENTAL", label: "Ambiental", field: "licenca_ambiental" },
+];
+
+const MATRIX_TIPOS = [
+  { key: "SANITARIA", label: "Vig. Sanitária" },
+  { key: "CERCON", label: "CERCON" },
+  { key: "FUNCIONAMENTO", label: "Funcionamento" },
+  { key: "AMBIENTAL", label: "Ambiental" },
+  { key: "USO_DO_SOLO", label: "Uso do Solo" },
 ];
 
 const STATUS_OPTIONS = [
@@ -74,6 +91,16 @@ const DETECT_KIND_OPTIONS = [
   { value: "DISPENSA_AMBIENTAL", label: "Dispensa Ambiental" },
 ];
 
+const ALVARA_FUNCIONAMENTO_KIND_OPTIONS = [
+  { value: "DEFINITIVO", label: "Definitivo" },
+  { value: "CONDICIONADO", label: "Condicionado" },
+  { value: "PROVISORIO", label: "Provisório" },
+  { value: "PENDENTE_REVISAO", label: "Pendente revisão" },
+];
+
+const formatAlvaraKindLabel = (value) =>
+  ALVARA_FUNCIONAMENTO_KIND_OPTIONS.find((item) => item.value === value)?.label || "Pendente revisão";
+
 const SCORE_RISK_OPTIONS = [
   { value: "todos", label: "Todos riscos" },
   { value: "HIGH", label: "Risco alto" },
@@ -85,39 +112,35 @@ const SCORE_RISK_OPTIONS = [
 const SCORE_STATUS_OPTIONS = [
   { value: "todos", label: "Todos score status" },
   { value: "OK", label: "OK" },
+  { value: "OK_DEFINITIVE", label: "OK - Definitivo" },
+  { value: "DEFINITIVE_INVALIDATED", label: "Definitivo invalidado" },
   { value: "NO_CNAE", label: "Sem CNAE" },
   { value: "UNMAPPED_CNAE", label: "CNAE não mapeado" },
   { value: "NO_LICENCE", label: "Sem licença datada" },
   { value: "__none__", label: "Sem score status" },
 ];
 
-const normalizeScoreRisk = (value) => String(value || "").trim().toUpperCase();
+const normalizeScoreRisk = (value) => String(value || "").trim().toLowerCase();
 const normalizeScoreStatus = (value) => String(value || "").trim().toUpperCase();
 const normalizeDigits = (value) => String(value || "").replace(/\D/g, "");
 
 const formatScoreRiskLabel = (value) => {
   const key = normalizeScoreRisk(value);
-  if (key === "HIGH") return "Alto";
-  if (key === "MEDIUM") return "Médio";
-  if (key === "LOW") return "Baixo";
+  if (key === "high") return "Alto";
+  if (key === "medium") return "Médio";
+  if (key === "low") return "Baixo";
   return "—";
 };
 
 const formatScoreStatusLabel = (value) => {
   const key = normalizeScoreStatus(value);
   if (key === "OK") return "OK";
+  if (key === "OK_DEFINITIVE") return "OK - Definitivo";
+  if (key === "DEFINITIVE_INVALIDATED") return "Definitivo invalidado";
   if (key === "NO_CNAE") return "Sem CNAE";
   if (key === "UNMAPPED_CNAE") return "CNAE não mapeado";
   if (key === "NO_LICENCE") return "Sem licença datada";
   return "—";
-};
-
-const scoreRiskChipVariant = (value) => {
-  const key = normalizeScoreRisk(value);
-  if (key === "HIGH") return "danger";
-  if (key === "MEDIUM") return "warning";
-  if (key === "LOW") return "success";
-  return "neutral";
 };
 
 const SORT_OPTIONS = [
@@ -408,6 +431,8 @@ const formatStatusWithDate = (item) => {
   return parts.baseStatus;
 };
 
+const formatMatrixStatus = (item) => parseStatusParts(item).baseStatus || "Sem status";
+
 const toCanonicalStatusKey = (value) => getStatusKey(value).replace(/\s+/g, "_");
 
 const displayEmpresa = (item) => {
@@ -442,9 +467,30 @@ const groupConfig = [
   { key: "sem_status", label: "Sem status (backlog)", variant: "warning" },
 ];
 
+const parseIsActiveFlag = (company) => {
+  const raw = company?.is_active ?? company?.isActive;
+  if (raw === true || raw === 1) return true;
+  if (raw === false || raw === 0) return false;
+  const key = String(raw ?? "").trim().toLowerCase();
+  if (!key) return null;
+  if (["t", "true", "1", "yes", "y", "sim", "ativo", "ativa"].includes(key)) return true;
+  if (["f", "false", "0", "no", "n", "nao", "não", "inativo", "inativa"].includes(key)) return false;
+  return null;
+};
+
+const resolveCompanyCertBucket = (value) => {
+  const key = getStatusKey(value || "");
+  if (!key || key === "nao_possui") return "sem_certificado";
+  if (key.includes("vencid")) return "vencido";
+  if (key.includes("venc") || key.includes("alert")) return "vencendo";
+  if (key.includes("valid") || key.includes("ok")) return "valido";
+  return "sem_certificado";
+};
+
 function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
   const [status, setStatus] = useState("possui");
   const [validade, setValidade] = useState("");
+  const [alvaraKind, setAlvaraKind] = useState("PENDENTE_REVISAO");
   const [motivo, setMotivo] = useState("");
   const [justificativa, setJustificativa] = useState("");
   const [observacao, setObservacao] = useState("");
@@ -456,6 +502,7 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
     if (!open || !item) return;
     setStatus(item?.status_key_canonical || getStatusKey(item?.status).replace(/\s+/g, "_") || "possui");
     setValidade(item?.valid_until || item?.validade || "");
+    setAlvaraKind(item?.alvara_funcionamento_kind || "PENDENTE_REVISAO");
     setMotivo(item?.motivo_nao_exigido || "");
     setJustificativa(item?.justificativa_nao_exigido || "");
     setObservacao(item?.observacao || "");
@@ -480,6 +527,7 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
           field: item.licence_field,
           status,
           validade: validade || null,
+          alvara_funcionamento_kind: item.licence_field === "alvara_funcionamento" ? alvaraKind : null,
           motivo_nao_exigido: status === "nao_exigido" ? motivo : null,
           justificativa_nao_exigido: status === "nao_exigido" ? justificativa : null,
           observacao: observacao || null,
@@ -526,6 +574,19 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
           <Label>Vencimento</Label>
           <Input type="date" value={validade || ""} onChange={(e) => setValidade(e.target.value)} />
         </div>
+        {item?.licence_field === "alvara_funcionamento" ? (
+          <div>
+            <Label>Tipo do alvará</Label>
+            <Select value={alvaraKind} onValueChange={setAlvaraKind}>
+              <SelectTrigger aria-label="Tipo do alvará"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {ALVARA_FUNCIONAMENTO_KIND_OPTIONS.map((opt) => (
+                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        ) : null}
         {status === "nao_exigido" && (
           <>
             <div>
@@ -563,6 +624,9 @@ function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
           <div className="mt-3 space-y-2 text-xs text-slate-600">
             <div><strong>Status bruto:</strong> {item?.status || "—"}</div>
             <div><strong>Tipo:</strong> {item?.tipo || "—"}</div>
+            {item?.licence_field === "alvara_funcionamento" ? (
+              <div><strong>Tipo do alvará:</strong> {formatAlvaraKindLabel(item?.alvara_funcionamento_kind)}</div>
+            ) : null}
             <div><strong>Município:</strong> {item?.municipio || "—"}</div>
             <div><strong>CNPJ:</strong> {item?.cnpj || "—"}</div>
           </div>
@@ -583,7 +647,18 @@ export default function LicencasScreen({
   onRefreshData,
   panelPreset,
 }) {
-  const [view, setView] = useState("renovacoes");
+  const [view, setView] = useState(() => {
+    if (typeof window === "undefined") return "renovacoes";
+    try {
+      const stored = localStorage.getItem("licencas_active_view");
+      return stored && ["renovacoes", "matriz", "tipos"].includes(stored) ? stored : "renovacoes";
+    } catch {
+      return "renovacoes";
+    }
+  });
+  const [openRailMobile, setOpenRailMobile] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [matrixViewMode, setMatrixViewMode] = useState("table");
   const [quickMunicipio, setQuickMunicipio] = useState("todos");
   const [quickTipo, setQuickTipo] = useState("todos");
   const [quickStatus, setQuickStatus] = useState("todos");
@@ -599,13 +674,29 @@ export default function LicencasScreen({
   const [scanRunning, setScanRunning] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadDraft, setUploadDraft] = useState({ companyId: "", items: [] });
+  const [railStatusFilter, setRailStatusFilter] = useState("ativas");
+  const [railRiskFilters, setRailRiskFilters] = useState(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]);
+  const [railCertFilters, setRailCertFilters] = useState(["valido", "vencendo", "vencido", "sem_certificado"]);
+  const [railMunicipioFilters, setRailMunicipioFilters] = useState([]);
+  const [railUrgencyMin, setRailUrgencyMin] = useState(0);
+  const [railUrgencyMax, setRailUrgencyMax] = useState(100);
   const fileInputRef = useRef(null);
   const appendUploadSelectionRef = useRef(false);
+
+  // Persistir estado da aba no localStorage
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("licencas_active_view", view);
+    } catch {
+      // Silenciosamente ignorar erros de localStorage
+    }
+  }, [view]);
 
   React.useEffect(() => {
     const preset = panelPreset?.preset;
     if (!preset || panelPreset?.tab !== "licencas") return;
     setView("renovacoes");
+    setSearchTerm("");
     setSomenteAlertasLocal(false);
     setQuickMunicipio("todos");
     setQuickTipo("todos");
@@ -642,13 +733,15 @@ export default function LicencasScreen({
         const diasParaVencer = parseDias(item);
         const statusKeyCanonical = item?.status_key_canonical || toCanonicalStatusKey(parsedStatus.baseStatus);
         const scoreUrgenciaRaw = companySnapshot?.score_urgencia ?? companySnapshot?.scoreUrgencia;
-        const scoreUrgencia = Number.isFinite(scoreUrgenciaRaw) ? Number(scoreUrgenciaRaw) : null;
+        const scoreUrgencia = Number.isFinite(Number(scoreUrgenciaRaw)) ? Math.max(0, Math.min(100, Number(scoreUrgenciaRaw))): null;
         const scoreRisk = normalizeScoreRisk(
           companySnapshot?.risco_consolidado ?? companySnapshot?.riscoConsolidado,
         );
         const scoreStatus = normalizeScoreStatus(
           companySnapshot?.score_status ?? companySnapshot?.scoreStatus,
         );
+        const companyActive = parseIsActiveFlag(companySnapshot);
+        const certBucket = resolveCompanyCertBucket(companySnapshot?.certificado);
         return {
           ...item,
           tipo_norm: tipoNorm,
@@ -664,16 +757,48 @@ export default function LicencasScreen({
           score_urgencia: scoreUrgencia,
           risco_consolidado: scoreRisk || null,
           score_status: scoreStatus || null,
+          risk_bucket: scoreRisk === "HIGH" || scoreRisk === "MEDIUM" || scoreRisk === "LOW" ? scoreRisk : "UNMAPPED",
+          cert_bucket: certBucket,
+          company_active: companyActive,
         };
       }),
     [base, empresas],
   );
 
   const municipios = useMemo(() => ["todos", ...Array.from(new Set(rows.map((r) => r?.municipio).filter(Boolean)))], [rows]);
+  const railMunicipioOptions = useMemo(
+    () => Array.from(new Set(rows.map((item) => item?.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows],
+  );
 
   const filteredBase = useMemo(
     () =>
       rows.filter((item) => {
+        if (railStatusFilter === "ativas" && item?.company_active === false) return false;
+        if (railStatusFilter === "inativas" && item?.company_active !== false) return false;
+        if (!railRiskFilters.includes(item?.risk_bucket || "UNMAPPED")) return false;
+        if (!railCertFilters.includes(item?.cert_bucket || "sem_certificado")) return false;
+        if (railMunicipioFilters.length > 0 && !railMunicipioFilters.includes(item?.municipio)) return false;
+        if (Number.isFinite(item?.score_urgencia)) {
+          if (item.score_urgencia < railUrgencyMin || item.score_urgencia > railUrgencyMax) return false;
+        } else if (railUrgencyMin > 0 || railUrgencyMax < 100) {
+          return false;
+        }
+
+        if (searchTerm.trim()) {
+          const token = searchTerm.trim().toLowerCase();
+          const haystack = [
+            item?.empresa_display,
+            item?.cnpj,
+            item?.municipio,
+            resolveLicencaTipo(item?.tipo).label,
+            formatStatusWithDate(item),
+          ]
+            .filter(Boolean)
+            .join(" ")
+            .toLowerCase();
+          if (!haystack.includes(token)) return false;
+        }
         if (quickMunicipio !== "todos" && item?.municipio !== quickMunicipio) return false;
         if (quickTipo !== "todos" && item?.tipo_norm !== quickTipo) return false;
         if (quickStatus !== "todos" && item?.status_key_canonical !== quickStatus) return false;
@@ -702,7 +827,14 @@ export default function LicencasScreen({
       quickScoreStatus,
       quickStatus,
       quickTipo,
+      railCertFilters,
+      railMunicipioFilters,
+      railRiskFilters,
+      railStatusFilter,
+      railUrgencyMax,
+      railUrgencyMin,
       rows,
+      searchTerm,
       somenteAlertasLocal,
     ],
   );
@@ -745,6 +877,14 @@ export default function LicencasScreen({
     return map;
   }, [filtered, sortDir, sortField]);
 
+  const renovacoesNotificacaoCount = useMemo(() => {
+    let count = 0;
+    grouped.forEach((items) => {
+      count += items.length;
+    });
+    return count;
+  }, [grouped]);
+
   const empresasMatriz = useMemo(() => {
     const map = new Map();
     filtered.forEach((item) => {
@@ -775,6 +915,125 @@ export default function LicencasScreen({
       { key: "nao_exigido", label: "Não exigido", value: make("nao_exigido") },
     ];
   }, [filteredBase]);
+
+  const heroKpis = useMemo(() => {
+    const total = filteredBase.length;
+    const vencidas = filteredBase.filter((item) => item?.criticidade === "vencido").length;
+    const vencendo = filteredBase.filter((item) => {
+      const dias = Number(item?.dias_para_vencer);
+      return Number.isFinite(dias) && dias >= 0 && dias <= 30;
+    }).length;
+    const pendentes = filteredBase.filter((item) => {
+      const key = String(item?.status_key_canonical || "").trim();
+      return key.startsWith("aguardando_") || key === "em_analise" || key === "sujeito";
+    }).length;
+    return [
+      {
+        key: "total",
+        label: "Total de registros",
+        value: total,
+        subtitle: `${filtered.length} em exibição`,
+        icon: ScrollText,
+        tone: "bg-slate-50 border-slate-200 text-slate-900",
+      },
+      {
+        key: "vencidas",
+        label: "Vencidas",
+        value: vencidas,
+        subtitle: "Ação imediata",
+        icon: ShieldAlert,
+        tone: "bg-rose-50 border-rose-200 text-rose-900",
+      },
+      {
+        key: "vencendo",
+        label: "Vencendo",
+        value: vencendo,
+        subtitle: "Próximos 30 dias",
+        icon: Clock3,
+        tone: "bg-amber-50 border-amber-200 text-amber-900",
+      },
+      {
+        key: "pendentes",
+        label: "Pendentes / Em andamento",
+        value: pendentes,
+        subtitle: "Requer acompanhamento",
+        icon: ShieldCheck,
+        tone: "bg-blue-50 border-blue-200 text-blue-900",
+      },
+    ];
+  }, [filtered.length, filteredBase]);
+
+  const matrizCards = useMemo(
+    () =>
+      empresasMatriz.map((empresa) => ({
+        ...empresa,
+        totalTipos: TIPOS.reduce((acc, tipo) => (empresa.byTipo[tipo.key] ? acc + 1 : acc), 0),
+        vencidos: TIPOS.reduce((acc, tipo) => {
+          const item = empresa.byTipo[tipo.key];
+          return item?.criticidade === "vencido" ? acc + 1 : acc;
+        }, 0),
+      })),
+    [empresasMatriz],
+  );
+
+  const activeFilterBadges = useMemo(() => {
+    const badges = [];
+    if (searchTerm.trim()) badges.push({ key: "q", label: `Busca: ${searchTerm.trim()}` });
+    if (quickMunicipio !== "todos") badges.push({ key: "municipio", label: `Município: ${quickMunicipio}` });
+    if (quickTipo !== "todos") badges.push({ key: "tipo", label: `Tipo: ${TIPOS.find((t) => t.key === quickTipo)?.label || quickTipo}` });
+    if (quickStatus !== "todos") badges.push({ key: "status", label: `Status: ${formatStatusDisplay(quickStatus)}` });
+    if (quickScoreRisk !== "todos") badges.push({ key: "risk", label: `Risco: ${SCORE_RISK_OPTIONS.find((opt) => opt.value === quickScoreRisk)?.label || quickScoreRisk}` });
+    if (quickScoreStatus !== "todos") badges.push({ key: "scoreStatus", label: `Score status: ${SCORE_STATUS_OPTIONS.find((opt) => opt.value === quickScoreStatus)?.label || quickScoreStatus}` });
+    if (priorityGroup !== "todos") badges.push({ key: "criticidade", label: `Criticidade: ${groupConfig.find((group) => group.key === priorityGroup)?.label || priorityGroup}` });
+    if (somenteAlertasLocal) badges.push({ key: "alertas", label: "Somente alertas" });
+    return badges;
+  }, [
+    priorityGroup,
+    quickMunicipio,
+    quickScoreRisk,
+    quickScoreStatus,
+    quickStatus,
+    quickTipo,
+    searchTerm,
+    somenteAlertasLocal,
+  ]);
+
+  const railActiveCount = useMemo(() => {
+    let count = 0;
+    if (railStatusFilter !== "ativas") count += 1;
+    if (railRiskFilters.length !== 4) count += 1;
+    if (railCertFilters.length !== 4) count += 1;
+    if (railMunicipioFilters.length > 0) count += 1;
+    if (railUrgencyMin > 0 || railUrgencyMax < 100) count += 1;
+    return count;
+  }, [railCertFilters.length, railMunicipioFilters.length, railRiskFilters.length, railStatusFilter, railUrgencyMax, railUrgencyMin]);
+
+  const toggleRailFilter = (setter, key) => {
+    setter((current) => {
+      const list = Array.isArray(current) ? current : [];
+      return list.includes(key) ? list.filter((item) => item !== key) : [...list, key];
+    });
+  };
+
+  const clearSharedRailFilters = () => {
+    setRailStatusFilter("ativas");
+    setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]);
+    setRailCertFilters(["valido", "vencendo", "vencido", "sem_certificado"]);
+    setRailMunicipioFilters([]);
+    setRailUrgencyMin(0);
+    setRailUrgencyMax(100);
+  };
+
+  const clearContextFilters = () => {
+    setSearchTerm("");
+    setQuickMunicipio("todos");
+    setQuickTipo("todos");
+    setQuickStatus("todos");
+    setQuickScoreRisk("todos");
+    setQuickScoreStatus("todos");
+    setPriorityGroup("todos");
+    setSomenteAlertasLocal(false);
+  };
 
   const companyOptions = useMemo(
     () =>
@@ -936,306 +1195,442 @@ export default function LicencasScreen({
     }
   };
 
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <Button size="sm" variant={view === "renovacoes" ? "default" : "secondary"} onClick={() => setView("renovacoes")}>
-          Renovações
-        </Button>
-        <Button size="sm" variant={view === "matriz" ? "default" : "secondary"} onClick={() => setView("matriz")}>
-          Matriz por empresa
-        </Button>
-        <Button size="sm" variant={view === "tipos" ? "default" : "secondary"} onClick={() => setView("tipos")}>
-          Por tipo
-        </Button>
-        {canManageLicencas && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                size="sm"
-                variant="secondary"
-                data-testid="licencas-upload-action"
-                disabled={uploading || scanRunning}
-              >
-                {uploading ? "Enviando..." : (scanRunning ? "Escaneando..." : "Atualizar licenças")}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="start">
-              <DropdownMenuItem onClick={triggerUpload} data-testid="licencas-action-new">
-                <FileDown className="mr-2 h-4 w-4" />
-                Nova Licença
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={triggerScanFull} data-testid="licencas-action-scan-full">
-                <BookDown className="mr-2 h-4 w-4" />
-                Scan Completo
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        )}
-        <input
-          ref={fileInputRef}
-          className="hidden"
-          type="file"
-          multiple
-          accept=".pdf,.jpg,.png"
-          onChange={onSelectFiles}
-        />
+  const railChipClass = (active) =>
+    [
+      "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
+      active ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-white",
+    ].join(" ");
+
+  const rail = (
+    <aside className="space-y-3 rounded-2xl border border-slate-300 bg-white p-3.5 shadow-sm xl:sticky xl:top-0 xl:self-start xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">Contexto</p>
+          <h3 className="text-sm font-semibold text-slate-900">Filtros persistentes</h3>
+          <p className="text-xs text-slate-500">Registros no recorte: {filteredBase.length}</p>
+        </div>
+        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-center">
+          <div className="text-sm font-semibold leading-4 text-blue-700">{railActiveCount}</div>
+          <div className="mt-1 text-[11px] font-medium leading-3 text-blue-700">{railActiveCount === 1 ? "ativo" : "ativos"}</div>
+        </div>
       </div>
 
-      <Card className="shadow-sm">
-        <CardContent className="flex flex-wrap items-center gap-2 pt-6">
-          <Select value={quickMunicipio} onValueChange={setQuickMunicipio}>
-            <SelectTrigger className="w-[180px]">
-              <MapPin className="h-4 w-4 text-slate-500" />
-              <SelectValue placeholder="Município" />
-            </SelectTrigger>
-            <SelectContent>{municipios.map((m) => <SelectItem key={m} value={m}>{m === "todos" ? "Todos municípios" : m}</SelectItem>)}</SelectContent>
-          </Select>
-          <Select value={quickTipo} onValueChange={setQuickTipo}>
-            <SelectTrigger className="w-[180px]">
-              <FileMinus className="h-4 w-4 text-slate-500" />
-              <SelectValue placeholder="Tipo" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos tipos</SelectItem>
-              {TIPOS.map((t) => <SelectItem key={t.key} value={t.key}>{t.label}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={quickStatus} onValueChange={setQuickStatus}>
-            <SelectTrigger className="w-[180px]">
-              <Clipboard className="h-4 w-4 text-slate-500" />
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="todos">Todos status</SelectItem>
-              {STATUS_OPTIONS.map((opt) => <SelectItem key={opt} value={opt}>{formatStatusDisplay(opt)}</SelectItem>)}
-            </SelectContent>
-          </Select>
-          <Select value={quickScoreRisk} onValueChange={setQuickScoreRisk}>
-            <SelectTrigger className="w-[180px]" data-testid="licencas-score-risk-filter">
-              <ChartBarIncreasing className="h-4 w-4 text-slate-500" />
-              <SelectValue placeholder="Risco score" />
-            </SelectTrigger>
-            <SelectContent>
-              {SCORE_RISK_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={quickScoreStatus} onValueChange={setQuickScoreStatus}>
-            <SelectTrigger className="w-[220px]" data-testid="licencas-score-status-filter">
-              <SelectValue placeholder="Status score" />
-            </SelectTrigger>
-            <SelectContent>
-              {SCORE_STATUS_OPTIONS.map((option) => (
-                <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button size="sm" variant={somenteAlertasLocal ? "default" : "secondary"} onClick={() => setSomenteAlertasLocal(!somenteAlertasLocal)}>
-            Somente alertas
-          </Button>
-          <InlineBadge variant="outline" className="bg-white">{filtered.length} itens</InlineBadge>
-        </CardContent>
-      </Card>
+      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Filtros rápidos</p>
+        <div className="flex flex-wrap gap-2">
+          {kpis.map((item) => (
+            <button key={item.key} type="button" onClick={() => setKpiFilter(item.key)} className={railChipClass(kpiFilter === item.key)}>
+              {item.label} <span className="ml-1 rounded-md bg-white/80 px-1.5 py-0.5 text-[11px]">{item.value}</span>
+            </button>
+          ))}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setPriorityGroup("todos")} className={railChipClass(priorityGroup === "todos")}>Todas criticidades</button>
+          {groupConfig.map((cfg) => (
+            <button key={cfg.key} type="button" onClick={() => setPriorityGroup(cfg.key)} className={railChipClass(priorityGroup === cfg.key)}>
+              {cfg.label}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      <Card className="shadow-sm">
-        <CardContent className="flex flex-wrap items-center gap-2 pt-6">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ordenar por</span>
-          <div className="flex flex-wrap items-center gap-2">
-            {SORT_OPTIONS.map((option) => {
-              const isActive = sortField === option.value;
-              const directionSymbol = isActive ? (sortDir === "asc" ? "↑" : "↓") : null;
-              return (
-                <button
-                  key={option.value}
-                  type="button"
-                  onClick={() => {
-                    if (isActive) {
-                      setSortDir((prev) => (prev === "asc" ? "desc" : "asc"));
-                    } else {
-                      setSortField(option.value);
-                      setSortDir(option.defaultDir);
-                    }
-                  }}
-                  className={[
-                    "inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm font-medium transition",
-                    "border-slate-200 bg-white text-slate-700 hover:bg-slate-50",
-                    isActive ? "border-brand-navy/30 bg-brand-navy-soft text-brand-navy shadow-sm" : "",
-                  ].join(" ")}
-                >
-                  <span>{option.label}</span>
-                  {directionSymbol ? <span className="text-xs">{directionSymbol}</span> : null}
-                </button>
-              );
-            })}
-          </div>
-        </CardContent>
-      </Card>
+      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Status da empresa</p>
+        <div className="flex flex-wrap gap-2">
+          {["ativas", "inativas", "todas"].map((value) => (
+            <button key={value} type="button" onClick={() => setRailStatusFilter(value)} className={railChipClass(railStatusFilter === value)}>
+              {value === "ativas" ? "Ativas" : value === "inativas" ? "Inativas" : "Todas"}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {view === "renovacoes" && (
-        <div className="space-y-3">
-          {groupConfig.map((cfg) => {
-            const list = grouped.get(cfg.key) || [];
-            return (
-              <Card key={cfg.key}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    {cfg.label}
-                    <InlineBadge variant="outline">{list.length}</InlineBadge>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {list.length === 0 && <p className="text-sm text-slate-500">Sem itens neste grupo.</p>}
-                  {list.map((item, idx) => (
-                    <div key={`${item.id}-${idx}`} className="rounded-xl border border-slate-200 p-3">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />
-                          <StatusBadge
-                            status={formatStatusWithDate(item)}
-                          />
-                          {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
-                          <Chip variant={resolveLicencaTipo(item.tipo).variant}>{resolveLicencaTipo(item.tipo).label}</Chip>
-                          <Chip data-testid="licencas-score-urgencia" variant="outline">
-                            Score: {Number.isFinite(item?.score_urgencia) ? item.score_urgencia : "—"}}
-                            <ScoreLegendInfo />
-                          </Chip>
-                          <Chip data-testid="licencas-score-risk" variant={scoreRiskChipVariant(item?.risco_consolidado)}>
-                            Risco: {formatScoreRiskLabel(item?.risco_consolidado)}
-                          </Chip>
-                          <Chip data-testid="licencas-score-status" variant="neutral">
-                            Status score: {formatScoreStatusLabel(item?.score_status)}
-                          </Chip>
+      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Risco CNAE</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"])} className={railChipClass(railRiskFilters.length === 4)}>
+            Todos
+          </button>
+          {[{ key: "HIGH", label: "Alto" }, { key: "MEDIUM", label: "Médio" }, { key: "LOW", label: "Baixo" }, { key: "UNMAPPED", label: "Sem mapeamento" }].map((option) => (
+            <button key={option.key} type="button" onClick={() => toggleRailFilter(setRailRiskFilters, option.key)} className={railChipClass(railRiskFilters.includes(option.key))}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Certificado</p>
+        <div className="flex flex-wrap gap-2">
+          {[{ key: "valido", label: "Válido" }, { key: "vencendo", label: "Vencendo" }, { key: "vencido", label: "Vencido" }, { key: "sem_certificado", label: "Sem certificado" }].map((option) => (
+            <button key={option.key} type="button" onClick={() => toggleRailFilter(setRailCertFilters, option.key)} className={railChipClass(railCertFilters.includes(option.key))}>
+              {option.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Município</p>
+        {railMunicipioOptions.length === 0 ? <p className="text-xs text-slate-500">Sem municípios no recorte atual.</p> : null}
+        <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
+          {railMunicipioOptions.map((item) => (
+            <label key={item} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-slate-700 hover:bg-white">
+              <input type="checkbox" checked={railMunicipioFilters.includes(item)} onChange={() => toggleRailFilter(setRailMunicipioFilters, item)} />
+              <span>{item}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-2.5 rounded-xl border border-slate-300 bg-slate-100 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Score de urgência</p>
+        <div className="relative h-6">
+          <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-100" />
+          <div className="pointer-events-none absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-300" style={{ left: `${railUrgencyMin}%`, width: `${Math.max(0, railUrgencyMax - railUrgencyMin)}%` }} />
+          <input type="range" min={0} max={100} value={railUrgencyMin} onChange={(event) => setRailUrgencyMin(Math.min(Number(event.target.value), railUrgencyMax))} className="ec-urgency-range" aria-label="Score de urgência mínimo" />
+          <input type="range" min={0} max={100} value={railUrgencyMax} onChange={(event) => setRailUrgencyMax(Math.max(Number(event.target.value), railUrgencyMin))} className="ec-urgency-range" aria-label="Score de urgência máximo" />
+        </div>
+        <div className="flex justify-between text-[11px] font-semibold text-slate-500"><span>{railUrgencyMin}</span><span>{railUrgencyMax}</span></div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-1">
+        <Button type="button" size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50" onClick={clearSharedRailFilters}>
+          Limpar
+        </Button>
+      </div>
+    </aside>
+  );
+
+  return (
+    <div className="space-y-4">
+      <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <div className="hidden xl:block">{rail}</div>
+        <section className="space-y-3">
+          <Card className="border-subtle bg-surface">
+            <CardContent className="p-3">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                {heroKpis.map((kpi) => {
+                  const Icon = kpi.icon;
+                  const iconTone =
+                    kpi.key === "vencidas"
+                      ? "border-rose-200 bg-rose-50 text-rose-600"
+                      : kpi.key === "vencendo"
+                        ? "border-amber-200 bg-amber-50 text-amber-600"
+                        : kpi.key === "pendentes"
+                          ? "border-blue-200 bg-blue-50 text-blue-600"
+                          : "border-blue-200 bg-blue-50 text-blue-600";
+                  const subtitleTone = kpi.key === "vencidas" ? "text-amber-600" : "text-slate-500";
+                  return (
+                    <div key={kpi.key} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{kpi.label}</p>
+                          <p className="mt-2 text-2xl font-semibold leading-none">{kpi.value}</p>
+                          <p className={cn("mt-2 text-xs", subtitleTone)}>{kpi.subtitle}</p>
                         </div>
-                        <div className="flex flex-wrap gap-1">
-                          <Button size="sm" variant="secondary" onClick={() => setDrawerItem(item)}>Detalhes</Button>
-                          <Button size="sm" variant="secondary" onClick={() => enqueueToast?.("Processo iniciado (atalho).")}>Iniciar processo</Button>
-                          <Button size="sm" variant="secondary" onClick={() => enqueueToast?.("Contato registrado (atalho).")}>Registrar contato</Button>
-                          {item?.cnpj && handleCopy && (
-                            <Button size="sm" variant="secondary" onClick={() => handleCopy(item.cnpj, `CNPJ copiado: ${item.cnpj}`)}>Copiar CNPJ</Button>
-                          )}
-                        </div>
+                        <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-xl border", iconTone)}>
+                          <Icon className="h-4 w-4" />
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      )}
+                  );
+                })}
+              </div>
 
-      {view === "matriz" && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Matriz de conformidade por empresa</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ScrollArea className="h-[620px]">
-              <Table>
-                <TableHeader className="sticky top-0 z-30 bg-slate-50">
-                  <TableRow>
-                    <TableHead className="sticky left-0 top-0 z-40 bg-slate-50">Empresa</TableHead>
-                    {TIPOS.map((t) => (
-                      <TableHead key={t.key} className="top-0 z-30 bg-slate-50">{t.label}</TableHead>
-                    ))}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {empresasMatriz.map((emp) => (
-                    <TableRow key={emp.key}>
-                      <TableCell className="sticky left-0 z-10 bg-white">
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{emp.empresa}</span>
-                          {emp.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
-                        </div>
-                        <div className="text-xs text-slate-500">{emp.cnpj || "—"} {emp.municipio ? `• ${emp.municipio}` : ""}</div>
-                      </TableCell>
-                      {TIPOS.map((tipo) => {
-                        const cell = emp.byTipo[tipo.key];
-                        return (
-                          <TableCell key={`${emp.key}-${tipo.key}`}>
-                            <button
-                              type="button"
-                              className="w-full rounded-lg border border-slate-200 px-2 py-1 text-left hover:bg-slate-50"
-                              onClick={() => cell ? setDrawerItem(cell) : enqueueToast?.("Sem registro para edição neste tipo.")}
-                            >
-                              {cell ? (
-                                <StatusBadge
-                                  status={formatStatusWithDate(cell)}
-                                />
-                              ) : (
-                                <Chip variant="neutral">Sem dado</Chip>
-                              )}
-                            </button>
-                          </TableCell>
-                        );
-                      })}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
-      )}
-
-      {view === "tipos" && (
-        <div className="space-y-3">
-          <div className="grid gap-3 md:grid-cols-5">
-            {kpis.map((kpi) => (
-              <button
-                key={kpi.key}
-                type="button"
-                onClick={() => setKpiFilter((current) => (current === kpi.key ? "todos" : kpi.key))}
-                className={`rounded-xl border p-3 text-left ${kpiFilter === kpi.key ? "border-blue-300 bg-blue-50" : "border-slate-200 bg-white"}`}
-              >
-                <div className="text-xs uppercase text-slate-500">{kpi.label}</div>
-                <div className="text-2xl font-semibold">{kpi.value}</div>
-              </button>
-            ))}
-          </div>
-          <Card>
-            <CardHeader>
-              <CardTitle>Tabela por tipo</CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[560px]">
-                <Table>
-                  <TableHeader className="sticky top-0 z-20 bg-slate-50">
-                    <TableRow>
-                      <TableHead>Empresa</TableHead>
-                      <TableHead>Tipo</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Vencimento</TableHead>
-                      <TableHead>Município</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {sortedFiltered.map((item, idx) => (
-                        <TableRow key={`${item.id}-${idx}`}>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />
-                              {item.sem_vinculo && <Chip variant="danger">Sem vínculo</Chip>}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Chip variant={resolveLicencaTipo(item.tipo).variant}>{resolveLicencaTipo(item.tipo).label}</Chip>
-                          </TableCell>
-                          <TableCell><StatusBadge status={item.status_label} /></TableCell>
-                          <TableCell>{item.validade_br_display || "—"}</TableCell>
-                          <TableCell>{item.municipio || "—"}</TableCell>
-                        </TableRow>
-                      ))}
-                  </TableBody>
-                </Table>
-              </ScrollArea>
+              {activeFilterBadges.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {activeFilterBadges.map((badge) => <span key={badge.key} className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700">{badge.label}</span>)}
+                </div>
+              ) : null}
             </CardContent>
           </Card>
-        </div>
-      )}
+
+          <Card className="border-subtle bg-card">
+            <CardContent className="space-y-3 p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-4">
+                  {/* Grupo Matriz por empresa */}
+                  <div className="flex items-center gap-2">
+                    <Button size="sm" variant={view === "matriz" ? "default" : "ghost"} className={view === "matriz" ? "bg-slate-900 text-white hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"} onClick={() => setView("matriz")}>
+                      Visão Geral
+                    </Button>
+                  </div>
+
+                  <Button size="sm" variant={view === "tipos" ? "default" : "ghost"} className={view === "tipos" ? "bg-slate-900 text-white hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"} onClick={() => setView("tipos")}>
+                    Por Tipo
+                  </Button>
+
+                  <div className="relative">
+                    <Button size="sm" variant={view === "renovacoes" ? "default" : "ghost"} className={view === "renovacoes" ? "bg-slate-900 text-white hover:bg-slate-800" : "text-slate-700 hover:bg-slate-100"} onClick={() => setView("renovacoes")}>
+                      Renovações
+                    </Button>
+                    {renovacoesNotificacaoCount > 0 && <span className="absolute -right-2 -top-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">{renovacoesNotificacaoCount}</span>}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {view === "matriz" ? (
+                    <div className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 p-1">
+                      <button type="button" onClick={() => setMatrixViewMode("table")} className={`rounded-md p-2 transition ${matrixViewMode === "table" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-100"}`} title="Visualização em tabela"><Logs className="h-4 w-4" /></button>
+                      <button type="button" onClick={() => setMatrixViewMode("cards")} className={`rounded-md p-2 transition ${matrixViewMode === "cards" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-100"}`} title="Visualização em cards"><LayoutGrid className="h-4 w-4" /></button>
+                    </div>
+                  ) : null}
+                  <Button size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50 xl:hidden" onClick={() => setOpenRailMobile(true)}>
+                    <SlidersHorizontal className="mr-1 h-3.5 w-3.5" /> Filtros avançados
+                  </Button>
+                  {canManageLicencas && (
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" className="bg-slate-900 text-white hover:bg-slate-800" data-testid="licencas-upload-action" disabled={uploading || scanRunning}>
+                          {uploading ? "Enviando..." : (scanRunning ? "Escaneando..." : "Atualizar licenças")}
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={triggerUpload} data-testid="licencas-action-new"><FileDown className="mr-2 h-4 w-4" />Nova Licença</DropdownMenuItem>
+                        <DropdownMenuItem onClick={triggerScanFull} data-testid="licencas-action-scan-full"><BookDown className="mr-2 h-4 w-4" />Scan completo</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  )}
+                </div>
+              </div>
+
+              <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-7">
+                <Input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Buscar por empresa, CNPJ, tipo ou município" className="h-9 border-slate-200 bg-slate-50 xl:col-span-2" />
+                <Select value={quickMunicipio} onValueChange={setQuickMunicipio}>
+                  <SelectTrigger className="h-9 border-slate-200 bg-slate-50"><MapPin className="h-4 w-4 text-slate-500" /><SelectValue placeholder="Município" /></SelectTrigger>
+                  <SelectContent>{municipios.map((m) => <SelectItem key={m} value={m}>{m === "todos" ? "Todos municípios" : m}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={quickTipo} onValueChange={setQuickTipo}>
+                  <SelectTrigger className="h-9 border-slate-200 bg-slate-50"><FileMinus className="h-4 w-4 text-slate-500" /><SelectValue placeholder="Tipo" /></SelectTrigger>
+                  <SelectContent><SelectItem value="todos">Todos tipos</SelectItem>{TIPOS.map((tipo) => <SelectItem key={tipo.key} value={tipo.key}>{tipo.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={quickStatus} onValueChange={setQuickStatus}>
+                  <SelectTrigger className="h-9 border-slate-200 bg-slate-50"><Clipboard className="h-4 w-4 text-slate-500" /><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent><SelectItem value="todos">Todos status</SelectItem>{STATUS_OPTIONS.map((opt) => <SelectItem key={opt} value={opt}>{formatStatusDisplay(opt)}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={quickScoreRisk} onValueChange={setQuickScoreRisk}>
+                  <SelectTrigger className="h-9 border-slate-200 bg-slate-50" data-testid="licencas-score-risk-filter"><ChartBarIncreasing className="h-4 w-4 text-slate-500" /><SelectValue placeholder="Risco score" /></SelectTrigger>
+                  <SelectContent>{SCORE_RISK_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <Select value={quickScoreStatus} onValueChange={setQuickScoreStatus}>
+                  <SelectTrigger className="h-9 border-slate-200 bg-slate-50" data-testid="licencas-score-status-filter"><SelectValue placeholder="Status do score" /></SelectTrigger>
+                  <SelectContent>{SCORE_STATUS_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
+                </Select>
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button type="button" size="sm" variant={somenteAlertasLocal ? "default" : "outline"} className={somenteAlertasLocal ? "bg-slate-900 text-white hover:bg-slate-800" : "border-slate-300 bg-white text-slate-700 hover:bg-slate-50"} onClick={() => setSomenteAlertasLocal((value) => !value)}><AlertTriangle className="mr-1 h-3.5 w-3.5" />Somente alertas</Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50"><ArrowUpDown className="mr-1 h-3.5 w-3.5" />{SORT_OPTIONS.find((item) => item.value === sortField)?.label || "Score"}<span className="ml-1 text-xs text-blue-700">{sortDir === "asc" ? "↑" : "↓"}</span><ChevronDown className="ml-1 h-3.5 w-3.5" /></Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-64 p-2">
+                      <p className="px-2 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ordenar por</p>
+                      <div className="space-y-1">
+                        {SORT_OPTIONS.map((option) => {
+                          const isActive = sortField === option.value;
+                          return <button key={option.value} type="button" onClick={() => { if (isActive) { setSortDir((prev) => (prev === "asc" ? "desc" : "asc")); } else { setSortField(option.value); setSortDir(option.defaultDir); } }} className={`flex w-full items-center justify-between rounded-md px-2.5 py-2 text-sm ${isActive ? "bg-slate-100 text-blue-700" : "text-slate-700 hover:bg-slate-50"}`}><span>{option.label}</span><span className="text-xs text-slate-500">{isActive ? (sortDir === "asc" ? "Crescente" : "Decrescente") : ""}</span></button>;
+                        })}
+                      </div>
+                      <div className="mt-2 border-t border-slate-200 pt-2"><Button size="sm" variant="outline" className="w-full border-slate-300 bg-white text-slate-700 hover:bg-slate-50" onClick={() => setSortDir((prev) => (prev === "asc" ? "desc" : "asc"))}>Direção: {sortDir === "asc" ? "Crescente" : "Decrescente"}</Button></div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Select value={priorityGroup} onValueChange={setPriorityGroup}><SelectTrigger className="h-9 w-[220px] border-slate-200 bg-slate-50"><SelectValue placeholder="Criticidade" /></SelectTrigger><SelectContent><SelectItem value="todos">Todas criticidades</SelectItem>{groupConfig.map((cfg) => <SelectItem key={cfg.key} value={cfg.key}>{cfg.label}</SelectItem>)}</SelectContent></Select>
+                  <Button type="button" size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50" onClick={clearContextFilters}>Limpar filtros da aba</Button>
+                </div>
+                <span className="text-sm text-slate-500">{sortedFiltered.length} registros exibidos</span>
+              </div>
+
+              <input ref={fileInputRef} className="hidden" type="file" multiple accept=".pdf,.jpg,.png" onChange={onSelectFiles} />
+            </CardContent>
+          </Card>
+
+          {view === "renovacoes" && (
+            <div className="space-y-3">
+              {groupConfig.map((cfg) => {
+                const list = grouped.get(cfg.key) || [];
+                return (
+                  <Card key={cfg.key} className="overflow-hidden border-subtle bg-card">
+                    <CardHeader className={`pb-2 ${cfg.variant === "danger" ? "bg-rose-50/60" : "bg-amber-50/60"}`}><CardTitle className="flex items-center gap-2 text-base">{cfg.label}<span className="inline-flex min-w-7 items-center justify-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-semibold text-slate-700">{list.length}</span></CardTitle></CardHeader>
+                    <CardContent className="space-y-2 p-3">
+                      {list.length === 0 && <p className="text-sm text-slate-500">Sem itens neste grupo.</p>}
+                      {list.map((item, idx) => (
+                        <div key={`${item.id}-${idx}`} className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+                          <div className="flex flex-wrap items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1 space-y-2">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />
+                                {item.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">Sem vínculo</span> : null}
+                                <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{resolveLicencaTipo(item.tipo).label}</span>
+                                {item?.licence_field === "alvara_funcionamento" ? (
+                                  <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                    {formatAlvaraKindLabel(item?.alvara_funcionamento_kind)}
+                                  </span>
+                                ) : null}
+                                <StatusBadge status={formatStatusWithDate(item)} />
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
+                                <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1" data-testid="licencas-score-urgencia">Score: {Number.isFinite(item?.score_urgencia) ? item.score_urgencia : "—"} <ScoreLegendInfo /></span>
+                                <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1" data-testid="licencas-score-risk">Risco: {formatScoreRiskLabel(item?.risco_consolidado)}</span>
+                                <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1" data-testid="licencas-score-status">Status score: {formatScoreStatusLabel(item?.score_status)}</span>
+                                <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-1">Município: {item?.municipio || "—"}</span>
+                              </div>
+                            </div>
+                            <div className="flex shrink-0 items-center gap-2">
+                              <Button size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50" onClick={() => setDrawerItem(item)}>Detalhes</Button>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild><Button size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50">Ações <ChevronDown className="ml-1 h-3.5 w-3.5" /></Button></DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56"><DropdownMenuItem onClick={() => enqueueToast?.("Processo iniciado (atalho).")}>Iniciar processo</DropdownMenuItem><DropdownMenuItem onClick={() => enqueueToast?.("Contato registrado (atalho).")}>Registrar contato</DropdownMenuItem>{item?.cnpj && handleCopy ? <DropdownMenuItem onClick={() => handleCopy(item.cnpj, `CNPJ copiado: ${item.cnpj}`)}>Copiar CNPJ</DropdownMenuItem> : null}</DropdownMenuContent>
+                              </DropdownMenu>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+          {view === "matriz" && (
+            matrixViewMode === "table" ? (
+              <Card className="ec-licence-matrix-card">
+                <CardContent className="p-5">
+                  <div className="ec-licence-matrix-head">
+                    <small>Matriz</small>
+                    <h3>Licenças por empresa</h3>
+                  </div>
+                  <div className="ec-licence-matrix-wrap">
+                    <ScrollArea className="h-[calc(100dvh-24rem)] w-full">
+                      <table className="ec-licence-matrix-table">
+                        <thead className="sticky top-0 z-10 bg-white">
+                          <tr>
+                            <th>Empresa</th>
+                            <th>Município</th>
+                            {MATRIX_TIPOS.map((tipo) => <th key={tipo.key}>{tipo.label}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {empresasMatriz.map((emp) => (
+                            <tr key={emp.key}>
+                              <td className="ec-licence-matrix-company">
+                                <div className="flex items-center gap-2">
+                                  <span>{emp.empresa}</span>
+                                  {emp.sem_vinculo ? <span className="ec-licence-matrix-tag">Sem vínculo</span> : null}
+                                </div>
+                              </td>
+                              <td>{emp.municipio || "—"}</td>
+                              {MATRIX_TIPOS.map((tipo) => {
+                                const cell = emp.byTipo[tipo.key];
+                                return (
+                                  <td key={`${emp.key}-${tipo.key}`}>
+                                    {cell ? (
+                                      <button
+                                        type="button"
+                                        className="ec-licence-matrix-status"
+                                        onClick={() => setDrawerItem(cell)}
+                                      >
+                                        <StatusBadge status={formatMatrixStatus(cell)} className="ec-chip-square" />
+                                      </button>
+                                    ) : (
+                                      <span className="ec-licence-matrix-empty">Sem vínculo</span>
+                                    )}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </ScrollArea>
+                  </div>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                {matrizCards.map((empresa) => (
+                  <Card key={empresa.key} className="overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
+                    <CardContent className="space-y-3 p-4">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2"><p className="text-sm font-semibold text-slate-900">{empresa.empresa}</p>{empresa.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Sem vínculo</span> : null}</div>
+                        <p className="text-xs text-slate-500">{empresa.cnpj || "—"} {empresa.municipio ? `• ${empresa.municipio}` : ""}</p>
+                      </div>
+                      <div className="grid gap-2">
+                        {TIPOS.map((tipo) => {
+                          const item = empresa.byTipo[tipo.key];
+                          return (
+                            <button key={`${empresa.key}-${tipo.key}`} type="button" className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition hover:border-slate-300 hover:bg-white" onClick={() => item ? setDrawerItem(item) : enqueueToast?.("Sem registro para edição neste tipo.")}>
+                              <span className="text-xs font-medium text-slate-600">{tipo.label}</span>
+                              {item ? <StatusBadge status={formatStatusWithDate(item)} /> : <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">Sem vínculo</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )
+          )}
+
+          {view === "tipos" && (
+            <div className="space-y-3">
+              <div className="grid gap-3 md:grid-cols-5">
+                {kpis.map((kpi) => (
+                  <button key={kpi.key} type="button" onClick={() => setKpiFilter((current) => (current === kpi.key ? "todos" : kpi.key))} className={`rounded-xl border p-3 text-left transition ${kpiFilter === kpi.key ? "border-slate-400 bg-slate-100 text-slate-900" : "border-slate-200 bg-white text-slate-900 hover:border-slate-300"}`}>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{kpi.label}</div><div className="mt-1 text-2xl font-semibold">{kpi.value}</div>
+                  </button>
+                ))}
+              </div>
+              <Card className="overflow-hidden border-subtle bg-card">
+                <CardHeader><CardTitle>Tabela por tipo</CardTitle></CardHeader>
+                <CardContent className="p-0">
+                  <ScrollArea className="h-[560px]">
+                    <Table>
+                      <TableHeader className="sticky top-0 z-20 bg-slate-100/95 backdrop-blur"><TableRow><TableHead>Empresa</TableHead><TableHead>Tipo</TableHead><TableHead>Status</TableHead><TableHead>Vencimento</TableHead><TableHead>Município</TableHead><TableHead>Score</TableHead><TableHead>Risco</TableHead><TableHead>Status score</TableHead></TableRow></TableHeader>
+                      <TableBody>
+                        {sortedFiltered.map((item, idx) => (
+                          <TableRow key={`${item.id}-${idx}`}>
+                            <TableCell><div className="flex items-center gap-2"><CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />{item.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">Sem vínculo</span> : null}</div></TableCell>
+                            <TableCell>
+                              <div className="flex flex-wrap items-center gap-1">
+                                <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{resolveLicencaTipo(item.tipo).label}</span>
+                                {item?.licence_field === "alvara_funcionamento" ? (
+                                  <span className="inline-flex items-center rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-700">
+                                    {formatAlvaraKindLabel(item?.alvara_funcionamento_kind)}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </TableCell>
+                            <TableCell><StatusBadge status={item.status_label} /></TableCell>
+                            <TableCell>{item.validade_br_display || "—"}</TableCell>
+                            <TableCell>{item.municipio || "—"}</TableCell>
+                            <TableCell>{Number.isFinite(item?.score_urgencia) ? item.score_urgencia : "—"}</TableCell>
+                            <TableCell><span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700" data-testid="licencas-score-risk">{formatScoreRiskLabel(item?.risco_consolidado)}</span></TableCell>
+                            <TableCell><span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs text-slate-700" data-testid="licencas-score-status">{formatScoreStatusLabel(item?.score_status)}</span></TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </section>
+      </div>
+
+
+      <SideDrawer
+        open={openRailMobile}
+        onClose={() => setOpenRailMobile(false)}
+        subtitle="Licenças"
+        title="Rail de filtros"
+      >
+        {rail}
+      </SideDrawer>
 
       <EditDrawer
         open={Boolean(drawerItem)}
@@ -1257,3 +1652,8 @@ export default function LicencasScreen({
     </div>
   );
 }
+
+
+
+
+

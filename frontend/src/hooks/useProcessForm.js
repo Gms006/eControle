@@ -100,6 +100,29 @@ export const TAX_STATUS_OPTION_ITEMS = TAX_STATUS_OPTIONS.map((value) => ({
 
 const EMPTY_MODAL = { open: false, mode: "create", processId: null };
 
+const PROCESS_TYPE_CANONICAL_MAP = {
+  USO_SOLO: "USO_DO_SOLO",
+  CERTIDAO_USO_SOLO: "USO_DO_SOLO",
+  CERTIDAO_DE_USO_DO_SOLO: "USO_DO_SOLO",
+  AMBIENTAL: "LICENCA_AMBIENTAL",
+  LICENCA_AMBIENTE: "LICENCA_AMBIENTAL",
+  ALVARA_VIG_SANITARIA: "ALVARA_SANITARIO",
+};
+
+const AMBIENTAL_OPERACOES_VALIDAS = new Set([
+  "dispensa_ambiental",
+  "licenca_ambiental",
+]);
+
+function normalizeProcessType(value) {
+  const key = String(value || "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_");
+  if (!key) return "DIVERSOS";
+  return PROCESS_TYPE_CANONICAL_MAP[key] || key;
+}
+
 function normalizeEnumOptions(items) {
   if (!Array.isArray(items)) return [];
   return items
@@ -246,7 +269,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
       if (mode === "edit" && processId) {
         cerconCreateSeedRef.current = "";
         const data = await apiJson(`/api/v1/processos/${processId}`);
-        const processType = data?.process_type || "DIVERSOS";
+        const processType = normalizeProcessType(data?.process_type);
         let extra = data?.extra || {};
 
         if (processType === "CERCON" && data?.company_id) {
@@ -403,6 +426,13 @@ export function useProcessForm({ apiJson, onRefresh }) {
         throw new Error("Protocolo obrigatório");
       }
 
+      if (form.process_type === "LICENCA_AMBIENTAL") {
+        const operacaoAmbiental = String(form.extra?.operacao || "").trim();
+        if (!AMBIENTAL_OPERACOES_VALIDAS.has(operacaoAmbiental)) {
+          throw new Error("Selecione uma operação ambiental válida.");
+        }
+      }
+
       const nextExtra = { ...(form.extra || {}) };
       const cerconTaxPatch = {};
       const cerconTaxRawPatch = {};
@@ -455,7 +485,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
       }
 
       const basePayload = {
-        process_type: form.process_type,
+        process_type: normalizeProcessType(form.process_type),
         protocolo: form.protocolo,
         municipio: normalizeMunicipio(form.municipio) || null,
         data_solicitacao: toCanonicalIsoDate(form.data_solicitacao) || null,
