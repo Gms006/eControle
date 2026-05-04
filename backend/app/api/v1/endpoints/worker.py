@@ -10,12 +10,152 @@ from app.db.session import get_db
 from app.models.org import Org
 from app.models.licence_scan_run import LicenceScanRun
 from app.models.notification_operational_scan_run import NotificationOperationalScanRun
+from app.models.notification_event import NotificationEvent
 from app.models.receitaws_bulk_sync_run import ReceitaWSBulkSyncRun
 from app.models.tax_portal_sync_run import TaxPortalSyncRun
 from app.schemas.worker import WorkerHealthResponse, WorkerJobStatusResponse
 
 
 router = APIRouter(prefix="/worker", tags=["worker"])
+
+
+def _safe_iso(value):
+    if value is None:
+        return None
+    try:
+        return value.isoformat()
+    except Exception:
+        return None
+
+
+@router.get("/snapshot")
+def worker_snapshot(
+    db: Session = Depends(get_db),
+    org: Org = Depends(get_current_org),
+    _user=Depends(require_roles("ADMIN", "DEV", "VIEW")),
+) -> dict:
+    receitaws_runs = (
+        db.query(ReceitaWSBulkSyncRun)
+        .filter(ReceitaWSBulkSyncRun.org_id == org.id)
+        .order_by(ReceitaWSBulkSyncRun.started_at.desc())
+        .limit(20)
+        .all()
+    )
+    licence_runs = (
+        db.query(LicenceScanRun)
+        .filter(LicenceScanRun.org_id == org.id)
+        .order_by(LicenceScanRun.started_at.desc())
+        .limit(20)
+        .all()
+    )
+    tax_runs = (
+        db.query(TaxPortalSyncRun)
+        .filter(TaxPortalSyncRun.org_id == org.id)
+        .order_by(TaxPortalSyncRun.started_at.desc())
+        .limit(20)
+        .all()
+    )
+    notification_runs = (
+        db.query(NotificationOperationalScanRun)
+        .filter(NotificationOperationalScanRun.org_id == org.id)
+        .order_by(NotificationOperationalScanRun.started_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    jobs = []
+    for run in receitaws_runs:
+        jobs.append(
+            {
+                "job_id": run.id,
+                "job_type": "receitaws_bulk_sync",
+                "status": run.status,
+                "total": int(run.total or 0),
+                "processed": int(run.processed or 0),
+                "ok_count": int(run.ok_count or 0),
+                "error_count": int(run.error_count or 0),
+                "skipped_count": int(run.skipped_count or 0),
+                "started_at": _safe_iso(run.started_at),
+                "finished_at": _safe_iso(run.finished_at),
+                "created_at": _safe_iso(run.started_at),
+            }
+        )
+    for run in licence_runs:
+        jobs.append(
+            {
+                "job_id": run.id,
+                "job_type": "licence_scan_full",
+                "status": run.status,
+                "total": int(run.total or 0),
+                "processed": int(run.processed or 0),
+                "ok_count": int(run.ok_count or 0),
+                "error_count": int(run.error_count or 0),
+                "skipped_count": 0,
+                "started_at": _safe_iso(run.started_at),
+                "finished_at": _safe_iso(run.finished_at),
+                "created_at": _safe_iso(run.created_at),
+            }
+        )
+    for run in tax_runs:
+        jobs.append(
+            {
+                "job_id": run.id,
+                "job_type": "tax_portal_sync",
+                "status": run.status,
+                "total": int(run.total or 0),
+                "processed": int(run.processed or 0),
+                "ok_count": int(run.ok_count or 0),
+                "error_count": int(run.error_count or 0),
+                "skipped_count": int(run.skipped_count or 0),
+                "started_at": _safe_iso(run.started_at),
+                "finished_at": _safe_iso(run.finished_at),
+                "created_at": _safe_iso(run.created_at),
+            }
+        )
+    for run in notification_runs:
+        jobs.append(
+            {
+                "job_id": run.id,
+                "job_type": "notification_operational_scan",
+                "status": run.status,
+                "total": int(run.total or 0),
+                "processed": int(run.processed or 0),
+                "ok_count": int(run.emitted_count or 0),
+                "error_count": int(run.error_count or 0),
+                "skipped_count": int(run.deduped_count or 0),
+                "started_at": _safe_iso(run.started_at),
+                "finished_at": _safe_iso(run.finished_at),
+                "created_at": _safe_iso(run.started_at),
+            }
+        )
+
+    jobs.sort(key=lambda item: item.get("started_at") or item.get("created_at") or "", reverse=True)
+
+    audit_rows = (
+        db.query(NotificationEvent)
+        .filter(
+            NotificationEvent.org_id == org.id,
+            NotificationEvent.event_type.like("job.%"),
+        )
+        .order_by(NotificationEvent.created_at.desc())
+        .limit(40)
+        .all()
+    )
+    audit = [
+        {
+            "id": row.id,
+            "when": _safe_iso(row.created_at),
+            "severity": row.severity,
+            "event_type": row.event_type,
+            "title": row.title,
+            "message": row.message,
+            "entity_type": row.entity_type,
+            "entity_id": row.entity_id,
+        }
+        for row in audit_rows
+    ]
+
+    return {"jobs": jobs[:40], "audit": audit}
 
 
 @router.get("/health", response_model=WorkerHealthResponse)

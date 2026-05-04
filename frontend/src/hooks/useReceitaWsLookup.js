@@ -7,11 +7,19 @@ import {
 } from "@/lib/normalization";
 import { maskPhone, normalizeDigits, normalizePorteSigla } from "@/lib/masks";
 
+function normalizeTradeName(value) {
+  const text = normalizeTitleCase(value || "");
+  if (!text) return "";
+  const compact = String(text).replace(/\s+/g, "");
+  if (compact && /^\*+$/.test(compact)) return "";
+  return text;
+}
+
 export function mergeReceitaWsIntoCompanyForm(prev, data) {
   return {
     ...prev,
     razao_social: normalizeTitleCase(data?.razao_social || prev.razao_social),
-    nome_fantasia: normalizeTitleCase(data?.nome_fantasia || prev.nome_fantasia),
+    nome_fantasia: normalizeTradeName(data?.nome_fantasia),
     porte: normalizePorteSigla(data?.porte || prev.porte),
     municipio: formatMunicipioDisplay(data?.municipio_padrao || data?.municipio || prev.municipio),
     uf: data?.uf || prev.uf,
@@ -123,6 +131,9 @@ export function useReceitaWsLookup({ apiJson }) {
         } else if (raw.includes("504") || raw.includes("Timeout")) {
           message =
             "Tempo esgotado. Resolva o captcha dentro de 5 minutos e tente novamente.";
+        } else if (raw.includes("502") || raw.includes("Bad Gateway")) {
+          message =
+            "Falha na consulta direta da RFB. Tente novamente e, se persistir, verifique os logs em backend/logs/rfb_agent (reinicie o agente RFB após atualizar).";
         } else if (!message) {
           message = "Falha ao consultar a Receita Federal. Tente novamente.";
         }

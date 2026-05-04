@@ -26,6 +26,10 @@ import {
   Settings,
   ShieldCheck,
   X,
+  BriefcaseBusiness,
+  Receipt,
+  FolderKanban,
+  Building2,
 } from "lucide-react";
 import { formatProcessDate, getDiversosOperacaoLabel, getProcessBaseType, normalizeProcessType } from "@/lib/process";
 import { formatCanonicalLabel, normalizeIdentifier, normalizeText, removeDiacritics } from "@/lib/text";
@@ -41,10 +45,10 @@ import { getProcessUrgency, URGENCY_BUCKETS } from "@/lib/processUrgency";
 
 const PROCESS_SUBNAV_ITEMS = [
   { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: Clipboard },
+  { key: "empresas", label: "Empresas", icon: Building2 },
   { key: "licencas", label: "Licenças", icon: ScrollText },
-  { key: "taxas", label: "Taxas", icon: FileText },
-  { key: "processos", label: "Processos", icon: Settings },
+  { key: "taxas", label: "Taxas", icon: Receipt },
+  { key: "processos", label: "Processos", icon: FolderKanban },
   { key: "certificados", label: "Certificados", icon: ShieldCheck },
 ];
 
@@ -350,7 +354,7 @@ export default function ProcessosScreen({
   const [selectedTipo, setSelectedTipo] = useState("TODOS");
   const [queueMode, setQueueMode] = useState("all");
   const [selectedUrgencyBucket, setSelectedUrgencyBucket] = useState("all");
-  const [companyStatusFilters, setCompanyStatusFilters] = useState(["Ativas"]);
+  const [companyStatusFilters, setCompanyStatusFilters] = useState(["Ativas", "Sem vínculo"]);
   const [riskFilters, setRiskFilters] = useState(["high", "medium", "low", "unmapped"]);
   const [certFilters, setCertFilters] = useState(["vencendo", "vencido", "valido", "sem_certificado"]);
   const [municipioFilters, setMunicipioFilters] = useState([]);
@@ -522,7 +526,8 @@ export default function ProcessosScreen({
         (companyId && companyIndex.byId.get(companyId)) ||
         (cnpjKey && companyIndex.byCnpj.get(cnpjKey)) ||
         null;
-      const companyStatus = getCompanyStatusKey(company);
+      const isSemVinculo = Boolean(proc?.sem_vinculo) || (!company && !companyId);
+      const companyStatus = isSemVinculo ? "Sem vínculo" : getCompanyStatusKey(company);
       const companyRisk = getCompanyRiskKey(company);
       const certSituacao = company ? resolveEmpresaCertificadoSituacao(company, certificadoIndex) : company?.certificado;
       const certBucket = getCertBucketKey(certSituacao || company?.certificado);
@@ -694,7 +699,11 @@ export default function ProcessosScreen({
 
   const railActiveCount = useMemo(() => {
     let count = 0;
-    if (!(companyStatusFilters.length === 1 && companyStatusFilters[0] === "Ativas")) count += 1;
+    if (
+      !(companyStatusFilters.length === 2 &&
+        companyStatusFilters.includes("Ativas") &&
+        companyStatusFilters.includes("Sem vínculo"))
+    ) count += 1;
     if (riskFilters.length !== RISK_OPTIONS.length) count += 1;
     if (certFilters.length !== CERT_OPTIONS.length) count += 1;
     if (municipioFilters.length > 0) count += 1;
@@ -762,7 +771,7 @@ export default function ProcessosScreen({
   };
 
   const clearRailFilters = () => {
-    setCompanyStatusFilters(["Ativas"]);
+    setCompanyStatusFilters(["Ativas", "Sem vínculo"]);
     setRiskFilters(RISK_OPTIONS.map((item) => item.key));
     setCertFilters(CERT_OPTIONS.map((item) => item.key));
     setMunicipioFilters([]);
@@ -810,7 +819,7 @@ export default function ProcessosScreen({
 
               <RailFilterBlock label="Status da empresa">
                 <div className="flex flex-wrap gap-2">
-                  {["Ativas", "Inativas", "Todas"].map((option) => (
+                  {["Ativas", "Sem vínculo", "Inativas", "Todas"].map((option) => (
                     <button
                       key={option}
                       type="button"

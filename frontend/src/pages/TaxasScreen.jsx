@@ -29,6 +29,7 @@ import {
   ScrollText,
   Search,
   ShieldCheck,
+  Building2,
 } from "lucide-react";
 import {
   formatTaxOpenStatus,
@@ -71,24 +72,24 @@ const TAX_SORT_OPTIONS = [
   { value: "empresa_asc", label: "Empresa (A-Z)" },
   { value: "empresa_desc", label: "Empresa (Z-A)" },
   { value: "status_asc", label: "Status (A-Z)" },
-  { value: "vencimento_asc", label: "Vencimento (mais pr\u00F3ximo)" },
+  { value: "vencimento_asc", label: "Vencimento (mais próximo)" },
   { value: "vencimento_desc", label: "Vencimento (mais distante)" },
-  { value: "envio_desc", label: "\u00DAltimo envio (mais recente)" },
+  { value: "envio_desc", label: "Último envio (mais recente)" },
 ];
 
 const TAX_EMPRESA_SORT_OPTIONS = [
   { value: "empresa", label: "Empresa", defaultDir: "asc" },
-  { value: "municipio", label: "Munic\u00EDpio", defaultDir: "asc" },
+  { value: "municipio", label: "Município", defaultDir: "asc" },
   { value: "status_geral", label: "Status geral", defaultDir: "asc" },
-  { value: "data_envio", label: "\u00DAltimo envio", defaultDir: "desc" },
+  { value: "data_envio", label: "Último envio", defaultDir: "desc" },
 ];
 
 const TAX_LINE_ITEMS = [
   { key: "func", label: "FUNC", cardLabel: "Funcionamento" },
   { key: "publicidade", label: "PUB", cardLabel: "Publicidade" },
-  { key: "sanitaria", label: "SAN", cardLabel: "Vig. Sanit\u00E1ria" },
-  { key: "localizacao_instalacao", label: "LOC", cardLabel: "Localiza\u00E7\u00E3o" },
-  { key: "area_publica", label: "\u00C1REA", cardLabel: "\u00C1rea p\u00FAblica" },
+  { key: "sanitaria", label: "SAN", cardLabel: "Vig. Sanitária" },
+  { key: "localizacao_instalacao", label: "LOC", cardLabel: "Localização" },
+  { key: "area_publica", label: "ÁREA", cardLabel: "Área pública" },
   { key: "bombeiros", label: "BOMB", cardLabel: "Bombeiros" },
   { key: "tpi", label: "TPI", cardLabel: "TPI", getVencimento: (taxa) => getVencimentoTpi(taxa) },
 ];
@@ -106,8 +107,8 @@ const TAX_STATUS_FIELD_BY_LINE_KEY = {
 
 const TAXAS_SUBNAV_ITEMS = [
   { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: BriefcaseBusiness },
-  { key: "licencas", label: "Licen\u00E7as", icon: ScrollText },
+  { key: "empresas", label: "Empresas", icon: Building2 },
+  { key: "licencas", label: "Licenças", icon: ScrollText },
   { key: "taxas", label: "Taxas", icon: Receipt },
   { key: "processos", label: "Processos", icon: FolderKanban },
   { key: "certificados", label: "Certificados", icon: ShieldCheck },
@@ -523,14 +524,14 @@ function MatrixCompanyCell({ taxa, handleCopy, onEdit }) {
             {taxa.cnpj && handleCopy ? (
               <CopyableIdentifier label="CNPJ" value={taxa.cnpj} onCopy={handleCopy} />
             ) : null}
-            <span>{taxa.municipio || "\u2014"}</span>
+            <span>{taxa.municipio || "—"}</span>
           </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             <span className="inline-flex rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-[11px] font-medium text-slate-600">
-              {`\u00DAltimo envio: ${envio.date || "\u2014"}`}
+              {`Último envio: ${envio.date || "—"}`}
             </span>
             <span className="inline-flex rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600">
-              {envio.methodLabel || "Sem m\u00E9todo"}
+              {envio.methodLabel || "Sem método"}
             </span>
             {vencimentoTpi ? (
               <span className="inline-flex rounded-md border border-indigo-200 bg-indigo-50 px-2 py-1 text-[11px] font-medium text-indigo-700">
@@ -902,7 +903,7 @@ function TaxasScreen({
 
   const activeFilterChips = useMemo(() => {
     const chips = [];
-    if (municipio && municipio !== "Todos") chips.push(`Munic\u00EDpio: ${municipio}`);
+    if (municipio && municipio !== "Todos") chips.push(`Município: ${municipio}`);
     if (query.trim()) chips.push(`Busca global: ${query.trim()}`);
     if (alertFilterActive) chips.push("Somente alertas");
     if (modoFoco) chips.push("Modo foco");
@@ -1165,7 +1166,7 @@ function TaxasScreen({
           <SummaryCard label="Total de registros" value={resumoCards.total} cardKey="total" />
           <SummaryCard label="Em dia" value={resumoCards.em_dia} cardKey="em_dia" />
           <SummaryCard label="Pendentes" value={resumoCards.pendente} cardKey="pendente" />
-          <SummaryCard label="Irregulares" value={resumoCards.irregular} cardKey="irregular" helper="A\u00E7\u00E3o necess\u00E1ria" />
+          <SummaryCard label="Irregulares" value={resumoCards.irregular} cardKey="irregular" helper="Ação necessária" />
         </div>
 
         <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
@@ -1218,7 +1219,7 @@ function TaxasScreen({
                 }}
               >
                 <SelectTrigger className="h-11 min-w-[220px] rounded-xl border-slate-200 bg-white">
-                  <SelectValue placeholder="Ordena\u00E7\u00E3o" />
+                  <SelectValue placeholder="Ordenação" />
                 </SelectTrigger>
                 <SelectContent>
                   {TAX_EMPRESA_SORT_OPTIONS.flatMap((option) => [

@@ -31,6 +31,7 @@ from app.models.user import User
 from app.schemas.auth import PasswordConfirmRequest
 from app.schemas.company import CompanyCreate, CompanyOut, CompanyUpdate, enrich_company_with_profile
 from app.schemas.company_overview import CompanyOverviewResponse
+from app.services.sanitary_complexity_anapolis import infer_sanitary_complexity_from_cnaes
 from app.services.company_overview import build_company_overview
 from app.services.company_scoring import recalculate_company_score
 
@@ -367,6 +368,12 @@ def update_company(
             elif key == "responsavel_fiscal":
                 value = normalize_title_case(value)
             setattr(profile, key, value)
+        inferred_sanitary_complexity = infer_sanitary_complexity_from_cnaes(
+            profile.cnaes_principal,
+            profile.cnaes_secundarios,
+        )
+        if inferred_sanitary_complexity:
+            sanitary_complexity = inferred_sanitary_complexity
         _sync_profile_regulatory_fields(
             profile,
             mei=mei,

@@ -96,6 +96,7 @@ export default function HeaderMenuPro() {
           companyId: detail.companyId || null,
           cnpj: detail.cnpj || null,
           cpf: detail.cpf || null,
+          initialTab: detail.initialTab || null,
         })
         .catch((error) => alert(error?.message || "Falha ao abrir edição da empresa."));
     };
@@ -153,7 +154,7 @@ export default function HeaderMenuPro() {
             <Button
               size="sm"
               title="Criar novo"
-              className="border border-certhub-navy/30 bg-certhub-navy text-xs text-white hover:bg-opacity-90"
+              className="rounded-lg border border-certhub-navy/30 bg-certhub-navy text-xs text-white hover:bg-opacity-90"
             >
               + Novo
             </Button>

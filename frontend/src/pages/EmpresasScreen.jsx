@@ -10,7 +10,7 @@ import ExportModal from "@/components/ExportModal";
 import CompanyAvatar from "@/components/common/CompanyAvatar";
 import CopyableIdentifier from "@/components/CopyableIdentifier";
 import CopyableCompanyName from "@/components/CopyableCompanyName";
-import { ArrowUpDown, Building2, ChevronDown, ChevronRight, CircleAlert, CircleCheckBig, CircleX, Clipboard, ExternalLink, File, FileSpreadsheet, FileText, Hash, LayoutGrid, Logs, Mail, MapPin, PencilLine, Phone, ShieldAlert, SlidersHorizontal, TrendingUp } from "lucide-react";
+import { ArrowUpDown, Building2, ChevronDown, ChevronRight, CircleAlert, CircleCheckBig, CircleX, Clipboard, ExternalLink, File, FileSpreadsheet, FileText, FolderKanban, Hash, LayoutDashboard, LayoutGrid, Logs, Mail, MapPin, PencilLine, Phone, Receipt, ScrollText, ShieldAlert, ShieldCheck, SlidersHorizontal, TrendingUp, X } from "lucide-react";
 import { TAXA_TYPE_KEYS } from "@/lib/constants";
 import { buildCertificadoIndex, categorizeCertificadoSituacao, resolveEmpresaCertificadoSituacao } from "@/lib/certificados";
 import { parseDateLike } from "@/lib/date";
@@ -30,6 +30,14 @@ const BASE_SORT_OPTIONS = [
   { value: "nome", label: "Empresa" },
   { value: "status", label: "Status" },
   { value: "risco", label: "Risco" },
+];
+const SUBNAV_ITEMS = [
+  { key: "painel", label: "Painel", icon: LayoutDashboard },
+  { key: "empresas", label: "Empresas", icon: Building2 },
+  { key: "licencas", label: "Licenças", icon: ScrollText },
+  { key: "taxas", label: "Taxas", icon: Receipt },
+  { key: "processos", label: "Processos", icon: FolderKanban },
+  { key: "certificados", label: "Certificados", icon: ShieldCheck },
 ];
 const resolveApiBaseUrl = () => {
   const fromEnv = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
@@ -257,6 +265,8 @@ export default function EmpresasScreen({
   processosByEmpresa,
   handleCopy,
   enqueueToast,
+  activeTab = "empresas",
+  onTabChange,
 }) {
   const toast = (msg) => enqueueToast?.(msg);
 
@@ -532,14 +542,14 @@ export default function EmpresasScreen({
 
   const activeFilterBadges = React.useMemo(() => {
     const list = [];
-    if (statusFilter !== "ativas") list.push({ key: "status", label: `Status: ${statusFilter}` });
-    if (riskFilters.length !== ALL_RISK_FILTERS.length) list.push({ key: "risco", label: `Risco: ${riskFilters.length}` });
-    if (certFilters.length !== ALL_CERT_FILTERS.length) list.push({ key: "cert", label: `Certificado: ${certFilters.length}` });
-    if (municipioFilters.length > 0) list.push({ key: "municipio", label: `Município: ${municipioFilters.length}` });
-    if (porteFilters.length > 0) list.push({ key: "porte", label: `Porte: ${porteFilters.length}` });
-    if (responsavelFilters.length > 0) list.push({ key: "responsavel", label: `Responsável fiscal: ${responsavelFilters.length}` });
-    if (urgencyMin > 0 || urgencyMax < 100) list.push({ key: "score", label: `Score: ${urgencyMin}-${urgencyMax}` });
-    if (kpiFilter) list.push({ key: "kpi", label: `KPI: ${kpiFilter}` });
+    if (statusFilter !== "ativas") list.push({ key: "status", label: `Status: ${statusFilter}`, onClear: () => setStatusFilter("ativas") });
+    if (riskFilters.length !== ALL_RISK_FILTERS.length) list.push({ key: "risco", label: `Risco: ${riskFilters.length}`, onClear: () => setRiskFilters([...ALL_RISK_FILTERS]) });
+    if (certFilters.length !== ALL_CERT_FILTERS.length) list.push({ key: "cert", label: `Certificado: ${certFilters.length}`, onClear: () => setCertFilters([...ALL_CERT_FILTERS]) });
+    if (municipioFilters.length > 0) list.push({ key: "municipio", label: `Município: ${municipioFilters.length}`, onClear: () => setMunicípioFilters([]) });
+    if (porteFilters.length > 0) list.push({ key: "porte", label: `Porte: ${porteFilters.length}`, onClear: () => setPorteFilters([]) });
+    if (responsavelFilters.length > 0) list.push({ key: "responsavel", label: `Responsável fiscal: ${responsavelFilters.length}`, onClear: () => setResponsavelFilters([]) });
+    if (urgencyMin > 0 || urgencyMax < 100) list.push({ key: "score", label: `Score: ${urgencyMin}-${urgencyMax}`, onClear: () => { setUrgencyMin(0); setUrgencyMax(100); } });
+    if (kpiFilter) list.push({ key: "kpi", label: `KPI: ${kpiFilter}`, onClear: () => setKpiFilter(null) });
     return list;
   }, [certFilters.length, kpiFilter, municipioFilters.length, porteFilters.length, responsavelFilters.length, riskFilters.length, statusFilter, urgencyMax, urgencyMin]);
 
@@ -581,56 +591,87 @@ export default function EmpresasScreen({
     <div className="space-y-4" data-testid="companies-summary">
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden xl:block">{rail}</div>
-        <section className="space-y-3">
-          <Card className="border-subtle bg-surface">
-            <CardContent className="p-3">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {kpiCards.map((card) => {
-                  const Icon = card.icon;
-                  const iconTone =
-                    card.key === "ativas"
-                      ? "border-emerald-200 bg-emerald-50 text-emerald-600"
-                      : card.key === "riscoAlto"
-                        ? "border-rose-200 bg-rose-50 text-rose-600"
-                        : card.key === "score"
-                          ? "border-amber-200 bg-amber-50 text-amber-600"
-                          : "border-blue-200 bg-blue-50 text-blue-600";
-                  const subtitleTone =
-                    card.key === "riscoAlto"
-                      ? "text-amber-600"
-                      : "text-slate-500";
-                  return (
-                    <div key={card.key} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
-                          <p className="mt-2 text-2xl font-semibold leading-none">{card.value}</p>
-                          <p className={cn("mt-2 text-xs", subtitleTone)}>{card.subtitle}</p>
-                        </div>
-                        <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-xl border", iconTone)}>
-                          <Icon className="h-4 w-4" />
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <section className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              {SUBNAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onTabChange?.(item.key)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                <span className="text-sm text-muted">{filteredRows.length} de {empresas.length} empresas exibidas</span>
-                {soAlertas ? <Chip variant="warning">Modo alertas ativo</Chip> : null}
-              </div>
-              {activeFilterBadges.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {activeFilterBadges.map((badge) => (
-                    <span key={badge.key} className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
-                      {badge.label}
+          <div className="flex flex-wrap items-center gap-2">
+            {activeFilterBadges.map((badge) => (
+              <button
+                key={badge.key}
+                type="button"
+                onClick={badge.onClear}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                title="Remover filtro"
+              >
+                {badge.label}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ))}
+            {activeFilterBadges.length === 0 ? (
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
+                Sem filtros adicionais ativos
+              </span>
+            ) : null}
+            {soAlertas ? <Chip variant="warning">Modo alertas ativo</Chip> : null}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {kpiCards.map((card) => {
+              const Icon = card.icon;
+              const iconTone =
+                card.key === "ativas"
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-600"
+                  : card.key === "riscoAlto"
+                    ? "border-rose-200 bg-rose-50 text-rose-600"
+                    : card.key === "score"
+                      ? "border-amber-200 bg-amber-50 text-amber-600"
+                      : "border-blue-200 bg-blue-50 text-blue-600";
+              const subtitleTone =
+                card.key === "riscoAlto"
+                  ? "text-amber-600"
+                  : "text-slate-500";
+              return (
+                <div key={card.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{card.label}</p>
+                      <p className="mt-2 text-2xl font-semibold leading-none">{card.value}</p>
+                      <p className={cn("mt-2 text-xs", subtitleTone)}>{card.subtitle}</p>
+                    </div>
+                    <span className={cn("inline-flex h-10 w-10 items-center justify-center rounded-xl border", iconTone)}>
+                      <Icon className="h-4 w-4" />
                     </span>
-                  ))}
+                  </div>
                 </div>
-              ) : null}
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <span className="text-sm text-muted">{filteredRows.length} de {empresas.length} empresas exibidas</span>
+          </div>
 
           <Card className="border-subtle bg-card">
             <CardContent className="flex flex-wrap items-center justify-between gap-2 p-3">

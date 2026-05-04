@@ -28,7 +28,7 @@ export default function Sidebar({
   ] as const;
 
   return (
-    <aside className="ec-shell-sidebar hidden w-[264px] shrink-0 p-4 lg:flex lg:flex-col lg:gap-4">
+    <aside className="ec-shell-sidebar hidden w-[264px] shrink-0 overflow-y-auto p-4 lg:flex lg:flex-col lg:gap-4">
       <div className="ec-sidebar-brand">
         <div className="flex items-center gap-3">
           <div className="ec-logo" aria-hidden="true" />

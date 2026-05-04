@@ -1,8 +1,10 @@
 import {
   Building2,
   FileText,
+  FolderKanban,
   LayoutDashboard,
   Receipt,
+  ScrollText,
   Settings,
   ShieldCheck,
   type LucideIcon,
@@ -19,7 +21,8 @@ export type AppTabKey =
   | "certificados"
   | "licencas"
   | "taxas"
-  | "processos";
+  | "processos"
+  | "automacoes";
 
 export type NavItem = {
   key: AppTabKey;
@@ -33,7 +36,7 @@ export const APP_NAV_ITEMS: NavItem[] = [
     key: "painel",
     label: "Painel",
     icon: LayoutDashboard,
-    description: "Vis\u00e3o geral e alertas",
+    description: "Visão geral e alertas",
   },
   {
     key: "empresas",
@@ -43,21 +46,21 @@ export const APP_NAV_ITEMS: NavItem[] = [
   },
   {
     key: "licencas",
-    label: "Licen\u00e7as",
-    icon: FileText,
-    description: "Situa\u00e7\u00e3o por empresa/tipo",
+    label: "Licenças",
+    icon: ScrollText,
+    description: "Situação por empresa/tipo",
   },
   {
     key: "taxas",
     label: "Taxas",
     icon: Receipt,
-    description: "Pend\u00eancias e envios",
+    description: "Pendências e envios",
   },
   {
     key: "processos",
     label: "Processos",
-    icon: Settings,
-    description: "Fluxo e observa\u00e7\u00f5es",
+    icon: FolderKanban,
+    description: "Fluxo e observações",
   },
   {
     key: "certificados",
@@ -70,19 +73,19 @@ export const APP_NAV_ITEMS: NavItem[] = [
 export const TAB_TITLES: Record<AppTabKey, { title: string; subtitle: string }> = {
   painel: {
     title: "Dashboard Operacional",
-    subtitle: "Indicadores de monitoramento e alertas do escrit\u00f3rio.",
+    subtitle: "Indicadores de monitoramento e alertas do escritório.",
   },
   empresas: {
-    title: "Gest\u00e3o de empresas",
-    subtitle: "Empresas monitoradas com a\u00e7\u00f5es r\u00e1pidas e situa\u00e7\u00e3o consolidada.",
+    title: "Gestão de empresas",
+    subtitle: "Empresas monitoradas com ações rápidas e situação consolidada.",
   },
   certificados: {
     title: "Certificados",
-    subtitle: "Validade, situa\u00e7\u00e3o e credenciais vinculadas ao backend.",
+    subtitle: "Validade, situação e credenciais vinculadas ao backend.",
   },
   licencas: {
-    title: "Licen\u00e7as",
-    subtitle: "Acompanhamento por empresa e por tipo de licen\u00e7a.",
+    title: "Licenças",
+    subtitle: "Acompanhamento por empresa e por tipo de licença.",
   },
   taxas: {
     title: "Taxas",
@@ -90,6 +93,10 @@ export const TAB_TITLES: Record<AppTabKey, { title: string; subtitle: string }> 
   },
   processos: {
     title: "Processos",
-    subtitle: "Andamento operacional, filtros e hist\u00f3rico de observa\u00e7\u00f5es.",
+    subtitle: "Andamento operacional, filtros e histórico de observações.",
+  },
+  automacoes: {
+    title: "Automações / Jobs",
+    subtitle: "Operação de jobs, filas, falhas e governança de execução.",
   },
 };

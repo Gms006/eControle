@@ -121,6 +121,31 @@ def test_create_diversos_process_without_registered_company(client):
     assert payload["raw"]["company_razao_social"] == "Empresa Sem Cadastro"
 
 
+def test_create_diversos_process_without_registered_company_accepts_cpf(client):
+    token = _login(client, "admin@example.com", "admin123")
+    headers = {"Authorization": f"Bearer {token}"}
+
+    response = client.post(
+        "/api/v1/processos",
+        headers=headers,
+        json={
+            "process_type": "DIVERSOS",
+            "protocolo": "P-2026-ORFAO-CPF-0001",
+            "situacao": "pendente",
+            "company_cnpj": "123.456.789-09",
+            "company_razao_social": "Pessoa Física Sem Cadastro",
+            "empresa_nao_cadastrada": True,
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["company_id"] is None
+    assert payload["process_type"] == "DIVERSOS"
+    assert payload["raw"]["empresa_nao_cadastrada"] is True
+    assert payload["raw"]["company_cnpj"] == "12345678909"
+    assert payload["raw"]["company_razao_social"] == "Pessoa Física Sem Cadastro"
+
+
 def test_process_without_company_requires_diversos(client):
     token = _login(client, "admin@example.com", "admin123")
     headers = {"Authorization": f"Bearer {token}"}

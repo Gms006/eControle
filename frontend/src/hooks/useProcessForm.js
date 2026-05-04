@@ -270,7 +270,46 @@ export function useProcessForm({ apiJson, onRefresh }) {
         cerconCreateSeedRef.current = "";
         const data = await apiJson(`/api/v1/processos/${processId}`);
         const processType = normalizeProcessType(data?.process_type);
-        let extra = data?.extra || {};
+        const extraFromPayload = data?.extra && typeof data.extra === "object" ? data.extra : {};
+        const rawFromPayload = data?.raw && typeof data.raw === "object" ? data.raw : {};
+        let extra = {
+          ...extraFromPayload,
+          // Backward compatibility: older records may keep these fields outside `extra`.
+          operacao:
+            extraFromPayload?.operacao ??
+            data?.operacao ??
+            rawFromPayload?.operacao ??
+            "",
+          orgao:
+            extraFromPayload?.orgao ??
+            data?.orgao ??
+            rawFromPayload?.orgao ??
+            "",
+          alvara:
+            extraFromPayload?.alvara ??
+            rawFromPayload?.alvara ??
+            "",
+          servico:
+            extraFromPayload?.servico ??
+            rawFromPayload?.servico ??
+            "",
+          notificacao:
+            extraFromPayload?.notificacao ??
+            rawFromPayload?.notificacao ??
+            "",
+          inscricao_imobiliaria:
+            extraFromPayload?.inscricao_imobiliaria ??
+            rawFromPayload?.inscricao_imobiliaria ??
+            "",
+          area_m2:
+            extraFromPayload?.area_m2 ??
+            rawFromPayload?.area_m2 ??
+            "",
+          projeto_aprovado:
+            extraFromPayload?.projeto_aprovado ??
+            rawFromPayload?.projeto_aprovado ??
+            "",
+        };
 
         if (processType === "CERCON" && data?.company_id) {
           const tax = await fetchCompanyTaxByCompanyId(data.company_id);
@@ -415,8 +454,10 @@ export function useProcessForm({ apiJson, onRefresh }) {
       }
 
       if (isUnregistered) {
-        const cnpjDigits = normalizeDigits(form.company_cnpj);
-        if (cnpjDigits.length !== 14) throw new Error("CNPJ da empresa não cadastrada inválido");
+        const companyDocumentDigits = normalizeDigits(form.company_cnpj);
+        if (companyDocumentDigits.length !== 11 && companyDocumentDigits.length !== 14) {
+          throw new Error("CPF/CNPJ da empresa não cadastrada inválido");
+        }
         if (!String(form.company_razao_social || "").trim()) {
           throw new Error("Razão Social da empresa não cadastrada é obrigatória");
         }

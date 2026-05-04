@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 import { CircleX, ExternalLink, Import, Loader2, Trash2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,10 +35,16 @@ const ADDRESS_LOCATION_OPTIONS = [
 
 export default function CompanyDrawer({ state }) {
   const { modal, form, setForm } = state;
+  const cadastroSectionRef = React.useRef(null);
 
   const update = (patch) => setForm((prev) => ({ ...prev, ...patch }));
   const isCpfDocument = form.document_type === "cpf";
   const maskedDocument = isCpfDocument ? maskCpf(form.documento) : maskCnpj(form.documento);
+
+  React.useEffect(() => {
+    if (!modal?.open || modal?.initialTab !== "cadastro") return;
+    cadastroSectionRef.current?.scrollIntoView({ behavior: "auto", block: "start" });
+  }, [modal?.open, modal?.initialTab]);
 
   return (
     <FormSideDrawer
@@ -110,8 +116,8 @@ export default function CompanyDrawer({ state }) {
                 <p className="mt-1 text-xs text-rose-600">{state.lookupError}</p>
               ) : null}
 
-              {/* Botão de fallback RFB — aparece quando ReceitaWS retorna sem dados úteis */}
-              {state.showRfbButton && !isCpfDocument ? (
+              {/* Botão de consulta direta na RFB (sempre disponível para CNPJ) */}
+              {!isCpfDocument ? (
                 <div className="mt-2 flex flex-col gap-1">
                   <div className="flex items-center gap-2">
                     <button
@@ -144,7 +150,9 @@ export default function CompanyDrawer({ state }) {
                       </span>
                     ) : (
                       <span className="text-xs text-slate-400">
-                        Dados não encontrados na ReceitaWS
+                        {state.showRfbButton
+                          ? "Dados não encontrados na ReceitaWS"
+                          : "Consulta direta na RFB (opcional)"}
                       </span>
                     )}
                   </div>
@@ -204,8 +212,9 @@ export default function CompanyDrawer({ state }) {
           </div>
         </SectionCard>
 
-        <SectionCard title="Cadastro" description="Dados cadastrais da empresa">
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+        <div ref={cadastroSectionRef}>
+          <SectionCard title="Cadastro" description="Dados cadastrais da empresa">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             <div>
               <label className="text-xs font-medium">Inscrição Municipal</label>
               <div className="mt-1 flex gap-2">
@@ -282,7 +291,7 @@ export default function CompanyDrawer({ state }) {
               </label>
             </div>
             <div>
-              <label className="text-xs font-medium">Complexidade Sanitária</label>
+              <label className="text-xs font-medium">Complexidade Saniária</label>
               <select
                 aria-label="Complexidade Sanitária"
                 className={FIELD_CLASS}
@@ -333,8 +342,9 @@ export default function CompanyDrawer({ state }) {
                 ))}
               </select>
             </div>
-          </div>
-        </SectionCard>
+            </div>
+          </SectionCard>
+        </div>
 
         <SectionCard title="Contato" description="Responsáveis e canais de contato">
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2">

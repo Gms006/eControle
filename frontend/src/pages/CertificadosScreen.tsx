@@ -1,33 +1,12 @@
-// @ts-nocheck
+﻿// @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, KeyRound, ShieldCheck, ShieldX } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Chip } from "@/components/Chip";
-import InlineBadge from "@/components/InlineBadge";
-import CopyableIdentifier from "@/components/CopyableIdentifier";
+import { Clock, FolderKanban, KeyRound, LayoutGrid, LayoutDashboard, Logs, Receipt, ScrollText, Search, SearchX, ShieldAlert, ShieldCheck, Building2, Filter } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StatCard from "@/components/common/StatCard";
 import { categorizeCertificadoSituacao, isCertificadoSituacaoAlert } from "@/lib/certificados";
-import { formatCnpj, formatCpf, normalizeDocumentDigits } from "@/lib/text";
-import { cn } from "@/lib/utils";
-
-const RUNTIME_CERTHUB_BASE =
-  typeof window !== "undefined" ? (window as any).__ECONTROLE_CERTHUB_BASE_URL : "";
-const RUNTIME_CERTHUB_PATH =
-  typeof window !== "undefined" ? (window as any).__ECONTROLE_CERTHUB_CERTS_PATH : "";
-const CERTHUB_BASE_URL = (import.meta.env.VITE_CERTHUB_BASE_URL || RUNTIME_CERTHUB_BASE || "")
-  .trim()
-  .replace(/\/+$/u, "");
-const CERTHUB_CERTS_PATH = (import.meta.env.VITE_CERTHUB_CERTS_PATH || RUNTIME_CERTHUB_PATH || "/certificados").trim();
+import { formatCnpj, formatCpf, normalizeDocumentDigits, removeDiacritics } from "@/lib/text";
+import type { AppTabKey } from "@/lib/theme";
 
 type CertificadosScreenProps = {
   certificados: any[];
@@ -36,9 +15,36 @@ type CertificadosScreenProps = {
   matchesQuery: (values: any[], fieldMap?: Record<string, any[]>) => boolean;
   handleCopy: (value?: string, message?: string) => Promise<void> | void;
   panelPreset?: { id: number; tab: string; preset?: Record<string, any> | null } | null;
+  activeTab?: AppTabKey;
+  onTabChange?: (tab: AppTabKey) => void;
 };
 
-type ViewMode = "cards" | "table";
+type ViewMode = "table" | "cards";
+type SortDir = "asc" | "desc";
+type StatusKey = "ok" | "warn" | "danger" | "neutral";
+type SortKey = "company_name" | "status" | "not_after" | "not_before";
+
+type CertRow = {
+  id: string;
+  companyName: string;
+  documentMasked: string;
+  issuer: string;
+  notBefore: string;
+  notAfter: string;
+  documentType: string;
+  source: any;
+};
+
+const TAXAS_SUBNAV_ITEMS = [
+  { key: "painel", label: "Painel", icon: LayoutDashboard },
+  { key: "empresas", label: "Empresas", icon: Building2 },
+  { key: "licencas", label: "Licenças", icon: ScrollText },
+  { key: "taxas", label: "Taxas", icon: Receipt },
+  { key: "processos", label: "Processos", icon: FolderKanban },
+  { key: "certificados", label: "Certificados", icon: ShieldCheck },
+] as const;
+
+const STATUS_ORDER: Record<StatusKey, number> = { danger: 0, warn: 1, ok: 2, neutral: 3 };
 
 const formatDateBr = (value: any) => {
   if (!value) return "—";
@@ -50,489 +56,222 @@ const formatDateBr = (value: any) => {
   return new Intl.DateTimeFormat("pt-BR").format(parsed);
 };
 
-const isMaskLike = (value: any) => {
-  const text = String(value || "").trim();
-  if (!text) return false;
-  return /[./-]/.test(text) || text.includes("*");
+const toTimestamp = (value: any) => {
+  const text = String(value ?? "").trim();
+  if (!text) return Number.NaN;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(text)) {
+    const [day, month, year] = text.split("/").map(Number);
+    return new Date(year, month - 1, day).getTime();
+  }
+  return new Date(text).getTime();
 };
 
-const getFormattedDocument = (cert: any) => {
-  const masked =
-    cert?.cnpj ??
-    cert?.cpf ??
-    cert?.document_masked ??
-    cert?.documentMasked ??
-    cert?.raw?.document_masked ??
-    cert?.raw?.document;
-  if (isMaskLike(masked) && String(masked).replace(/\D/g, "").length >= 6) {
-    return String(masked).trim();
-  }
+const normalizeKey = (value: any) => removeDiacritics(String(value ?? "")).toLowerCase().trim();
 
-  const digits = normalizeDocumentDigits(
-    cert?.document_unmasked ??
-      cert?.documentUnmasked ??
-      cert?.raw?.document_unmasked ??
-      cert?.document_digits ??
-      cert?.documentDigits ??
-      cert?.cnpj ??
-      cert?.cpf ??
-      masked,
-  );
+const getFormattedDocument = (cert: any) => {
+  const masked = cert?.cnpj ?? cert?.cpf ?? cert?.document_masked ?? cert?.documentMasked ?? cert?.raw?.document_masked ?? cert?.raw?.document;
+  const digits = normalizeDocumentDigits(cert?.document_unmasked ?? cert?.documentUnmasked ?? cert?.raw?.document_unmasked ?? cert?.document_digits ?? cert?.documentDigits ?? cert?.cnpj ?? cert?.cpf ?? masked);
   if (!digits) return "—";
   if (digits.length === 14) return formatCnpj(digits) || digits;
   if (digits.length === 11) return formatCpf(digits) || digits;
   return masked ? String(masked).trim() : digits;
 };
 
-function CertificadoStatusBadge({ status }: { status: any }) {
-  const raw = String(status || "").trim();
-  const key = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-  let variant: "success" | "warning" | "danger" | "neutral" = "neutral";
-  if (key === "ok" || key.includes("valido")) variant = "success";
-  else if (key.includes("alerta") || key.includes("vence")) variant = "warning";
-  else if (key.includes("vencid")) variant = "danger";
-  return <Chip variant={variant}>{raw || "—"}</Chip>;
+const getStatusMeta = (rawStatus: any, daysLeft: any) => {
+  const category = categorizeCertificadoSituacao(rawStatus);
+  const normalized = normalizeKey(category || rawStatus);
+  if (Number.isFinite(daysLeft)) {
+    const days = Number(daysLeft);
+    if (days < 0) return { key: "danger" as StatusKey, label: "Vencido" };
+    if (days <= 30) return { key: "warn" as StatusKey, label: "Vencendo (30d)" };
+    return { key: "ok" as StatusKey, label: "Válido" };
+  }
+  if (normalized.includes("vencid")) return { key: "danger" as StatusKey, label: "Vencido" };
+  if (normalized.includes("vence") || normalized.includes("alert")) return { key: "warn" as StatusKey, label: "Vencendo (30d)" };
+  if (normalized.includes("valid")) return { key: "ok" as StatusKey, label: "Válido" };
+  return { key: "neutral" as StatusKey, label: String(rawStatus || "Sem status") };
+};
+
+function validityPercent(notBefore: string, notAfter: string): number {
+  const start = toTimestamp(notBefore);
+  const end = toTimestamp(notAfter);
+  if (!Number.isFinite(start) || !Number.isFinite(end) || end <= start) return 0;
+  return Math.max(0, Math.min(100, Math.round(((Date.now() - start) / (end - start)) * 100)));
 }
 
-export default function CertificadosScreen({
-  certificados,
-  modoFoco,
-  matchesMunicipioFilter,
-  matchesQuery,
-  handleCopy,
-  panelPreset,
-}: CertificadosScreenProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>("cards");
-  const [priorityFilter, setPriorityFilter] = useState("all");
-  const [hideExpiredInAll, setHideExpiredInAll] = useState(true);
+const statusClassName = (status: StatusKey) =>
+  status === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-700" :
+  status === "warn" ? "border-amber-200 bg-amber-50 text-amber-700" :
+  status === "danger" ? "border-rose-200 bg-rose-50 text-rose-700" :
+  "border-slate-200 bg-slate-50 text-slate-600";
+
+export default function CertificadosScreen({ certificados, modoFoco, matchesMunicipioFilter, matchesQuery, panelPreset, activeTab = "certificados", onTabChange }: CertificadosScreenProps) {
+  const [viewMode, setViewMode] = useState<ViewMode>("table");
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [issuerFilter, setIssuerFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortKey>("status");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  const [hideExpired, setHideExpired] = useState(true);
 
   const lista = useMemo(() => (Array.isArray(certificados) ? certificados : []), [certificados]);
 
-  const certificadosFiltrados = useMemo(() => {
+  const base = useMemo(() => {
     const filtered = lista.filter((item) => {
       if (!matchesMunicipioFilter(item)) return false;
-      return matchesQuery(
-        [
-          item?.titular,
-          item?.situacao,
-          item?.validoDe,
-          item?.validoAte,
-          item?.senha,
-          item?.empresa,
-          item?.cnpj,
-          item?.cpf,
-          item?.municipio,
-        ],
-        {
-          nome: [item?.titular, item?.empresa],
-          cnpj: [item?.cnpj, item?.titular],
-        },
-      );
+      return matchesQuery([item?.titular, item?.situacao, item?.validoDe, item?.validoAte, item?.empresa, item?.cnpj, item?.cpf, item?.municipio], { nome: [item?.titular, item?.empresa], cnpj: [item?.cnpj, item?.titular] });
     });
-
     return modoFoco ? filtered.filter((item) => isCertificadoSituacaoAlert(item?.situacao)) : filtered;
   }, [lista, matchesMunicipioFilter, matchesQuery, modoFoco]);
 
-  const stats = useMemo(() => {
-    const base = {
-      total: certificadosFiltrados.length,
-      validos: 0,
-      alertas: 0,
-      vencidos: 0,
-      comSenha: 0,
-    };
-    for (const item of certificadosFiltrados) {
-      const categoria = categorizeCertificadoSituacao(item?.situacao);
-      if (categoria === "VÁLIDO") base.validos += 1;
-      if (categoria === "VENCIDO") base.vencidos += 1;
-      if (isCertificadoSituacaoAlert(item?.situacao)) base.alertas += 1;
-      if (String(item?.senha || "").trim()) base.comSenha += 1;
-    }
-    return base;
-  }, [certificadosFiltrados]);
+  const rows = useMemo<CertRow[]>(() => base.map((cert, index) => ({
+    id: String(cert?.id ?? `${cert?.titular ?? "cert"}-${index}`),
+    companyName: String(cert?.empresa ?? cert?.titular ?? "Sem empresa").trim() || "Sem empresa",
+    documentMasked: getFormattedDocument(cert),
+    issuer: String(cert?.issuer_cn ?? cert?.issuerCN ?? cert?.emissor ?? cert?.cert_authority ?? cert?.autoridade_certificadora ?? "Não informado").trim() || "Não informado",
+    notBefore: formatDateBr(cert?.validoDe ?? cert?.not_before),
+    notAfter: formatDateBr(cert?.validoAte ?? cert?.not_after),
+    documentType: String(cert?.document_type ?? cert?.tipo_documento ?? "A1/A3").trim() || "A1/A3",
+    source: cert,
+  })), [base]);
 
-  const certificadosPriorizados = useMemo(() => {
-    if (priorityFilter === "all") {
-      if (!hideExpiredInAll) return certificadosFiltrados;
-      return certificadosFiltrados.filter((item) => {
-        const dias = Number.isFinite(item?.diasRestantes) ? Number(item.diasRestantes) : null;
-        return dias === null || dias >= 0;
-      });
-    }
-    return certificadosFiltrados.filter((item) => {
-      const dias = Number.isFinite(item?.diasRestantes) ? Number(item.diasRestantes) : null;
-      if (dias === null) return false;
-      if (priorityFilter === "expired") return dias < 0;
-      if (priorityFilter === "due7") return dias >= 0 && dias <= 7;
-      if (priorityFilter === "due30") return dias >= 0 && dias <= 30;
+  const issuerOptions = useMemo(() => ["all", ...new Set(rows.map((row) => row.issuer))], [rows]);
+
+  const filteredRows = useMemo(() => {
+    const q = normalizeKey(search);
+    let list = rows.filter((row) => {
+      const st = getStatusMeta(row.source?.situacao, row.source?.diasRestantes);
+      if (q && ![row.companyName, row.documentMasked, row.issuer].some((v) => normalizeKey(v).includes(q))) return false;
+      if (hideExpired && st.key === "danger") return false;
+      if (statusFilter !== "all" && st.key !== statusFilter) return false;
+      if (issuerFilter !== "all" && row.issuer !== issuerFilter) return false;
       return true;
     });
-  }, [certificadosFiltrados, hideExpiredInAll, priorityFilter]);
+    list = [...list].sort((a, b) => {
+      const statusA = getStatusMeta(a.source?.situacao, a.source?.diasRestantes);
+      const statusB = getStatusMeta(b.source?.situacao, b.source?.diasRestantes);
+      let cmp = 0;
+      if (sortBy === "company_name") cmp = a.companyName.localeCompare(b.companyName, "pt-BR", { sensitivity: "base" });
+      else if (sortBy === "status") cmp = (STATUS_ORDER[statusA.key] ?? 9) - (STATUS_ORDER[statusB.key] ?? 9);
+      else if (sortBy === "not_after") cmp = toTimestamp(a.notAfter) - toTimestamp(b.notAfter);
+      else if (sortBy === "not_before") cmp = toTimestamp(a.notBefore) - toTimestamp(b.notBefore);
+      if (!Number.isFinite(cmp)) cmp = 0;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return list;
+  }, [rows, search, hideExpired, statusFilter, issuerFilter, sortBy, sortDir]);
+
+  const stats = useMemo(() => {
+    const statuses = filteredRows.map((row) => getStatusMeta(row.source?.situacao, row.source?.diasRestantes).key);
+    return { total: rows.length, validos: statuses.filter((k) => k === "ok").length, vencendo: statuses.filter((k) => k === "warn").length, vencidos: statuses.filter((k) => k === "danger").length };
+  }, [filteredRows, rows.length]);
+
+  const activeFilterChips = useMemo(() => {
+    const chips: string[] = [];
+    if (search.trim()) chips.push(`Busca: ${search.trim()}`);
+    if (statusFilter !== "all") chips.push(`Status: ${statusFilter === "ok" ? "Válido" : statusFilter === "warn" ? "Vencendo" : "Vencido"}`);
+    if (issuerFilter !== "all") chips.push(`Emissor: ${issuerFilter}`);
+    if (hideExpired) chips.push("Ocultar vencidos");
+    if (sortBy !== "status" || sortDir !== "asc") chips.push(`Ordenação: ${sortBy} (${sortDir.toUpperCase()})`);
+    if (viewMode === "cards") chips.push("Visualização: Cards");
+    return chips;
+  }, [search, statusFilter, issuerFilter, hideExpired, sortBy, sortDir, viewMode]);
 
   useEffect(() => {
     const preset = panelPreset?.preset;
     if (!preset || panelPreset?.tab !== "certificados") return;
-    setPriorityFilter(preset?.group || "all");
     setViewMode("table");
   }, [panelPreset]);
 
-  const ordered = useMemo(
-    () =>
-      [...certificadosPriorizados].sort((a, b) => {
-        const da = Number.isFinite(a?.diasRestantes) ? a.diasRestantes : Number.POSITIVE_INFINITY;
-        const db = Number.isFinite(b?.diasRestantes) ? b.diasRestantes : Number.POSITIVE_INFINITY;
-        if (da !== db) return da - db;
-        return String(a?.titular || "").localeCompare(String(b?.titular || ""), "pt-BR", {
-          sensitivity: "base",
-        });
-      }),
-    [certificadosPriorizados],
-  );
-
-  const handleInstallClick = (cert: any) => {
-    const installKey =
-      cert?.sha1_fingerprint ??
-      cert?.sha1Fingerprint ??
-      cert?.cert_id ??
-      cert?.certId ??
-      cert?.id;
-    if (!CERTHUB_BASE_URL || !installKey) return;
-    const path = CERTHUB_CERTS_PATH.startsWith("/") ? CERTHUB_CERTS_PATH : `/${CERTHUB_CERTS_PATH}`;
-    const url = `${CERTHUB_BASE_URL}${path}?install=${encodeURIComponent(String(installKey))}`;
-    window.open(url, "_blank", "noopener,noreferrer");
-  };
-
-  const canInstall = (cert: any) =>
-    Boolean(
-      CERTHUB_BASE_URL &&
-        (cert?.sha1_fingerprint ?? cert?.sha1Fingerprint ?? cert?.cert_id ?? cert?.certId ?? cert?.id),
-    );
-
   return (
     <div className="space-y-4">
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <StatCard
-          label="Certificados listados"
-          value={stats.total}
-          icon={<ShieldCheck className="h-5 w-5" />}
-          accentClassName="bg-blue-500"
-        />
-        <StatCard
-          label="Válidos"
-          value={stats.validos}
-          icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />}
-          accentClassName="bg-emerald-500"
-        />
-        <StatCard
-          label="Em alerta"
-          value={stats.alertas}
-          icon={<AlertTriangle className="h-5 w-5 text-amber-600" />}
-          accentClassName="bg-amber-500"
-        />
-        <StatCard
-          label="Vencidos"
-          value={stats.vencidos}
-          icon={<ShieldX className="h-5 w-5 text-rose-600" />}
-          accentClassName="bg-rose-500"
-        />
+      <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+        <div className="flex flex-wrap gap-2">
+          {TAXAS_SUBNAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.key;
+            return (
+              <button key={item.key} type="button" onClick={() => onTabChange?.(item.key as AppTabKey)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${isActive ? "border-slate-900 bg-slate-900 text-white" : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"}`}>
+                <Icon className="h-4 w-4" />{item.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <InlineBadge variant="outline" className="bg-white">
-          {modoFoco ? "Modo foco ativo (somente alertas)" : "Todos os certificados"}
-        </InlineBadge>
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-            <Button
-              size="sm"
-              variant={priorityFilter === "all" ? "default" : "ghost"}
-              onClick={() => setPriorityFilter("all")}
-              className="h-8"
-            >
-              Todos
-            </Button>
-            <Button
-              size="sm"
-              variant={priorityFilter === "expired" ? "default" : "ghost"}
-              onClick={() => setPriorityFilter("expired")}
-              className="h-8"
-            >
-              Vencidos
-            </Button>
-            <Button
-              size="sm"
-              variant={priorityFilter === "due7" ? "default" : "ghost"}
-              onClick={() => setPriorityFilter("due7")}
-              className="h-8"
-            >
-              {"<=7 dias"}
-            </Button>
-            <Button
-              size="sm"
-              variant={priorityFilter === "due30" ? "default" : "ghost"}
-              onClick={() => setPriorityFilter("due30")}
-              className="h-8"
-            >
-              {"<=30 dias"}
-            </Button>
-          </div>
-          {priorityFilter === "all" ? (
-            <label className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 shadow-sm">
+      <div className="flex flex-wrap gap-2">
+        {activeFilterChips.map((chip) => <span key={chip} className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">{chip}</span>)}
+        {activeFilterChips.length === 0 ? <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">Sem filtros adicionais ativos</span> : null}
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Total de certificados" value={stats.total} icon={<KeyRound className="h-5 w-5" />} accentClassName="bg-blue-500" />
+        <StatCard label="Válidos" value={stats.validos} icon={<ShieldCheck className="h-5 w-5 text-emerald-600" />} accentClassName="bg-emerald-500" />
+        <StatCard label="Vencendo (30d)" value={stats.vencendo} icon={<Clock className="h-5 w-5 text-amber-600" />} accentClassName="bg-amber-500" hint="Renovar em breve" />
+        <StatCard label="Vencidos" value={stats.vencidos} icon={<ShieldAlert className="h-5 w-5 text-rose-600" />} accentClassName="bg-rose-500" hint="Ação imediata" />
+      </div>
+
+      <div className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+        <div className="overflow-x-auto">
+          <div className="flex min-w-max flex-nowrap items-center gap-2">
+            <div className="relative w-[300px]">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Buscar por empresa, CNPJ, emissor" className="h-10 w-full rounded-lg border border-slate-200 bg-slate-50 pl-9 pr-3 text-sm text-slate-900 outline-none focus:border-blue-300 focus:bg-white" />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="h-10 w-[140px] rounded-lg border-slate-200 bg-white text-sm"><Filter className="h-4 w-4 opacity-50"/><SelectValue placeholder="Status"/></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Status</SelectItem>
+                <SelectItem value="ok">Válido</SelectItem>
+                <SelectItem value="warn">Vencendo (30d)</SelectItem>
+                <SelectItem value="danger">Vencido</SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={issuerFilter} onValueChange={setIssuerFilter}>
+              <SelectTrigger className="h-10 w-[140px] rounded-lg border-slate-200 bg-white text-sm"><Filter className="h-4 w-4 opacity-50"/><SelectValue placeholder="Emissor" /></SelectTrigger>
+              <SelectContent>
+                {issuerOptions.map((issuer) => <SelectItem key={issuer} value={issuer}>{issuer === "all" ? "Emissor" : issuer}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <label className="inline-flex h-10 items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm text-slate-700">
               <input
                 type="checkbox"
-                checked={hideExpiredInAll}
-                onChange={(event) => setHideExpiredInAll(event.target.checked)}
+                checked={hideExpired}
+                onChange={(event) => setHideExpired(event.target.checked)}
                 className="h-4 w-4 rounded border-slate-300"
               />
               Ocultar vencidos
             </label>
-          ) : null}
-          <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white p-1 shadow-sm">
-          <Button
-            size="sm"
-            variant={viewMode === "cards" ? "default" : "ghost"}
-            onClick={() => setViewMode("cards")}
-            className="h-8"
-          >
-            Cards
-          </Button>
-          <Button
-            size="sm"
-            variant={viewMode === "table" ? "default" : "ghost"}
-            onClick={() => setViewMode("table")}
-            className="h-8"
-          >
-            Tabela
-          </Button>
+            <div className="inline-flex h-10 items-center rounded-lg border border-slate-200 bg-white px-2 py-1">
+              <button type="button" onClick={() => setSortDir(sortDir === "asc" ? "desc" : "asc")} className="inline-flex items-center gap-1 text-sm font-medium text-slate-600 hover:text-slate-900">↕ <span>{sortBy === "status" ? "Status (urgência)" : sortBy === "company_name" ? "Empresa" : sortBy === "not_after" ? "Válido até" : "Válido desde"}</span></button>
+              <Select value={sortBy} onValueChange={(v: SortKey) => setSortBy(v)}>
+                <SelectTrigger className="ml-2 h-8 w-0 border-0 p-0 text-transparent shadow-none"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="status">Status (urgência)</SelectItem>
+                  <SelectItem value="company_name">Empresa</SelectItem>
+                  <SelectItem value="not_after">Válido até</SelectItem>
+                  <SelectItem value="not_before">Válido desde</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="ml-auto inline-flex items-center gap-2 pl-2">
+              <span className="text-sm text-slate-600">{filteredRows.length} resultados</span>
+              <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-1">
+                <button type="button" onClick={() => setViewMode("table")} className={`rounded-md p-2 transition ${viewMode === "table" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-100"}`}><Logs className="h-4 w-4" /></button>
+                <button type="button" onClick={() => setViewMode("cards")} className={`rounded-md p-2 transition ${viewMode === "cards" ? "bg-slate-900 text-white" : "bg-white text-slate-700 hover:bg-slate-100"}`}><LayoutGrid className="h-4 w-4" /></button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      {ordered.length === 0 ? (
-        <Card className="border-dashed">
-          <CardContent className="p-6 text-center text-sm text-slate-500">
-            Nenhum certificado encontrado com os filtros atuais.
-          </CardContent>
-        </Card>
-      ) : viewMode === "cards" ? (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {ordered.map((cert, index) => (
-            <CertificadoCard
-              key={cert?.id ?? `${cert?.titular}-${cert?.validoAte}-${index}`}
-              cert={cert}
-              handleCopy={handleCopy}
-              handleInstallClick={handleInstallClick}
-              canInstall={canInstall}
-            />
-          ))}
-        </div>
+      {filteredRows.length === 0 ? (
+        <Card className="border-dashed"><CardContent className="flex items-center justify-center gap-2 p-8 text-sm text-slate-500"><SearchX className="h-5 w-5" />Nenhum certificado encontrado.</CardContent></Card>
+      ) : viewMode === "table" ? (
+        <Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[980px] border-collapse"><thead className="bg-slate-50"><tr><th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Empresa</th><th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">CNPJ</th><th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Emissor</th><th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Válido desde</th><th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Válido até</th><th className="border-b border-slate-200 px-4 py-3 text-left text-xs font-semibold uppercase tracking-[0.08em] text-slate-500">Status</th></tr></thead><tbody>{filteredRows.map((row) => { const st = getStatusMeta(row.source?.situacao, row.source?.diasRestantes); return (<tr key={row.id} className="hover:bg-slate-50/70"><td className="border-b border-slate-200 px-4 py-3 text-sm font-semibold text-slate-900">{row.companyName}</td><td className="border-b border-slate-200 px-4 py-3 text-xs font-mono text-slate-700">{row.documentMasked}</td><td className="border-b border-slate-200 px-4 py-3 text-xs text-slate-700">{row.issuer}</td><td className="border-b border-slate-200 px-4 py-3 text-xs font-mono text-slate-700">{row.notBefore}</td><td className="border-b border-slate-200 px-4 py-3 text-xs font-mono text-slate-700">{row.notAfter}</td><td className="border-b border-slate-200 px-4 py-3"><span className={`inline-flex items-center rounded-md border px-2.5 py-1 text-xs font-medium ${statusClassName(st.key)}`}>{st.label}</span></td></tr>); })}</tbody></table></div></Card>
       ) : (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Certificados (dados reais)</CardTitle>
-          </CardHeader>
-          <CardContent className="p-0">
-            <ScrollArea className="h-[520px]">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-slate-50">
-                  <TableRow>
-                    <TableHead>Titular</TableHead>
-                    <TableHead>Situação</TableHead>
-                    <TableHead>Validade</TableHead>
-                    <TableHead>CNPJ/CPF</TableHead>
-                    <TableHead>Dias</TableHead>
-                    <TableHead>Credencial</TableHead>
-                    <TableHead>Ações</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {ordered.map((cert, index) => (
-                    <TableRow key={cert?.id ?? `${cert?.titular}-${index}`}>
-                      <TableCell className="align-top">
-                        <div className="space-y-1">
-                          <div className="font-medium text-slate-900">{cert?.titular || "—"}</div>
-                          <div className="text-xs text-slate-500">
-                            {cert?.empresa || cert?.municipio || "Sem vínculo informado"}
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <CertificadoStatusBadge status={cert?.situacao || "—"} />
-                      </TableCell>
-                      <TableCell className="align-top text-xs text-slate-700">
-                        <div>De: {formatDateBr(cert?.validoDe)}</div>
-                        <div>Até: {formatDateBr(cert?.validoAte)}</div>
-                      </TableCell>
-                      <TableCell className="align-top text-xs text-slate-700">
-                        <div>{getFormattedDocument(cert)}</div>
-                        <div className="text-[11px] text-slate-500">
-                          {(cert?.cpf || cert?.document_type || "").toString().toUpperCase().includes("CPF")
-                            ? "CPF"
-                            : "CNPJ/CPF"}
-                        </div>
-                      </TableCell>
-                      <TableCell className="align-top text-xs">
-                        <span
-                          className={cn(
-                            "font-semibold",
-                            Number(cert?.diasRestantes) < 0
-                              ? "text-rose-700"
-                              : Number(cert?.diasRestantes) <= 7
-                                ? "text-amber-700"
-                                : "text-slate-700",
-                          )}
-                        >
-                          {Number.isFinite(cert?.diasRestantes) ? cert.diasRestantes : "—"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="align-top">
-                        {cert?.senha ? (
-                          <CopyableIdentifier
-                            label="Senha"
-                            value={cert.senha}
-                            onCopy={handleCopy}
-                            isPassword
-                          />
-                        ) : (
-                          <span className="text-xs text-slate-400">Sem senha</span>
-                        )}
-                      </TableCell>
-                      <TableCell className="align-top">
-                        <Button
-                          size="sm"
-                          variant="default"
-                          className="bg-[hsl(var(--brand-navy))] text-[hsl(var(--brand-navy-foreground))] hover:bg-[hsl(var(--brand-navy-700))]"
-                          onClick={() => handleInstallClick(cert)}
-                          disabled={!canInstall(cert)}
-                          title={
-                            CERTHUB_BASE_URL
-                              ? "Instalar certificado no CertHub"
-                              : "Configure VITE_CERTHUB_BASE_URL"
-                          }
-                        >
-                          Instalar
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </ScrollArea>
-          </CardContent>
-        </Card>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">{filteredRows.map((row) => { const st = getStatusMeta(row.source?.situacao, row.source?.diasRestantes); const pct = validityPercent(row.notBefore, row.notAfter); const barColor = st.key === "ok" ? "bg-emerald-500" : st.key === "warn" ? "bg-amber-500" : "bg-rose-500"; const iconBg = st.key === "ok" ? "bg-emerald-50 text-emerald-600" : st.key === "warn" ? "bg-amber-50 text-amber-600" : "bg-rose-50 text-rose-600"; const Icon = st.key === "ok" ? ShieldCheck : st.key === "warn" ? Clock : ShieldAlert; return (<Card key={row.id} className="border-slate-200/80 bg-white shadow-sm transition hover:shadow-md"><CardContent className="p-3.5"><div className="flex items-start gap-2.5"><div className={`grid h-9 w-9 place-items-center rounded-xl ${iconBg}`}><Icon className="h-4.5 w-4.5" /></div><div className="min-w-0 flex-1"><p className="truncate text-sm font-semibold text-slate-900">{row.companyName}</p><p className="mt-0.5 text-xs text-slate-500">{row.documentMasked}</p></div><span className={`inline-flex items-center rounded-md border px-2 py-1 text-[11px] font-medium ${statusClassName(st.key)}`}>{st.label}</span></div><div className="mt-3"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Período de validade</p><div className="mt-1 flex items-center justify-between text-[11px] text-slate-500"><span className="font-mono">{row.notBefore}</span><span className="font-mono">{row.notAfter}</span></div><div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full ${barColor}`} style={{ width: `${pct}%` }} /></div></div><div className="mt-3 grid grid-cols-2 gap-2"><div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Emissor</p><p className="mt-1 truncate text-xs font-medium text-slate-700">{row.issuer}</p></div><div className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-2"><p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Tipo documento</p><p className="mt-1 truncate text-xs font-medium text-slate-700">{row.documentType}</p></div></div></CardContent></Card>); })}</div>
       )}
-    </div>
-  );
-}
-
-function CertificadoCard({
-  cert,
-  handleCopy,
-  handleInstallClick,
-  canInstall,
-}: {
-  cert: any;
-  handleCopy: CertificadosScreenProps["handleCopy"];
-  handleInstallClick: (cert: any) => void;
-  canInstall: (cert: any) => boolean;
-}) {
-  const dias = Number.isFinite(cert?.diasRestantes) ? Number(cert.diasRestantes) : null;
-  const isAlert = isCertificadoSituacaoAlert(cert?.situacao);
-
-  return (
-    <Card
-      className={cn(
-        "border-slate-200/80 bg-white shadow-sm",
-        isAlert && "border-amber-200/80 bg-amber-50/20",
-      )}
-    >
-      <CardHeader className="pb-2">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="truncate text-base">{cert?.titular || "Sem titular"}</CardTitle>
-            <p className="mt-1 text-xs text-slate-500">
-              {cert?.empresa || cert?.municipio || "Cadastro sem vínculo de empresa/município"}
-            </p>
-          </div>
-          <CertificadoStatusBadge status={cert?.situacao || "—"} />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="grid gap-2 sm:grid-cols-2">
-          <InfoBox label="Válido de" value={formatDateBr(cert?.validoDe)} />
-          <InfoBox label="Válido até" value={formatDateBr(cert?.validoAte)} />
-          <InfoBox
-            label="Dias restantes"
-            value={
-              dias === null
-                ? "—"
-                : dias < 0
-                  ? `${Math.abs(dias)} vencido`
-                  : dias === 0
-                    ? "vence hoje"
-                    : `${dias} dias`
-            }
-            tone={dias === null ? "neutral" : dias < 0 ? "danger" : dias <= 7 ? "warn" : "ok"}
-          />
-          <InfoBox label="Categoria" value={categorizeCertificadoSituacao(cert?.situacao)} />
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          {cert?.senha ? (
-            <CopyableIdentifier label="Senha" value={cert.senha} onCopy={handleCopy} isPassword />
-          ) : (
-            <InlineBadge variant="outline" className="bg-white">
-              Sem senha registrada
-            </InlineBadge>
-          )}
-          <CopyableIdentifier label="CNPJ/CPF" value={getFormattedDocument(cert)} onCopy={handleCopy} />
-        </div>
-
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <KeyRound className="h-3.5 w-3.5" />
-          Fonte: `/api/v1/certificados` (payload normalizado em `src/lib/api.js`)
-        </div>
-        <div className="flex items-center justify-end">
-          <Button
-            size="sm"
-            variant="default"
-            className="bg-[hsl(var(--brand-navy))] text-[hsl(var(--brand-navy-foreground))] hover:bg-[hsl(var(--brand-navy-700))]"
-            onClick={() => handleInstallClick(cert)}
-            disabled={!canInstall(cert)}
-            title={
-              CERTHUB_BASE_URL
-                ? "Instalar certificado no CertHub"
-                : "Configure VITE_CERTHUB_BASE_URL"
-            }
-          >
-            Instalar
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function InfoBox({
-  label,
-  value,
-  tone = "neutral",
-}: {
-  label: string;
-  value: string;
-  tone?: "neutral" | "ok" | "warn" | "danger";
-}) {
-  const toneMap = {
-    neutral: "border-slate-200 bg-slate-50 text-slate-700",
-    ok: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    warn: "border-amber-200 bg-amber-50 text-amber-700",
-    danger: "border-rose-200 bg-rose-50 text-rose-700",
-  } as const;
-
-  return (
-    <div className={cn("rounded-xl border px-3 py-2", toneMap[tone])}>
-      <p className="text-[11px] font-semibold uppercase tracking-wide opacity-80">{label}</p>
-      <p className="mt-1 text-sm font-semibold">{value}</p>
     </div>
   );
 }

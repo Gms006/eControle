@@ -13,6 +13,7 @@ import LicencasScreen from "./LicencasScreen";
 import TaxasScreen from "./TaxasScreen";
 import ProcessosScreen from "./ProcessosScreen";
 import CertificadosScreen from "./CertificadosScreen";
+import AutomacoesScreen from "./AutomacoesScreen";
 import { useAuth } from "../hooks/useAuth";
 import { fetchJson } from "../lib/api";
 import { TAB_BACKGROUNDS } from "../lib/constants";
@@ -63,15 +64,26 @@ const getEmpresaKey = (item: any) => {
   return key || undefined;
 };
 
+const getLinkedCompanyId = (item: any) => {
+  const candidate =
+    item?.empresa_id ??
+    item?.empresaId ??
+    item?.company_id ??
+    item?.companyId;
+  if (candidate === undefined || candidate === null) return undefined;
+  const key = String(candidate).trim();
+  return key || undefined;
+};
+
 const normalizeEmpresaRecord = (empresa: any) => {
   const empresaId = getEmpresaKey(empresa);
   const empresaNome =
-    empresa?.empresa ??
     empresa?.razao_social ??
     empresa?.razaoSocial ??
+    empresa?.empresa ??
     empresa?.nome_fantasia ??
     empresa?.nomeFantasia ??
-    "—";
+    "â€”";
 
   return {
     ...empresa,
@@ -185,13 +197,13 @@ const enrichWithCompany = (
   indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
 ) => {
   const company = getCompanyFromIndexes(item, indexes);
-  const itemKey = getEmpresaKey(item);
-  const empresaId = getEmpresaKey(item) ?? getEmpresaKey(company);
+  const itemCompanyId = getLinkedCompanyId(item);
+  const empresaId = itemCompanyId ?? getEmpresaKey(company);
   
   // Debug para primeira taxa
   if (item?.id === "989d85c6-ec63-496d-ac1e-1f48c162316d") {
     console.log("DEBUG [enrichWithCompany] Taxa específica:", {
-      itemKey,
+      itemKey: itemCompanyId,
       companyFound: !!company,
       empresaId,
       item_company_id: item?.company_id,
@@ -206,11 +218,21 @@ const enrichWithCompany = (
     company?.razao_social ??
     (empresaId ? `Empresa não vinculada (ID ${empresaId})` : "Empresa não vinculada");
   const hasBackendCompany = Boolean(item?.company_name || item?.company_razao_social || item?.company_cnpj);
-  const semVinculo = Boolean(item?.sem_vinculo) || (!hasBackendCompany && !company);
+  const semVinculo = Boolean(item?.sem_vinculo) || (!company && !itemCompanyId);
 
   return {
     ...item,
-    ...(empresaId ? { empresa_id: empresaId, company_id: item?.company_id ?? empresaId } : {}),
+    ...(empresaId
+      ? {
+          empresa_id: empresaId,
+          company_id:
+            item?.company_id ??
+            item?.empresa_id ??
+            item?.companyId ??
+            item?.empresaId ??
+            empresaId,
+        }
+      : {}),
     empresa: empresaNome,
     cnpj: item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? company?.cnpj,
     municipio: formatMunicipioDisplay(item?.municipio ?? company?.municipio),
@@ -219,7 +241,7 @@ const enrichWithCompany = (
 };
 
 const adaptTaxasRecords = (taxas: any[], indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
-  console.log("DEBUG [adaptTaxasRecords]: Iniciando com", taxas.length, "taxas. Índice tem", indexes.byId.size, "empresas por ID");
+  console.log("DEBUG [adaptTaxasRecords]: Iniciando com", taxas.length, "taxas. índice tem", indexes.byId.size, "empresas por ID");
   
   return taxas.map((taxa, idx) => {
     const enriched = enrichWithCompany(taxa, indexes);
@@ -415,7 +437,7 @@ const normalizeProcesso = (proc: any) => ({
     proc?.nomeFantasia ??
     proc?.razao ??
     proc?.nome ??
-    "—",
+    "â€”",
   empresa_id: proc?.empresa_id ?? proc?.empresaId ?? proc?.company_id ?? proc?.companyId,
   company_id: proc?.company_id ?? proc?.companyId ?? proc?.empresa_id ?? proc?.empresaId,
   cnpj: proc?.cnpj ?? proc?.cnpj_empresa ?? proc?.cnpjEmpresa,
@@ -473,6 +495,13 @@ export default function MainApp() {
     preset?: Record<string, any> | null;
   } | null>(null);
   const contentScrollRef = useRef<HTMLDivElement | null>(null);
+  const tabScrollTopRef = useRef<Partial<Record<AppTabKey, number>>>({});
+
+  const handleTabChange = useCallback((nextTab: AppTabKey) => {
+    if (!nextTab || nextTab === tab) return;
+    tabScrollTopRef.current[tab] = contentScrollRef.current?.scrollTop ?? 0;
+    setTab(nextTab);
+  }, [tab]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -486,7 +515,7 @@ export default function MainApp() {
         const target = APP_NAV_ITEMS[index]?.key;
         if (target) {
           event.preventDefault();
-          setTab(target);
+          handleTabChange(target);
         }
       }
       if (event.altKey && event.key === "ArrowUp") {
@@ -496,10 +525,22 @@ export default function MainApp() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [handleTabChange]);
 
-  const loadAllData = useCallback(async () => {
-    setLoading(true);
+  useEffect(() => {
+    const savedScrollTop = tabScrollTopRef.current[tab] ?? 0;
+    if (!contentScrollRef.current) return;
+    requestAnimationFrame(() => {
+      if (contentScrollRef.current) {
+        contentScrollRef.current.scrollTop = savedScrollTop;
+      }
+    });
+  }, [tab]);
+
+  const loadAllData = useCallback(async ({ silent = false }: { silent?: boolean } = {}) => {
+    if (!silent) {
+      setLoading(true);
+    }
     setErrors({});
     try {
       const fetchAllPages = async (
@@ -649,7 +690,9 @@ export default function MainApp() {
       setErrors(nextErrors);
       return true;
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   }, []);
 
@@ -657,7 +700,7 @@ export default function MainApp() {
     let active = true;
     void (async () => {
       if (!active) return;
-      await loadAllData();
+      await loadAllData({ silent: false });
     })();
     return () => {
       active = false;
@@ -666,7 +709,7 @@ export default function MainApp() {
 
   const loadAllDataWithScrollRestore = useCallback(async () => {
     const scrollTop = contentScrollRef.current?.scrollTop ?? 0;
-    const ok = await loadAllData();
+    const ok = await loadAllData({ silent: true });
     if (contentScrollRef.current) {
       requestAnimationFrame(() => {
         if (contentScrollRef.current) {
@@ -693,14 +736,14 @@ export default function MainApp() {
   const handleDashboardQueueOpen = useCallback(
     (payload: { tab: AppTabKey; preset?: Record<string, any> | null }) => {
       if (!payload?.tab) return;
-      setTab(payload.tab);
+      handleTabChange(payload.tab);
       setPanelNavigation({
         id: Date.now(),
         tab: payload.tab,
         preset: payload.preset ?? null,
       });
     },
-    [],
+    [handleTabChange],
   );
 
   const handleNotificationRouteNavigate = useCallback(
@@ -714,6 +757,7 @@ export default function MainApp() {
         "taxas",
         "processos",
         "certificados",
+        "automacoes",
       ];
       const extractTab = (path: string): AppTabKey | null => {
         try {
@@ -732,7 +776,7 @@ export default function MainApp() {
 
       const tab = extractTab(routePath);
       if (tab) {
-        setTab(tab);
+        handleTabChange(tab);
       }
       if (routePath.startsWith("/painel")) {
         navigate(routePath);
@@ -740,7 +784,7 @@ export default function MainApp() {
         navigate("/painel");
       }
     },
-    [navigate],
+    [handleTabChange, navigate],
   );
 
   const loadWorkerHealth = useCallback(async () => {
@@ -762,20 +806,19 @@ export default function MainApp() {
         return;
       }
       if (action === "critical_queues") {
-        setTab("painel");
+        handleTabChange("painel");
         setSomenteAlertas(true);
         window.dispatchEvent(new CustomEvent("econtrole:painel-focus", { detail: { target: "critical_queues" } }));
         return;
       }
       if (action === "saved_views") {
-        setTab("painel");
+        handleTabChange("painel");
         window.dispatchEvent(new CustomEvent("econtrole:painel-focus", { detail: { target: "saved_views" } }));
         return;
       }
-      setJobsDrawerOpen(true);
-      void loadWorkerHealth();
+      handleTabChange("automacoes");
     },
-    [loadWorkerHealth],
+    [handleTabChange],
   );
 
   useEffect(() => {
@@ -1044,6 +1087,13 @@ export default function MainApp() {
         subtitle: "",
       };
     }
+    if (tab === "automacoes") {
+      return {
+        breadcrumb: "Automações / Jobs",
+        title: "Automações / Jobs",
+        subtitle: "Execução, filas e saúde operacional das automações.",
+      };
+    }
     return {
       breadcrumb: "Painel / Hoje",
       title: APP_NAV_ITEMS.find((item) => item.key === tab)?.label || "Painel",
@@ -1082,7 +1132,7 @@ export default function MainApp() {
         <Sidebar
           items={APP_NAV_ITEMS}
           activeTab={tab}
-          onTabChange={setTab}
+          onTabChange={handleTabChange}
           onOperationAction={handleSidebarOperationAction}
           operationCounts={operationCounts}
           onLogout={() => void logout()}
@@ -1092,7 +1142,7 @@ export default function MainApp() {
           <Topbar
             items={APP_NAV_ITEMS}
             activeTab={tab}
-            onTabChange={setTab}
+            onTabChange={handleTabChange}
             query={query}
             onQueryChange={setQuery}
             searchField={searchField}
@@ -1117,7 +1167,7 @@ export default function MainApp() {
 
           <div ref={contentScrollRef} className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass} ec-shell-content`}>
             <main className="mx-auto max-w-[1600px] px-4 py-4 lg:px-6 lg:py-5">
-              {tab !== "painel" && tab !== "empresas" && tab !== "licencas" && tab !== "taxas" && tab !== "processos" ? (
+              {tab !== "painel" && tab !== "empresas" && tab !== "licencas" && tab !== "taxas" && tab !== "processos" && tab !== "automacoes" && tab !== "certificados" ? (
                 <PageTitle
                   title={pageMeta.title}
                   subtitle={pageMeta.subtitle}
@@ -1160,6 +1210,8 @@ export default function MainApp() {
                       licencasByEmpresa={licencasByEmpresa}
                       extractEmpresaId={extractEmpresaId}
                       onOpenQueueTarget={handleDashboardQueueOpen}
+                      activeTab={tab}
+                      onTabChange={handleTabChange}
                     />
                   </motion.div>
                 )}
@@ -1184,6 +1236,8 @@ export default function MainApp() {
                       processosByEmpresa={processosByEmpresa}
                       handleCopy={handleCopy}
                       enqueueToast={enqueueToast}
+                      activeTab={tab}
+                      onTabChange={handleTabChange}
                     />
                   </motion.div>
                 )}
@@ -1204,6 +1258,8 @@ export default function MainApp() {
                         matchesQuery={matchesQuery}
                         handleCopy={handleCopy}
                         panelPreset={panelNavigation?.tab === "certificados" ? panelNavigation : null}
+                        activeTab={tab}
+                        onTabChange={handleTabChange}
                       />
                       {errors.certificados &&
                         renderEmptyState("Erro ao carregar certificados", errors.certificados)}
@@ -1230,6 +1286,8 @@ export default function MainApp() {
                         enqueueToast={enqueueToast}
                         onRefreshData={loadAllData}
                         panelPreset={panelNavigation?.tab === "licencas" ? panelNavigation : null}
+                        activeTab={tab}
+                        onTabChange={handleTabChange}
                       />
                       {errors.licencas && renderEmptyState("Erro ao carregar licenças", errors.licencas)}
                     </>
@@ -1257,7 +1315,7 @@ export default function MainApp() {
                         canManageTaxas={currentRoles.includes("ADMIN") || currentRoles.includes("DEV")}
                         companyHasAlert={companyHasAlert}
                         activeTab={tab}
-                        onTabChange={setTab}
+                        onTabChange={handleTabChange}
                         municipio={municipio}
                         query={query}
                       />
@@ -1286,7 +1344,7 @@ export default function MainApp() {
                         handleCopy={handleCopy}
                         panelPreset={panelNavigation?.tab === "processos" ? panelNavigation : null}
                         activeTab={tab}
-                        onTabChange={setTab}
+                        onTabChange={handleTabChange}
                         query={query}
                         onQueryChange={setQuery}
                         municipio={municipio}
@@ -1295,6 +1353,23 @@ export default function MainApp() {
                       />
                       {errors.processos && renderEmptyState("Erro ao carregar processos", errors.processos)}
                     </>
+                  </motion.div>
+                )}
+
+                {!loading && tab === "automacoes" && (
+                  <motion.div
+                    key="automacoes"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <AutomacoesScreen
+                      activeTab={tab}
+                      onTabChange={handleTabChange}
+                      enqueueToast={enqueueToast}
+                      workerHealth={workerHealth}
+                    />
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -1362,6 +1437,7 @@ export default function MainApp() {
     </div>
   );
 }
+
 
 
 

@@ -1,8 +1,9 @@
-﻿import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import dayjs from "dayjs";
 import {
   AlertTriangle,
   ArrowUpDown,
+  Building2,
   BookDown,
   ChartBarIncreasing,
   ChevronDown,
@@ -10,14 +11,18 @@ import {
   Clock3,
   FileDown,
   FileMinus,
+  FolderKanban,
   Info,
   LayoutGrid,
+  LayoutDashboard,
   Logs,
   MapPin,
+  Receipt,
   ScrollText,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -143,6 +148,20 @@ const formatScoreStatusLabel = (value) => {
   return "—";
 };
 
+const normalizeSanitaryComplexity = (value) => String(value || "").trim().toUpperCase();
+
+const formatSanitaryComplexityLabel = (value) => {
+  const key = normalizeSanitaryComplexity(value);
+  if (!key) return "—";
+  if (key === "PENDENTE_REVISAO") return "Pendente revisão";
+  if (key === "NAO_APLICAVEL") return "Não aplicável";
+  return key
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+};
+
 const SORT_OPTIONS = [
   { value: "score_urgencia", label: "Score", defaultDir: "desc", isNumber: true },
   { value: "dias_para_vencer", label: "Vencimento", defaultDir: "asc", isNumber: true },
@@ -151,6 +170,14 @@ const SORT_OPTIONS = [
 ];
 
 const DEFAULT_SORT = SORT_OPTIONS[0];
+const SUBNAV_ITEMS = [
+  { key: "painel", label: "Painel", icon: LayoutDashboard },
+  { key: "empresas", label: "Empresas", icon: Building2 },
+  { key: "licencas", label: "Licenças", icon: ScrollText },
+  { key: "taxas", label: "Taxas", icon: Receipt },
+  { key: "processos", label: "Processos", icon: FolderKanban },
+  { key: "certificados", label: "Certificados", icon: ShieldCheck },
+];
 
 const compareWithSort = (a, b, option, direction) => {
   const dir = direction === "desc" ? -1 : 1;
@@ -646,6 +673,8 @@ export default function LicencasScreen({
   enqueueToast,
   onRefreshData,
   panelPreset,
+  activeTab = "licencas",
+  onTabChange,
 }) {
   const [view, setView] = useState(() => {
     if (typeof window === "undefined") return "renovacoes";
@@ -678,10 +707,23 @@ export default function LicencasScreen({
   const [railRiskFilters, setRailRiskFilters] = useState(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]);
   const [railCertFilters, setRailCertFilters] = useState(["valido", "vencendo", "vencido", "sem_certificado"]);
   const [railMunicipioFilters, setRailMunicipioFilters] = useState([]);
+  const [railSanitaryComplexityFilter, setRailSanitaryComplexityFilter] = useState("todas");
   const [railUrgencyMin, setRailUrgencyMin] = useState(0);
   const [railUrgencyMax, setRailUrgencyMax] = useState(100);
   const fileInputRef = useRef(null);
   const appendUploadSelectionRef = useRef(false);
+  const openCompanyCadastro = React.useCallback((item) => {
+    window.dispatchEvent(
+      new CustomEvent("econtrole:open-company", {
+        detail: {
+          mode: "edit",
+          companyId: String(item?.company_id || item?.empresa_id || "").trim() || null,
+          cnpj: item?.cnpj || item?.company_cnpj || null,
+          initialTab: "cadastro",
+        },
+      }),
+    );
+  }, []);
 
   // Persistir estado da aba no localStorage
   React.useEffect(() => {
@@ -742,6 +784,9 @@ export default function LicencasScreen({
         );
         const companyActive = parseIsActiveFlag(companySnapshot);
         const certBucket = resolveCompanyCertBucket(companySnapshot?.certificado);
+        const sanitaryComplexity = normalizeSanitaryComplexity(
+          companySnapshot?.sanitary_complexity ?? companySnapshot?.sanitaryComplexity,
+        );
         return {
           ...item,
           tipo_norm: tipoNorm,
@@ -760,6 +805,7 @@ export default function LicencasScreen({
           risk_bucket: scoreRisk === "HIGH" || scoreRisk === "MEDIUM" || scoreRisk === "LOW" ? scoreRisk : "UNMAPPED",
           cert_bucket: certBucket,
           company_active: companyActive,
+          sanitary_complexity: sanitaryComplexity || null,
         };
       }),
     [base, empresas],
@@ -768,6 +814,13 @@ export default function LicencasScreen({
   const municipios = useMemo(() => ["todos", ...Array.from(new Set(rows.map((r) => r?.municipio).filter(Boolean)))], [rows]);
   const railMunicipioOptions = useMemo(
     () => Array.from(new Set(rows.map((item) => item?.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")),
+    [rows],
+  );
+  const railSanitaryComplexityOptions = useMemo(
+    () =>
+      Array.from(new Set(rows.map((item) => item?.sanitary_complexity).filter(Boolean))).sort((a, b) =>
+        formatSanitaryComplexityLabel(a).localeCompare(formatSanitaryComplexityLabel(b), "pt-BR"),
+      ),
     [rows],
   );
 
@@ -779,6 +832,12 @@ export default function LicencasScreen({
         if (!railRiskFilters.includes(item?.risk_bucket || "UNMAPPED")) return false;
         if (!railCertFilters.includes(item?.cert_bucket || "sem_certificado")) return false;
         if (railMunicipioFilters.length > 0 && !railMunicipioFilters.includes(item?.municipio)) return false;
+        if (
+          railSanitaryComplexityFilter !== "todas" &&
+          (item?.sanitary_complexity || "__none__") !== railSanitaryComplexityFilter
+        ) {
+          return false;
+        }
         if (Number.isFinite(item?.score_urgencia)) {
           if (item.score_urgencia < railUrgencyMin || item.score_urgencia > railUrgencyMax) return false;
         } else if (railUrgencyMin > 0 || railUrgencyMax < 100) {
@@ -830,6 +889,7 @@ export default function LicencasScreen({
       railCertFilters,
       railMunicipioFilters,
       railRiskFilters,
+      railSanitaryComplexityFilter,
       railStatusFilter,
       railUrgencyMax,
       railUrgencyMin,
@@ -978,14 +1038,20 @@ export default function LicencasScreen({
 
   const activeFilterBadges = useMemo(() => {
     const badges = [];
-    if (searchTerm.trim()) badges.push({ key: "q", label: `Busca: ${searchTerm.trim()}` });
-    if (quickMunicipio !== "todos") badges.push({ key: "municipio", label: `Município: ${quickMunicipio}` });
-    if (quickTipo !== "todos") badges.push({ key: "tipo", label: `Tipo: ${TIPOS.find((t) => t.key === quickTipo)?.label || quickTipo}` });
-    if (quickStatus !== "todos") badges.push({ key: "status", label: `Status: ${formatStatusDisplay(quickStatus)}` });
-    if (quickScoreRisk !== "todos") badges.push({ key: "risk", label: `Risco: ${SCORE_RISK_OPTIONS.find((opt) => opt.value === quickScoreRisk)?.label || quickScoreRisk}` });
-    if (quickScoreStatus !== "todos") badges.push({ key: "scoreStatus", label: `Score status: ${SCORE_STATUS_OPTIONS.find((opt) => opt.value === quickScoreStatus)?.label || quickScoreStatus}` });
-    if (priorityGroup !== "todos") badges.push({ key: "criticidade", label: `Criticidade: ${groupConfig.find((group) => group.key === priorityGroup)?.label || priorityGroup}` });
-    if (somenteAlertasLocal) badges.push({ key: "alertas", label: "Somente alertas" });
+    if (searchTerm.trim()) badges.push({ key: "q", label: `Busca: ${searchTerm.trim()}`, onClear: () => setSearchTerm("") });
+    if (quickMunicipio !== "todos") badges.push({ key: "municipio", label: `Município: ${quickMunicipio}`, onClear: () => setQuickMunicipio("todos") });
+    if (quickTipo !== "todos") badges.push({ key: "tipo", label: `Tipo: ${TIPOS.find((t) => t.key === quickTipo)?.label || quickTipo}`, onClear: () => setQuickTipo("todos") });
+    if (quickStatus !== "todos") badges.push({ key: "status", label: `Status: ${formatStatusDisplay(quickStatus)}`, onClear: () => setQuickStatus("todos") });
+    if (quickScoreRisk !== "todos") badges.push({ key: "risk", label: `Risco: ${SCORE_RISK_OPTIONS.find((opt) => opt.value === quickScoreRisk)?.label || quickScoreRisk}`, onClear: () => setQuickScoreRisk("todos") });
+    if (quickScoreStatus !== "todos") badges.push({ key: "scoreStatus", label: `Score status: ${SCORE_STATUS_OPTIONS.find((opt) => opt.value === quickScoreStatus)?.label || quickScoreStatus}`, onClear: () => setQuickScoreStatus("todos") });
+    if (priorityGroup !== "todos") badges.push({ key: "criticidade", label: `Criticidade: ${groupConfig.find((group) => group.key === priorityGroup)?.label || priorityGroup}`, onClear: () => setPriorityGroup("todos") });
+    if (somenteAlertasLocal) badges.push({ key: "alertas", label: "Somente alertas", onClear: () => setSomenteAlertasLocal(false) });
+    if (railStatusFilter !== "ativas") badges.push({ key: "rail-status", label: `Empresa: ${railStatusFilter}`, onClear: () => setRailStatusFilter("ativas") });
+    if (railRiskFilters.length !== 4) badges.push({ key: "rail-risk", label: `Risco CNAE: ${railRiskFilters.length}`, onClear: () => setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]) });
+    if (railCertFilters.length !== 4) badges.push({ key: "rail-cert", label: `Certificado: ${railCertFilters.length}`, onClear: () => setRailCertFilters(["valido", "vencendo", "vencido", "sem_certificado"]) });
+    if (railMunicipioFilters.length > 0) badges.push({ key: "rail-municipio", label: `Município local: ${railMunicipioFilters.length}`, onClear: () => setRailMunicipioFilters([]) });
+    if (railSanitaryComplexityFilter !== "todas") badges.push({ key: "rail-sanitary-complexity", label: `Comp. sanitária: ${formatSanitaryComplexityLabel(railSanitaryComplexityFilter)}`, onClear: () => setRailSanitaryComplexityFilter("todas") });
+    if (railUrgencyMin > 0 || railUrgencyMax < 100) badges.push({ key: "rail-score", label: `Score de urgência: ${railUrgencyMin}-${railUrgencyMax}`, onClear: () => { setRailUrgencyMin(0); setRailUrgencyMax(100); } });
     return badges;
   }, [
     priorityGroup,
@@ -994,6 +1060,13 @@ export default function LicencasScreen({
     quickScoreStatus,
     quickStatus,
     quickTipo,
+    railCertFilters.length,
+    railMunicipioFilters.length,
+    railRiskFilters.length,
+    railSanitaryComplexityFilter,
+    railStatusFilter,
+    railUrgencyMax,
+    railUrgencyMin,
     searchTerm,
     somenteAlertasLocal,
   ]);
@@ -1004,9 +1077,10 @@ export default function LicencasScreen({
     if (railRiskFilters.length !== 4) count += 1;
     if (railCertFilters.length !== 4) count += 1;
     if (railMunicipioFilters.length > 0) count += 1;
+    if (railSanitaryComplexityFilter !== "todas") count += 1;
     if (railUrgencyMin > 0 || railUrgencyMax < 100) count += 1;
     return count;
-  }, [railCertFilters.length, railMunicipioFilters.length, railRiskFilters.length, railStatusFilter, railUrgencyMax, railUrgencyMin]);
+  }, [railCertFilters.length, railMunicipioFilters.length, railRiskFilters.length, railSanitaryComplexityFilter, railStatusFilter, railUrgencyMax, railUrgencyMin]);
 
   const toggleRailFilter = (setter, key) => {
     setter((current) => {
@@ -1020,6 +1094,7 @@ export default function LicencasScreen({
     setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]);
     setRailCertFilters(["valido", "vencendo", "vencido", "sem_certificado"]);
     setRailMunicipioFilters([]);
+    setRailSanitaryComplexityFilter("todas");
     setRailUrgencyMin(0);
     setRailUrgencyMax(100);
   };
@@ -1283,6 +1358,25 @@ export default function LicencasScreen({
         </div>
       </div>
 
+      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
+        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Complexidade sanitária</p>
+        <div className="flex flex-wrap gap-2">
+          <button type="button" onClick={() => setRailSanitaryComplexityFilter("todas")} className={railChipClass(railSanitaryComplexityFilter === "todas")}>
+            Todas
+          </button>
+          {railSanitaryComplexityOptions.map((value) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setRailSanitaryComplexityFilter(value)}
+              className={railChipClass(railSanitaryComplexityFilter === value)}
+            >
+              {formatSanitaryComplexityLabel(value)}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="space-y-2.5 rounded-xl border border-slate-300 bg-slate-100 p-3">
         <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Score de urgência</p>
         <div className="relative h-6">
@@ -1306,45 +1400,77 @@ export default function LicencasScreen({
     <div className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden xl:block">{rail}</div>
-        <section className="space-y-3">
-          <Card className="border-subtle bg-surface">
-            <CardContent className="p-3">
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                {heroKpis.map((kpi) => {
-                  const Icon = kpi.icon;
-                  const iconTone =
-                    kpi.key === "vencidas"
-                      ? "border-rose-200 bg-rose-50 text-rose-600"
-                      : kpi.key === "vencendo"
-                        ? "border-amber-200 bg-amber-50 text-amber-600"
-                        : kpi.key === "pendentes"
-                          ? "border-blue-200 bg-blue-50 text-blue-600"
-                          : "border-blue-200 bg-blue-50 text-blue-600";
-                  const subtitleTone = kpi.key === "vencidas" ? "text-amber-600" : "text-slate-500";
-                  return (
-                    <div key={kpi.key} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{kpi.label}</p>
-                          <p className="mt-2 text-2xl font-semibold leading-none">{kpi.value}</p>
-                          <p className={cn("mt-2 text-xs", subtitleTone)}>{kpi.subtitle}</p>
-                        </div>
-                        <span className={cn("inline-flex h-9 w-9 items-center justify-center rounded-xl border", iconTone)}>
-                          <Icon className="h-4 w-4" />
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+        <section className="space-y-4">
+          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              {SUBNAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onTabChange?.(item.key)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
 
-              {activeFilterBadges.length > 0 ? (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {activeFilterBadges.map((badge) => <span key={badge.key} className="inline-flex items-center rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-medium text-slate-700">{badge.label}</span>)}
+          <div className="flex flex-wrap gap-2">
+            {activeFilterBadges.map((badge) => (
+              <button
+                key={badge.key}
+                type="button"
+                onClick={badge.onClear}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                title="Remover filtro"
+              >
+                {badge.label}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ))}
+            {activeFilterBadges.length === 0 ? (
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
+                Sem filtros adicionais ativos
+              </span>
+            ) : null}
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            {heroKpis.map((kpi) => {
+              const Icon = kpi.icon;
+              const iconTone =
+                kpi.key === "vencidas"
+                  ? "border-rose-200 bg-rose-50 text-rose-600"
+                  : kpi.key === "vencendo"
+                    ? "border-amber-200 bg-amber-50 text-amber-600"
+                    : "border-blue-200 bg-blue-50 text-blue-600";
+              const subtitleTone = kpi.key === "vencidas" ? "text-amber-600" : "text-slate-500";
+              return (
+                <div key={kpi.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{kpi.label}</p>
+                      <p className="mt-2 text-2xl font-semibold leading-none">{kpi.value}</p>
+                      <p className={cn("mt-2 text-xs", subtitleTone)}>{kpi.subtitle}</p>
+                    </div>
+                    <span className={cn("inline-flex h-10 w-10 items-center justify-center rounded-xl border", iconTone)}>
+                      <Icon className="h-4 w-4" />
+                    </span>
+                  </div>
                 </div>
-              ) : null}
-            </CardContent>
-          </Card>
+              );
+            })}
+          </div>
 
           <Card className="border-subtle bg-card">
             <CardContent className="space-y-3 p-3">
@@ -1461,7 +1587,7 @@ export default function LicencasScreen({
                           <div className="flex flex-wrap items-start justify-between gap-3">
                             <div className="min-w-0 flex-1 space-y-2">
                               <div className="flex flex-wrap items-center gap-2">
-                                <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />
+                                <CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} onClick={() => openCompanyCadastro(item)} size="base" />
                                 {item.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">Sem vínculo</span> : null}
                                 <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{resolveLicencaTipo(item.tipo).label}</span>
                                 {item?.licence_field === "alvara_funcionamento" ? (
@@ -1593,7 +1719,7 @@ export default function LicencasScreen({
                       <TableBody>
                         {sortedFiltered.map((item, idx) => (
                           <TableRow key={`${item.id}-${idx}`}>
-                            <TableCell><div className="flex items-center gap-2"><CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} size="base" />{item.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">Sem vínculo</span> : null}</div></TableCell>
+                            <TableCell><div className="flex items-center gap-2"><CopyableCompanyName value={item.empresa_display} onCopy={handleCopy} onClick={() => openCompanyCadastro(item)} size="base" />{item.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs font-medium text-rose-700">Sem vínculo</span> : null}</div></TableCell>
                             <TableCell>
                               <div className="flex flex-wrap items-center gap-1">
                                 <span className="inline-flex items-center rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-medium text-slate-700">{resolveLicencaTipo(item.tipo).label}</span>
@@ -1652,6 +1778,8 @@ export default function LicencasScreen({
     </div>
   );
 }
+
+
 
 
 

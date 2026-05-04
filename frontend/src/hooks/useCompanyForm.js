@@ -64,7 +64,7 @@ export const EMPTY_COMPANY_FORM = {
   },
 };
 
-const EMPTY_MODAL = { open: false, mode: "create", companyId: null };
+const EMPTY_MODAL = { open: false, mode: "create", companyId: null, initialTab: null };
 
 function promptPasswordForDelete() {
   const password = window.prompt("Confirme sua senha para prosseguir com a exclusão:");
@@ -103,7 +103,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
   }, []);
 
   const openCompany = useCallback(
-    async ({ mode = "create", companyId = null, cnpj = null, cpf = null }) => {
+    async ({ mode = "create", companyId = null, cnpj = null, cpf = null, initialTab = null }) => {
       let resolvedCompanyId = companyId || null;
 
       if (mode === "edit" && !resolvedCompanyId) {
@@ -122,7 +122,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
         }
       }
 
-      setModal({ open: true, mode, companyId: resolvedCompanyId });
+      setModal({ open: true, mode, companyId: resolvedCompanyId, initialTab });
 
       if (mode === "edit") {
         if (!resolvedCompanyId) {

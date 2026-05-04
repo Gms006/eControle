@@ -27,6 +27,7 @@ from app.models.company_tax import CompanyTax
 from app.models.org import Org
 from app.schemas.company import CompanyOut, enrich_company_with_profile
 from app.schemas.company_composite import CompanyCompositeCreate
+from app.services.sanitary_complexity_anapolis import infer_sanitary_complexity_from_cnaes
 from app.services.company_scoring import recalculate_company_score
 
 
@@ -92,6 +93,12 @@ def create_company_composite(
     sanitary_complexity = p.pop("sanitary_complexity", None) or DEFAULT_SANITARY_COMPLEXITY
     address_usage_type = p.pop("address_usage_type", None) or ("FISCAL" if endereco_fiscal else DEFAULT_ADDRESS_USAGE_TYPE)
     address_location_type = p.pop("address_location_type", None) or DEFAULT_ADDRESS_LOCATION_TYPE
+    inferred_sanitary_complexity = infer_sanitary_complexity_from_cnaes(
+        p.get("cnaes_principal"),
+        p.get("cnaes_secundarios"),
+    )
+    if inferred_sanitary_complexity:
+        sanitary_complexity = inferred_sanitary_complexity
     if "email" in p:
         p["email"] = normalize_email(p.get("email"))
     if "telefone" in p:

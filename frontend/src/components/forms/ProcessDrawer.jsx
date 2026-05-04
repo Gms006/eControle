@@ -142,10 +142,10 @@ export default function ProcessDrawer({ state }) {
           </label>
           {form.empresa_nao_cadastrada ? (
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-              <FieldBlock label="CNPJ" required>
+              <FieldBlock label="CPF/CNPJ" required>
                 <Input
                   className={FIELD_CLASS}
-                  value={maskCnpj(form.company_cnpj)}
+                  value={maskDocument(form.company_cnpj)}
                   onChange={(e) =>
                     update({ company_cnpj: normalizeDigits(e.target.value).slice(0, 14) })
                   }

@@ -81,8 +81,8 @@ class CompanyProcessCreate(BaseModel):
         digits = "".join(ch for ch in str(value) if ch.isdigit())
         if not digits:
             return None
-        if len(digits) != 14:
-            raise ValueError("company_cnpj must have 14 digits")
+        if len(digits) not in (11, 14):
+            raise ValueError("company_cnpj must have 11 or 14 digits")
         return digits
 
 

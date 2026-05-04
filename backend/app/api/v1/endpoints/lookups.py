@@ -55,6 +55,16 @@ def map_cnae_item(item: Any) -> dict[str, str] | None:
     return {"code": code or "", "text": text or ""}
 
 
+def normalize_trade_name(value: Any) -> str | None:
+    text = normalize_title_case(value)
+    if not text:
+        return None
+    compact = re.sub(r"\s+", "", text)
+    if compact and set(compact) == {"*"}:
+        return None
+    return text
+
+
 def is_result_useful(mapped: dict[str, Any]) -> bool:
     """
     Retorna True se o resultado da consulta tem dados mínimos úteis.
@@ -192,7 +202,7 @@ def map_receitaws_payload(cnpj: str, data: dict[str, Any]) -> dict[str, Any]:
     return {
         "cnpj": cnpj,
         "razao_social": normalize_title_case(data.get("nome")),
-        "nome_fantasia": normalize_title_case(data.get("fantasia")),
+        "nome_fantasia": normalize_trade_name(data.get("fantasia")),
         "porte": normalize_spaces(data.get("porte")),
         "municipio": normalize_municipio(data.get("municipio")),
         "municipio_padrao": normalize_municipio(data.get("municipio")),
@@ -234,7 +244,7 @@ def map_brasilapi_payload(cnpj: str, data: dict[str, Any]) -> dict[str, Any]:
     return {
         "cnpj": cnpj,
         "razao_social": normalize_title_case(data.get("razao_social")),
-        "nome_fantasia": normalize_title_case(data.get("nome_fantasia")),
+        "nome_fantasia": normalize_trade_name(data.get("nome_fantasia")),
         "porte": normalize_spaces(data.get("porte")),
         "municipio": normalize_municipio(data.get("municipio")),
         "municipio_padrao": normalize_municipio(data.get("municipio")),

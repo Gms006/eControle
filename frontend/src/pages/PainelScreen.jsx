@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Chip } from "@/components/Chip";
 import StatusBadge from "@/components/StatusBadge";
-import { AlertTriangle, Bell, Building2, ChevronDown, ChevronUp, FileText, Filter, KanbanSquare, LayoutList, Plus, Save, Star, Trash2, Zap } from "lucide-react";
+import { AlertTriangle, Bell, Building2, ChevronDown, ChevronUp, FileText, Filter, FolderKanban, KanbanSquare, LayoutDashboard, LayoutList, Plus, Receipt, Save, ScrollText, ShieldCheck, Star, Trash2, X, Zap } from "lucide-react";
 import { formatCanonicalLabel, parsePtDate, removeDiacritics } from "@/lib/text";
 import { formatLicenceTypeLabel, formatProcessTypeLabel, formatTechnicalStatusLabel, getStatusKey, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
 import { getProcessUrgency } from "@/lib/processUrgency";
@@ -118,6 +118,15 @@ const CERT_OPTIONS = [
   { key: "sem_certificado", label: "Sem certificado" },
 ];
 
+const SUBNAV_ITEMS = [
+  { key: "painel", label: "Painel", icon: LayoutDashboard },
+  { key: "empresas", label: "Empresas", icon: Building2 },
+  { key: "licencas", label: "Licenças", icon: ScrollText },
+  { key: "taxas", label: "Taxas", icon: Receipt },
+  { key: "processos", label: "Processos", icon: FolderKanban },
+  { key: "certificados", label: "Certificados", icon: ShieldCheck },
+];
+
 const TAX_MATRIX_COLUMNS = [
   { key: "func", label: "FUNC" },
   { key: "publicidade", label: "PUB" },
@@ -181,7 +190,7 @@ function KpiCard({ title, value, subtitle, icon, segments, accent = "blue", subt
 }
 
 export default function PainelScreen(props) {
-  const { municipio, soAlertas, modoFoco, currentRoles, empresas, licencas, taxas, certificados, processosNormalizados, filterEmpresas, companyHasAlert, licencasByEmpresa, extractEmpresaId, onOpenQueueTarget } = props;
+  const { municipio, soAlertas, modoFoco, currentRoles, empresas, licencas, taxas, certificados, processosNormalizados, filterEmpresas, companyHasAlert, licencasByEmpresa, extractEmpresaId, onOpenQueueTarget, activeTab = "painel", onTabChange } = props;
   const [todayKey, setTodayKey] = useState(() => new Date().toDateString());
   const [panelFilters, setPanelFilters] = useState(() => ({ ...DEFAULT_FILTERS, municipio: normalizeMunicipioFilter(municipio), somenteAlertas: Boolean(soAlertas), modoFoco: Boolean(modoFoco) }));
   const [viewsState, setViewsState] = useState({ loading: false, items: [] });
@@ -401,10 +410,10 @@ export default function PainelScreen(props) {
       { key: "due7", label: "Prazo", value: processosGroups.due7.length, className: "bg-indigo-500" },
     ]);
     return [
-      { key: "empresas", title: "Empresas sob aten\u00e7\u00e3o", value: empresasAtencao.length, subtitle: `+${Math.max(0, filteredCompanies.length - empresasAtencao.length)} esta semana`, icon: <Building2 className="h-5 w-5" />, segments: attentionSegments, accent: "green", subtitleTone: "amber" },
-      { key: "licencas", title: "Licen\u00e7as vencendo", value: licencaResumo.vencidas + licencaResumo.ate7 + licencaResumo.ate30, subtitle: `${licencaResumo.ate7} em at\u00e9 7 dias`, icon: <FileText className="h-5 w-5" />, segments: licencaSegments, accent: "orange", subtitleTone: "amber" },
+      { key: "empresas", title: "Empresas sob atenção", value: empresasAtencao.length, subtitle: `+${Math.max(0, filteredCompanies.length - empresasAtencao.length)} esta semana`, icon: <Building2 className="h-5 w-5" />, segments: attentionSegments, accent: "green", subtitleTone: "amber" },
+      { key: "licencas", title: "Licenças vencendo", value: licencaResumo.vencidas + licencaResumo.ate7 + licencaResumo.ate30, subtitle: `${licencaResumo.ate7} em até 7 dias`, icon: <FileText className="h-5 w-5" />, segments: licencaSegments, accent: "orange", subtitleTone: "amber" },
       { key: "taxas", title: "Taxas irregulares", value: taxasResumo.tpi + taxasResumo.funcionamento + taxasResumo.sanitaria + taxasResumo.bombeiros + taxasResumo.outros, subtitle: `${scopedTaxas.length} com envio pendente`, icon: <Bell className="h-5 w-5" />, segments: taxaSegments, accent: "blue", subtitleTone: "amber" },
-      { key: "processos", title: "Processos cr\u00edticos", value: processosUrgentes.length, subtitle: `-${Math.max(0, processosUrgentes.length - processosGroups.due7.length)} vs. \u00faltimo ciclo`, icon: <Zap className="h-5 w-5" />, segments: processoSegments, accent: "red", subtitleTone: "green" },
+      { key: "processos", title: "Processos críticos", value: processosUrgentes.length, subtitle: `-${Math.max(0, processosUrgentes.length - processosGroups.due7.length)} vs. último ciclo`, icon: <Zap className="h-5 w-5" />, segments: processoSegments, accent: "red", subtitleTone: "green" },
     ];
   }, [filteredCompanies, companyHasAlert, licencaResumo, taxasResumo, scopedTaxas.length, processosUrgentes, processosGroups]);
 
@@ -695,7 +704,48 @@ export default function PainelScreen(props) {
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden xl:block">{rail}</div>
         <section className="space-y-4">
-          {activeBadges.length > 0 ? <div className="flex flex-wrap items-center gap-2 rounded-xl border border-blue-200 bg-blue-50/60 p-3">{activeBadges.map((badge) => <button key={badge.key} type="button" onClick={() => clearBadge(badge.key)} className="inline-flex items-center gap-1 rounded-full border border-blue-200 bg-white px-2.5 py-1 text-xs font-medium text-blue-700">{badge.label}<span className="text-blue-400">x</span></button>)}</div> : null}
+          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
+            <div className="flex flex-wrap gap-2">
+              {SUBNAV_ITEMS.map((item) => {
+                const Icon = item.icon;
+                const isActive = activeTab === item.key;
+                return (
+                  <button
+                    key={item.key}
+                    type="button"
+                    onClick={() => onTabChange?.(item.key)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
+                      isActive
+                        ? "border-slate-900 bg-slate-900 text-white"
+                        : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
+                    }`}
+                  >
+                    <Icon className="h-4 w-4" />
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {activeBadges.map((badge) => (
+              <button
+                key={badge.key}
+                type="button"
+                onClick={() => clearBadge(badge.key)}
+                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                title="Remover filtro"
+              >
+                {badge.label}
+                <X className="h-3.5 w-3.5" />
+              </button>
+            ))}
+            {activeBadges.length === 0 ? (
+              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
+                Sem filtros adicionais ativos
+              </span>
+            ) : null}
+          </div>
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{kpiCards.map((card) => <KpiCard key={card.key} title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} segments={card.segments} accent={card.accent} subtitleTone={card.subtitleTone} />)}</div>
 
           <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
