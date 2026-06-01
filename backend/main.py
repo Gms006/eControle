@@ -13,6 +13,7 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.core.seed import ensure_seed_data
 from app.db.session import SessionLocal
+from app.legacy_certidoes.routes import router as legacy_certidoes_router
 
 configure_logging(settings.LOG_LEVEL)
 
@@ -47,13 +48,14 @@ app = FastAPI(
 )
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
+app.include_router(legacy_certidoes_router)
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["*"]
 )
 
 # Mount static files for ReDoc
@@ -100,4 +102,3 @@ async def redoc_html():
 @app.get("/healthz")
 def healthz():
     return {"status": "ok"}
-
