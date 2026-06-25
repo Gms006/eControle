@@ -136,6 +136,7 @@ async def ensure_rfb_agent_running() -> None:
         env.setdefault("PYTHONUNBUFFERED", "1")
         env["RFB_AGENT_HOST"] = host
         env["RFB_AGENT_PORT"] = str(port)
+        env.setdefault("RFB_AGENT_BROWSER_CHANNEL", "chromium")
 
         creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
 

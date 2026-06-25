@@ -16,6 +16,7 @@ import {
   normalizePorteSigla,
 } from "@/lib/masks";
 import { mergeReceitaWsIntoCompanyForm, useReceitaWsLookup } from "@/hooks/useReceitaWsLookup";
+import { promptPasswordForDelete } from "@/lib/auth/promptPasswordForDelete";
 
 export const EMPTY_COMPANY_FORM = {
   document_type: "cnpj",
@@ -65,14 +66,6 @@ export const EMPTY_COMPANY_FORM = {
 };
 
 const EMPTY_MODAL = { open: false, mode: "create", companyId: null, initialTab: null };
-
-function promptPasswordForDelete() {
-  const password = window.prompt("Confirme sua senha para prosseguir com a exclusão:");
-  if (password === null) return null;
-  const trimmed = String(password || "").trim();
-  if (!trimmed) throw new Error("Senha obrigatória para confirmar a exclusão.");
-  return trimmed;
-}
 
 export function useCompanyForm({ apiJson, onRefresh }) {
   const [modal, setModal] = useState(EMPTY_MODAL);
@@ -209,7 +202,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
       if (modal.mode === "create") {
         await apiJson("/api/v1/companies/composite", {
           method: "POST",
-          body: JSON.stringify({
+          body: {
             company: {
               cnpj: isCpf ? null : digits,
               company_cpf: isCpf ? digits : null,
@@ -248,12 +241,12 @@ export function useCompanyForm({ apiJson, onRefresh }) {
                   vencimento_tpi: form.taxes.vencimento_tpi || null,
                 }
               : undefined,
-          }),
+          },
         });
       } else {
         await apiJson(`/api/v1/companies/${modal.companyId}`, {
           method: "PATCH",
-          body: JSON.stringify({
+          body: {
             cnpj: isCpf ? null : digits,
             company_cpf: isCpf ? digits : null,
             razao_social: normalizeTitleCase(form.razao_social),
@@ -279,7 +272,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
             sanitary_complexity: form.sanitary_complexity || "PENDENTE_REVISAO",
             address_usage_type: form.address_usage_type || "PENDENTE_REVISAO",
             address_location_type: form.address_location_type || "PENDENTE_REVISAO",
-          }),
+          },
         });
       }
 
@@ -303,7 +296,7 @@ export function useCompanyForm({ apiJson, onRefresh }) {
     try {
       await apiJson(`/api/v1/companies/${modal.companyId}`, {
         method: "DELETE",
-        body: JSON.stringify({ password }),
+        body: { password },
       });
 
       closeCompanyModal();
@@ -336,3 +329,6 @@ export function useCompanyForm({ apiJson, onRefresh }) {
     deleteCompany,
   };
 }
+
+
+

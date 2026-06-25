@@ -1,4 +1,4 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { motion } from "framer-motion";
 import { AlertTriangle, BellRing, Bookmark, Bot, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -8,6 +8,7 @@ import { BRAND_COLORS, type AppTabKey, type NavItem } from "@/lib/theme";
 export default function Sidebar({
   items,
   activeTab,
+  activeOperationKey,
   onTabChange,
   onOperationAction,
   operationCounts,
@@ -15,6 +16,7 @@ export default function Sidebar({
 }: {
   items: NavItem[];
   activeTab: AppTabKey;
+  activeOperationKey?: "notifications" | "critical_queues" | "saved_views" | "automation_jobs" | null;
   onTabChange: (key: AppTabKey) => void;
   onOperationAction?: (action: "notifications" | "critical_queues" | "saved_views" | "automation_jobs") => void;
   operationCounts?: Partial<Record<"notifications" | "critical_queues" | "saved_views" | "automation_jobs", number>>;
@@ -107,20 +109,40 @@ export default function Sidebar({
       <nav className="space-y-1">
         {operations.map((item) => {
           const Icon = item.icon;
+          const isActive = activeOperationKey === item.key;
           return (
             <button
               key={item.key}
               type="button"
               onClick={() => onOperationAction?.(item.key)}
-              className="group flex w-full items-center gap-3 rounded-xl border border-transparent bg-transparent px-3 py-2.5 text-left transition hover:border-white/10 hover:bg-white/5"
+              className={cn(
+                "group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition",
+                isActive
+                  ? "border-blue-400/30 bg-blue-500/15 shadow-sm"
+                  : "border-transparent bg-transparent hover:border-white/10 hover:bg-white/5",
+              )}
             >
-              <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-white/10 bg-white/5 text-blue-100/90">
+              <div
+                className={cn(
+                  "grid h-9 w-9 shrink-0 place-items-center rounded-lg border",
+                  isActive
+                    ? "border-blue-300/60 bg-blue-50 text-blue-700"
+                    : "border-white/10 bg-white/5 text-blue-100/90",
+                )}
+              >
                 <Icon className="h-4 w-4" />
               </div>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold text-blue-50/90">{item.label}</div>
+                <div className={cn("text-sm font-semibold", isActive ? "text-white" : "text-blue-50/90")}>{item.label}</div>
               </div>
-              <small className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-[10px] font-semibold text-blue-100/50">
+              <small
+                className={cn(
+                  "rounded-md border px-1.5 py-0.5 text-[10px] font-semibold",
+                  isActive
+                    ? "border-blue-200/60 bg-blue-50/20 text-blue-50"
+                    : "border-white/10 bg-white/5 text-blue-100/50",
+                )}
+              >
                 {Number(operationCounts?.[item.key] || 0)}
               </small>
             </button>

@@ -34,7 +34,7 @@ import StatusBadge from "@/components/StatusBadge";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { toUiBrDate } from "@/lib/date";
 import { formatCpfCnpj, formatPhoneBr, normalizeText } from "@/lib/text";
-import { getStatusKey } from "@/lib/status";
+import { getStatusKey } from "@/lib/domain/status/common";
 
 const normalize = (value) => String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 

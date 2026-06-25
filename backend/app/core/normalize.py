@@ -89,11 +89,14 @@ def normalize_title_case(value: str | None) -> str | None:
     out: list[str] = []
     for i, raw_word in enumerate(words):
         upper_raw = raw_word.upper()
+        if i > 0 and upper_raw.lower() in TITLECASE_LOWER_WORDS:
+            out.append(upper_raw.lower())
+            continue
         if upper_raw in TITLECASE_UPPER_WORDS:
             out.append(upper_raw)
             continue
-        if i > 0 and upper_raw.lower() in TITLECASE_LOWER_WORDS:
-            out.append(upper_raw.lower())
+        if raw_word.isupper() and len(raw_word) > 1:
+            out.append(upper_raw)
             continue
         out.append(upper_raw[:1] + upper_raw[1:].lower())
     return " ".join(out)

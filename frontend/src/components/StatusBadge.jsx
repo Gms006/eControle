@@ -1,7 +1,7 @@
 import React from "react";
 import { Chip } from "@/components/Chip";
 import { normalizeText } from "@/lib/text";
-import { formatStatusDisplay, resolveStatusClass } from "@/lib/status";
+import { formatStatusDisplay, resolveStatusClass } from "@/lib/domain/status/display";
 
 function StatusBadge({ status, className = "" }) {
   const normalized = normalizeText(status);

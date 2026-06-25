@@ -5,9 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Chip } from "@/components/Chip";
 import StatusBadge from "@/components/StatusBadge";
-import { AlertTriangle, Bell, Building2, ChevronDown, ChevronUp, FileText, Filter, FolderKanban, KanbanSquare, LayoutDashboard, LayoutList, Plus, Receipt, Save, ScrollText, ShieldCheck, Star, Trash2, X, Zap } from "lucide-react";
+import { AlertTriangle, Bell, Building2, ChevronDown, ChevronUp, FileText, Filter, LayoutList, KanbanSquare, Zap } from "lucide-react";
+import DomainSubnav from "@/components/navigation/DomainSubnav";
+import PainelKpiCard from "@/components/painel/PainelKpiCard";
+import PainelActiveBadges from "@/components/painel/PainelActiveBadges";
+import PainelFilterRail from "@/components/painel/PainelFilterRail";
 import { formatCanonicalLabel, parsePtDate, removeDiacritics } from "@/lib/text";
-import { formatLicenceTypeLabel, formatProcessTypeLabel, formatTechnicalStatusLabel, getStatusKey, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/status";
+import { formatLicenceTypeLabel, formatProcessTypeLabel, formatTechnicalStatusLabel } from "@/lib/domain/status/display";
+import { getStatusKey, hasRelevantStatus, isAlertStatus, isProcessStatusInactive } from "@/lib/domain/status/common";
 import { getProcessUrgency } from "@/lib/processUrgency";
 import { atualizarDashboardView, criarDashboardView, excluirDashboardView, listarDashboardViews } from "@/services/dashboardViews";
 
@@ -118,15 +123,6 @@ const CERT_OPTIONS = [
   { key: "sem_certificado", label: "Sem certificado" },
 ];
 
-const SUBNAV_ITEMS = [
-  { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: Building2 },
-  { key: "licencas", label: "Licenças", icon: ScrollText },
-  { key: "taxas", label: "Taxas", icon: Receipt },
-  { key: "processos", label: "Processos", icon: FolderKanban },
-  { key: "certificados", label: "Certificados", icon: ShieldCheck },
-];
-
 const TAX_MATRIX_COLUMNS = [
   { key: "func", label: "FUNC" },
   { key: "publicidade", label: "PUB" },
@@ -157,37 +153,6 @@ const buildSparkSegments = (rawItems) => {
   return items.map((entry) => ({ ...entry, width: `${Math.max(8, Math.round((entry.value / total) * 100))}%` }));
 };
 
-function KpiCard({ title, value, subtitle, icon, segments, accent = "blue", subtitleTone = "amber" }) {
-  const accentMap = {
-    green: "border-emerald-200 bg-emerald-50 text-emerald-700",
-    orange: "border-amber-200 bg-amber-50 text-amber-700",
-    blue: "border-blue-200 bg-blue-50 text-blue-700",
-    red: "border-rose-200 bg-rose-50 text-rose-700",
-  };
-  const subtitleToneMap = {
-    green: "text-emerald-600",
-    amber: "text-amber-600",
-    blue: "text-blue-600",
-    red: "text-rose-600",
-  };
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-medium text-slate-600">{title}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-          <p className={`mt-1 text-xs ${subtitleToneMap[subtitleTone] || "text-slate-600"}`}>{subtitle}</p>
-        </div>
-        <span className={`inline-flex h-10 w-10 items-center justify-center rounded-xl border ${accentMap[accent] || accentMap.blue}`}>{icon}</span>
-      </div>
-      <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-slate-300">
-        <div className="flex h-full w-full gap-4 px-2">
-          {segments.length === 0 ? <div className="h-full w-full bg-slate-300" /> : segments.map((segment) => <div key={segment.key} className={segment.className} style={{ width: `clamp(8px, ${segment.width}, 14%)` }} title={`${segment.label}: ${segment.value}`} />)}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 export default function PainelScreen(props) {
   const { municipio, soAlertas, modoFoco, currentRoles, empresas, licencas, taxas, certificados, processosNormalizados, filterEmpresas, companyHasAlert, licencasByEmpresa, extractEmpresaId, onOpenQueueTarget, activeTab = "painel", onTabChange } = props;
@@ -550,203 +515,69 @@ export default function PainelScreen(props) {
       : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-white"
   }`;
 
-  const rail = (
-    <aside className="space-y-3 rounded-2xl border border-slate-300 bg-white p-3.5 shadow-sm xl:sticky xl:top-0 xl:self-start xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto">
-        <div className="flex items-start justify-between">
-          <div>
-            <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">Contexto</p>
-            <h3 className="text-sm font-semibold text-slate-900">Filtros persistentes</h3>
-          </div>
-          <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-center">
-            <div className="text-sm font-semibold leading-4 text-blue-700">{activeBadges.length}</div>
-            <div className="mt-1 text-[11px] font-medium leading-3 text-blue-700">{activeBadges.length === 1 ? "ativo" : "ativos"}</div>
-          </div>
-        </div>
-
-        <div className="space-y-2.5 rounded-xl border border-slate-300 bg-slate-100 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Filtros rápidos</p>
-          <div className="flex flex-wrap gap-2">
-            <button type="button" onClick={() => setPanelFilters((prev) => ({ ...prev, somenteAlertas: !prev.somenteAlertas }))} className={chipClass(panelFilters.somenteAlertas)}>
-              Somente alertas
-            </button>
-            <button type="button" onClick={() => setPanelFilters((prev) => ({ ...prev, modoFoco: !prev.modoFoco }))} className={chipClass(panelFilters.modoFoco)}>
-              Modo foco
-            </button>
-          </div>
-        </div>
-
-        <div id="painel-critical_queues" className={`space-y-3 rounded-xl border p-3 ${focusTarget === "critical_queues" ? "border-blue-300 bg-blue-50/50" : "border-slate-300 bg-slate-200/50"}`}>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Status da empresa</p>
-          <div className="flex flex-wrap gap-2">
-            {["Ativas", "Inativas", "Todas"].map((value) => (
-              <button key={value} type="button" onClick={() => setPanelFilters((prev) => ({ ...prev, companyStatus: value }))} className={chipClass(panelFilters.companyStatus === value)}>
-                {value}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Risco CNAE</p>
-          <div className="flex flex-wrap gap-2">
-            {RISK_OPTIONS.map((option) => {
-              const active = panelFilters.riskKeys.includes(option.key);
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() =>
-                    setPanelFilters((prev) => {
-                      const next = active ? prev.riskKeys.filter((entry) => entry !== option.key) : [...prev.riskKeys, option.key];
-                      return { ...prev, riskKeys: next.length ? next : [...DEFAULT_RISK_KEYS] };
-                    })
-                  }
-                  className={chipClass(active)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Certificado</p>
-          <div className="flex flex-wrap gap-2">
-            {CERT_OPTIONS.map((option) => {
-              const active = panelFilters.certBuckets.includes(option.key);
-              return (
-                <button
-                  key={option.key}
-                  type="button"
-                  onClick={() =>
-                    setPanelFilters((prev) => {
-                      const next = active ? prev.certBuckets.filter((entry) => entry !== option.key) : [...prev.certBuckets, option.key];
-                      return { ...prev, certBuckets: next.length ? next : [...CERT_OPTIONS.map((entry) => entry.key)] };
-                    })
-                  }
-                  className={chipClass(active)}
-                >
-                  {option.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Município</p>
-          <select
-            multiple
-            value={panelFilters.municipio}
-            onChange={(event) => {
-              const values = Array.from(event.target.selectedOptions).map((opt) => opt.value);
-              setPanelFilters((prev) => ({ ...prev, municipio: values }));
-            }}
-            className="min-h-[92px] w-full rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-700"
-          >
-            {municipioOptions.filter((item) => item !== "todos").map((item) => <option key={item} value={item}>{item}</option>)}
-          </select>
-          <p className="text-[11px] text-slate-500">Segure Ctrl/Cmd para selecionar múltiplos.</p>
-        </div>
-
-        <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Score de urgência</p>
-          <div className="relative h-6">
-            <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-100" />
-            <div
-              className="pointer-events-none absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-300"
-              style={{
-                left: `${panelFilters.urgencyMin}%`,
-                width: `${Math.max(0, panelFilters.urgencyMax - panelFilters.urgencyMin)}%`,
-              }}
-            />
-            <input type="range" min={0} max={100} value={panelFilters.urgencyMin} onChange={(e) => { const v = Number(e.target.value); setPanelFilters((prev) => ({ ...prev, urgencyMin: Math.min(v, prev.urgencyMax) })); }} className="ec-urgency-range" aria-label="Score de urgência mínimo" />
-            <input type="range" min={0} max={100} value={panelFilters.urgencyMax} onChange={(e) => { const v = Number(e.target.value); setPanelFilters((prev) => ({ ...prev, urgencyMax: Math.max(v, prev.urgencyMin) })); }} className="ec-urgency-range" aria-label="Score de urgência máximo" />
-          </div>
-          <div className="flex justify-between text-[11px] font-semibold text-slate-500">
-            <span>{panelFilters.urgencyMin}</span>
-            <span>{panelFilters.urgencyMax}</span>
-          </div>
-        </div>
-
-        <div id="painel-saved_views" className={`space-y-2 rounded-xl border p-3 ${focusTarget === "saved_views" ? "border-blue-300 bg-blue-50/50" : "border-slate-300 bg-slate-200/50"}`}>
-          <div className="flex items-center justify-between"><p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-600">Views salvas</p><Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={handleSaveCurrentView}><Plus className="mr-1 h-3.5 w-3.5" /> Salvar</Button></div>
-          {viewsState.loading ? <p className="text-xs text-slate-500">Carregando views...</p> : null}
-          {!viewsState.loading && viewsState.items.length === 0 ? <p className="text-xs text-slate-500">Nenhuma view salva.</p> : null}
-          {viewsState.items.map((entry) => {
-            const filtersCount = Object.keys(entry?.payload_json?.filters || {}).length;
-            return (
-              <div key={entry.id} className="rounded-lg border border-slate-300 bg-slate-50 p-2">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="truncate text-xs font-semibold text-slate-800">{entry.name}</p>
-                    <p className="text-[11px] text-slate-500">{entry.scope === "shared" ? "Compartilhada" : "Pessoal"} · {filtersCount} filtros</p>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <button type="button" onClick={() => void handleTogglePin(entry)} className={`rounded-md p-1 ${entry.is_pinned ? "text-amber-600" : "text-slate-400"}`}><Star className="h-3.5 w-3.5" /></button>
-                    {(entry.scope === "personal" || canManageShared) ? <><button type="button" onClick={() => void handleRenameView(entry)} className="rounded-md p-1 text-slate-500"><Save className="h-3.5 w-3.5" /></button><button type="button" onClick={() => void handleDeleteView(entry)} className="rounded-md p-1 text-rose-600"><Trash2 className="h-3.5 w-3.5" /></button></> : null}
-                  </div>
-                </div>
-                <div className="mt-2 flex justify-end"><Button type="button" size="sm" variant="outline" className="h-7 text-[11px]" onClick={() => applySavedView(entry)}>Aplicar visão</Button></div>
-              </div>
-            );
-          })}
-        </div>
-    </aside>
-  );
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between xl:hidden"><Button type="button" variant="outline" className="h-9" onClick={() => setShowRailMobile((prev) => !prev)}><Filter className="mr-2 h-4 w-4" />Rail do painel{showRailMobile ? <ChevronUp className="ml-2 h-4 w-4" /> : <ChevronDown className="ml-2 h-4 w-4" />}</Button></div>
-      {showRailMobile ? rail : null}
+      {showRailMobile ? (
+        <PainelFilterRail
+          activeBadges={activeBadges}
+          chipClass={chipClass}
+          panelFilters={panelFilters}
+          setPanelFilters={setPanelFilters}
+          focusTarget={focusTarget}
+          riskOptions={RISK_OPTIONS}
+          certOptions={CERT_OPTIONS}
+          defaultRiskKeys={DEFAULT_RISK_KEYS}
+          municipioOptions={municipioOptions}
+          viewsState={viewsState}
+          canManageShared={canManageShared}
+          handleSaveCurrentView={handleSaveCurrentView}
+          handleTogglePin={handleTogglePin}
+          handleRenameView={handleRenameView}
+          handleDeleteView={handleDeleteView}
+          applySavedView={applySavedView}
+        />
+      ) : null}
 
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <div className="hidden xl:block">{rail}</div>
+        <div className="hidden xl:block">
+          <PainelFilterRail
+            activeBadges={activeBadges}
+            chipClass={chipClass}
+            panelFilters={panelFilters}
+            setPanelFilters={setPanelFilters}
+            focusTarget={focusTarget}
+            riskOptions={RISK_OPTIONS}
+            certOptions={CERT_OPTIONS}
+            defaultRiskKeys={DEFAULT_RISK_KEYS}
+            municipioOptions={municipioOptions}
+            viewsState={viewsState}
+            canManageShared={canManageShared}
+            handleSaveCurrentView={handleSaveCurrentView}
+            handleTogglePin={handleTogglePin}
+            handleRenameView={handleRenameView}
+            handleDeleteView={handleDeleteView}
+            applySavedView={applySavedView}
+          />
+        </div>
         <section className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-            <div className="flex flex-wrap gap-2">
-              {SUBNAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => onTabChange?.(item.key)}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                      isActive
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {activeBadges.map((badge) => (
-              <button
-                key={badge.key}
-                type="button"
-                onClick={() => clearBadge(badge.key)}
-                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
-                title="Remover filtro"
-              >
-                {badge.label}
-                <X className="h-3.5 w-3.5" />
-              </button>
+          <DomainSubnav activeTab={activeTab} onTabChange={onTabChange} />
+          <PainelActiveBadges badges={activeBadges} onClearBadge={clearBadge} />
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {kpiCards.map((card) => (
+              <PainelKpiCard
+                key={card.key}
+                title={card.title}
+                value={card.value}
+                subtitle={card.subtitle}
+                icon={card.icon}
+                segments={card.segments}
+                accent={card.accent}
+                subtitleTone={card.subtitleTone}
+              />
             ))}
-            {activeBadges.length === 0 ? (
-              <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
-                Sem filtros adicionais ativos
-              </span>
-            ) : null}
           </div>
-          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{kpiCards.map((card) => <KpiCard key={card.key} title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} segments={card.segments} accent={card.accent} subtitleTone={card.subtitleTone} />)}</div>
 
           <div className="grid gap-4 xl:grid-cols-[1.6fr_1fr]">
             <Card className="shadow-sm"><CardHeader className="pb-2"><CardTitle className="flex items-center gap-2 text-base font-semibold"><Bell className="h-4 w-4" /> Mapa de calor de vencimentos</CardTitle></CardHeader><CardContent className="p-0"><ScrollArea className="h-[320px] px-4 pb-4"><div className="overflow-x-auto"><div className="grid min-w-[640px] grid-cols-[160px_repeat(6,minmax(56px,1fr))] gap-1.5"><div />{meses.map((month) => <div key={month.key} className="rounded-md bg-slate-100 py-1.5 text-center text-[11px] font-semibold uppercase text-slate-500">{month.label}</div>)}{heatmapRows.map((row) => <React.Fragment key={row.key}><div className="flex items-center text-[11px] font-semibold text-slate-600">{row.label}</div>{meses.map((month) => { const value = row.values.get(month.key) || 0; return <div key={`${row.key}-${month.key}`} className={`flex h-8 items-center justify-center rounded-md text-[11px] font-semibold ${heatCellClass(value)}`}>{value > 0 ? value : "-"}</div>; })}</React.Fragment>)}</div></div></ScrollArea></CardContent></Card>

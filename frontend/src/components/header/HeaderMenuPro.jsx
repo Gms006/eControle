@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import { Building2, FileText, Import } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -7,7 +7,6 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useAuth } from "@/hooks/useAuth";
 import { useCompanyForm } from "@/hooks/useCompanyForm";
 import { useProcessForm } from "@/hooks/useProcessForm";
 import { useTaxForm } from "@/hooks/useTaxForm";
@@ -16,44 +15,18 @@ import CompanyDrawer from "@/components/forms/CompanyDrawer";
 import ProcessDrawer from "@/components/forms/ProcessDrawer";
 import TaxDrawer from "@/components/forms/TaxDrawer";
 import BulkSyncManager from "@/components/header/BulkSyncManager";
+import { fetchJson } from "@/lib/api";
 
 const EVT_OPEN_COMPANY = "econtrole:open-company";
 const EVT_OPEN_PROCESS = "econtrole:open-process";
 const EVT_OPEN_TAX = "econtrole:open-tax";
 const EVT_REFRESH_DATA = "econtrole:refresh-data";
 
-function apiBase() {
-  return ((import.meta.env?.VITE_API_BASE || import.meta.env?.VITE_API_BASE_URL || "")).replace(/\/$/, "");
-}
-
-async function apiJson(endpoint, options = {}) {
-  const base = apiBase();
-  const url = endpoint.startsWith("http") ? endpoint : `${base}${endpoint}`;
-  const token = localStorage.getItem("access_token");
-
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      ...(options.body ? { "Content-Type": "application/json" } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...(options.headers || {}),
-    },
-  });
-
-  if (!res.ok) {
-    const txt = await res.text().catch(() => "");
-    throw new Error(`${res.status} ${res.statusText} ${txt}`.trim());
-  }
-
-  const ct = res.headers.get("content-type") || "";
-  return ct.includes("application/json") ? res.json() : null;
-}
-
-export default function HeaderMenuPro() {
-  const auth = useAuth();
-  const [currentUserRoles, setCurrentUserRoles] = useState([]);
-
-  const rolesRaw = auth?.user?.roles || currentUserRoles;
+/**
+ * @param {{ currentRoles?: Array<string | { name?: string }> }} [props]
+ */
+export default function HeaderMenuPro({ currentRoles } = {}) {
+  const rolesRaw = Array.isArray(currentRoles) ? currentRoles : [];
   const roleNames = Array.isArray(rolesRaw)
     ? rolesRaw.map((r) => String(typeof r === "string" ? r : r?.name || "").toUpperCase()).filter(Boolean)
     : [];
@@ -68,24 +41,10 @@ export default function HeaderMenuPro() {
     window.dispatchEvent(new CustomEvent(EVT_REFRESH_DATA, { detail: { source } }));
   }, []);
 
-  const company = useCompanyForm({ apiJson, onRefresh: emitRefresh });
-  const process = useProcessForm({ apiJson, onRefresh: emitRefresh });
-  const tax = useTaxForm({ apiJson, onRefresh: emitRefresh });
+  const company = useCompanyForm({ apiJson: fetchJson, onRefresh: emitRefresh });
+  const process = useProcessForm({ apiJson: fetchJson, onRefresh: emitRefresh });
+  const tax = useTaxForm({ apiJson: fetchJson, onRefresh: emitRefresh });
   const bulk = useReceitaWsBulkSync({ isDevUser, onRefresh: emitRefresh });
-
-  useEffect(() => {
-    if (!auth?.accessToken) {
-      setCurrentUserRoles([]);
-      return;
-    }
-
-    apiJson("/api/v1/auth/me")
-      .then((data) => {
-        const nextRoles = Array.isArray(data?.roles) ? data.roles : [];
-        setCurrentUserRoles(nextRoles);
-      })
-      .catch(() => setCurrentUserRoles([]));
-  }, [auth?.accessToken]);
 
   useEffect(() => {
     const onCompany = (e) => {

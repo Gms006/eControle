@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { getStatusKey, isProcessStatusInactive } from "@/lib/status";
+import { getStatusKey, isProcessStatusInactive } from "@/lib/domain/status/common";
 import { normalizeText, removeDiacritics } from "@/lib/text";
 import { getPriorityTypeFields } from "@/lib/processTypeFields";
 
@@ -131,4 +131,3 @@ export const URGENCY_BUCKETS = [
   { key: "in_analysis", label: "Em análise" },
   { key: "incomplete", label: "Sem protocolo / dados incompletos" },
 ];
-

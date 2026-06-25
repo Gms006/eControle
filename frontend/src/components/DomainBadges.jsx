@@ -4,9 +4,13 @@ import {
   resolveTaxaStatusEdicao,
   resolveTaxaStatusFila,
   resolveTaxaStatusGeral,
+} from "@/lib/domain/status/taxas";
+import {
   resolveLicencaTipo,
   resolveLicencaStatus,
   resolveNaoExigidoMotivo,
+} from "@/lib/domain/status/licencas";
+import {
   resolveProcessoTipo,
   resolveProcessoStatus,
   resolveProcessoUrgencia,
@@ -15,13 +19,17 @@ import {
   resolveProcessoAlvara,
   resolveProcessoServico,
   resolveProcessoNotificacao,
+} from "@/lib/domain/status/processos";
+import {
   resolveEmpresaRisco,
   resolveEmpresaStatus,
   resolveEmpresaSituacaoTaxas,
   resolveEmpresaDebito,
+} from "@/lib/domain/status/empresas";
+import {
   resolveCertificadoStatus,
   resolveCertificadoDias,
-} from "@/lib/status";
+} from "@/lib/domain/status/certificados";
 
 function Badge({ resolved, value, size = "sm", dot = false, className = "" }) {
   if (value == null || value === "") return null;
@@ -128,4 +136,3 @@ export function CertificadoDiasBadge({ dias, size = "sm", className = "" }) {
     </Chip>
   );
 }
-

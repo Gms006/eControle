@@ -1,26 +1,9 @@
-import {
-  formatCnpj,
-  formatCpf,
-  formatPhoneBr,
-  normalizeDocumentDigits,
-} from "@/lib/text";
-
-export const normalizeDigits = (value) => normalizeDocumentDigits(value) || "";
-
-export const maskCnpj = (value) => {
-  const digits = normalizeDigits(value).slice(0, 14);
-  return formatCnpj(digits) || digits;
-};
-
-export const maskCpf = (value) => {
-  const digits = normalizeDigits(value).slice(0, 11);
-  return formatCpf(digits) || digits;
-};
-
-export const maskPhone = (value) => {
-  const digits = normalizeDigits(value).slice(0, 11);
-  return formatPhoneBr(digits) || digits;
-};
+export {
+  maskCnpj,
+  maskCpf,
+  maskPhone,
+  normalizeDigits,
+} from "./format/documents.js";
 
 export const normalizeFsDirname = (value) =>
   String(value || "").trim().replace(/\s+/g, " ");

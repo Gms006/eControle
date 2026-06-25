@@ -1,4 +1,4 @@
-import { getStatusKey } from "@/lib/status";
+import { getStatusKey } from "@/lib/domain/status/common";
 import { parsePtDate } from "@/lib/text";
 
 const DEFAULT_API_BASE = "http://localhost:8020";

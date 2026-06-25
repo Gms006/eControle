@@ -1,9 +1,10 @@
-﻿// @ts-nocheck
+// @ts-nocheck
 import { useEffect, useMemo, useState } from "react";
-import { Clock, FolderKanban, KeyRound, LayoutGrid, LayoutDashboard, Logs, Receipt, ScrollText, Search, SearchX, ShieldAlert, ShieldCheck, Building2, Filter } from "lucide-react";
+import { Clock, KeyRound, LayoutGrid, Logs, Search, SearchX, ShieldAlert, ShieldCheck, Filter } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import StatCard from "@/components/common/StatCard";
+import DomainSubnav from "@/components/navigation/DomainSubnav";
 import { categorizeCertificadoSituacao, isCertificadoSituacaoAlert } from "@/lib/certificados";
 import { formatCnpj, formatCpf, normalizeDocumentDigits, removeDiacritics } from "@/lib/text";
 import type { AppTabKey } from "@/lib/theme";
@@ -34,15 +35,6 @@ type CertRow = {
   documentType: string;
   source: any;
 };
-
-const TAXAS_SUBNAV_ITEMS = [
-  { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: Building2 },
-  { key: "licencas", label: "Licenças", icon: ScrollText },
-  { key: "taxas", label: "Taxas", icon: Receipt },
-  { key: "processos", label: "Processos", icon: FolderKanban },
-  { key: "certificados", label: "Certificados", icon: ShieldCheck },
-] as const;
 
 const STATUS_ORDER: Record<StatusKey, number> = { danger: 0, warn: 1, ok: 2, neutral: 3 };
 
@@ -185,19 +177,7 @@ export default function CertificadosScreen({ certificados, modoFoco, matchesMuni
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-        <div className="flex flex-wrap gap-2">
-          {TAXAS_SUBNAV_ITEMS.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.key;
-            return (
-              <button key={item.key} type="button" onClick={() => onTabChange?.(item.key as AppTabKey)} className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${isActive ? "border-slate-900 bg-slate-900 text-white" : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"}`}>
-                <Icon className="h-4 w-4" />{item.label}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      <DomainSubnav activeTab={activeTab} onTabChange={onTabChange} />
 
       <div className="flex flex-wrap gap-2">
         {activeFilterChips.map((chip) => <span key={chip} className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm">{chip}</span>)}

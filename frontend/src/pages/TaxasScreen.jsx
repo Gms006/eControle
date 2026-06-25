@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -9,8 +9,9 @@ import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { Chip } from "@/components/Chip";
 import TaxPortalSyncManager from "@/components/header/TaxPortalSyncManager";
 import { useTaxPortalSync } from "@/hooks/useTaxPortalSync";
-import { TAXA_ALERT_KEYS, TAXA_COLUMNS, TAXA_SEARCH_KEYS } from "@/lib/constants";
-import { formatStatusDisplay, getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/status";
+import { TAXA_ALERT_KEYS, TAXA_COLUMNS } from "@/lib/constants";
+import { formatStatusDisplay } from "@/lib/domain/status/display";
+import { getStatusKey, hasRelevantStatus, isAlertStatus } from "@/lib/domain/status/common";
 import { ResumoTipoCardTaxa } from "@/components/ResumoTipoCard";
 import { buildCertificadoIndex, categorizeCertificadoSituacao, resolveEmpresaCertificadoSituacao } from "@/lib/certificados";
 import {
@@ -40,6 +41,11 @@ import {
 } from "@/lib/taxes";
 import { isInstallmentInProgress } from "@/lib/installment";
 import { removeDiacritics } from "@/lib/text";
+import DomainSubnav from "@/components/navigation/DomainSubnav";
+import useTaxRows from "@/hooks/taxas/useTaxRows";
+import TaxMatrix from "@/components/taxas/TaxMatrix";
+import TaxFilterRail from "@/components/taxas/TaxFilterRail";
+import useTaxFilters from "@/hooks/taxas/useTaxFilters";
 
 const TAXA_ICON_COMPONENTS = {
   tpi: Receipt,
@@ -104,15 +110,6 @@ const TAX_STATUS_FIELD_BY_LINE_KEY = {
   tpi: "tpi",
   iss: "iss",
 };
-
-const TAXAS_SUBNAV_ITEMS = [
-  { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: Building2 },
-  { key: "licencas", label: "Licenças", icon: ScrollText },
-  { key: "taxas", label: "Taxas", icon: Receipt },
-  { key: "processos", label: "Processos", icon: FolderKanban },
-  { key: "certificados", label: "Certificados", icon: ShieldCheck },
-];
 
 const DEFAULT_RISK_KEYS = ["high", "medium", "low", "unmapped"];
 const DEFAULT_CERT_BUCKETS = ["valido", "vencendo", "vencido", "sem_certificado"];
@@ -357,24 +354,6 @@ const getMatrixCellVisual = (status) => {
   const visual = getTaxStatusVisual(status);
   return { tone: visual.matrixTone, label: visual.label };
 };
-
-function SummaryCard({ label, value, cardKey, helper }) {
-  const Icon = SUMMARY_CARD_STYLES[cardKey].icon;
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-slate-500">{label}</p>
-          <p className="mt-2 text-3xl font-semibold tracking-tight text-slate-900">{value}</p>
-          {helper ? <p className="mt-1 text-xs text-slate-500">{helper}</p> : null}
-        </div>
-        <div className={`grid h-10 w-10 place-items-center rounded-xl ${SUMMARY_CARD_STYLES[cardKey].iconClass}`}>
-          <Icon className="h-5 w-5" />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function RailFilterBlock({ label, chips = [], children }) {
   return (
@@ -744,20 +723,6 @@ function TaxasScreen({
   const empresasList = Array.isArray(empresas) ? empresas : [];
   const certificadosList = Array.isArray(certificados) ? certificados : [];
   const hasCompanyAlert = useCallback((empresa) => (typeof companyHasAlert === "function" ? companyHasAlert(empresa) : false), [companyHasAlert]);
-  const [queueFilter, setQueueFilter] = useState("all");
-  const [sortEmpresas, setSortEmpresas] = useState({ field: "empresa", direction: "asc" });
-  const [viewMode, setViewMode] = useState("table");
-  const [localSearch, setLocalSearch] = useState("");
-  const [summaryFilter, setSummaryFilter] = useState("all");
-  const [railFilters, setRailFilters] = useState({
-    companyStatus: "Ativas",
-    riskKeys: [...DEFAULT_RISK_KEYS],
-    certBuckets: [...DEFAULT_CERT_BUCKETS],
-    municipio: [],
-    urgencyMin: 0,
-    urgencyMax: 100,
-  });
-
   const handleTaxPortalSyncRefresh = useCallback(() => {
     window.dispatchEvent(new CustomEvent("econtrole:refresh-data", { detail: { source: "tax-portal-sync" } }));
   }, []);
@@ -789,31 +754,19 @@ function TaxasScreen({
     return null;
   }, [companyIndexes]);
 
-  const filteredTaxas = useMemo(
-    () =>
-      taxas.filter((taxa) => {
-        if (!matchesMunicipioFilter(taxa)) return false;
-        const camposPesquisa = [taxa.empresa, taxa.cnpj, ...TAXA_SEARCH_KEYS.map((key) => taxa?.[key])];
-        return matchesQuery(camposPesquisa, {
-          nome: [taxa.empresa],
-          razao: [taxa.empresa],
-          cnpj: [taxa.cnpj],
-        });
-      }).map((taxa) => {
-        const company = resolveCompany(taxa);
-        const certificadoSituacao = company ? resolveEmpresaCertificadoSituacao(company, certificadoIndex) : "";
-        return {
-          ...taxa,
-          __company: company,
-          __companyStatusKey: getCompanyStatusKey(company),
-          __riskKey: getCompanyRiskKey(company),
-          __certBucket: getCertBucketKey(certificadoSituacao || company?.certificado),
-          __certificadoSituacao: certificadoSituacao || company?.certificado || "",
-          __urgencyScore: getCompanyUrgencyScore(company, hasCompanyAlert),
-        };
-      }),
-    [certificadoIndex, hasCompanyAlert, matchesMunicipioFilter, matchesQuery, resolveCompany, taxas],
-  );
+  const filteredTaxas = useTaxRows({
+    taxas,
+    matchesMunicipioFilter,
+    matchesQuery,
+    resolveCompany,
+    certificadoIndex,
+    resolveEmpresaCertificadoSituacao,
+    getCompanyStatusKey,
+    getCompanyRiskKey,
+    getCertBucketKey,
+    getCompanyUrgencyScore,
+    hasCompanyAlert,
+  });
 
   const alertFilterActive = Boolean(modoFoco || soAlertas);
 
@@ -822,108 +775,48 @@ function TaxasScreen({
     return filteredTaxas.filter((taxa) => TAXA_ALERT_KEYS.some((key) => isAlertStatus(taxa?.[key])));
   }, [alertFilterActive, filteredTaxas]);
 
-  const municipioOptions = useMemo(
-    () => Array.from(new Set(taxasGlobais.map((taxa) => String(taxa?.municipio || "").trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR", { sensitivity: "base" })),
-    [taxasGlobais],
-  );
-
-  const railScopedTaxas = useMemo(
-    () => {
-      const result = taxasGlobais.filter((taxa) => {
-        if (railFilters.companyStatus !== "Todas" && taxa.__companyStatusKey !== railFilters.companyStatus) return false;
-        if (!railFilters.riskKeys.includes(taxa.__riskKey)) return false;
-        if (!railFilters.certBuckets.includes(taxa.__certBucket)) return false;
-        if (railFilters.municipio.length > 0 && !railFilters.municipio.includes(String(taxa?.municipio || "").trim())) return false;
-        if (taxa.__urgencyScore < railFilters.urgencyMin || taxa.__urgencyScore > railFilters.urgencyMax) return false;
-        return true;
-      });
-      return result;
-    },
-    [railFilters, taxasGlobais],
-  );
-
-  const localSearchScoped = useMemo(
-    () => {
-      return railScopedTaxas.filter((taxa) => matchLocalSearch(taxa, localSearch));
-    },
-    [localSearch, railScopedTaxas],
-  );
-
-  const summaryScoped = useMemo(() => {
-    return summaryFilter === "all" ? localSearchScoped : localSearchScoped.filter((taxa) => getResumoBucket(taxa) === summaryFilter);
-  }, [localSearchScoped, summaryFilter]);
-
-  const queueCounts = useMemo(
-    () =>
-      Object.fromEntries(
-        WORK_QUEUE_ITEMS.filter((item) => item.key !== "all").map((item) => [
-          item.key,
-          localSearchScoped.filter((taxa) => matchesQueueFilter(taxa, item.key, tipoKeys)).length,
-        ]),
-      ),
-    [localSearchScoped, tipoKeys],
-  );
-
-  const taxasVisiveis = useMemo(
-    () => {
-      return summaryScoped.filter((taxa) => matchesQueueFilter(taxa, queueFilter, tipoKeys));
-    },
-    [queueFilter, summaryScoped, tipoKeys],
-  );
-
-  const resumoCards = useMemo(() => {
-    const source = localSearchScoped;
-    return {
-      total: source.length,
-      em_dia: source.filter((taxa) => getResumoBucket(taxa) === "em_dia").length,
-      pendente: source.filter((taxa) => getResumoBucket(taxa) === "pendente").length,
-      irregular: source.filter((taxa) => getResumoBucket(taxa) === "irregular").length,
-    };
-  }, [localSearchScoped]);
-
-  const taxasVisiveisOrdenadas = useMemo(() => {
-    const list = [...taxasVisiveis];
-    const factor = sortEmpresas.direction === "desc" ? -1 : 1;
-    list.sort((a, b) => {
-      if (sortEmpresas.field === "data_envio") {
-        const av = parseSortableDate(getDataEnvioDisplay(a?.data_envio).date) ?? 0;
-        const bv = parseSortableDate(getDataEnvioDisplay(b?.data_envio).date) ?? 0;
-        if (av === bv) return 0;
-        return (av - bv) * factor;
-      }
-      if (sortEmpresas.field === "status_geral") {
-        return getResumoBucket(a).localeCompare(getResumoBucket(b), "pt-BR", { sensitivity: "base" }) * factor;
-      }
-      const av = String(a?.[sortEmpresas.field] || "").trim();
-      const bv = String(b?.[sortEmpresas.field] || "").trim();
-      return av.localeCompare(bv, "pt-BR", { sensitivity: "base" }) * factor;
-    });
-    return list;
-  }, [sortEmpresas.direction, sortEmpresas.field, taxasVisiveis]);
-
-  const activeFilterChips = useMemo(() => {
-    const chips = [];
-    if (municipio && municipio !== "Todos") chips.push(`Município: ${municipio}`);
-    if (query.trim()) chips.push(`Busca global: ${query.trim()}`);
-    if (alertFilterActive) chips.push("Somente alertas");
-    if (modoFoco) chips.push("Modo foco");
-    if (railFilters.companyStatus !== "Ativas") chips.push(`Status da empresa: ${railFilters.companyStatus}`);
-    if (railFilters.riskKeys.length !== DEFAULT_RISK_KEYS.length) chips.push(`Risco CNAE: ${railFilters.riskKeys.map((key) => RISK_OPTIONS.find((option) => option.key === key)?.label || key).join(", ")}`);
-    if (railFilters.certBuckets.length !== DEFAULT_CERT_BUCKETS.length) chips.push(`Certificado: ${railFilters.certBuckets.map((key) => CERT_OPTIONS.find((option) => option.key === key)?.label || key).join(", ")}`);
-    if (railFilters.municipio.length > 0) chips.push(`Município local: ${railFilters.municipio.join(", ")}`);
-    if (railFilters.urgencyMin !== 0 || railFilters.urgencyMax !== 100) chips.push(`Score de urgência: ${railFilters.urgencyMin}-${railFilters.urgencyMax}`);
-    if (localSearch.trim()) chips.push(`Busca local: ${localSearch.trim()}`);
-    if (summaryFilter !== "all") {
-      const option = STATUS_FILTER_OPTIONS.find((item) => item.value === summaryFilter);
-      if (option) chips.push(`Status: ${option.label}`);
-    }
-    if (queueFilter !== "all") {
-      const option = WORK_QUEUE_ITEMS.find((item) => item.key === queueFilter);
-      if (option) chips.push(`Fila: ${option.label}`);
-    }
-    if (viewMode === "cards") chips.push("Visualização: Cards");
-    return chips;
-  }, [alertFilterActive, localSearch, modoFoco, municipio, query, queueFilter, railFilters, summaryFilter, viewMode]);
+  const {
+    queueFilter,
+    setQueueFilter,
+    sortEmpresas,
+    setSortEmpresas,
+    viewMode,
+    setViewMode,
+    localSearch,
+    setLocalSearch,
+    summaryFilter,
+    setSummaryFilter,
+    railFilters,
+    setRailFilters,
+    municipioOptions,
+    localSearchScoped,
+    queueCounts,
+    taxasVisiveisOrdenadas,
+    resumoCards,
+    activeFilterChips,
+    railActiveCount,
+    clearRailFilters,
+    toggleRailFilter,
+    chipClass,
+  } = useTaxFilters({
+    taxasGlobais,
+    municipio,
+    query,
+    alertFilterActive,
+    modoFoco,
+    defaultRiskKeys: DEFAULT_RISK_KEYS,
+    defaultCertBuckets: DEFAULT_CERT_BUCKETS,
+    riskOptions: RISK_OPTIONS,
+    certOptions: CERT_OPTIONS,
+    statusFilterOptions: STATUS_FILTER_OPTIONS,
+    workQueueItems: WORK_QUEUE_ITEMS,
+    tipoKeys,
+    matchLocalSearch,
+    getResumoBucket,
+    matchesQueueFilter,
+    parseSortableDate,
+    getDataEnvioDisplay,
+  });
 
   const openEditTaxa = (taxa) => {
     const taxId = taxa?.id ?? taxa?.taxa_id;
@@ -935,321 +828,34 @@ function TaxasScreen({
     );
   };
 
-  const railActiveCount = useMemo(() => {
-    let count = 0;
-    if (railFilters.companyStatus !== "Ativas") count += 1;
-    if (railFilters.riskKeys.length !== DEFAULT_RISK_KEYS.length) count += 1;
-    if (railFilters.certBuckets.length !== DEFAULT_CERT_BUCKETS.length) count += 1;
-    if (railFilters.municipio.length > 0) count += 1;
-    if (railFilters.urgencyMin > 0 || railFilters.urgencyMax < 100) count += 1;
-    return count;
-  }, [railFilters]);
-
-  const clearRailFilters = () => {
-    setRailFilters({
-      companyStatus: "Ativas",
-      riskKeys: [...DEFAULT_RISK_KEYS],
-      certBuckets: [...DEFAULT_CERT_BUCKETS],
-      municipio: [],
-      urgencyMin: 0,
-      urgencyMax: 100,
-    });
-  };
-
-  const toggleRailFilter = (key, field, defaults) => {
-    setRailFilters((prev) => {
-      const current = Array.isArray(prev[field]) ? prev[field] : [];
-      const next = current.includes(key) ? current.filter((entry) => entry !== key) : [...current, key];
-      return { ...prev, [field]: next.length ? next : [...defaults] };
-    });
-  };
-
-  const chipClass = (active) => `rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-    active
-      ? "border-blue-200 bg-blue-50 text-blue-700"
-      : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-white"
-  }`;
-
   return (
     <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="hidden xl:block xl:self-start xl:sticky xl:top-0 xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto">
-        <div className="space-y-3 rounded-2xl border border-slate-300 bg-white p-3.5 shadow-sm">
-          <div className="mb-3 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">Contexto</p>
-              <h3 className="text-sm font-semibold text-slate-900">Filtros persistentes</h3>
-              <p className="text-xs text-slate-500">Registros no recorte: {taxasGlobais.length}</p>
-            </div>
-            <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-center">
-              <div className="text-sm font-semibold leading-4 text-blue-700">{railActiveCount}</div>
-              <div className="mt-1 text-[11px] font-medium leading-3 text-blue-700">{railActiveCount === 1 ? "ativo" : "ativos"}</div>
-            </div>
-          </div>
-
-          <div className="space-y-3">
-            <RailFilterBlock label="Filtros rápidos">
-              <div className="flex flex-wrap gap-2">
-                {STATUS_FILTER_OPTIONS.map((option) => (
-                  <button key={option.value} type="button" onClick={() => setSummaryFilter(option.value)} className={chipClass(summaryFilter === option.value)}>
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {WORK_QUEUE_ITEMS.map((item) => (
-                  <button key={item.key} type="button" onClick={() => setQueueFilter(item.key)} className={chipClass(queueFilter === item.key)}>
-                    {item.label} <span className="ml-1 rounded-md bg-white/80 px-1.5 py-0.5 text-[11px]">{item.key === "all" ? localSearchScoped.length : queueCounts[item.key] || 0}</span>
-                  </button>
-                ))}
-              </div>
-            </RailFilterBlock>
-
-            <RailFilterBlock label="Status da empresa">
-              <div className="flex flex-wrap gap-2">
-                {["Ativas", "Inativas", "Todas"].map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setRailFilters((prev) => ({ ...prev, companyStatus: value }))}
-                    className={chipClass(railFilters.companyStatus === value)}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </RailFilterBlock>
-            <RailFilterBlock label="Risco CNAE">
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setRailFilters((prev) => ({ ...prev, riskKeys: [...DEFAULT_RISK_KEYS] }))} className={chipClass(railFilters.riskKeys.length === DEFAULT_RISK_KEYS.length)}>
-                  Todos
-                </button>
-                {RISK_OPTIONS.map((option) => {
-                  const active = railFilters.riskKeys.includes(option.key);
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => toggleRailFilter(option.key, "riskKeys", DEFAULT_RISK_KEYS)}
-                      className={chipClass(active)}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </RailFilterBlock>
-            <RailFilterBlock label="Certificado">
-              <div className="flex flex-wrap gap-2">
-                <button type="button" onClick={() => setRailFilters((prev) => ({ ...prev, certBuckets: [...DEFAULT_CERT_BUCKETS] }))} className={chipClass(railFilters.certBuckets.length === DEFAULT_CERT_BUCKETS.length)}>
-                  Todos
-                </button>
-                {CERT_OPTIONS.map((option) => {
-                  const active = railFilters.certBuckets.includes(option.key);
-                  return (
-                    <button
-                      key={option.key}
-                      type="button"
-                      onClick={() => toggleRailFilter(option.key, "certBuckets", DEFAULT_CERT_BUCKETS)}
-                      className={chipClass(active)}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </RailFilterBlock>
-            <RailFilterBlock label="Município">
-              {municipioOptions.length === 0 ? <p className="text-xs text-slate-500">Sem municípios no recorte atual.</p> : null}
-              <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
-                {municipioOptions.map((item) => (
-                  <label key={item} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-slate-700 hover:bg-white">
-                    <input
-                      type="checkbox"
-                      checked={railFilters.municipio.includes(item)}
-                      onChange={() =>
-                        setRailFilters((prev) => ({
-                          ...prev,
-                          municipio: prev.municipio.includes(item)
-                            ? prev.municipio.filter((entry) => entry !== item)
-                            : [...prev.municipio, item],
-                        }))
-                      }
-                    />
-                    <span>{item}</span>
-                  </label>
-                ))}
-              </div>
-            </RailFilterBlock>
-            <div className="space-y-2.5 rounded-xl border border-slate-300 bg-slate-100 p-3">
-              <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Score de urgência</p>
-              <div className="relative h-6">
-                <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-100" />
-                <div className="pointer-events-none absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-300" style={{ left: `${railFilters.urgencyMin}%`, width: `${Math.max(0, railFilters.urgencyMax - railFilters.urgencyMin)}%` }} />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={railFilters.urgencyMin}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    setRailFilters((prev) => ({ ...prev, urgencyMin: Math.min(value, prev.urgencyMax) }));
-                  }}
-                  className="ec-urgency-range"
-                  aria-label="Score de urgência mínimo"
-                />
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={railFilters.urgencyMax}
-                  onChange={(event) => {
-                    const value = Number(event.target.value);
-                    setRailFilters((prev) => ({ ...prev, urgencyMax: Math.max(value, prev.urgencyMin) }));
-                  }}
-                  className="ec-urgency-range"
-                  aria-label="Score de urgência máximo"
-                />
-              </div>
-              <div className="flex justify-between text-[11px] font-semibold text-slate-500"><span>{railFilters.urgencyMin}</span><span>{railFilters.urgencyMax}</span></div>
-            </div>
-            <div className="flex justify-end gap-2 pt-1">
-              <Button type="button" size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50" onClick={clearRailFilters}>
-                Limpar
-              </Button>
-            </div>
-          </div>
-        </div>
-      </aside>
+      <TaxFilterRail
+        taxasGlobaisLength={taxasGlobais.length}
+        railActiveCount={railActiveCount}
+        RailFilterBlock={RailFilterBlock}
+        STATUS_FILTER_OPTIONS={STATUS_FILTER_OPTIONS}
+        WORK_QUEUE_ITEMS={WORK_QUEUE_ITEMS}
+        summaryFilter={summaryFilter}
+        setSummaryFilter={setSummaryFilter}
+        queueFilter={queueFilter}
+        setQueueFilter={setQueueFilter}
+        localSearchScopedLength={localSearchScoped.length}
+        queueCounts={queueCounts}
+        chipClass={chipClass}
+        railFilters={railFilters}
+        setRailFilters={setRailFilters}
+        DEFAULT_RISK_KEYS={DEFAULT_RISK_KEYS}
+        RISK_OPTIONS={RISK_OPTIONS}
+        toggleRailFilter={toggleRailFilter}
+        DEFAULT_CERT_BUCKETS={DEFAULT_CERT_BUCKETS}
+        CERT_OPTIONS={CERT_OPTIONS}
+        municipioOptions={municipioOptions}
+        clearRailFilters={clearRailFilters}
+      />
 
       <section className="space-y-4">
-        <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-          <div className="flex flex-wrap gap-2">
-            {TAXAS_SUBNAV_ITEMS.map((item) => {
-              const Icon = item.icon;
-              const isActive = activeTab === item.key;
-              return (
-                <button
-                  key={item.key}
-                  type="button"
-                  onClick={() => onTabChange?.(item.key)}
-                  className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                    isActive
-                      ? "border-slate-900 bg-slate-900 text-white"
-                      : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
-                  }`}
-                >
-                  <Icon className="h-4 w-4" />
-                  {item.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {activeFilterChips.map((chip) => (
-            <span
-              key={chip}
-              className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm"
-            >
-              {chip}
-            </span>
-          ))}
-          {activeFilterChips.length === 0 ? (
-            <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-500 shadow-sm">
-              Sem filtros adicionais ativos
-            </span>
-          ) : null}
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard label="Total de registros" value={resumoCards.total} cardKey="total" />
-          <SummaryCard label="Em dia" value={resumoCards.em_dia} cardKey="em_dia" />
-          <SummaryCard label="Pendentes" value={resumoCards.pendente} cardKey="pendente" />
-          <SummaryCard label="Irregulares" value={resumoCards.irregular} cardKey="irregular" helper="Ação necessária" />
-        </div>
-
-        <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-            <div className="relative min-w-0 flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={localSearch}
-                onChange={(event) => setLocalSearch(event.target.value)}
-                placeholder="Buscar por empresa..."
-                className="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-3 text-sm text-slate-900 outline-none transition focus:border-blue-300 focus:bg-white"
-              />
-            </div>
-
-            <div className="grid gap-3 sm:grid-cols-2 xl:flex xl:items-center">
-              <Select value={summaryFilter} onValueChange={setSummaryFilter}>
-                <SelectTrigger className="h-11 min-w-[180px] rounded-xl border-slate-200 bg-white">
-                  <SelectValue placeholder="Status geral" />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_FILTER_OPTIONS.map((option) => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={queueFilter} onValueChange={setQueueFilter}>
-                <SelectTrigger className="h-11 min-w-[210px] rounded-xl border-slate-200 bg-white">
-                  <SelectValue placeholder="Fila operacional" />
-                </SelectTrigger>
-                <SelectContent>
-                  {WORK_QUEUE_ITEMS.map((option) => (
-                    <SelectItem key={option.key} value={option.key}>
-                      {option.key === "all"
-                        ? option.label
-                        : `${option.label} (${queueCounts[option.key] || 0})`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={`${sortEmpresas.field}:${sortEmpresas.direction}`}
-                onValueChange={(value) => {
-                  const [field, direction] = value.split(":");
-                  setSortEmpresas({ field, direction });
-                }}
-              >
-                <SelectTrigger className="h-11 min-w-[220px] rounded-xl border-slate-200 bg-white">
-                  <SelectValue placeholder="Ordenação" />
-                </SelectTrigger>
-                <SelectContent>
-                  {TAX_EMPRESA_SORT_OPTIONS.flatMap((option) => [
-                    <SelectItem key={`${option.value}:asc`} value={`${option.value}:asc`}>
-                      {`${option.label} (${option.value === "data_envio" ? "mais antigo" : "A-Z"})`}
-                    </SelectItem>,
-                    <SelectItem key={`${option.value}:desc`} value={`${option.value}:desc`}>
-                      {`${option.label} (${option.value === "data_envio" ? "mais recente" : "Z-A"})`}
-                    </SelectItem>,
-                  ])}
-                </SelectContent>
-              </Select>
-
-              <div className="flex flex-wrap items-center gap-2 xl:justify-end">
-                {canManageTaxas ? (
-                  <Button
-                    type="button"
-                    size="sm"
-                    data-testid="tax-portal-sync-open"
-                    className="h-11 rounded-xl"
-                    onClick={() => void taxPortalSync.requestOpen()}
-                  >
-                    <RefreshCw className="mr-2 h-4 w-4" />
-                    Taxas Bulk Sync
-                  </Button>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
+        <DomainSubnav activeTab={activeTab} onTabChange={onTabChange} />
 
         <div className="rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="border-b border-slate-200 px-4 py-4">
@@ -1261,6 +867,18 @@ function TaxasScreen({
                 </h3>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {canManageTaxas ? (
+                  <button
+                    type="button"
+                    onClick={() => void taxPortalSync.requestOpen()}
+                    className="inline-flex h-10 w-10 items-center justify-center rounded-xl border border-blue-200 bg-blue-50 text-blue-700 shadow-sm transition hover:bg-blue-100"
+                    title="Iniciar consulta bulk de taxas"
+                    aria-label="Iniciar consulta bulk de taxas"
+                    data-testid="tax-portal-sync-open"
+                  >
+                    <RefreshCw className="h-4 w-4" />
+                  </button>
+                ) : null}
                 <div className="inline-flex items-center rounded-md border border-slate-300 bg-slate-50 p-1">
                   <button
                     type="button"
@@ -1286,65 +904,19 @@ function TaxasScreen({
             </div>
           </div>
 
-          {taxasVisiveisOrdenadas.length === 0 ? (
-            <div className="px-4 py-10 text-center text-sm text-slate-500">Nenhuma taxa correspondente ao filtro.</div>
-          ) : viewMode === "cards" ? (
-            <div className="grid gap-4 px-4 py-4 md:grid-cols-2 xl:grid-cols-4">
-              {taxasVisiveisOrdenadas.map((taxa, index) => (
-                <TaxPrototypeCard
-                  key={resolveTaxaKey(taxa, index)}
-                  taxa={taxa}
-                  handleCopy={handleCopy}
-                  onEdit={() => openEditTaxa(taxa)}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[1120px] border-collapse">
-                <thead className="bg-slate-50">
-                  <tr>
-                    <th className="w-[420px] border-b border-slate-200 px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400">
-                      Empresa
-                    </th>
-                    {TAX_LINE_ITEMS.map((item) => (
-                      <th
-                        key={`head-${item.key}`}
-                        className="border-b border-slate-200 px-3 py-3 text-center text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-400"
-                      >
-                        {item.label}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {taxasVisiveisOrdenadas.map((taxa, index) => {
-                    const taxaKey = resolveTaxaKey(taxa, index);
-                    return (
-                      <tr key={taxaKey} className="align-top hover:bg-slate-50/70">
-                        <td className="border-b border-slate-200 px-4 py-4">
-                          <MatrixCompanyCell taxa={taxa} handleCopy={handleCopy} onEdit={() => openEditTaxa(taxa)} />
-                        </td>
-                        {TAX_LINE_ITEMS.map((item) => {
-                          const rawStatus = taxa?.[item.key];
-                          const statusDisplay = getDisplayStatusForField(taxa, item.key);
-                          return (
-                            <td key={`${taxaKey}-${item.key}`} className="border-b border-slate-200 px-3 py-4 text-center">
-                              <MatrixCell
-                                status={rawStatus}
-                                statusDisplay={statusDisplay}
-                                vencimento={item.getVencimento ? item.getVencimento(taxa) : null}
-                              />
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <TaxMatrix
+            taxasVisiveisOrdenadas={taxasVisiveisOrdenadas}
+            viewMode={viewMode}
+            emptyStateText="Nenhuma taxa correspondente ao filtro."
+            resolveTaxaKey={resolveTaxaKey}
+            TaxPrototypeCard={TaxPrototypeCard}
+            handleCopy={handleCopy}
+            openEditTaxa={openEditTaxa}
+            TAX_LINE_ITEMS={TAX_LINE_ITEMS}
+            MatrixCompanyCell={MatrixCompanyCell}
+            getDisplayStatusForField={getDisplayStatusForField}
+            MatrixCell={MatrixCell}
+          />
         </div>
 
         <TaxPortalSyncManager sync={taxPortalSync} />

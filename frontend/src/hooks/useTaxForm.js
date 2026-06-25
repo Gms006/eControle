@@ -6,7 +6,7 @@ import {
   toDateInputFromDataEnvio,
 } from "@/lib/taxes";
 import { formatMunicipioDisplay } from "@/lib/normalization";
-import { formatStatusDisplay } from "@/lib/status";
+import { formatStatusDisplay } from "@/lib/domain/status/display";
 import {
   deriveStatusFromInstallment,
   formatInstallment,
@@ -339,7 +339,7 @@ export function useTaxForm({ apiJson, onRefresh }) {
 
       await apiJson(`/api/v1/taxas/${modal.taxId}`, {
         method: "PATCH",
-        body: JSON.stringify({
+        body: {
           data_envio: normalizedDataEnvio,
           taxa_funcionamento: nextPayloadStatus.taxa_funcionamento,
           taxa_publicidade: nextPayloadStatus.taxa_publicidade,
@@ -351,7 +351,7 @@ export function useTaxForm({ apiJson, onRefresh }) {
           vencimento_tpi: form.vencimento_tpi || null,
           iss: nextPayloadStatus.iss,
           raw: nextPayloadRaw,
-        }),
+        },
       });
 
       closeTaxModal();

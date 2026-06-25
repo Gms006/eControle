@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { apiRequest } from "../api/client";
+import { fetchJson } from "@/lib/api";
 
 type AuthContextType = {
   loading: boolean;
@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!token) return;
       setLoading(true);
       try {
-        await apiRequest("/api/v1/auth/me", { method: "GET" });
+        await fetchJson("/api/v1/auth/me", { method: "GET" });
       } catch {
         localStorage.removeItem("access_token");
         localStorage.removeItem("refresh_token");
@@ -44,13 +44,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setMessage(null);
     try {
-      const res = await apiRequest<{ access_token: string; refresh_token?: string }>(
-        "/api/v1/auth/login",
-        {
-          method: "POST",
-          body: JSON.stringify({ email, password }),
-        }
-      );
+      const res = await fetchJson("/api/v1/auth/login", {
+        method: "POST",
+        body: { email, password },
+      });
       localStorage.setItem("access_token", res.access_token);
       if (res.refresh_token) localStorage.setItem("refresh_token", res.refresh_token);
       setAccessToken(res.access_token);
@@ -67,7 +64,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setMessage(null);
     try {
-      await apiRequest("/api/v1/auth/logout", { method: "POST", body: JSON.stringify({}) });
+      await fetchJson("/api/v1/auth/logout", { method: "POST", body: {} });
     } catch {
       // ok: limpa mesmo se backend falhar
     } finally {
@@ -82,9 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setMessage(null);
     try {
-      await apiRequest("/api/v1/auth/set-password", {
+      await fetchJson("/api/v1/auth/set-password", {
         method: "POST",
-        body: JSON.stringify({ token, new_password: newPassword }),
+        body: { token, new_password: newPassword },
       });
       setMessage("Senha definida com sucesso.");
     } catch (err: any) {
@@ -99,9 +96,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setMessage(null);
     try {
-      await apiRequest("/api/v1/auth/reset-password/init", {
+      await fetchJson("/api/v1/auth/reset-password/init", {
         method: "POST",
-        body: JSON.stringify({ email }),
+        body: { email },
       });
       setMessage("Se o e-mail existir, enviamos as instruções de reset.");
     } catch (err: any) {
@@ -116,9 +113,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setLoading(true);
     setMessage(null);
     try {
-      await apiRequest("/api/v1/auth/reset-password/confirm", {
+      await fetchJson("/api/v1/auth/reset-password/confirm", {
         method: "POST",
-        body: JSON.stringify({ token, new_password: newPassword }),
+        body: { token, new_password: newPassword },
       });
       setMessage("Senha atualizada com sucesso.");
     } catch (err: any) {

@@ -1,14 +1,5 @@
-import {
-  Building2,
-  FileText,
-  FolderKanban,
-  LayoutDashboard,
-  Receipt,
-  ScrollText,
-  Settings,
-  ShieldCheck,
-  type LucideIcon,
-} from "lucide-react";
+import { type LucideIcon } from "lucide-react";
+import { APP_NAV_ITEMS as APP_NAV_ITEMS_BASE, TAB_TITLES as TAB_TITLES_BASE } from "@/lib/navigation";
 
 export const BRAND_COLORS = {
   navy: "#0e2659",
@@ -22,6 +13,7 @@ export type AppTabKey =
   | "licencas"
   | "taxas"
   | "processos"
+  | "notificacoes"
   | "automacoes";
 
 export type NavItem = {
@@ -31,72 +23,6 @@ export type NavItem = {
   description: string;
 };
 
-export const APP_NAV_ITEMS: NavItem[] = [
-  {
-    key: "painel",
-    label: "Painel",
-    icon: LayoutDashboard,
-    description: "Visão geral e alertas",
-  },
-  {
-    key: "empresas",
-    label: "Empresas",
-    icon: Building2,
-    description: "Cadastros e atalhos",
-  },
-  {
-    key: "licencas",
-    label: "Licenças",
-    icon: ScrollText,
-    description: "Situação por empresa/tipo",
-  },
-  {
-    key: "taxas",
-    label: "Taxas",
-    icon: Receipt,
-    description: "Pendências e envios",
-  },
-  {
-    key: "processos",
-    label: "Processos",
-    icon: FolderKanban,
-    description: "Fluxo e observações",
-  },
-  {
-    key: "certificados",
-    label: "Certificados",
-    icon: ShieldCheck,
-    description: "A1/A3 e vencimentos",
-  },
-];
+export const APP_NAV_ITEMS = APP_NAV_ITEMS_BASE as NavItem[];
 
-export const TAB_TITLES: Record<AppTabKey, { title: string; subtitle: string }> = {
-  painel: {
-    title: "Dashboard Operacional",
-    subtitle: "Indicadores de monitoramento e alertas do escritório.",
-  },
-  empresas: {
-    title: "Gestão de empresas",
-    subtitle: "Empresas monitoradas com ações rápidas e situação consolidada.",
-  },
-  certificados: {
-    title: "Certificados",
-    subtitle: "Validade, situação e credenciais vinculadas ao backend.",
-  },
-  licencas: {
-    title: "Licenças",
-    subtitle: "Acompanhamento por empresa e por tipo de licença.",
-  },
-  taxas: {
-    title: "Taxas",
-    subtitle: "Status fiscais, TPI e registro de envios.",
-  },
-  processos: {
-    title: "Processos",
-    subtitle: "Andamento operacional, filtros e histórico de observações.",
-  },
-  automacoes: {
-    title: "Automações / Jobs",
-    subtitle: "Operação de jobs, filas, falhas e governança de execução.",
-  },
-};
+export const TAB_TITLES = TAB_TITLES_BASE as Record<AppTabKey, { title: string; subtitle: string }>;

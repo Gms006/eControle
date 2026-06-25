@@ -8,8 +8,9 @@ import {
   parseInstallment,
   validateInstallmentInput,
 } from "@/lib/installment";
-import { formatStatusDisplay } from "@/lib/status";
+import { formatStatusDisplay } from "@/lib/domain/status/display";
 import { normalizeDigits } from "@/lib/masks";
+import { promptPasswordForDelete } from "@/lib/auth/promptPasswordForDelete";
 
 export const EMPTY_PROCESS_FORM = {
   company_id: "",
@@ -128,14 +129,6 @@ function normalizeEnumOptions(items) {
   return items
     .filter((item) => item && typeof item.value === "string" && typeof item.label === "string")
     .map((item) => ({ value: item.value, label: item.label }));
-}
-
-function promptPasswordForDelete() {
-  const password = window.prompt("Confirme sua senha para prosseguir com a exclusão:");
-  if (password === null) return null;
-  const trimmed = String(password || "").trim();
-  if (!trimmed) throw new Error("Senha obrigatória para confirmar a exclusão.");
-  return trimmed;
 }
 
 export function useProcessForm({ apiJson, onRefresh }) {
@@ -548,12 +541,12 @@ export function useProcessForm({ apiJson, onRefresh }) {
 
         await apiJson("/api/v1/processos", {
           method: "POST",
-          body: JSON.stringify(createPayload),
+          body: createPayload,
         });
       } else {
         await apiJson(`/api/v1/processos/${modal.processId}`, {
           method: "PATCH",
-          body: JSON.stringify(basePayload),
+          body: basePayload,
         });
       }
 
@@ -576,11 +569,11 @@ export function useProcessForm({ apiJson, onRefresh }) {
 
         await apiJson(`/api/v1/taxas/${taxRecord.id}`, {
           method: "PATCH",
-          body: JSON.stringify({
+          body: {
             taxa_bombeiros: cerconTaxPatch.taxa_bombeiros_sync_status ?? null,
             tpi: cerconTaxPatch.tpi_sync_status ?? null,
             raw: rawPayload,
-          }),
+          },
         });
       }
 
@@ -615,7 +608,7 @@ export function useProcessForm({ apiJson, onRefresh }) {
     try {
       await apiJson(`/api/v1/processos/${modal.processId}`, {
         method: "DELETE",
-        body: JSON.stringify({ password }),
+        body: { password },
       });
 
       closeProcessModal();
@@ -658,3 +651,6 @@ export function useProcessForm({ apiJson, onRefresh }) {
     handleCerconTaxPendingObservationChange,
   };
 }
+
+
+

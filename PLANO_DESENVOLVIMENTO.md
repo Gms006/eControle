@@ -1,22 +1,22 @@
-# Plano de Desenvolvimento - eControle v2 (Rebuild)
+﻿# Plano de Desenvolvimento - eControle v2 (Rebuild)
 
-Data de referência: 2026-04-08
+Data de referencia: 2026-05-04
 
-## Visão geral
+## VisÃ£o geral
 
-Status global: domínio principal operacional, ingest JSON ativo, integração CertHub em produção interna e Stage S10 em evolução.
+Status global: domÃ­nio principal operacional, ingest JSON ativo, integraÃ§Ã£o CertHub em produÃ§Ã£o interna e Stage S10 em evoluÃ§Ã£o.
 
-- Concluído: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
-- Concluído: S8
-- Entrega adicional concluída: bulk sync ReceitaWS (DEV)
-- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluídos; S10.3 fase 3 concluída; S10.4 Notification Center MVP concluído; S10.5 Fase C de notificações operacionais concluída)
-- Operacionalização concluída: rotina diária por agendamento externo Windows para scan operacional de notificações
-- Em andamento: S11 (S11.1 Copiloto eControle MVP read-only concluída + migração para Gemini 2.5 Flash com fallback Ollama opcional)
+- ConcluÃ­do: S0, S1, S2, S3, S4, S5, S6, S6.1, S6.2, S7
+- ConcluÃ­do: S8
+- Entrega adicional concluÃ­da: bulk sync ReceitaWS (DEV)
+- Em andamento: S10 (S10.1a + S10.1b + S10.2 concluÃ­dos; S10.3 fase 3 concluÃ­da; S10.4 Notification Center MVP concluÃ­do; S10.5 Fase C de notificaÃ§Ãµes operacionais concluÃ­da)
+- OperacionalizaÃ§Ã£o concluÃ­da: rotina diÃ¡ria por agendamento externo Windows para scan operacional de notificaÃ§Ãµes
+- Em andamento: S11 (S11.1 Copiloto eControle MVP read-only concluida + migracao para Gemini 2.5 Flash com fallback Ollama opcional; S11.2 Dashboard Views concluido; S11.3 Cockpit de Automacoes operacional)
 - Pendente: S9, S12
 
 ## S0 - Kickoff e congelamento do baseline
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
 - Travar o ponto alvo de paridade com o v1 e reduzir risco de escopo.
@@ -24,37 +24,37 @@ Objetivo:
 Entregues:
 - Baseline funcional em `docs/BASELINE_V1.md`.
 - Mapa de reuso frontend em `docs/REUSE_FRONTEND_MAP.md`.
-- Contratos de integração em `docs/INTEGRATION_CONTRACTS.md`.
-- Decisões e riscos iniciais em `docs/RISKS_AND_DECISIONS_S0.md`.
+- Contratos de integraÃ§Ã£o em `docs/INTEGRATION_CONTRACTS.md`.
+- DecisÃµes e riscos iniciais em `docs/RISKS_AND_DECISIONS_S0.md`.
 
 Aceite:
 - Ponto alvo definido e versionado.
 
 ## S1 - Repo v2 + Infra Docker
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
-- Estruturar monorepo limpo e reproduzível.
+- Estruturar monorepo limpo e reproduzÃ­vel.
 
 Entregues:
 - Estrutura `backend/`, `frontend/`, `infra/`, `docs/`, `scripts/`.
 - `infra/docker-compose.yml` com Postgres + Redis.
 - `.env.example`.
-- Healthchecks básicos (`/healthz`, `/api/v1/worker/health`).
+- Healthchecks bÃ¡sicos (`/healthz`, `/api/v1/worker/health`).
 
 Aceite:
 - Infra sobe via Docker e API responde healthcheck.
 
 ## S2 - Core backend
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
-- Consolidar base técnica (config, db, migrações e testes).
+- Consolidar base tÃ©cnica (config, db, migraÃ§Ãµes e testes).
 
 Entregues:
-- Núcleo em `backend/app/core` e sessão DB em `backend/app/db`.
+- NÃºcleo em `backend/app/core` e sessÃ£o DB em `backend/app/db`.
 - Alembic configurado.
 - Harness de testes com Pytest.
 
@@ -63,10 +63,10 @@ Aceite:
 
 ## S3 - Auth + RBAC
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
-- Garantir autenticação e autorização próprias no eControle.
+- Garantir autenticaÃ§Ã£o e autorizaÃ§Ã£o prÃ³prias no eControle.
 
 Entregues:
 - Endpoints: `/auth/login`, `/auth/refresh`, `/auth/logout`, `/auth/me`.
@@ -74,55 +74,55 @@ Entregues:
 - Seed inicial por ambiente dev.
 
 Aceite:
-- Login real e proteção de rotas por perfil funcionando.
+- Login real e proteÃ§Ã£o de rotas por perfil funcionando.
 
 ## S4 - Multi-tenant e contexto de org
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
-- Isolamento de dados por organização.
+- Isolamento de dados por organizaÃ§Ã£o.
 
 Entregues:
-- `org_id` obrigatório nas entidades de domínio.
+- `org_id` obrigatÃ³rio nas entidades de domÃ­nio.
 - Filtros por org no backend.
 - Endpoints de contexto/listagem de org.
 
 Aceite:
 - Isolamento entre orgs validado por testes.
 
-## S5 - Domínio core (Empresas, Licenças, Taxas, Processos)
+## S5 - DomÃ­nio core (Empresas, LicenÃ§as, Taxas, Processos)
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
-- Restaurar o núcleo funcional do produto.
+- Restaurar o nÃºcleo funcional do produto.
 
 Entregues:
-- CRUD e filtros principais dos quatro domínios.
+- CRUD e filtros principais dos quatro domÃ­nios.
 - KPIs/alertas iniciais.
-- Auditoria mínima de operações.
+- Auditoria mÃ­nima de operaÃ§Ãµes.
 
 Aceite:
-- Front opera os fluxos centrais sem dependências do legado.
+- Front opera os fluxos centrais sem dependÃªncias do legado.
 
 ## S6 - Frontend reaproveitado
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
-- Reusar o frontend v1 com adaptações mínimas.
+- Reusar o frontend v1 com adaptaÃ§Ãµes mÃ­nimas.
 
 Entregues:
-- Ajustes de base URL/portas e integração com auth real.
-- Navegação principal e app shell estáveis.
+- Ajustes de base URL/portas e integraÃ§Ã£o com auth real.
+- NavegaÃ§Ã£o principal e app shell estÃ¡veis.
 
 Aceite:
-- Login e navegação principais funcionais no portal.
+- Login e navegaÃ§Ã£o principais funcionais no portal.
 
 ## S7 - Ingest inicial por JSON
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
 - Substituir carga por planilha por ingest idempotente.
@@ -136,9 +136,9 @@ Entregues:
 Aceite:
 - Reprocessamento sem duplicidade e com rastreabilidade.
 
-## S8 - Integração CertHub (mirror de certificados)
+## S8 - IntegraÃ§Ã£o CertHub (mirror de certificados)
 
-Status: concluído
+Status: concluÃ­do
 
 Objetivo:
 - Entregar aba de certificados via mirror read-only + sync.
@@ -147,12 +147,12 @@ Entregues:
 - Mirror local de certificados.
 - Sync manual e health de certificados.
 - Webhook CertHub (`upsert`, `delete`, `full`) com token dedicado.
-- Deep link para instalação no CertHub.
+- Deep link para instalaÃ§Ã£o no CertHub.
 
 Aceite:
-- Tela de certificados funcional mesmo com indisponibilidade temporária do CertHub.
+- Tela de certificados funcional mesmo com indisponibilidade temporÃ¡ria do CertHub.
 
-## S9 - Integração Scribere
+## S9 - IntegraÃ§Ã£o Scribere
 
 Status: pendente
 
@@ -164,66 +164,66 @@ Objetivo:
 Status: em andamento
 
 Objetivo:
-- Jobs e watchers com idempotência, rastreabilidade e observabilidade mínima.
+- Jobs e watchers com idempotÃªncia, rastreabilidade e observabilidade mÃ­nima.
 
 ### S10.1a - Worker status API (MVP)
 
-Status: concluído (2026-03-06)
+Status: concluÃ­do (2026-03-06)
 
 Entregues:
 - `GET /api/v1/worker/health` (ADMIN|DEV|VIEW)
 - `GET /api/v1/worker/jobs/{job_id}` (ADMIN|DEV|VIEW)
 
-### S10.1b - Upload + watcher de licenças (MVP)
+### S10.1b - Upload + watcher de licenÃ§as (MVP)
 
-Status: concluído (2026-03-06)
+Status: concluÃ­do (2026-03-06)
 
 Entregues:
-- `POST /api/v1/licencas/upload-bulk` (ADMIN|DEV) com escrita atômica (`.tmp -> rename`)
-- nomes canônicos de licença (`Val dd.mm.aaaa` e `Definitivo`)
+- `POST /api/v1/licencas/upload-bulk` (ADMIN|DEV) com escrita atÃ´mica (`.tmp -> rename`)
+- nomes canÃ´nicos de licenÃ§a (`Val dd.mm.aaaa` e `Definitivo`)
 - watcher externo (`python -m app.worker.watchers`)
-- dedupe/idempotência por `licence_file_events`
+- dedupe/idempotÃªncia por `licence_file_events`
 
-### S10.2 - Auto-detecção assistida + hardening operacional
+### S10.2 - Auto-detecÃ§Ã£o assistida + hardening operacional
 
-Status: concluído (2026-03-11)
+Status: concluÃ­do (2026-03-11)
 
 Escopo confirmado:
-- Endpoint `POST /api/v1/licencas/detect` (ADMIN|DEV), somente análise de filename.
-- Fluxo assistido no frontend: usuário sempre confirma/corrige antes de salvar.
-- Hierarquia por grupo na seleção de arquivo representante:
+- Endpoint `POST /api/v1/licencas/detect` (ADMIN|DEV), somente anÃ¡lise de filename.
+- Fluxo assistido no frontend: usuÃ¡rio sempre confirma/corrige antes de salvar.
+- Hierarquia por grupo na seleÃ§Ã£o de arquivo representante:
   - regra: `Definitivo > maior validade`
-  - SANITÁRIA: `Alvará Vig Sanitária` vs `Dispensa Sanitária`
-  - AMBIENTAL: `Licença Ambiental` vs `Dispensa Ambiental`
-  - FUNCIONAMENTO: definitivo/condicionado/provisório
-- Resolver de pastas de licenças para Matriz/Filial/Município:
-  - padrões suportados:
+  - SANITÃRIA: `AlvarÃ¡ Vig SanitÃ¡ria` vs `Dispensa SanitÃ¡ria`
+  - AMBIENTAL: `LicenÃ§a Ambiental` vs `Dispensa Ambiental`
+  - FUNCIONAMENTO: definitivo/condicionado/provisÃ³rio
+- Resolver de pastas de licenÃ§as para Matriz/Filial/MunicÃ­pio:
+  - padrÃµes suportados:
     - `{Municipio} - Matriz|Filial`
     - `Matriz|Filial`
     - `{Municipio}/Matriz|Filial`
-  - fallback para diretório base apenas quando layout não estruturado
-  - upload falha com erro orientado quando layout estruturado está incompleto
-  - watcher loga warning e não adivinha path quando subdir esperada não existe
-- Higiene de repositório:
+  - fallback para diretÃ³rio base apenas quando layout nÃ£o estruturado
+  - upload falha com erro orientado quando layout estruturado estÃ¡ incompleto
+  - watcher loga warning e nÃ£o adivinha path quando subdir esperada nÃ£o existe
+- Higiene de repositÃ³rio:
   - sem `frontend/test-results` versionado
   - sem `patch.diff` versionado
-  - `.gitignore` com regras explícitas para artefatos Playwright/patches
+  - `.gitignore` com regras explÃ­citas para artefatos Playwright/patches
 
-Critérios de aceite S10.2 (parcial):
-- [x] Detecção assistida sem auto-commit
+CritÃ©rios de aceite S10.2 (parcial):
+- [x] DetecÃ§Ã£o assistida sem auto-commit
 - [x] RBAC aplicado (`ADMIN|DEV` permite, `VIEW` bloqueado)
 - [x] Watcher respeita hierarquia por grupo
 - [x] Upload e watcher usam mesmo resolvedor de pasta
-- [x] Campo “Apelido (Pasta)” validado no client e backend
-- [x] Observabilidade mínima (`watchers_supported`) no health do worker
-- [ ] Validação operacional completa no ambiente alvo com migrations e e2e completos
+- [x] Campo â€œApelido (Pasta)â€ validado no client e backend
+- [x] Observabilidade mÃ­nima (`watchers_supported`) no health do worker
+- [ ] ValidaÃ§Ã£o operacional completa no ambiente alvo com migrations e e2e completos
 
-Pendências registradas:
-- [ ] Validar pipeline final com credenciais reais de E2E para cenários não-skipped do Playwright.
+PendÃªncias registradas:
+- [ ] Validar pipeline final com credenciais reais de E2E para cenÃ¡rios nÃ£o-skipped do Playwright.
 
-### S10.3 - Motor de Classificação e Priorização por CNAE
+### S10.3 - Motor de ClassificaÃ§Ã£o e PriorizaÃ§Ã£o por CNAE
 
-Status: fase 3 (frontend + E2E portal) concluída (2026-03-13) + parcial (normalização + calibragem inicial de catálogo) em evolução (2026-03-16)
+Status: fase 3 (frontend + E2E portal) concluÃ­da (2026-03-13) + parcial (normalizaÃ§Ã£o + calibragem inicial de catÃ¡logo) em evoluÃ§Ã£o (2026-03-16)
 
 Fase 1 (estrutural) entregue:
 - tabela dedicada `cnae_risks`;
@@ -232,188 +232,188 @@ Fase 1 (estrutural) entregue:
   - `score_urgencia`
   - `score_status`
   - `score_updated_at`;
-- exposição dos campos em schemas de saída (sem edição manual).
+- exposiÃ§Ã£o dos campos em schemas de saÃ­da (sem ediÃ§Ã£o manual).
 
 Fase 2 (motor + gatilhos backend) entregue:
-- serviço central `backend/app/services/company_scoring.py`;
-- cálculo MVP por CNAE + vencimento de licenças;
-- integração de recálculo em:
+- serviÃ§o central `backend/app/services/company_scoring.py`;
+- cÃ¡lculo MVP por CNAE + vencimento de licenÃ§as;
+- integraÃ§Ã£o de recÃ¡lculo em:
   - `PATCH /companies/{id}` (quando altera profile/CNAE),
   - `POST /companies/composite`,
   - ingest `company_profiles`,
-  - bulk sync ReceitaWS (somente quando mudanças afetam score),
+  - bulk sync ReceitaWS (somente quando mudanÃ§as afetam score),
   - `PATCH /licencas/{id}/item`,
-  - watcher de licenças (somente quando projeção realmente muda);
-- suíte de testes S10.3 adicionada em `backend/tests/test_company_scoring.py`.
+  - watcher de licenÃ§as (somente quando projeÃ§Ã£o realmente muda);
+- suÃ­te de testes S10.3 adicionada em `backend/tests/test_company_scoring.py`.
 - backfill one-shot para base legada:
   - script `backend/scripts/backfill_company_scores.py`;
-  - execução idempotente com `--org-id`, `--limit`, `--batch-size` e `--dry-run`;
-  - recálculo centralizado via `recalculate_company_score` (sem duplicar regra).
+  - execuÃ§Ã£o idempotente com `--org-id`, `--limit`, `--batch-size` e `--dry-run`;
+  - recÃ¡lculo centralizado via `recalculate_company_score` (sem duplicar regra).
 
-Decisões fechadas:
+DecisÃµes fechadas:
 - CNAEs permanecem em `company_profiles` (`cnaes_principal` e `cnaes_secundarios`);
-- `companies` não é fonte de verdade para CNAE;
-- payload bruto de lookup ReceitaWS não é persistido automaticamente no fluxo normal.
+- `companies` nÃ£o Ã© fonte de verdade para CNAE;
+- payload bruto de lookup ReceitaWS nÃ£o Ã© persistido automaticamente no fluxo normal.
 
-Pendente para próxima rodada:
-- curadoria fina do catálogo `cnae_risks` (pesos/tiers por domínio regulatório real).
-- job diário de recálculo de score após atualização de catálogo.
+Pendente para prÃ³xima rodada:
+- curadoria fina do catÃ¡logo `cnae_risks` (pesos/tiers por domÃ­nio regulatÃ³rio real).
+- job diÃ¡rio de recÃ¡lculo de score apÃ³s atualizaÃ§Ã£o de catÃ¡logo.
 
 Fase 3 (frontend + E2E portal) entregue:
 - `frontend/src/pages/EmpresasScreen.jsx` atualizado para:
   - exibir score/risco/status de score;
-  - filtrar por risco (`Todos`, `Alto`, `Médio`, `Baixo`);
+  - filtrar por risco (`Todos`, `Alto`, `MÃ©dio`, `Baixo`);
   - ordenar por `score_urgencia` com `nulls last`;
-  - exibir labels amigáveis de risco/status;
-  - tratar valores nulos sem quebra de renderização;
-  - evitar destaque do placeholder CNAE `00.00-0-00` como CNAE válido.
+  - exibir labels amigÃ¡veis de risco/status;
+  - tratar valores nulos sem quebra de renderizaÃ§Ã£o;
+  - evitar destaque do placeholder CNAE `00.00-0-00` como CNAE vÃ¡lido.
 - E2E portal adicionado em `frontend/tests_e2e/portal/company_scoring.spec.ts`.
 
-Parcial P1 (normalização canônica e operação pós-seed) entregue:
-- helper único `backend/app/core/cnae.py` para normalização canônica de CNAE;
-- aplicação do helper nos fluxos:
+Parcial P1 (normalizaÃ§Ã£o canÃ´nica e operaÃ§Ã£o pÃ³s-seed) entregue:
+- helper Ãºnico `backend/app/core/cnae.py` para normalizaÃ§Ã£o canÃ´nica de CNAE;
+- aplicaÃ§Ã£o do helper nos fluxos:
   - `backend/app/services/company_scoring.py`
   - `backend/app/services/ingest/company_profiles.py`
   - `backend/app/services/receitaws_bulk_sync.py`
   - `backend/scripts/load_cnae_risks_seed.py`
-- equivalência de formatos de CNAE no lookup de `cnae_risks`:
+- equivalÃªncia de formatos de CNAE no lookup de `cnae_risks`:
   - `56.11-2-01` == `5611201` == `56 11-2/01`
-- seed operacional com recálculo no mesmo fluxo transacional:
-  - `--recalculate-affected` (somente impactados por insert/update de catálogo)
+- seed operacional com recÃ¡lculo no mesmo fluxo transacional:
+  - `--recalculate-affected` (somente impactados por insert/update de catÃ¡logo)
   - `--recalculate-all` (todos os profiles)
-- sem remodelagem de banco, sem mover CNAE para `companies`, sem job diário nesta etapa.
+- sem remodelagem de banco, sem mover CNAE para `companies`, sem job diÃ¡rio nesta etapa.
 
-Parcial atual (calibragem de catálogo) entregue:
-- revisão do seed `backend/seeds/cnae_risks.seed.csv` para CNAEs mais usados, removendo perfil totalmente achatado;
-- introdução de tiers/pesos reais (`LOW`, `MEDIUM`, `HIGH`) mantendo compatibilidade do motor;
-- placeholders inválidos (`00.00-0-00`, `********`, `Não informada`) tratados como ausência de CNAE no scoring (`NO_CNAE`);
-- validação por testes de:
+Parcial atual (calibragem de catÃ¡logo) entregue:
+- revisÃ£o do seed `backend/seeds/cnae_risks.seed.csv` para CNAEs mais usados, removendo perfil totalmente achatado;
+- introduÃ§Ã£o de tiers/pesos reais (`LOW`, `MEDIUM`, `HIGH`) mantendo compatibilidade do motor;
+- placeholders invÃ¡lidos (`00.00-0-00`, `********`, `NÃ£o informada`) tratados como ausÃªncia de CNAE no scoring (`NO_CNAE`);
+- validaÃ§Ã£o por testes de:
   - placeholder -> `NO_CNAE`;
   - maior tier/peso refletido no snapshot;
-  - recálculo após atualização de catálogo.
+  - recÃ¡lculo apÃ³s atualizaÃ§Ã£o de catÃ¡logo.
 
-Subfase seguinte (base segura de atualização assistida) entregue em 2026-03-20:
-- nova tabela `cnae_risk_suggestions` para propostas de atualização sem aplicação automática direta;
-- workflow de revisão humana com status:
+Subfase seguinte (base segura de atualizaÃ§Ã£o assistida) entregue em 2026-03-20:
+- nova tabela `cnae_risk_suggestions` para propostas de atualizaÃ§Ã£o sem aplicaÃ§Ã£o automÃ¡tica direta;
+- workflow de revisÃ£o humana com status:
   - `PENDING`, `APPROVED`, `REJECTED`, `APPLIED`;
 - endpoints RBAC `ADMIN|DEV` para:
-  - listar sugestões,
-  - criar sugestão manual/importada,
-  - editar sugestão pendente,
-  - aprovar (com aplicação em `cnae_risks` + recálculo de empresas afetadas),
+  - listar sugestÃµes,
+  - criar sugestÃ£o manual/importada,
+  - editar sugestÃ£o pendente,
+  - aprovar (com aplicaÃ§Ã£o em `cnae_risks` + recÃ¡lculo de empresas afetadas),
   - rejeitar;
-- recálculo reutiliza serviço central `recalculate_company_score` (sem duplicar regra);
-- auditoria mínima registrada em cada ação relevante de sugestão.
+- recÃ¡lculo reutiliza serviÃ§o central `recalculate_company_score` (sem duplicar regra);
+- auditoria mÃ­nima registrada em cada aÃ§Ã£o relevante de sugestÃ£o.
 
-Pendente para próxima rodada desta linha:
-- integração com fontes oficiais via scraper/web crawling;
-- automação de proposta por importador (sempre como `PENDING`, sem aplicação automática).
+Pendente para prÃ³xima rodada desta linha:
+- integraÃ§Ã£o com fontes oficiais via scraper/web crawling;
+- automaÃ§Ã£o de proposta por importador (sempre como `PENDING`, sem aplicaÃ§Ã£o automÃ¡tica).
 
-S10.3b entrega 2b (consulta oficial priorizada para sugestões pendentes) entregue em 2026-03-20:
+S10.3b entrega 2b (consulta oficial priorizada para sugestÃµes pendentes) entregue em 2026-03-20:
 - camada de adaptadores oficiais em `backend/app/services/official_sources/`:
   - `anapolis.py`, `cgsim.py`, `anvisa.py`, `goiania.py`, `cbmgo.py`;
 - schema interno normalizado de findings com:
   - `cnae_code`, `domain`, `official_result`, `suggested_risk_tier`, `suggested_base_weight`,
     `source_name`, `source_reference`, `evidence_excerpt`, `confidence`, `requires_questionnaire`;
-- serviço orquestrador `backend/app/services/cnae_official_suggestions.py`:
-  - consulta por CNAE único ou lote,
+- serviÃ§o orquestrador `backend/app/services/cnae_official_suggestions.py`:
+  - consulta por CNAE Ãºnico ou lote,
   - consolida findings,
-  - cria sugestões `PENDING` sem tocar em `cnae_risks`,
-  - prioriza `ANAPOLIS` como fonte municipal default quando não há fonte municipal explícita,
-  - mantém `GOIANIA` como fallback/referência (não prioritária),
+  - cria sugestÃµes `PENDING` sem tocar em `cnae_risks`,
+  - prioriza `ANAPOLIS` como fonte municipal default quando nÃ£o hÃ¡ fonte municipal explÃ­cita,
+  - mantÃ©m `GOIANIA` como fallback/referÃªncia (nÃ£o prioritÃ¡ria),
   - tolera falha de fonte externa sem derrubar resposta inteira,
-  - deduplica sugestões pendentes idênticas;
+  - deduplica sugestÃµes pendentes idÃªnticas;
 - regras por fonte:
-  - `ANAPOLIS`: base municipal oficial com Lei 4.438/2025, Uso do Solo, LC 349/2016 (Anexo V) e LC 377/2018 (Anexo Único), preservando rastreabilidade normativa;
-  - `ANVISA`: parser online com prioridade na IN 66/2020 e apoio semântico da RDC 153/2017;
-  - `CGSIM`: integração resiliente de fonte oficial (`principal`, `/view`, `índice`) com modo semi-real documentado para bloqueio HTTP 403;
+  - `ANAPOLIS`: base municipal oficial com Lei 4.438/2025, Uso do Solo, LC 349/2016 (Anexo V) e LC 377/2018 (Anexo Ãšnico), preservando rastreabilidade normativa;
+  - `ANVISA`: parser online com prioridade na IN 66/2020 e apoio semÃ¢ntico da RDC 153/2017;
+  - `CGSIM`: integraÃ§Ã£o resiliente de fonte oficial (`principal`, `/view`, `Ã­ndice`) com modo semi-real documentado para bloqueio HTTP 403;
   - `CBMGO`: fonte contextual (NT 01/2025 + anexo + NT 14/2025), sem fechar risco final sozinha por CNAE;
 - endpoints `ADMIN|DEV`:
   - `POST /api/v1/catalog/cnae-risk-suggestions/official/lookup`
   - `POST /api/v1/catalog/cnae-risk-suggestions/official/lookup-batch`
-- regra de segurança reforçada:
-  - consulta oficial nunca faz autoapply no catálogo produtivo;
-  - toda saída automática desta camada permanece como sugestão `PENDING`.
+- regra de seguranÃ§a reforÃ§ada:
+  - consulta oficial nunca faz autoapply no catÃ¡logo produtivo;
+  - toda saÃ­da automÃ¡tica desta camada permanece como sugestÃ£o `PENDING`.
 
-### S10.4 - Notification Center MVP (feed por organização)
+### S10.4 - Notification Center MVP (feed por organizaÃ§Ã£o)
 
-Status: concluído (2026-04-02)
+Status: concluÃ­do (2026-04-02)
 
 Escopo entregue:
 - nova tabela `notification_events` com:
-  - `read_at` nullable para controle de não lidas;
+  - `read_at` nullable para controle de nÃ£o lidas;
   - dedupe por `unique(org_id, dedupe_key)`;
-  - índices para feed e unread count por org.
+  - Ã­ndices para feed e unread count por org.
 - endpoints `ADMIN|DEV|VIEW`:
   - `GET /api/v1/notificacoes`
   - `GET /api/v1/notificacoes/unread-count`
   - `POST /api/v1/notificacoes/{id}/read`
-- serviço backend reutilizável para emissão idempotente:
+- serviÃ§o backend reutilizÃ¡vel para emissÃ£o idempotente:
   - `backend/app/services/notifications.py`
-- emissão inicial integrada ao fim de jobs:
+- emissÃ£o inicial integrada ao fim de jobs:
   - `licence_scan_full`
   - `receitaws_bulk_sync`
   - `tax_portal_sync`
 - frontend:
-  - sino da Topbar com contador real de não lidas;
-  - painel simples com últimas notificações;
+  - sino da Topbar com contador real de nÃ£o lidas;
+  - painel simples com Ãºltimas notificaÃ§Ãµes;
   - marcar como lida;
-  - navegação por `route_path` quando disponível.
-- correção técnica no mesmo patch:
-  - remoção de inclusão duplicada de `worker.router` em `backend/app/api/v1/api.py`.
+  - navegaÃ§Ã£o por `route_path` quando disponÃ­vel.
+- correÃ§Ã£o tÃ©cnica no mesmo patch:
+  - remoÃ§Ã£o de inclusÃ£o duplicada de `worker.router` em `backend/app/api/v1/api.py`.
 
 Fora de escopo nesta fase:
-- inbox por usuário;
+- inbox por usuÃ¡rio;
 - dismiss/delete/retention;
-- regras de vencimento por dias úteis;
-- varredura periódica de negócio para alertas de prazo.
+- regras de vencimento por dias Ãºteis;
+- varredura periÃ³dica de negÃ³cio para alertas de prazo.
 
-### S10.5 - Notification Center Fase C (regras operacionais automáticas)
+### S10.5 - Notification Center Fase C (regras operacionais automÃ¡ticas)
 
-Status: concluído (2026-04-02)
+Status: concluÃ­do (2026-04-02)
 
 Escopo entregue:
-- utilitário de dias úteis:
+- utilitÃ¡rio de dias Ãºteis:
   - `backend/app/services/business_days.py`
-- serviço de scan operacional:
+- serviÃ§o de scan operacional:
   - `backend/app/services/notification_operational_scan.py`
 - endpoint manual:
   - `POST /api/v1/notificacoes/scan-operacional` (`ADMIN|DEV`)
-- integração de observabilidade com worker/jobs:
+- integraÃ§Ã£o de observabilidade com worker/jobs:
   - novo tipo de job `notification_operational_scan`
   - run table `notification_operational_scan_runs`
   - `worker/health` e `worker/jobs/{job_id}` atualizados
-- regras automáticas implementadas:
-  - licenças:
+- regras automÃ¡ticas implementadas:
+  - licenÃ§as:
     - CERCON/Bombeiros: `LIC_BOMBEIROS_BD5`
-    - Alvará Funcionamento: `LIC_ALVARA_D30`
-    - Alvará Sanitário: `LIC_SANITARIO_D30`
-    - Licença Ambiental: `LIC_AMBIENTAL_BD30`
+    - AlvarÃ¡ Funcionamento: `LIC_ALVARA_D30`
+    - AlvarÃ¡ SanitÃ¡rio: `LIC_SANITARIO_D30`
+    - LicenÃ§a Ambiental: `LIC_AMBIENTAL_BD30`
   - processos:
-    - 7 dias úteis sem atualização: `PROC_STALE_BD7`
-    - 15 dias úteis sem atualização: `PROC_STALE_BD15`
-- referência de última movimentação de processo:
+    - 7 dias Ãºteis sem atualizaÃ§Ã£o: `PROC_STALE_BD7`
+    - 15 dias Ãºteis sem atualizaÃ§Ã£o: `PROC_STALE_BD15`
+- referÃªncia de Ãºltima movimentaÃ§Ã£o de processo:
   - `updated_at` (principal)
   - fallback em `data_solicitacao`
-- dedupe/idempotência:
-  - `dedupe_key` determinística por regra + entidade + janela
-  - reprocessamento do scan sem duplicar notificações
+- dedupe/idempotÃªncia:
+  - `dedupe_key` determinÃ­stica por regra + entidade + janela
+  - reprocessamento do scan sem duplicar notificaÃ§Ãµes
 
 Testes desta fase:
 - `backend/tests/test_business_days.py`
 - `backend/tests/test_notification_rules.py`
-- ampliação de:
+- ampliaÃ§Ã£o de:
   - `backend/tests/test_notifications_endpoints.py`
   - `backend/tests/test_worker_endpoints.py`
 - E2E API adicional:
   - `tests_e2e/api/test_notifications_operational_scan_e2e.py`
 
-### S10.5b - Operacionalização diária do scan (scheduler externo Windows)
+### S10.5b - OperacionalizaÃ§Ã£o diÃ¡ria do scan (scheduler externo Windows)
 
-Status: concluído (2026-04-02)
+Status: concluÃ­do (2026-04-02)
 
-Decisão aplicada:
-- não implementar scheduler interno no backend nesta fase;
+DecisÃ£o aplicada:
+- nÃ£o implementar scheduler interno no backend nesta fase;
 - usar endpoint existente `POST /api/v1/notificacoes/scan-operacional` com script externo.
 
 Entregues:
@@ -424,27 +424,27 @@ Entregues:
 - comportamento:
   - login em `/api/v1/auth/login`
   - trigger de scan
-  - polling de `worker/jobs/{run_id}` até término
+  - polling de `worker/jobs/{run_id}` atÃ© tÃ©rmino
   - `exit 0` em `completed`
   - `exit 1` em `failed`/`cancelled`/timeout/erro HTTP
   - log em arquivo com timestamp, `run_id`, status final e resumo
-- configuração:
-  - por variáveis de ambiente
-  - opcional por arquivo local não versionado (`KEY=VALUE`)
+- configuraÃ§Ã£o:
+  - por variÃ¡veis de ambiente
+  - opcional por arquivo local nÃ£o versionado (`KEY=VALUE`)
 
 ## S11 - Polimento de paridade v1
 
 Status: em andamento
 
 Objetivo:
-- Melhorias de UX, filtros avançados, paginação, ordenação e performance.
+- Melhorias de UX, filtros avanÃ§ados, paginaÃ§Ã£o, ordenaÃ§Ã£o e performance.
 
 ### S11.1 - Copiloto eControle (widget de chat guiado read-only)
 
-Status: concluído (2026-04-07) + refinado (2026-04-08)
+Status: concluÃ­do (2026-04-07) + refinado (2026-04-08)
 
 Objetivo:
-- Entregar MVP funcional de copiloto no portal com fluxo guiado por categoria e empresa, sem modo chatbot genérico e sem persistência automática.
+- Entregar MVP funcional de copiloto no portal com fluxo guiado por categoria e empresa, sem modo chatbot genÃ©rico e sem persistÃªncia automÃ¡tica.
 
 Escopo entregue:
 - Backend:
@@ -454,21 +454,21 @@ Escopo entregue:
     - `DOCUMENT_ANALYSIS`
     - `RISK_SIMULATION`
     - `DUVIDAS_DIVERSAS`
-  - serviço central `backend/app/services/copilot.py` com:
-    - resumo de empresa baseado em dados reais do domínio (overview, taxas, licenças, processos, score);
-    - simulação em memória (sem persistência);
-    - análise documental assistiva com upload opcional e comparação orientativa.
+  - serviÃ§o central `backend/app/services/copilot.py` com:
+    - resumo de empresa baseado em dados reais do domÃ­nio (overview, taxas, licenÃ§as, processos, score);
+    - simulaÃ§Ã£o em memÃ³ria (sem persistÃªncia);
+    - anÃ¡lise documental assistiva com upload opcional e comparaÃ§Ã£o orientativa.
   - refinamento S11.1:
-    - categoria `DUVIDAS_DIVERSAS` com roteamento entre dúvida geral x dúvida dependente de empresa;
-    - `company_id` opcional no endpoint para dúvidas gerais;
-    - retorno `requires_company=true` quando pergunta exigir contexto da empresa e ela não estiver selecionada;
-    - hardening da análise documental:
-      - não classificar por nome de arquivo;
-      - pipeline de PDF com extração de texto e tentativa de renderização;
-      - classificação restrita a tipos permitidos;
-      - sem expansão arbitrária de siglas;
-      - retorno `NAO_CONCLUSIVO` com motivo quando faltar evidência factual.
-  - migração de provider em `backend/app/services/copilot_provider.py`:
+    - categoria `DUVIDAS_DIVERSAS` com roteamento entre dÃºvida geral x dÃºvida dependente de empresa;
+    - `company_id` opcional no endpoint para dÃºvidas gerais;
+    - retorno `requires_company=true` quando pergunta exigir contexto da empresa e ela nÃ£o estiver selecionada;
+    - hardening da anÃ¡lise documental:
+      - nÃ£o classificar por nome de arquivo;
+      - pipeline de PDF com extraÃ§Ã£o de texto e tentativa de renderizaÃ§Ã£o;
+      - classificaÃ§Ã£o restrita a tipos permitidos;
+      - sem expansÃ£o arbitrÃ¡ria de siglas;
+      - retorno `NAO_CONCLUSIVO` com motivo quando faltar evidÃªncia factual.
+  - migraÃ§Ã£o de provider em `backend/app/services/copilot_provider.py`:
     - principal: `gemini` (`gemini-2.5-flash`) via SDK oficial `google-genai`;
     - fallback opcional: `ollama` local (`gemma3:4b`);
     - ordem: Gemini -> fallback local -> erro controlado quando ambos falham;
@@ -477,106 +477,155 @@ Escopo entregue:
       - `GEMINI_API_KEY`, `COPILOT_PROVIDER_ENABLE_WEB_SEARCH`
       - `COPILOT_FALLBACK_PROVIDER`, `COPILOT_FALLBACK_BASE_URL`, `COPILOT_FALLBACK_MODEL`, `COPILOT_FALLBACK_TIMEOUT_SECONDS`
   - `DUVIDAS_DIVERSAS` com web search/grounding controlada:
-    - ativa principalmente em perguntas regulatórias/temporais ou com pedido explícito de fonte;
-    - evita busca externa quando o pedido é claramente baseado em dados internos da empresa;
-    - retorna `grounding_used` e `sources` quando houver referências do provider.
+    - ativa principalmente em perguntas regulatÃ³rias/temporais ou com pedido explÃ­cito de fonte;
+    - evita busca externa quando o pedido Ã© claramente baseado em dados internos da empresa;
+    - retorna `grounding_used` e `sources` quando houver referÃªncias do provider.
 - Frontend:
   - widget global flutuante no shell (`frontend/src/components/copilot/CopilotWidget.jsx`);
-  - estados abrir/minimizar/fechar + persistência em `localStorage`;
-  - fluxo guiado obrigatório: categoria -> empresa (quando necessário) -> input manual;
+  - estados abrir/minimizar/fechar + persistÃªncia em `localStorage`;
+  - fluxo guiado obrigatÃ³rio: categoria -> empresa (quando necessÃ¡rio) -> input manual;
   - busca de empresa com debounce (`frontend/src/hooks/useCopilotWidget.js`);
-  - exemplos por categoria, upload em análise documental, respostas estruturadas e quick actions;
-  - categoria `DUVIDAS_DIVERSAS` com input liberado sem empresa para perguntas gerais e bloqueio orientado quando empresa for necessária;
-  - indicação visual discreta de busca externa (`Resposta com busca externa`) e lista de fontes clicáveis quando houver grounding;
-  - tratamento amigável de erros de provider (chave ausente, timeout, indisponibilidade, quota, fallback esgotado).
-- Segurança de produto:
-  - escopo fechado em operações eControle;
-  - feature read-only (sem gravação automática, sem jobs, sem mutações de cadastros).
+  - exemplos por categoria, upload em anÃ¡lise documental, respostas estruturadas e quick actions;
+  - categoria `DUVIDAS_DIVERSAS` com input liberado sem empresa para perguntas gerais e bloqueio orientado quando empresa for necessÃ¡ria;
+  - indicaÃ§Ã£o visual discreta de busca externa (`Resposta com busca externa`) e lista de fontes clicÃ¡veis quando houver grounding;
+  - tratamento amigÃ¡vel de erros de provider (chave ausente, timeout, indisponibilidade, quota, fallback esgotado).
+- SeguranÃ§a de produto:
+  - escopo fechado em operaÃ§Ãµes eControle;
+  - feature read-only (sem gravaÃ§Ã£o automÃ¡tica, sem jobs, sem mutaÃ§Ãµes de cadastros).
 
-Critérios de aceite atendidos:
+CritÃ©rios de aceite atendidos:
 - [x] Widget global funcional no portal
 - [x] Fluxo guiado por categorias
-- [x] Empresa obrigatória antes de input manual nas categorias que exigem empresa
-- [x] Resposta útil para resumo de empresa
-- [x] Simulação de risco em memória
+- [x] Empresa obrigatÃ³ria antes de input manual nas categorias que exigem empresa
+- [x] Resposta Ãºtil para resumo de empresa
+- [x] SimulaÃ§Ã£o de risco em memÃ³ria
 - [x] Categoria `DUVIDAS_DIVERSAS` funcional sem empresa para perguntas gerais
-- [x] Análise documental sem adivinhação por nome de arquivo
-- [x] Classificação documental em conjunto fechado com evidências e `NAO_CONCLUSIVO` quando necessário
-- [x] Análise documental com degradação controlada sem provider
+- [x] AnÃ¡lise documental sem adivinhaÃ§Ã£o por nome de arquivo
+- [x] ClassificaÃ§Ã£o documental em conjunto fechado com evidÃªncias e `NAO_CONCLUSIVO` quando necessÃ¡rio
+- [x] AnÃ¡lise documental com degradaÃ§Ã£o controlada sem provider
 - [x] RBAC `ADMIN|DEV|VIEW`
-- [x] Sem persistência automática de alterações pelo copiloto
+- [x] Sem persistÃªncia automÃ¡tica de alteraÃ§Ãµes pelo copiloto
 
 Testes adicionados/atualizados:
 - Backend:
   - `backend/tests/test_copilot_endpoints.py`
   - `backend/tests/test_copilot_provider.py`
   - cobertura:
-    - categoria inválida
+    - categoria invÃ¡lida
     - empresa inexistente/fora da org
     - `DUVIDAS_DIVERSAS` sem empresa para pergunta geral
-    - `DUVIDAS_DIVERSAS` orientando seleção de empresa quando necessário
+    - `DUVIDAS_DIVERSAS` orientando seleÃ§Ã£o de empresa quando necessÃ¡rio
     - resposta estruturada de resumo
-    - simulação sem persistência
-    - análise documental não dependente só do nome do arquivo
-    - caso de CND sem expansão inventada (ex.: evitar “Compliance Normativo”)
-    - classificação restrita ao conjunto permitido + `NAO_CONCLUSIVO`
-    - degradação sem provider configurado
-    - stub/mock de provider para análise documental
-    - seleção de provider (primário Gemini, fallback Ollama, erro final quando ambos falham)
+    - simulaÃ§Ã£o sem persistÃªncia
+    - anÃ¡lise documental nÃ£o dependente sÃ³ do nome do arquivo
+    - caso de CND sem expansÃ£o inventada (ex.: evitar â€œCompliance Normativoâ€)
+    - classificaÃ§Ã£o restrita ao conjunto permitido + `NAO_CONCLUSIVO`
+    - degradaÃ§Ã£o sem provider configurado
+    - stub/mock de provider para anÃ¡lise documental
+    - seleÃ§Ã£o de provider (primÃ¡rio Gemini, fallback Ollama, erro final quando ambos falham)
     - leitura de envs do provider e fallback
-    - `DUVIDAS_DIVERSAS` com sinalização de grounding/fontes
+    - `DUVIDAS_DIVERSAS` com sinalizaÃ§Ã£o de grounding/fontes
     - erro controlado para chave Gemini ausente e timeout de provider
-    - autorização `VIEW`
+    - autorizaÃ§Ã£o `VIEW`
 - Portal E2E:
   - `frontend/tests_e2e/portal/copilot_widget.smoke.spec.ts`
   - cobertura:
-    - widget visível após login
+    - widget visÃ­vel apÃ³s login
     - abrir/minimizar
     - categorias (inclui `DUVIDAS_DIVERSAS`)
-    - bloqueio de input até selecionar empresa nas categorias aplicáveis
+    - bloqueio de input atÃ© selecionar empresa nas categorias aplicÃ¡veis
     - `DUVIDAS_DIVERSAS` perguntando sem empresa
-    - retorno que exige empresa e exibição da etapa de seleção
-    - indicação de busca externa e fontes clicáveis quando backend sinaliza grounding
+    - retorno que exige empresa e exibiÃ§Ã£o da etapa de seleÃ§Ã£o
+    - indicaÃ§Ã£o de busca externa e fontes clicÃ¡veis quando backend sinaliza grounding
     - fluxo de resumo estruturado
-    - fluxo de simulação
+    - fluxo de simulaÃ§Ã£o
     - fluxo de documento com upload e tratamento de aviso
-    - erro amigável quando provider falha.
+    - erro amigÃ¡vel quando provider falha.
 
-Pendências explícitas:
-- Execução completa da suíte Playwright (`npm run test:e2e`) pode ultrapassar o timeout da automação local; manter validação por subconjunto impactado quando necessário.
+PendÃªncias explÃ­citas:
+- ExecuÃ§Ã£o completa da suÃ­te Playwright (`npm run test:e2e`) pode ultrapassar o timeout da automaÃ§Ã£o local; manter validaÃ§Ã£o por subconjunto impactado quando necessÃ¡rio.
+
+### S11.2 - Dashboard Views (views salvas no Painel)
+
+Status: concluido (2026-04-14)
+
+Objetivo:
+- Permitir salvar, reutilizar e compartilhar configuracoes de visualizacao do painel por organizacao.
+
+Escopo entregue:
+- Tabela dedicada `dashboard_saved_views` com isolamento por `org_id`.
+- Endpoints `ADMIN|DEV|VIEW`:
+  - `GET /api/v1/dashboard/views`
+  - `POST /api/v1/dashboard/views`
+  - `PATCH /api/v1/dashboard/views/{view_id}`
+  - `DELETE /api/v1/dashboard/views/{view_id}`
+- Regras de permissao:
+  - `scope=shared` gerenciavel por `ADMIN|DEV`;
+  - views pessoais editaveis pelo criador.
+- Frontend integrado no Painel:
+  - servico `frontend/src/services/dashboardViews.js`;
+  - uso em `frontend/src/pages/PainelScreen.jsx`;
+  - atalhos de foco via `saved_views` no shell principal.
+
+Validacao:
+- testes backend em `backend/tests/test_dashboard_saved_views.py`.
+
+### S11.3 - Cockpit de Automacoes (observabilidade operacional)
+
+Status: concluido (ciclo S11)
+
+Objetivo:
+- Centralizar estado operacional dos jobs e auditoria recente em uma tela unica no portal.
+
+Escopo entregue:
+- Endpoint de snapshot operacional:
+  - `GET /api/v1/worker/snapshot` (`ADMIN|DEV|VIEW`)
+  - consolida ultimas runs de:
+    - `receitaws_bulk_sync`
+    - `licence_scan_full`
+    - `tax_portal_sync`
+    - `notification_operational_scan`
+  - agrega auditoria por eventos `job.*` da tabela `notification_events`.
+- Frontend:
+  - nova tela `frontend/src/pages/AutomacoesScreen.jsx`;
+  - integracao no shell em `frontend/src/pages/MainApp.tsx` com aba `automacoes`;
+  - polling periodico e filtros de operacao (dominio, status, owner, falhas).
+
+Observacao:
+- esta entrega reutiliza infraestrutura de jobs/notificacoes do S10 e nao introduz novo tipo de run table.
 
 ### Tax Portal Sync (backend estrutural + Subfase B frontend)
 - run table `tax_portal_sync_runs`
 - service `tax_portal_sync`
 - runtime `tax_portal_runtime`
-- persistência em `company_taxes`
-- integração com `/worker/jobs`
+- persistÃªncia em `company_taxes`
+- integraÃ§Ã£o com `/worker/jobs`
 - script operacional `backend/scripts/run_tax_portal_sync_once.py`
 - fase backend fechada em 2026-03-26:
   - `dry_run=false` persistindo em `company_taxes`;
-  - `dry_run=true` sem persistência;
-  - `raw.tax_portal_sync` com evidências da run;
-  - recálculo de `status_taxas`;
+  - `dry_run=true` sem persistÃªncia;
+  - `raw.tax_portal_sync` com evidÃªncias da run;
+  - recÃ¡lculo de `status_taxas`;
   - summary da run com `field_counters`, `companies_with_debits`, `companies_marked_paid`, `filtered_out_count`, `sample_results`;
-  - testes backend adicionais cobrindo persistência/regra `*` e `Pago`/metadados de `/worker/jobs`.
-- Subfase B frontend concluída em 2026-03-26:
+  - testes backend adicionais cobrindo persistÃªncia/regra `*` e `Pago`/metadados de `/worker/jobs`.
+- Subfase B frontend concluÃ­da em 2026-03-26:
   - service frontend dedicado (`start`, `active`, `status`, `cancel`);
   - hook dedicado com polling, retomada de run ativa, loading/error e limpeza de intervalo ao desmontar;
-  - manager visual inspirado no BulkSyncManager (progresso, contadores, município, dry-run, run_id, erros recentes e resumo final);
-  - integração na `TaxasScreen` com RBAC (`ADMIN|DEV` inicia/cancela, `VIEW` sem ação);
+  - manager visual inspirado no BulkSyncManager (progresso, contadores, municÃ­pio, dry-run, run_id, erros recentes e resumo final);
+  - integraÃ§Ã£o na `TaxasScreen` com RBAC (`ADMIN|DEV` inicia/cancela, `VIEW` sem aÃ§Ã£o);
   - smoke E2E Playwright: `frontend/tests_e2e/portal/taxas_tax_portal_sync.smoke.spec.ts`.
 
-## Patch Regulatório 1 (2026-04-23)
+## Patch RegulatÃ³rio 1 (2026-04-23)
 
-Status: concluído
+Status: concluÃ­do
 
 Escopo entregue:
-- modelagem explícita de domínio em banco/ORM/contracts:
+- modelagem explÃ­cita de domÃ­nio em banco/ORM/contracts:
   - `company_licences.alvara_funcionamento_kind`
   - `company_profiles.sanitary_complexity`
   - `company_profiles.address_usage_type`
   - `company_profiles.address_location_type`
-- enums e normalização centralizados em `backend/app/core/regulatory.py`
+- enums e normalizaÃ§Ã£o centralizados em `backend/app/core/regulatory.py`
 - migration/backfill conservador:
   - `backend/alembic/versions/20260423_0030_add_regulatory_domain_fields.py`
 - endpoints atualizados:
@@ -589,9 +638,9 @@ Escopo entregue:
 
 Backfill aplicado:
 - `alvara_funcionamento_kind`
-  - usa `raw.source_document_kind_alvara_funcionamento` quando o tipo detectado é confiável
+  - usa `raw.source_document_kind_alvara_funcionamento` quando o tipo detectado Ã© confiÃ¡vel
   - usa `DEFINITIVO` quando `raw.source_kind_alvara_funcionamento == "definitivo"`
-  - fallback para `PENDENTE_REVISAO` nos casos ambíguos
+  - fallback para `PENDENTE_REVISAO` nos casos ambÃ­guos
 - `sanitary_complexity`
   - default `PENDENTE_REVISAO`
 - `address_usage_type`
@@ -601,12 +650,12 @@ Backfill aplicado:
   - default `PENDENTE_REVISAO`
 
 Fora de escopo mantido:
-- regra completa de score regulatório
-- regra completa de notificações regulatórias
-- heurística final de invalidação do alvará definitivo por processo
+- regra completa de score regulatÃ³rio
+- regra completa de notificaÃ§Ãµes regulatÃ³rias
+- heurÃ­stica final de invalidaÃ§Ã£o do alvarÃ¡ definitivo por processo
 - bloqueios operacionais complexos no frontend
 
-Validação adicionada:
+ValidaÃ§Ã£o adicionada:
 - backend:
   - `backend/tests/test_regulatory_migration_backfill.py`
   - `backend/tests/test_companies_composite.py`
@@ -619,25 +668,25 @@ Validação adicionada:
   - `frontend/tests_e2e/portal/company_overview.spec.ts`
   - `frontend/tests_e2e/portal/regression_drawers.spec.ts`
 
-## Patch Regulatório 2 (2026-04-23)
+## Patch RegulatÃ³rio 2 (2026-04-23)
 
-Status: concluído
+Status: concluÃ­do
 
 Escopo entregue:
-- serviço central de regra em `backend/app/services/licence_regulatory_rules.py`
-- invalidação conservadora de alvará definitivo por alteração cadastral com base em:
+- serviÃ§o central de regra em `backend/app/services/licence_regulatory_rules.py`
+- invalidaÃ§Ã£o conservadora de alvarÃ¡ definitivo por alteraÃ§Ã£o cadastral com base em:
   - `process_type`
   - `orgao`
   - `operacao`
   - `obs`
   - `updated_at`
 - score ajustado para:
-  - não usar alvará definitivo válido como ausência de licença;
+  - nÃ£o usar alvarÃ¡ definitivo vÃ¡lido como ausÃªncia de licenÃ§a;
   - introduzir `OK_DEFINITIVE` e `DEFINITIVE_INVALIDATED`;
-  - ignorar renovação periódica do alvará quando `alvara_funcionamento_kind = DEFINITIVO`
-- notificações operacionais ajustadas para:
+  - ignorar renovaÃ§Ã£o periÃ³dica do alvarÃ¡ quando `alvara_funcionamento_kind = DEFINITIVO`
+- notificaÃ§Ãµes operacionais ajustadas para:
   - ignorar `LIC_ALVARA_D30` no caso de definitivo;
-  - emitir `LIC_DEFINITIVO_INVALIDADO` quando houver invalidação conservadora
+  - emitir `LIC_DEFINITIVO_INVALIDADO` quando houver invalidaÃ§Ã£o conservadora
 - overview atualizado para expor:
   - `regulatory`
   - `regulatory_status`
@@ -647,12 +696,12 @@ Escopo entregue:
 - portal ajustado de forma incremental no drawer de overview e labels de score
 
 Fora de escopo mantido:
-- bloqueio operacional por vistoria/endereço
-- workflow humano completo de revisão
-- heurísticas amplas além da regra textual conservadora
-- automações extras fora de score/notificações/overview
+- bloqueio operacional por vistoria/endereÃ§o
+- workflow humano completo de revisÃ£o
+- heurÃ­sticas amplas alÃ©m da regra textual conservadora
+- automaÃ§Ãµes extras fora de score/notificaÃ§Ãµes/overview
 
-Validação adicionada:
+ValidaÃ§Ã£o adicionada:
 - backend:
   - `backend/tests/test_licence_regulatory_rules.py`
   - `backend/tests/test_company_scoring.py`
@@ -660,12 +709,13 @@ Validação adicionada:
   - `backend/tests/test_company_overview.py`
 - portal E2E:
   - `frontend/tests_e2e/portal/company_overview.spec.ts`
-  - regressão mantida em `frontend/tests_e2e/portal/regression_drawers.spec.ts`
+  - regressÃ£o mantida em `frontend/tests_e2e/portal/regression_drawers.spec.ts`
 
 ## S12 - Hardening e go-live
 
 Status: pendente
 
 Objetivo:
-- Runbooks finais, segurança operacional e testes de regressão ampliados.
+- Runbooks finais, seguranÃ§a operacional e testes de regressÃ£o ampliados.
+
 

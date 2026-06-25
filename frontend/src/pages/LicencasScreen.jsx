@@ -3,24 +3,16 @@ import dayjs from "dayjs";
 import {
   AlertTriangle,
   ArrowUpDown,
-  Building2,
   BookDown,
   ChartBarIncreasing,
   ChevronDown,
   Clipboard,
-  Clock3,
   FileDown,
   FileMinus,
-  FolderKanban,
   Info,
   LayoutGrid,
-  LayoutDashboard,
   Logs,
   MapPin,
-  Receipt,
-  ScrollText,
-  ShieldAlert,
-  ShieldCheck,
   SlidersHorizontal,
   X,
 } from "lucide-react";
@@ -29,17 +21,23 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SideDrawer } from "@/components/ui/side-drawer";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import StatusBadge from "@/components/StatusBadge";
 import CopyableCompanyName from "@/components/CopyableCompanyName";
 import { fetchJson } from "@/lib/api";
-import { formatCnpj } from "@/lib/text";
-import { formatStatusDisplay, getStatusKey, isAlertStatus, resolveLicencaTipo } from "@/lib/status";
-import { cn } from "@/lib/utils";
+import { formatStatusDisplay } from "@/lib/domain/status/display";
+import { resolveLicencaTipo } from "@/lib/domain/status/licencas";
+import { getStatusKey, isAlertStatus } from "@/lib/domain/status/common";
+import DomainSubnav from "@/components/navigation/DomainSubnav";
+import LicenceUploadAssistDrawer from "@/components/licencas/LicenceUploadAssistDrawer";
+import useLicenceRows from "@/hooks/licencas/useLicenceRows";
+import LicenceFilterRail from "@/components/licencas/LicenceFilterRail";
+import LicenceEditDrawer from "@/components/licencas/LicenceEditDrawer";
+import LicenceMatrix from "@/components/licencas/LicenceMatrix";
+import LicenceHeroCards from "@/components/licencas/LicenceHeroCards";
+import useLicenceFilters from "@/hooks/licencas/useLicenceFilters";
 
 const TIPOS = [
   { key: "SANITARIA", label: "Sanitária", field: "alvara_vig_sanitaria" },
@@ -170,15 +168,7 @@ const SORT_OPTIONS = [
 ];
 
 const DEFAULT_SORT = SORT_OPTIONS[0];
-const SUBNAV_ITEMS = [
-  { key: "painel", label: "Painel", icon: LayoutDashboard },
-  { key: "empresas", label: "Empresas", icon: Building2 },
-  { key: "licencas", label: "Licenças", icon: ScrollText },
-  { key: "taxas", label: "Taxas", icon: Receipt },
-  { key: "processos", label: "Processos", icon: FolderKanban },
-  { key: "certificados", label: "Certificados", icon: ShieldCheck },
-];
-
+const LICENCAS_MATRIX_VIEW_MODE_KEY = "licencas_matrix_view_mode";
 const compareWithSort = (a, b, option, direction) => {
   const dir = direction === "desc" ? -1 : 1;
   const field = option?.value;
@@ -219,135 +209,6 @@ const toUploadLicenceType = (kind, isDefinitive) => {
   if (key === "DISPENSA_AMBIENTAL") return "DISPENSA_AMBIENTAL_DEFINITIVO";
   return key;
 };
-
-function UploadAssistDrawer({
-  open,
-  onClose,
-  draft,
-  setDraft,
-  onConfirm,
-  onAddFiles,
-  uploading,
-  companyOptions,
-}) {
-  const canSubmit = Boolean(draft?.companyId?.trim()) && (draft?.items || []).length > 0;
-  return (
-    <SideDrawer
-      open={open}
-      onClose={onClose}
-      title="Upload assistido de licenças"
-      subtitle="Detecta tipo e validade pelo nome do arquivo. Confirme antes de enviar."
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onAddFiles} disabled={uploading}>
-            Adicionar arquivos
-          </Button>
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={onConfirm} disabled={!canSubmit || uploading}>
-            {uploading ? "Enviando..." : "Enviar arquivos"}
-          </Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <div>
-          <Label>Empresa</Label>
-          <select
-            className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            value={draft.companyId}
-            onChange={(event) =>
-              setDraft((prev) => ({
-                ...prev,
-                companyId: event.target.value,
-              }))
-            }
-          >
-            <option value="">Selecione</option>
-            {companyOptions.map((item) => (
-              <option key={item.id} value={item.id}>
-                {(item.razao_social || item.empresa || "Empresa")} - {formatCnpj(item.cnpj)}
-              </option>
-            ))}
-          </select>
-        </div>
-        {(draft?.items || []).length > 0 ? (
-          <p className="text-xs text-slate-600">
-            Arquivos selecionados: {draft.items.length}
-          </p>
-        ) : null}
-        <div className="space-y-3">
-          {draft.items.map((item, index) => (
-            <div key={`${item.originalFilename}-${index}`} className="rounded-xl border border-slate-200 p-3">
-              <div className="text-sm font-medium text-slate-800">{item.originalFilename}</div>
-              <div className="mt-2 grid gap-3 md:grid-cols-2">
-                <div>
-                  <Label>Tipo sugerido</Label>
-                  <Select
-                    value={item.kind || "__none__"}
-                    onValueChange={(value) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        items: prev.items.map((current, idx) =>
-                          idx === index ? { ...current, kind: value === "__none__" ? "" : value } : current,
-                        ),
-                      }))
-                    }
-                  >
-                    <SelectTrigger><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="__none__">Selecione</SelectItem>
-                      {DETECT_KIND_OPTIONS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Validade</Label>
-                  <Input
-                    type="date"
-                    value={item.expiresAt || ""}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        items: prev.items.map((current, idx) =>
-                          idx === index ? { ...current, expiresAt: event.target.value } : current,
-                        ),
-                      }))
-                    }
-                    disabled={item.isDefinitive}
-                  />
-                </div>
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                <label className="inline-flex items-center gap-2">
-                  <input
-                    type="checkbox"
-                    checked={item.isDefinitive}
-                    onChange={(event) =>
-                      setDraft((prev) => ({
-                        ...prev,
-                        items: prev.items.map((current, idx) =>
-                          idx === index ? { ...current, isDefinitive: event.target.checked } : current,
-                        ),
-                      }))
-                    }
-                  />
-                  Definitivo
-                </label>
-                <span>Confiança: {Math.round((item.confidence || 0) * 100)}%</span>
-                {item.canonicalFilename ? <span>Canônico: {item.canonicalFilename}</span> : null}
-              </div>
-              {(item.warnings || []).length > 0 ? (
-                <div className="mt-2 text-xs text-amber-700">{item.warnings.join(" | ")}</div>
-              ) : null}
-            </div>
-          ))}
-        </div>
-      </div>
-    </SideDrawer>
-  );
-}
 
 const normalizeTipo = (value) =>
   String(value || "")
@@ -514,155 +375,6 @@ const resolveCompanyCertBucket = (value) => {
   return "sem_certificado";
 };
 
-function EditDrawer({ open, item, onClose, onSaved, enqueueToast }) {
-  const [status, setStatus] = useState("possui");
-  const [validade, setValidade] = useState("");
-  const [alvaraKind, setAlvaraKind] = useState("PENDENTE_REVISAO");
-  const [motivo, setMotivo] = useState("");
-  const [justificativa, setJustificativa] = useState("");
-  const [observacao, setObservacao] = useState("");
-  const [responsavel, setResponsavel] = useState("");
-  const [proximaAcao, setProximaAcao] = useState("");
-  const [saving, setSaving] = useState(false);
-
-  React.useEffect(() => {
-    if (!open || !item) return;
-    setStatus(item?.status_key_canonical || getStatusKey(item?.status).replace(/\s+/g, "_") || "possui");
-    setValidade(item?.valid_until || item?.validade || "");
-    setAlvaraKind(item?.alvara_funcionamento_kind || "PENDENTE_REVISAO");
-    setMotivo(item?.motivo_nao_exigido || "");
-    setJustificativa(item?.justificativa_nao_exigido || "");
-    setObservacao(item?.observacao || "");
-    setResponsavel(item?.responsavel || "");
-    setProximaAcao(item?.proxima_acao || "");
-  }, [open, item]);
-
-  const handleSave = async () => {
-    if (!item?.licence_id || !item?.licence_field) {
-      enqueueToast?.("Registro sem referência de edição.");
-      return;
-    }
-    if (status === "nao_exigido" && (!motivo || !justificativa.trim())) {
-      enqueueToast?.("Informe motivo e justificativa para Não exigido.");
-      return;
-    }
-    setSaving(true);
-    try {
-      await fetchJson(`/api/v1/licencas/${item.licence_id}/item`, {
-        method: "PATCH",
-        body: {
-          field: item.licence_field,
-          status,
-          validade: validade || null,
-          alvara_funcionamento_kind: item.licence_field === "alvara_funcionamento" ? alvaraKind : null,
-          motivo_nao_exigido: status === "nao_exigido" ? motivo : null,
-          justificativa_nao_exigido: status === "nao_exigido" ? justificativa : null,
-          observacao: observacao || null,
-          responsavel: responsavel || null,
-          proxima_acao: proximaAcao || null,
-        },
-      });
-      enqueueToast?.("Licença atualizada.");
-      await onSaved?.();
-      onClose?.();
-    } catch (error) {
-      enqueueToast?.(error?.message || "Falha ao atualizar licença.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <SideDrawer
-      open={open}
-      onClose={onClose}
-      title="Edição rápida de licença"
-      subtitle={displayEmpresa(item)}
-      footer={
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={onClose}>Cancelar</Button>
-          <Button onClick={handleSave} disabled={saving}>{saving ? "Salvando..." : "Salvar"}</Button>
-        </div>
-      }
-    >
-      <div className="space-y-4">
-        <div>
-          <Label>Status</Label>
-          <Select value={status} onValueChange={setStatus}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              {STATUS_OPTIONS.map((opt) => (
-                <SelectItem key={opt} value={opt}>{formatStatusDisplay(opt)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label>Vencimento</Label>
-          <Input type="date" value={validade || ""} onChange={(e) => setValidade(e.target.value)} />
-        </div>
-        {item?.licence_field === "alvara_funcionamento" ? (
-          <div>
-            <Label>Tipo do alvará</Label>
-            <Select value={alvaraKind} onValueChange={setAlvaraKind}>
-              <SelectTrigger aria-label="Tipo do alvará"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                {ALVARA_FUNCIONAMENTO_KIND_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        ) : null}
-        {status === "nao_exigido" && (
-          <>
-            <div>
-              <Label>Motivo padrão</Label>
-              <Select value={motivo} onValueChange={setMotivo}>
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {MOTIVO_OPTIONS.map((opt) => (
-                    <SelectItem key={opt} value={opt}>{formatStatusDisplay(opt)}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Justificativa/Base</Label>
-              <Input value={justificativa} onChange={(e) => setJustificativa(e.target.value)} />
-            </div>
-          </>
-        )}
-        <div>
-          <Label>Observação</Label>
-          <Textarea value={observacao} onChange={(e) => setObservacao(e.target.value)} />
-        </div>
-        <div>
-          <Label>Responsável</Label>
-          <Input value={responsavel} onChange={(e) => setResponsavel(e.target.value)} />
-        </div>
-        <div>
-          <Label>Próxima ação</Label>
-          <Input value={proximaAcao} onChange={(e) => setProximaAcao(e.target.value)} />
-        </div>
-
-        <details className="rounded-xl border border-slate-200 p-3">
-          <summary className="cursor-pointer text-sm font-medium text-slate-700">Detalhes sob demanda</summary>
-          <div className="mt-3 space-y-2 text-xs text-slate-600">
-            <div><strong>Status bruto:</strong> {item?.status || "—"}</div>
-            <div><strong>Tipo:</strong> {item?.tipo || "—"}</div>
-            {item?.licence_field === "alvara_funcionamento" ? (
-              <div><strong>Tipo do alvará:</strong> {formatAlvaraKindLabel(item?.alvara_funcionamento_kind)}</div>
-            ) : null}
-            <div><strong>Município:</strong> {item?.municipio || "—"}</div>
-            <div><strong>CNPJ:</strong> {item?.cnpj || "—"}</div>
-          </div>
-        </details>
-      </div>
-    </SideDrawer>
-  );
-}
-
 export default function LicencasScreen({
   licencas,
   filteredLicencas,
@@ -686,30 +398,20 @@ export default function LicencasScreen({
     }
   });
   const [openRailMobile, setOpenRailMobile] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [matrixViewMode, setMatrixViewMode] = useState("table");
-  const [quickMunicipio, setQuickMunicipio] = useState("todos");
-  const [quickTipo, setQuickTipo] = useState("todos");
-  const [quickStatus, setQuickStatus] = useState("todos");
-  const [quickScoreRisk, setQuickScoreRisk] = useState("todos");
-  const [quickScoreStatus, setQuickScoreStatus] = useState("todos");
-  const [sortField, setSortField] = useState(DEFAULT_SORT.value);
-  const [sortDir, setSortDir] = useState(DEFAULT_SORT.defaultDir);
-  const [somenteAlertasLocal, setSomenteAlertasLocal] = useState(false);
+  const [matrixViewMode, setMatrixViewMode] = useState(() => {
+    if (typeof window === "undefined") return "cards";
+    try {
+      const stored = localStorage.getItem(LICENCAS_MATRIX_VIEW_MODE_KEY);
+      return stored && ["table", "cards"].includes(stored) ? stored : "cards";
+    } catch {
+      return "cards";
+    }
+  });
   const [drawerItem, setDrawerItem] = useState(null);
-  const [kpiFilter, setKpiFilter] = useState("todos");
-  const [priorityGroup, setPriorityGroup] = useState("todos");
   const [uploading, setUploading] = useState(false);
   const [scanRunning, setScanRunning] = useState(false);
   const [uploadDrawerOpen, setUploadDrawerOpen] = useState(false);
   const [uploadDraft, setUploadDraft] = useState({ companyId: "", items: [] });
-  const [railStatusFilter, setRailStatusFilter] = useState("ativas");
-  const [railRiskFilters, setRailRiskFilters] = useState(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]);
-  const [railCertFilters, setRailCertFilters] = useState(["valido", "vencendo", "vencido", "sem_certificado"]);
-  const [railMunicipioFilters, setRailMunicipioFilters] = useState([]);
-  const [railSanitaryComplexityFilter, setRailSanitaryComplexityFilter] = useState("todas");
-  const [railUrgencyMin, setRailUrgencyMin] = useState(0);
-  const [railUrgencyMax, setRailUrgencyMax] = useState(100);
   const fileInputRef = useRef(null);
   const appendUploadSelectionRef = useRef(false);
   const openCompanyCadastro = React.useCallback((item) => {
@@ -735,6 +437,103 @@ export default function LicencasScreen({
   }, [view]);
 
   React.useEffect(() => {
+    try {
+      localStorage.setItem(LICENCAS_MATRIX_VIEW_MODE_KEY, matrixViewMode);
+    } catch {
+      // Silenciosamente ignorar erros de localStorage
+    }
+  }, [matrixViewMode]);
+
+  const base = useMemo(
+    () => (modoFoco ? (filteredLicencas || []).filter((item) => isAlertStatus(item?.status)) : filteredLicencas || []),
+    [filteredLicencas, modoFoco],
+  );
+
+  const rows = useLicenceRows({
+    base,
+    empresas,
+    normalizeDigits,
+    normalizeTipo,
+    parseStatusParts,
+    parseDias,
+    toCanonicalStatusKey,
+    normalizeScoreRisk,
+    normalizeScoreStatus,
+    parseIsActiveFlag,
+    resolveCompanyCertBucket,
+    normalizeSanitaryComplexity,
+    displayEmpresa,
+    toBrDate,
+    classify,
+  });
+
+  const {
+    searchTerm,
+    setSearchTerm,
+    quickMunicipio,
+    setQuickMunicipio,
+    quickTipo,
+    setQuickTipo,
+    quickStatus,
+    setQuickStatus,
+    quickScoreRisk,
+    setQuickScoreRisk,
+    quickScoreStatus,
+    setQuickScoreStatus,
+    sortField,
+    setSortField,
+    sortDir,
+    setSortDir,
+    somenteAlertasLocal,
+    setSomenteAlertasLocal,
+    kpiFilter,
+    setKpiFilter,
+    priorityGroup,
+    setPriorityGroup,
+    railStatusFilter,
+    setRailStatusFilter,
+    railRiskFilters,
+    setRailRiskFilters,
+    railCertFilters,
+    setRailCertFilters,
+    railMunicipioFilters,
+    setRailMunicipioFilters,
+    railSanitaryComplexityFilter,
+    setRailSanitaryComplexityFilter,
+    railUrgencyMin,
+    setRailUrgencyMin,
+    railUrgencyMax,
+    setRailUrgencyMax,
+    municipios,
+    railMunicipioOptions,
+    railSanitaryComplexityOptions,
+    filteredBase,
+    sortedFiltered,
+    grouped,
+    renovacoesNotificacaoCount,
+    empresasMatriz,
+    matrizCards,
+    kpis,
+    heroKpis,
+    activeFilterBadges,
+    railActiveCount,
+    toggleRailFilter,
+    clearSharedRailFilters,
+    clearContextFilters,
+  } = useLicenceFilters({
+    rows,
+    groupConfig,
+    sortOptions: SORT_OPTIONS,
+    defaultSort: DEFAULT_SORT,
+    tipos: TIPOS,
+    scoreRiskOptions: SCORE_RISK_OPTIONS,
+    scoreStatusOptions: SCORE_STATUS_OPTIONS,
+    formatStatusDisplay,
+    formatStatusWithDate,
+    formatSanitaryComplexityLabel,
+  });
+
+  React.useEffect(() => {
     const preset = panelPreset?.preset;
     if (!preset || panelPreset?.tab !== "licencas") return;
     setView("renovacoes");
@@ -749,366 +548,20 @@ export default function LicencasScreen({
     setSortDir(DEFAULT_SORT.defaultDir);
     setKpiFilter("todos");
     setPriorityGroup(preset?.group || "todos");
-  }, [panelPreset]);
-
-  const base = useMemo(
-    () => (modoFoco ? (filteredLicencas || []).filter((item) => isAlertStatus(item?.status)) : filteredLicencas || []),
-    [filteredLicencas, modoFoco],
-  );
-
-  const rows = useMemo(
-    () =>
-      base.map((item) => {
-        const companyId = String(item?.company_id || item?.empresa_id || "").trim();
-        const companyById =
-          companyId && Array.isArray(empresas)
-            ? empresas.find((company) => String(company?.id || company?.company_id || "").trim() === companyId)
-            : undefined;
-        const itemCnpj = normalizeDigits(item?.cnpj || item?.company_cnpj);
-        const companyByCnpj =
-          !companyById && itemCnpj && Array.isArray(empresas)
-            ? empresas.find((company) => normalizeDigits(company?.cnpj) === itemCnpj)
-            : undefined;
-        const companySnapshot = companyById || companyByCnpj;
-        const tipoNorm = normalizeTipo(item?.tipo);
-        const parsedStatus = parseStatusParts(item);
-        const diasParaVencer = parseDias(item);
-        const statusKeyCanonical = item?.status_key_canonical || toCanonicalStatusKey(parsedStatus.baseStatus);
-        const scoreUrgenciaRaw = companySnapshot?.score_urgencia ?? companySnapshot?.scoreUrgencia;
-        const scoreUrgencia = Number.isFinite(Number(scoreUrgenciaRaw)) ? Math.max(0, Math.min(100, Number(scoreUrgenciaRaw))): null;
-        const scoreRisk = normalizeScoreRisk(
-          companySnapshot?.risco_consolidado ?? companySnapshot?.riscoConsolidado,
-        );
-        const scoreStatus = normalizeScoreStatus(
-          companySnapshot?.score_status ?? companySnapshot?.scoreStatus,
-        );
-        const companyActive = parseIsActiveFlag(companySnapshot);
-        const certBucket = resolveCompanyCertBucket(companySnapshot?.certificado);
-        const sanitaryComplexity = normalizeSanitaryComplexity(
-          companySnapshot?.sanitary_complexity ?? companySnapshot?.sanitaryComplexity,
-        );
-        return {
-          ...item,
-          tipo_norm: tipoNorm,
-          empresa_display: displayEmpresa(item),
-          status_key: statusKeyCanonical,
-          status_key_canonical: statusKeyCanonical,
-          sem_vinculo: Boolean(item?.sem_vinculo) || !item?.empresa,
-          status_label: parsedStatus.baseStatus,
-          validade_br_display: toBrDate(item?.valid_until) || parsedStatus.validadeBr,
-          validade_iso_display: item?.valid_until || parsedStatus.validadeIso,
-          criticidade: classify(item),
-          dias_para_vencer: Number.isFinite(diasParaVencer) ? diasParaVencer : null,
-          score_urgencia: scoreUrgencia,
-          risco_consolidado: scoreRisk || null,
-          score_status: scoreStatus || null,
-          risk_bucket: scoreRisk === "HIGH" || scoreRisk === "MEDIUM" || scoreRisk === "LOW" ? scoreRisk : "UNMAPPED",
-          cert_bucket: certBucket,
-          company_active: companyActive,
-          sanitary_complexity: sanitaryComplexity || null,
-        };
-      }),
-    [base, empresas],
-  );
-
-  const municipios = useMemo(() => ["todos", ...Array.from(new Set(rows.map((r) => r?.municipio).filter(Boolean)))], [rows]);
-  const railMunicipioOptions = useMemo(
-    () => Array.from(new Set(rows.map((item) => item?.municipio).filter(Boolean))).sort((a, b) => a.localeCompare(b, "pt-BR")),
-    [rows],
-  );
-  const railSanitaryComplexityOptions = useMemo(
-    () =>
-      Array.from(new Set(rows.map((item) => item?.sanitary_complexity).filter(Boolean))).sort((a, b) =>
-        formatSanitaryComplexityLabel(a).localeCompare(formatSanitaryComplexityLabel(b), "pt-BR"),
-      ),
-    [rows],
-  );
-
-  const filteredBase = useMemo(
-    () =>
-      rows.filter((item) => {
-        if (railStatusFilter === "ativas" && item?.company_active === false) return false;
-        if (railStatusFilter === "inativas" && item?.company_active !== false) return false;
-        if (!railRiskFilters.includes(item?.risk_bucket || "UNMAPPED")) return false;
-        if (!railCertFilters.includes(item?.cert_bucket || "sem_certificado")) return false;
-        if (railMunicipioFilters.length > 0 && !railMunicipioFilters.includes(item?.municipio)) return false;
-        if (
-          railSanitaryComplexityFilter !== "todas" &&
-          (item?.sanitary_complexity || "__none__") !== railSanitaryComplexityFilter
-        ) {
-          return false;
-        }
-        if (Number.isFinite(item?.score_urgencia)) {
-          if (item.score_urgencia < railUrgencyMin || item.score_urgencia > railUrgencyMax) return false;
-        } else if (railUrgencyMin > 0 || railUrgencyMax < 100) {
-          return false;
-        }
-
-        if (searchTerm.trim()) {
-          const token = searchTerm.trim().toLowerCase();
-          const haystack = [
-            item?.empresa_display,
-            item?.cnpj,
-            item?.municipio,
-            resolveLicencaTipo(item?.tipo).label,
-            formatStatusWithDate(item),
-          ]
-            .filter(Boolean)
-            .join(" ")
-            .toLowerCase();
-          if (!haystack.includes(token)) return false;
-        }
-        if (quickMunicipio !== "todos" && item?.municipio !== quickMunicipio) return false;
-        if (quickTipo !== "todos" && item?.tipo_norm !== quickTipo) return false;
-        if (quickStatus !== "todos" && item?.status_key_canonical !== quickStatus) return false;
-        if (
-          quickScoreRisk !== "todos" &&
-          ((quickScoreRisk === "__none__" && item?.risco_consolidado) ||
-            (quickScoreRisk !== "__none__" && item?.risco_consolidado !== quickScoreRisk))
-        ) {
-          return false;
-        }
-        if (
-          quickScoreStatus !== "todos" &&
-          ((quickScoreStatus === "__none__" && item?.score_status) ||
-            (quickScoreStatus !== "__none__" && item?.score_status !== quickScoreStatus))
-        ) {
-          return false;
-        }
-        if (somenteAlertasLocal && !isAlertStatus(item?.status)) return false;
-        if (priorityGroup !== "todos" && item?.criticidade !== priorityGroup) return false;
-        return true;
-      }),
-    [
-      priorityGroup,
-      quickMunicipio,
-      quickScoreRisk,
-      quickScoreStatus,
-      quickStatus,
-      quickTipo,
-      railCertFilters,
-      railMunicipioFilters,
-      railRiskFilters,
-      railSanitaryComplexityFilter,
-      railStatusFilter,
-      railUrgencyMax,
-      railUrgencyMin,
-      rows,
-      searchTerm,
-      somenteAlertasLocal,
-    ],
-  );
-
-  const filtered = useMemo(
-    () =>
-      filteredBase.filter((item) => {
-        if (kpiFilter !== "todos" && item?.status_key_canonical !== kpiFilter) return false;
-        return true;
-      }),
-    [filteredBase, kpiFilter],
-  );
-
-  const sortedFiltered = useMemo(() => {
-    const selectedSort = SORT_OPTIONS.find((option) => option.value === sortField) || DEFAULT_SORT;
-    const comparator = (a, b) => {
-      const primary = compareWithSort(a, b, selectedSort, sortDir);
-      if (primary !== 0) return primary;
-      const secondary = compareWithSort(a, b, DEFAULT_SORT, DEFAULT_SORT.defaultDir);
-      if (secondary !== 0) return secondary;
-      return compareWithSort(a, b, { value: "empresa_display" }, "asc");
-    };
-    return [...filtered].sort(comparator);
-  }, [filtered, sortDir, sortField]);
-
-  const grouped = useMemo(() => {
-    const selectedSort = SORT_OPTIONS.find((option) => option.value === sortField) || DEFAULT_SORT;
-    const comparator = (a, b) => {
-      const primary = compareWithSort(a, b, selectedSort, sortDir);
-      if (primary !== 0) return primary;
-      const secondary = compareWithSort(a, b, DEFAULT_SORT, DEFAULT_SORT.defaultDir);
-      if (secondary !== 0) return secondary;
-      return compareWithSort(a, b, { value: "empresa_display" }, "asc");
-    };
-    const map = new Map(groupConfig.map((cfg) => [cfg.key, []]));
-    filtered.forEach((item) => {
-      if (item.criticidade && map.has(item.criticidade)) map.get(item.criticidade).push(item);
-    });
-    map.forEach((list) => list.sort(comparator));
-    return map;
-  }, [filtered, sortDir, sortField]);
-
-  const renovacoesNotificacaoCount = useMemo(() => {
-    let count = 0;
-    grouped.forEach((items) => {
-      count += items.length;
-    });
-    return count;
-  }, [grouped]);
-
-  const empresasMatriz = useMemo(() => {
-    const map = new Map();
-    filtered.forEach((item) => {
-      const key = item?.empresa_id || item?.company_id || item?.cnpj || item?.empresa_display;
-      if (!map.has(key)) {
-        map.set(key, {
-          key,
-          empresa: item.empresa_display,
-          cnpj: item?.cnpj,
-          municipio: item?.municipio,
-          sem_vinculo: item?.sem_vinculo,
-          byTipo: {},
-        });
-      }
-      map.get(key).byTipo[item.tipo_norm] = item;
-    });
-    return Array.from(map.values()).sort((a, b) => a.empresa.localeCompare(b.empresa));
-  }, [filtered]);
-
-  const kpis = useMemo(() => {
-    const all = filteredBase.length;
-    const make = (status) => filteredBase.filter((r) => r.status_key_canonical === status).length;
-    return [
-      { key: "todos", label: "Total", value: all },
-      { key: "vencido", label: "Vencido", value: make("vencido") },
-      { key: "nao_possui", label: "Não possui", value: make("nao_possui") },
-      { key: "sujeito", label: "Sujeito", value: make("sujeito") },
-      { key: "nao_exigido", label: "Não exigido", value: make("nao_exigido") },
-    ];
-  }, [filteredBase]);
-
-  const heroKpis = useMemo(() => {
-    const total = filteredBase.length;
-    const vencidas = filteredBase.filter((item) => item?.criticidade === "vencido").length;
-    const vencendo = filteredBase.filter((item) => {
-      const dias = Number(item?.dias_para_vencer);
-      return Number.isFinite(dias) && dias >= 0 && dias <= 30;
-    }).length;
-    const pendentes = filteredBase.filter((item) => {
-      const key = String(item?.status_key_canonical || "").trim();
-      return key.startsWith("aguardando_") || key === "em_analise" || key === "sujeito";
-    }).length;
-    return [
-      {
-        key: "total",
-        label: "Total de registros",
-        value: total,
-        subtitle: `${filtered.length} em exibição`,
-        icon: ScrollText,
-        tone: "bg-slate-50 border-slate-200 text-slate-900",
-      },
-      {
-        key: "vencidas",
-        label: "Vencidas",
-        value: vencidas,
-        subtitle: "Ação imediata",
-        icon: ShieldAlert,
-        tone: "bg-rose-50 border-rose-200 text-rose-900",
-      },
-      {
-        key: "vencendo",
-        label: "Vencendo",
-        value: vencendo,
-        subtitle: "Próximos 30 dias",
-        icon: Clock3,
-        tone: "bg-amber-50 border-amber-200 text-amber-900",
-      },
-      {
-        key: "pendentes",
-        label: "Pendentes / Em andamento",
-        value: pendentes,
-        subtitle: "Requer acompanhamento",
-        icon: ShieldCheck,
-        tone: "bg-blue-50 border-blue-200 text-blue-900",
-      },
-    ];
-  }, [filtered.length, filteredBase]);
-
-  const matrizCards = useMemo(
-    () =>
-      empresasMatriz.map((empresa) => ({
-        ...empresa,
-        totalTipos: TIPOS.reduce((acc, tipo) => (empresa.byTipo[tipo.key] ? acc + 1 : acc), 0),
-        vencidos: TIPOS.reduce((acc, tipo) => {
-          const item = empresa.byTipo[tipo.key];
-          return item?.criticidade === "vencido" ? acc + 1 : acc;
-        }, 0),
-      })),
-    [empresasMatriz],
-  );
-
-  const activeFilterBadges = useMemo(() => {
-    const badges = [];
-    if (searchTerm.trim()) badges.push({ key: "q", label: `Busca: ${searchTerm.trim()}`, onClear: () => setSearchTerm("") });
-    if (quickMunicipio !== "todos") badges.push({ key: "municipio", label: `Município: ${quickMunicipio}`, onClear: () => setQuickMunicipio("todos") });
-    if (quickTipo !== "todos") badges.push({ key: "tipo", label: `Tipo: ${TIPOS.find((t) => t.key === quickTipo)?.label || quickTipo}`, onClear: () => setQuickTipo("todos") });
-    if (quickStatus !== "todos") badges.push({ key: "status", label: `Status: ${formatStatusDisplay(quickStatus)}`, onClear: () => setQuickStatus("todos") });
-    if (quickScoreRisk !== "todos") badges.push({ key: "risk", label: `Risco: ${SCORE_RISK_OPTIONS.find((opt) => opt.value === quickScoreRisk)?.label || quickScoreRisk}`, onClear: () => setQuickScoreRisk("todos") });
-    if (quickScoreStatus !== "todos") badges.push({ key: "scoreStatus", label: `Score status: ${SCORE_STATUS_OPTIONS.find((opt) => opt.value === quickScoreStatus)?.label || quickScoreStatus}`, onClear: () => setQuickScoreStatus("todos") });
-    if (priorityGroup !== "todos") badges.push({ key: "criticidade", label: `Criticidade: ${groupConfig.find((group) => group.key === priorityGroup)?.label || priorityGroup}`, onClear: () => setPriorityGroup("todos") });
-    if (somenteAlertasLocal) badges.push({ key: "alertas", label: "Somente alertas", onClear: () => setSomenteAlertasLocal(false) });
-    if (railStatusFilter !== "ativas") badges.push({ key: "rail-status", label: `Empresa: ${railStatusFilter}`, onClear: () => setRailStatusFilter("ativas") });
-    if (railRiskFilters.length !== 4) badges.push({ key: "rail-risk", label: `Risco CNAE: ${railRiskFilters.length}`, onClear: () => setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]) });
-    if (railCertFilters.length !== 4) badges.push({ key: "rail-cert", label: `Certificado: ${railCertFilters.length}`, onClear: () => setRailCertFilters(["valido", "vencendo", "vencido", "sem_certificado"]) });
-    if (railMunicipioFilters.length > 0) badges.push({ key: "rail-municipio", label: `Município local: ${railMunicipioFilters.length}`, onClear: () => setRailMunicipioFilters([]) });
-    if (railSanitaryComplexityFilter !== "todas") badges.push({ key: "rail-sanitary-complexity", label: `Comp. sanitária: ${formatSanitaryComplexityLabel(railSanitaryComplexityFilter)}`, onClear: () => setRailSanitaryComplexityFilter("todas") });
-    if (railUrgencyMin > 0 || railUrgencyMax < 100) badges.push({ key: "rail-score", label: `Score de urgência: ${railUrgencyMin}-${railUrgencyMax}`, onClear: () => { setRailUrgencyMin(0); setRailUrgencyMax(100); } });
-    return badges;
   }, [
-    priorityGroup,
-    quickMunicipio,
-    quickScoreRisk,
-    quickScoreStatus,
-    quickStatus,
-    quickTipo,
-    railCertFilters.length,
-    railMunicipioFilters.length,
-    railRiskFilters.length,
-    railSanitaryComplexityFilter,
-    railStatusFilter,
-    railUrgencyMax,
-    railUrgencyMin,
-    searchTerm,
-    somenteAlertasLocal,
+    panelPreset,
+    setKpiFilter,
+    setPriorityGroup,
+    setQuickMunicipio,
+    setQuickScoreRisk,
+    setQuickScoreStatus,
+    setQuickStatus,
+    setQuickTipo,
+    setSearchTerm,
+    setSomenteAlertasLocal,
+    setSortDir,
+    setSortField,
   ]);
-
-  const railActiveCount = useMemo(() => {
-    let count = 0;
-    if (railStatusFilter !== "ativas") count += 1;
-    if (railRiskFilters.length !== 4) count += 1;
-    if (railCertFilters.length !== 4) count += 1;
-    if (railMunicipioFilters.length > 0) count += 1;
-    if (railSanitaryComplexityFilter !== "todas") count += 1;
-    if (railUrgencyMin > 0 || railUrgencyMax < 100) count += 1;
-    return count;
-  }, [railCertFilters.length, railMunicipioFilters.length, railRiskFilters.length, railSanitaryComplexityFilter, railStatusFilter, railUrgencyMax, railUrgencyMin]);
-
-  const toggleRailFilter = (setter, key) => {
-    setter((current) => {
-      const list = Array.isArray(current) ? current : [];
-      return list.includes(key) ? list.filter((item) => item !== key) : [...list, key];
-    });
-  };
-
-  const clearSharedRailFilters = () => {
-    setRailStatusFilter("ativas");
-    setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"]);
-    setRailCertFilters(["valido", "vencendo", "vencido", "sem_certificado"]);
-    setRailMunicipioFilters([]);
-    setRailSanitaryComplexityFilter("todas");
-    setRailUrgencyMin(0);
-    setRailUrgencyMax(100);
-  };
-
-  const clearContextFilters = () => {
-    setSearchTerm("");
-    setQuickMunicipio("todos");
-    setQuickTipo("todos");
-    setQuickStatus("todos");
-    setQuickScoreRisk("todos");
-    setQuickScoreStatus("todos");
-    setPriorityGroup("todos");
-    setSomenteAlertasLocal(false);
-  };
 
   const companyOptions = useMemo(
     () =>
@@ -1270,160 +723,43 @@ export default function LicencasScreen({
     }
   };
 
-  const railChipClass = (active) =>
-    [
-      "rounded-lg border px-3 py-1.5 text-xs font-medium transition",
-      active ? "border-blue-200 bg-blue-50 text-blue-700" : "border-slate-300 bg-slate-50 text-slate-700 hover:bg-white",
-    ].join(" ");
-
   const rail = (
-    <aside className="space-y-3 rounded-2xl border border-slate-300 bg-white p-3.5 shadow-sm xl:sticky xl:top-0 xl:self-start xl:max-h-[calc(100dvh-7rem)] xl:overflow-y-auto">
-      <div className="flex items-start justify-between">
-        <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.08em] text-slate-500">Contexto</p>
-          <h3 className="text-sm font-semibold text-slate-900">Filtros persistentes</h3>
-          <p className="text-xs text-slate-500">Registros no recorte: {filteredBase.length}</p>
-        </div>
-        <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-center">
-          <div className="text-sm font-semibold leading-4 text-blue-700">{railActiveCount}</div>
-          <div className="mt-1 text-[11px] font-medium leading-3 text-blue-700">{railActiveCount === 1 ? "ativo" : "ativos"}</div>
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Filtros rápidos</p>
-        <div className="flex flex-wrap gap-2">
-          {kpis.map((item) => (
-            <button key={item.key} type="button" onClick={() => setKpiFilter(item.key)} className={railChipClass(kpiFilter === item.key)}>
-              {item.label} <span className="ml-1 rounded-md bg-white/80 px-1.5 py-0.5 text-[11px]">{item.value}</span>
-            </button>
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setPriorityGroup("todos")} className={railChipClass(priorityGroup === "todos")}>Todas criticidades</button>
-          {groupConfig.map((cfg) => (
-            <button key={cfg.key} type="button" onClick={() => setPriorityGroup(cfg.key)} className={railChipClass(priorityGroup === cfg.key)}>
-              {cfg.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Status da empresa</p>
-        <div className="flex flex-wrap gap-2">
-          {["ativas", "inativas", "todas"].map((value) => (
-            <button key={value} type="button" onClick={() => setRailStatusFilter(value)} className={railChipClass(railStatusFilter === value)}>
-              {value === "ativas" ? "Ativas" : value === "inativas" ? "Inativas" : "Todas"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Risco CNAE</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setRailRiskFilters(["HIGH", "MEDIUM", "LOW", "UNMAPPED"])} className={railChipClass(railRiskFilters.length === 4)}>
-            Todos
-          </button>
-          {[{ key: "HIGH", label: "Alto" }, { key: "MEDIUM", label: "Médio" }, { key: "LOW", label: "Baixo" }, { key: "UNMAPPED", label: "Sem mapeamento" }].map((option) => (
-            <button key={option.key} type="button" onClick={() => toggleRailFilter(setRailRiskFilters, option.key)} className={railChipClass(railRiskFilters.includes(option.key))}>
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Certificado</p>
-        <div className="flex flex-wrap gap-2">
-          {[{ key: "valido", label: "Válido" }, { key: "vencendo", label: "Vencendo" }, { key: "vencido", label: "Vencido" }, { key: "sem_certificado", label: "Sem certificado" }].map((option) => (
-            <button key={option.key} type="button" onClick={() => toggleRailFilter(setRailCertFilters, option.key)} className={railChipClass(railCertFilters.includes(option.key))}>
-              {option.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Município</p>
-        {railMunicipioOptions.length === 0 ? <p className="text-xs text-slate-500">Sem municípios no recorte atual.</p> : null}
-        <div className="max-h-40 space-y-1 overflow-y-auto pr-1">
-          {railMunicipioOptions.map((item) => (
-            <label key={item} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-xs text-slate-700 hover:bg-white">
-              <input type="checkbox" checked={railMunicipioFilters.includes(item)} onChange={() => toggleRailFilter(setRailMunicipioFilters, item)} />
-              <span>{item}</span>
-            </label>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-3 rounded-xl border border-slate-300 bg-slate-200/50 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Complexidade sanitária</p>
-        <div className="flex flex-wrap gap-2">
-          <button type="button" onClick={() => setRailSanitaryComplexityFilter("todas")} className={railChipClass(railSanitaryComplexityFilter === "todas")}>
-            Todas
-          </button>
-          {railSanitaryComplexityOptions.map((value) => (
-            <button
-              key={value}
-              type="button"
-              onClick={() => setRailSanitaryComplexityFilter(value)}
-              className={railChipClass(railSanitaryComplexityFilter === value)}
-            >
-              {formatSanitaryComplexityLabel(value)}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2.5 rounded-xl border border-slate-300 bg-slate-100 p-3">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-slate-600">Score de urgência</p>
-        <div className="relative h-6">
-          <div className="pointer-events-none absolute left-0 right-0 top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-100" />
-          <div className="pointer-events-none absolute top-1/2 h-1 -translate-y-1/2 rounded-full bg-blue-300" style={{ left: `${railUrgencyMin}%`, width: `${Math.max(0, railUrgencyMax - railUrgencyMin)}%` }} />
-          <input type="range" min={0} max={100} value={railUrgencyMin} onChange={(event) => setRailUrgencyMin(Math.min(Number(event.target.value), railUrgencyMax))} className="ec-urgency-range" aria-label="Score de urgência mínimo" />
-          <input type="range" min={0} max={100} value={railUrgencyMax} onChange={(event) => setRailUrgencyMax(Math.max(Number(event.target.value), railUrgencyMin))} className="ec-urgency-range" aria-label="Score de urgência máximo" />
-        </div>
-        <div className="flex justify-between text-[11px] font-semibold text-slate-500"><span>{railUrgencyMin}</span><span>{railUrgencyMax}</span></div>
-      </div>
-
-      <div className="flex justify-end gap-2 pt-1">
-        <Button type="button" size="sm" variant="outline" className="border-slate-300 bg-white text-slate-700 hover:bg-slate-50" onClick={clearSharedRailFilters}>
-          Limpar
-        </Button>
-      </div>
-    </aside>
+    <LicenceFilterRail
+      filteredBaseLength={filteredBase.length}
+      railActiveCount={railActiveCount}
+      kpis={kpis}
+      setKpiFilter={setKpiFilter}
+      kpiFilter={kpiFilter}
+      setPriorityGroup={setPriorityGroup}
+      priorityGroup={priorityGroup}
+      groupConfig={groupConfig}
+      railStatusFilter={railStatusFilter}
+      setRailStatusFilter={setRailStatusFilter}
+      setRailRiskFilters={setRailRiskFilters}
+      railRiskFilters={railRiskFilters}
+      toggleRailFilter={toggleRailFilter}
+      railCertFilters={railCertFilters}
+      setRailCertFilters={setRailCertFilters}
+      railMunicipioOptions={railMunicipioOptions}
+      railMunicipioFilters={railMunicipioFilters}
+      setRailMunicipioFilters={setRailMunicipioFilters}
+      railSanitaryComplexityFilter={railSanitaryComplexityFilter}
+      setRailSanitaryComplexityFilter={setRailSanitaryComplexityFilter}
+      railSanitaryComplexityOptions={railSanitaryComplexityOptions}
+      formatSanitaryComplexityLabel={formatSanitaryComplexityLabel}
+      railUrgencyMin={railUrgencyMin}
+      railUrgencyMax={railUrgencyMax}
+      setRailUrgencyMin={setRailUrgencyMin}
+      setRailUrgencyMax={setRailUrgencyMax}
+      clearSharedRailFilters={clearSharedRailFilters}
+    />
   );
-
   return (
     <div className="space-y-4">
       <div className="grid gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
         <div className="hidden xl:block">{rail}</div>
         <section className="space-y-4">
-          <div className="rounded-xl border border-slate-200 bg-white p-2 shadow-sm">
-            <div className="flex flex-wrap gap-2">
-              {SUBNAV_ITEMS.map((item) => {
-                const Icon = item.icon;
-                const isActive = activeTab === item.key;
-                return (
-                  <button
-                    key={item.key}
-                    type="button"
-                    onClick={() => onTabChange?.(item.key)}
-                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition ${
-                      isActive
-                        ? "border-slate-900 bg-slate-900 text-white"
-                        : "border-transparent bg-transparent text-slate-600 hover:border-slate-200 hover:bg-slate-50"
-                    }`}
-                  >
-                    <Icon className="h-4 w-4" />
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
+          <DomainSubnav activeTab={activeTab} onTabChange={onTabChange} />
 
           <div className="flex flex-wrap gap-2">
             {activeFilterBadges.map((badge) => (
@@ -1445,32 +781,7 @@ export default function LicencasScreen({
             ) : null}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            {heroKpis.map((kpi) => {
-              const Icon = kpi.icon;
-              const iconTone =
-                kpi.key === "vencidas"
-                  ? "border-rose-200 bg-rose-50 text-rose-600"
-                  : kpi.key === "vencendo"
-                    ? "border-amber-200 bg-amber-50 text-amber-600"
-                    : "border-blue-200 bg-blue-50 text-blue-600";
-              const subtitleTone = kpi.key === "vencidas" ? "text-amber-600" : "text-slate-500";
-              return (
-                <div key={kpi.key} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{kpi.label}</p>
-                      <p className="mt-2 text-2xl font-semibold leading-none">{kpi.value}</p>
-                      <p className={cn("mt-2 text-xs", subtitleTone)}>{kpi.subtitle}</p>
-                    </div>
-                    <span className={cn("inline-flex h-10 w-10 items-center justify-center rounded-xl border", iconTone)}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <LicenceHeroCards items={heroKpis} />
 
           <Card className="border-subtle bg-card">
             <CardContent className="space-y-3 p-3">
@@ -1621,84 +932,17 @@ export default function LicencasScreen({
             </div>
           )}
           {view === "matriz" && (
-            matrixViewMode === "table" ? (
-              <Card className="ec-licence-matrix-card">
-                <CardContent className="p-5">
-                  <div className="ec-licence-matrix-head">
-                    <small>Matriz</small>
-                    <h3>Licenças por empresa</h3>
-                  </div>
-                  <div className="ec-licence-matrix-wrap">
-                    <ScrollArea className="h-[calc(100dvh-24rem)] w-full">
-                      <table className="ec-licence-matrix-table">
-                        <thead className="sticky top-0 z-10 bg-white">
-                          <tr>
-                            <th>Empresa</th>
-                            <th>Município</th>
-                            {MATRIX_TIPOS.map((tipo) => <th key={tipo.key}>{tipo.label}</th>)}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {empresasMatriz.map((emp) => (
-                            <tr key={emp.key}>
-                              <td className="ec-licence-matrix-company">
-                                <div className="flex items-center gap-2">
-                                  <span>{emp.empresa}</span>
-                                  {emp.sem_vinculo ? <span className="ec-licence-matrix-tag">Sem vínculo</span> : null}
-                                </div>
-                              </td>
-                              <td>{emp.municipio || "—"}</td>
-                              {MATRIX_TIPOS.map((tipo) => {
-                                const cell = emp.byTipo[tipo.key];
-                                return (
-                                  <td key={`${emp.key}-${tipo.key}`}>
-                                    {cell ? (
-                                      <button
-                                        type="button"
-                                        className="ec-licence-matrix-status"
-                                        onClick={() => setDrawerItem(cell)}
-                                      >
-                                        <StatusBadge status={formatMatrixStatus(cell)} className="ec-chip-square" />
-                                      </button>
-                                    ) : (
-                                      <span className="ec-licence-matrix-empty">Sem vínculo</span>
-                                    )}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </ScrollArea>
-                  </div>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {matrizCards.map((empresa) => (
-                  <Card key={empresa.key} className="overflow-hidden border border-slate-200 bg-white shadow-sm transition hover:border-slate-300 hover:shadow-md">
-                    <CardContent className="space-y-3 p-4">
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2"><p className="text-sm font-semibold text-slate-900">{empresa.empresa}</p>{empresa.sem_vinculo ? <span className="inline-flex items-center rounded-md border border-rose-200 bg-rose-50 px-2 py-0.5 text-[11px] font-medium text-rose-700">Sem vínculo</span> : null}</div>
-                        <p className="text-xs text-slate-500">{empresa.cnpj || "—"} {empresa.municipio ? `• ${empresa.municipio}` : ""}</p>
-                      </div>
-                      <div className="grid gap-2">
-                        {TIPOS.map((tipo) => {
-                          const item = empresa.byTipo[tipo.key];
-                          return (
-                            <button key={`${empresa.key}-${tipo.key}`} type="button" className="flex items-center justify-between rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-left transition hover:border-slate-300 hover:bg-white" onClick={() => item ? setDrawerItem(item) : enqueueToast?.("Sem registro para edição neste tipo.")}>
-                              <span className="text-xs font-medium text-slate-600">{tipo.label}</span>
-                              {item ? <StatusBadge status={formatStatusWithDate(item)} /> : <span className="inline-flex items-center rounded-md border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-medium text-slate-500">Sem vínculo</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )
+            <LicenceMatrix
+              matrixViewMode={matrixViewMode}
+              MATRIX_TIPOS={MATRIX_TIPOS}
+              TIPOS={TIPOS}
+              empresasMatriz={empresasMatriz}
+              matrizCards={matrizCards}
+              setDrawerItem={setDrawerItem}
+              enqueueToast={enqueueToast}
+              formatMatrixStatus={formatMatrixStatus}
+              formatStatusWithDate={formatStatusWithDate}
+            />
           )}
 
           {view === "tipos" && (
@@ -1758,14 +1002,22 @@ export default function LicencasScreen({
         {rail}
       </SideDrawer>
 
-      <EditDrawer
+      <LicenceEditDrawer
         open={Boolean(drawerItem)}
         item={drawerItem}
         onClose={() => setDrawerItem(null)}
         onSaved={onRefreshData}
         enqueueToast={enqueueToast}
+        fetchJson={fetchJson}
+        getStatusKey={getStatusKey}
+        formatStatusDisplay={formatStatusDisplay}
+        displayEmpresa={displayEmpresa}
+        formatAlvaraKindLabel={formatAlvaraKindLabel}
+        statusOptions={STATUS_OPTIONS}
+        alvaraFuncionamentoKindOptions={ALVARA_FUNCIONAMENTO_KIND_OPTIONS}
+        motivoOptions={MOTIVO_OPTIONS}
       />
-      <UploadAssistDrawer
+      <LicenceUploadAssistDrawer
         open={uploadDrawerOpen}
         onClose={() => setUploadDrawerOpen(false)}
         draft={uploadDraft}
@@ -1774,10 +1026,12 @@ export default function LicencasScreen({
         onAddFiles={triggerAddUploadFiles}
         uploading={uploading}
         companyOptions={companyOptions}
+        detectKindOptions={DETECT_KIND_OPTIONS}
       />
     </div>
   );
 }
+
 
 
 

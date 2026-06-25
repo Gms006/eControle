@@ -1,37 +1,21 @@
 ﻿// @ts-nocheck
-import { useEffect, useMemo, useRef, useState, type ChangeEvent, type ReactNode } from "react";
+import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
 import {
-  Bell,
   Database,
   Filter,
-  LogOut,
-  RefreshCw,
   Search,
   SlidersHorizontal,
   Star,
   UserRound,
   BellRing,
 } from "lucide-react";
-import { Chip } from "@/components/Chip";
-import { SideDrawer } from "@/components/ui/side-drawer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { type AppTabKey, type NavItem } from "@/lib/theme";
-import NotificationPanel from "@/components/notifications/NotificationPanel";
-import {
-  contarNotificacoesNaoLidas,
-  listarNotificacoes,
-  marcarNotificacaoComoLida,
-} from "@/services/notifications";
+import NotificationsButton from "@/components/notifications/NotificationsButton";
+import AdvancedFiltersDrawer from "@/components/layout/AdvancedFiltersDrawer";
+import FilterToggleChip from "@/components/filters/FilterToggleChip";
 
 type SearchFieldOption = { key: string; label: string };
 
@@ -91,14 +75,7 @@ export default function Topbar({
   headerContext?: HeaderContext;
 }) {
   const [openAdvancedFilters, setOpenAdvancedFilters] = useState(false);
-  const [openNotifications, setOpenNotifications] = useState(false);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsLoadingMore, setNotificationsLoadingMore] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [totalUnread, setTotalUnread] = useState(0);
-  const [notificationsOffset, setNotificationsOffset] = useState(0);
-  const notificationsRef = useRef<HTMLDivElement | null>(null);
+
   const activeItem = useMemo(
     () => items.find((item) => item.key === activeTab),
     [activeTab, items],
@@ -112,100 +89,6 @@ export default function Topbar({
     if (modoFoco) count += 1;
     return count;
   }, [modoFoco, municipio, searchField, somenteAlertas]);
-
-  const loadUnreadCount = async () => {
-    try {
-      const payload = await contarNotificacoesNaoLidas();
-      setUnreadCount(Number(payload?.unread_count || 0));
-    } catch {
-      // no-op: keep current value if endpoint is temporarily unavailable
-    }
-  };
-
-  const loadNotifications = async () => {
-    setNotificationsLoading(true);
-    setNotificationsOffset(0);
-    try {
-      const payload = await listarNotificacoes({ limit: 100, offset: 0 });
-      setNotifications(Array.isArray(payload?.items) ? payload.items : []);
-      setTotalUnread(Number(payload?.total || 0));
-    } catch {
-      setNotifications([]);
-      setTotalUnread(0);
-    } finally {
-      setNotificationsLoading(false);
-    }
-  };
-
-  const loadMoreNotifications = async () => {
-    setNotificationsLoadingMore(true);
-    try {
-      const nextOffset = notificationsOffset + 100;
-      const payload = await listarNotificacoes({ limit: 100, offset: nextOffset });
-      const newItems = Array.isArray(payload?.items) ? payload.items : [];
-      setNotifications((prev) => [...prev, ...newItems]);
-      setNotificationsOffset(nextOffset);
-    } catch {
-      // no-op
-    } finally {
-      setNotificationsLoadingMore(false);
-    }
-  };
-
-  useEffect(() => {
-    void loadUnreadCount();
-    const interval = window.setInterval(() => {
-      void loadUnreadCount();
-    }, 30000);
-    return () => window.clearInterval(interval);
-  }, []);
-
-  useEffect(() => {
-    if (!openNotifications) return;
-    void loadNotifications();
-  }, [openNotifications]);
-
-  useEffect(() => {
-    const onOpenNotifications = () => setOpenNotifications(true);
-    window.addEventListener("econtrole:open-notifications", onOpenNotifications);
-    return () => window.removeEventListener("econtrole:open-notifications", onOpenNotifications);
-  }, []);
-
-  useEffect(() => {
-    if (!openNotifications) return;
-    const onDocClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (!notificationsRef.current?.contains(target)) {
-        setOpenNotifications(false);
-      }
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [openNotifications]);
-
-  const handleMarkRead = async (item: any) => {
-    if (!item?.id) return;
-    try {
-      await marcarNotificacaoComoLida(item.id);
-      setNotifications((prev) =>
-        prev.map((entry) => (entry.id === item.id ? { ...entry, read_at: new Date().toISOString() } : entry)),
-      );
-      setUnreadCount((prev) => Math.max(0, prev - 1));
-    } catch {
-      // no-op
-    }
-  };
-
-  const handleOpenNotification = async (item: any) => {
-    if (!item) return;
-    if (!item.read_at) {
-      await handleMarkRead(item);
-    }
-    if (item.route_path) {
-      onNotificationRouteNavigate?.(item.route_path);
-      setOpenNotifications(false);
-    }
-  };
 
   const heading = headerContext || {
     breadcrumb: "Painel / Hoje",
@@ -257,38 +140,7 @@ export default function Topbar({
 
               {actions}
 
-              <div className="relative" ref={notificationsRef}>
-                <Button
-                  size="icon"
-                  variant="secondary"
-                  title="Notificações"
-                  className="relative border border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
-                  onClick={() => setOpenNotifications((prev) => !prev)}
-                  data-testid="topbar-notifications-button"
-                >
-                  <Bell className="h-4 w-4" />
-                  {unreadCount > 0 ? (
-                    <span
-                      className="absolute -right-2 -top-2 flex h-[21px] min-w-[21px] items-center justify-center rounded-full border border-white bg-rose-600 px-1 text-[11px] font-bold text-white"
-                      data-testid="topbar-notifications-unread"
-                    >
-                      {unreadCount > 99 ? "99+" : unreadCount}
-                    </span>
-                  ) : null}
-                </Button>
-                <NotificationPanel
-                  open={openNotifications}
-                  loading={notificationsLoading}
-                  notifications={notifications}
-                  unreadCount={unreadCount}
-                  onMarkRead={handleMarkRead}
-                  onNavigate={handleOpenNotification}
-                  onLoadMore={loadMoreNotifications}
-                  hasMore={notifications.length < totalUnread}
-                  loadingMore={notificationsLoadingMore}
-                  totalUnread={totalUnread}
-                />
-              </div>
+              <NotificationsButton onNotificationRouteNavigate={onNotificationRouteNavigate} />
               <Button size="icon" variant="secondary" title="Favoritos" className="border border-slate-200 bg-white text-slate-700 hover:bg-slate-50">
                 <Star className="h-4 w-4" />
               </Button>
@@ -305,12 +157,12 @@ export default function Topbar({
           </div>
 
           <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-3">
-            <FilterChip
+            <FilterToggleChip
               label="Somente alertas"
               active={somenteAlertas}
               onClick={() => onSomenteAlertasChange(!somenteAlertas)}
             />
-            <FilterChip label="Modo foco" active={modoFoco} onClick={() => onModoFocoChange(!modoFoco)} />
+            <FilterToggleChip label="Modo foco" active={modoFoco} onClick={() => onModoFocoChange(!modoFoco)} />
             {municipio && municipio !== "Todos" ? (
               <span className="inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-semibold text-blue-700">
                 Município: {municipio}
@@ -354,89 +206,22 @@ export default function Topbar({
         </div>
       </div>
 
-      <SideDrawer
+      <AdvancedFiltersDrawer
         open={openAdvancedFilters}
         onClose={() => setOpenAdvancedFilters(false)}
-        subtitle="Filtros globais"
-        title="Refinar listagens"
-        footer={
-          <div className="flex flex-wrap justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="border-subtle"
-              onClick={() => {
-                onSearchFieldChange("all");
-                onMunicipioChange("Todos");
-                onSomenteAlertasChange(false);
-                onModoFocoChange(false);
-              }}
-            >
-              Limpar filtros
-            </Button>
-            <Button type="button" variant="secondary" onClick={onReload}>
-              <RefreshCw className="mr-2 h-4 w-4" /> Recarregar dados
-            </Button>
-            <Button type="button" onClick={onLogout}>
-              <LogOut className="mr-2 h-4 w-4" /> Sair
-            </Button>
-          </div>
-        }
-      >
-        <div className="space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="search-field" className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Buscar em
-            </Label>
-            <Select value={searchField} onValueChange={onSearchFieldChange}>
-              <SelectTrigger id="search-field" className="h-10 rounded-xl border-subtle bg-card">
-                <SelectValue placeholder="Campo" />
-              </SelectTrigger>
-              <SelectContent>
-                {searchFieldOptions.map((option) => (
-                  <SelectItem key={option.key} value={option.key}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="municipio-field" className="text-[11px] font-semibold uppercase tracking-wide text-muted">
-              Município
-            </Label>
-            <Select value={municipio} onValueChange={onMunicipioChange}>
-              <SelectTrigger id="municipio-field" className="h-10 rounded-xl border-subtle bg-card">
-                <SelectValue placeholder="Todos" />
-              </SelectTrigger>
-              <SelectContent>
-                {(municipios || []).map((value) => (
-                  <SelectItem key={value} value={value}>
-                    {value}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted">Modos</p>
-            <div className="flex flex-wrap gap-2">
-              <FilterChip
-                label="Somente alertas"
-                active={somenteAlertas}
-                onClick={() => onSomenteAlertasChange(!somenteAlertas)}
-              />
-              <FilterChip
-                label="Modo foco"
-                active={modoFoco}
-                onClick={() => onModoFocoChange(!modoFoco)}
-              />
-            </div>
-          </div>
-        </div>
-      </SideDrawer>
+        searchField={searchField}
+        onSearchFieldChange={onSearchFieldChange}
+        searchFieldOptions={searchFieldOptions}
+        municipio={municipio}
+        municipios={municipios}
+        onMunicipioChange={onMunicipioChange}
+        somenteAlertas={somenteAlertas}
+        onSomenteAlertasChange={onSomenteAlertasChange}
+        modoFoco={modoFoco}
+        onModoFocoChange={onModoFocoChange}
+        onReload={onReload}
+        onLogout={onLogout}
+      />
     </header>
   );
 }
@@ -456,34 +241,5 @@ function QuickStat({
       <span className="font-semibold text-slate-500">{label}</span>
       <span className="text-slate-800">{value}</span>
     </span>
-  );
-}
-
-function FilterChip({
-  label,
-  active,
-  onClick,
-}: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-navy-soft",
-        active
-          ? "border-blue-300 bg-blue-50 text-blue-800"
-          : "border-slate-200 bg-white text-slate-600 hover:bg-slate-50",
-      )}
-      onClick={onClick}
-      aria-pressed={active}
-    >
-      <Chip variant={active ? "success" : "neutral"} size="sm" className="rounded-full px-1.5 py-0">
-        {active ? "ON" : "OFF"}
-      </Chip>
-      {label}
-    </button>
   );
 }

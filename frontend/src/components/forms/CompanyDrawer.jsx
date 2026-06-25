@@ -291,7 +291,7 @@ export default function CompanyDrawer({ state }) {
               </label>
             </div>
             <div>
-              <label className="text-xs font-medium">Complexidade Saniária</label>
+              <label className="text-xs font-medium">Complexidade Sanitária</label>
               <select
                 aria-label="Complexidade Sanitária"
                 className={FIELD_CLASS}

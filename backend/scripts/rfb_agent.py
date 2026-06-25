@@ -27,6 +27,7 @@ import logging
 import os
 import re
 import sys
+import tempfile
 import time
 import unicodedata
 from datetime import datetime
@@ -288,10 +289,22 @@ async def _launch_browser_context(pw):
         )
     except Exception as exc:
         log.warning("Falha ao abrir navegador preferencial. Fallback para Chromium padrÃ£o: %s", exc)
-        return await pw.chromium.launch_persistent_context(
-            user_data_dir=str(RFB_AGENT_PROFILE_DIR),
-            **common_kwargs,
-        )
+        try:
+            return await pw.chromium.launch_persistent_context(
+                user_data_dir=str(RFB_AGENT_PROFILE_DIR),
+                **common_kwargs,
+            )
+        except Exception as fallback_exc:
+            temp_profile = Path(tempfile.mkdtemp(prefix="econtrole-rfb-profile-"))
+            log.warning(
+                "Falha ao abrir Chromium com profile padrão (%s). Tentando profile temporário limpo: %s",
+                fallback_exc,
+                temp_profile,
+            )
+            return await pw.chromium.launch_persistent_context(
+                user_data_dir=str(temp_profile),
+                **common_kwargs,
+            )
 
 
 async def _inspect_page_state(page) -> tuple[str, str]:
@@ -383,8 +396,73 @@ async def _get_or_create_browser_context():
         if _PLAYWRIGHT is None:
             _PLAYWRIGHT = await async_playwright().start()
 
-        _BROWSER_CONTEXT = await _launch_browser_context(_PLAYWRIGHT)
+        try:
+            _BROWSER_CONTEXT = await _launch_browser_context(_PLAYWRIGHT)
+        except Exception as exc:
+            if _is_recoverable_browser_error(exc):
+                log.warning(
+                    "Falha ao abrir contexto com runtime atual (%s). Reiniciando Playwright...",
+                    exc,
+                )
+                await _reset_browser_runtime()
+                _PLAYWRIGHT = await async_playwright().start()
+                _BROWSER_CONTEXT = await _launch_browser_context(_PLAYWRIGHT)
+            else:
+                raise
         return _BROWSER_CONTEXT
+
+
+def _is_recoverable_browser_error(exc: Exception) -> bool:
+    text = str(exc).lower()
+    markers = (
+        "has been closed",
+        "target page, context or browser has been closed",
+        "connection closed while reading from the driver",
+        "browser has been closed",
+        "pipe closed",
+        "connection closed",
+    )
+    return any(marker in text for marker in markers)
+
+
+def _browser_diagnostic_hint(exc: Exception) -> str:
+    text = str(exc).lower()
+    if "executable doesn't exist" in text or "failed to launch" in text:
+        return (
+            "Possível Chromium ausente/incompatível. Execute no mesmo ambiente do backend: "
+            "`python -m playwright install chromium`."
+        )
+    if "channel" in text or "chrome" in text:
+        return (
+            "Falha ao usar canal preferencial. Tente iniciar agente com "
+            "`RFB_AGENT_BROWSER_CHANNEL=chromium`."
+        )
+    if "connection closed while reading from the driver" in text:
+        return (
+            "Driver Playwright encerrou na inicialização. Verifique bloqueio por antivírus/política e "
+            "tente profile limpo removendo `.econtrole-rfb-profile`."
+        )
+    return "Sem diagnóstico específico automático."
+
+
+async def _reset_browser_runtime() -> None:
+    global _BROWSER_CONTEXT, _PLAYWRIGHT
+
+    context = _BROWSER_CONTEXT
+    _BROWSER_CONTEXT = None
+    if context is not None:
+        try:
+            await context.close()
+        except Exception:
+            pass
+
+    playwright = _PLAYWRIGHT
+    _PLAYWRIGHT = None
+    if playwright is not None:
+        try:
+            await playwright.stop()
+        except Exception:
+            pass
 
 # ---------------------------------------------------------------------------
 # Parser do cartÃ£o CNPJ da RFB
@@ -614,11 +692,12 @@ async def _do_scrape(digits: str) -> dict[str, Any]:
         try:
             page = await context.new_page()
         except Exception as exc:
-            # Contexto pode ter sido fechado manualmente pelo usuário.
-            if "has been closed" in str(exc).lower():
-                log.warning("Contexto do navegador fechado. Recriando contexto RFB...")
-                global _BROWSER_CONTEXT
-                _BROWSER_CONTEXT = None
+            if _is_recoverable_browser_error(exc):
+                log.warning(
+                    "Runtime do navegador indisponível (%s). Reinicializando Playwright/Chromium...",
+                    exc,
+                )
+                await _reset_browser_runtime()
                 context = await _get_or_create_browser_context()
                 page = await context.new_page()
             else:
@@ -639,7 +718,7 @@ async def _do_scrape(digits: str) -> dict[str, Any]:
             log.info("HTML do resultado salvo em: %s", _dump_path)
         except Exception as _e:
             log.warning("Não foi possível salvar HTML de resultado: %s", _e)
-
+    
     except HTTPException:
         raise
     except PlaywrightTimeoutError as exc:
@@ -654,6 +733,7 @@ async def _do_scrape(digits: str) -> dict[str, Any]:
         )
     except Exception as exc:
         log.exception("Erro inesperado durante scraping RFB: %s", exc)
+        hint = _browser_diagnostic_hint(exc)
         if page is not None:
             artifacts = await _write_debug_artifacts(page, digits, "unexpected_error")
             debug_info = artifacts.get("meta") or artifacts.get("html") or artifacts.get("screenshot") or "sem arquivo"
@@ -664,7 +744,7 @@ async def _do_scrape(digits: str) -> dict[str, Any]:
             )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Erro inesperado durante scraping RFB: {exc}. Debug: {debug_info}",
+            detail=f"Erro inesperado durante scraping RFB: {exc}. Debug: {debug_info}. Hint: {hint}",
         )
     finally:
         if page is not None:

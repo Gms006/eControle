@@ -1,5 +1,5 @@
 import dayjs from "dayjs";
-import { normalizeText, parsePtDate, removeDiacritics } from "@/lib/text";
+import { formatCanonicalLabel, normalizeText, parsePtDate, removeDiacritics } from "@/lib/text";
 
 export const PROCESS_DIVERSOS_LABEL = "Diversos";
 export const DIVERSOS_OPERACAO_ALL = "__PROCESS_DIVERSOS_ALL__";
@@ -106,8 +106,8 @@ export const buildDiversosOperacaoKey = (operacao) => {
 };
 
 export const getDiversosOperacaoLabel = (operacao) => {
-  const text = normalizeText(operacao).trim();
-  return text !== "" ? text : "Sem operação informada";
+  const formatted = formatCanonicalLabel(operacao, "");
+  return formatted !== "" ? formatted : "Sem operação informada";
 };
 
 export const resolveProcessExtraColumns = (proc) => {

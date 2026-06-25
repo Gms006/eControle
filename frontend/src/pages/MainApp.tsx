@@ -6,7 +6,7 @@ import Topbar from "@/components/layout/Topbar";
 import PageTitle from "@/components/layout/PageTitle";
 import HeaderMenuPro from "@/components/header/HeaderMenuPro";
 import CopilotWidget from "@/components/copilot/CopilotWidget";
-import { SideDrawer } from "@/components/ui/side-drawer";
+import WorkerHealthDrawer from "@/components/layout/WorkerHealthDrawer";
 import PainelScreen from "./PainelScreen";
 import EmpresasScreen from "./EmpresasScreen";
 import LicencasScreen from "./LicencasScreen";
@@ -14,15 +14,58 @@ import TaxasScreen from "./TaxasScreen";
 import ProcessosScreen from "./ProcessosScreen";
 import CertificadosScreen from "./CertificadosScreen";
 import AutomacoesScreen from "./AutomacoesScreen";
+import NotificacoesScreen from "./NotificacoesScreen";
 import { useAuth } from "../hooks/useAuth";
 import { fetchJson } from "../lib/api";
 import { TAB_BACKGROUNDS } from "../lib/constants";
 import { APP_NAV_ITEMS, TAB_TITLES, type AppTabKey } from "@/lib/theme";
 import { normalizeText, removeDiacritics } from "../lib/text";
-import { getStatusKey, isAlertStatus, isProcessStatusActiveOrPending } from "../lib/status";
+import { getStatusKey, isAlertStatus, isProcessStatusActiveOrPending } from "@/lib/domain/status/common";
+import { extractTabFromRoutePath } from "@/lib/navigation";
 import { listarEmpresas } from "../services/empresas";
 import { listarGruposKPIs } from "../services/kpis";
-import { formatMunicipioDisplay } from "@/lib/normalization";
+import { contarNotificacoesNaoLidas } from "@/services/notifications";
+import { normalizeEmpresaRecord as normalizeEmpresaRecordAdapter } from "@/lib/domain/adapters/empresas";
+import {
+  buildMunicipioOptions,
+  buildTaxaLookupMaps,
+  dedupeEmpresas,
+  pickMunicipioValue,
+} from "@/lib/domain/adapters/mainApp";
+import {
+  buildOperationCounts,
+  buildPageChips,
+  buildPanelHeaderStats,
+  buildTopbarContext,
+  hasCompanyAlert as hasCompanyAlertAdapter,
+} from "@/lib/domain/adapters/mainAppView";
+import {
+  buildCompanyIndex as buildCompanyIndexAdapter,
+  groupByCompanyId as groupByCompanyIdAdapter,
+  hasActiveCompanyLink as hasActiveCompanyLinkAdapter,
+  hasCompanyReference as hasCompanyReferenceAdapter,
+  mapByCompanyId as mapByCompanyIdAdapter,
+  normalizeCnpjDigits as normalizeCnpjDigitsAdapter,
+  toCompanyIdKey as toCompanyIdKeyAdapter,
+} from "@/lib/domain/indexes/companyIndex";
+import { adaptTaxasRecords as adaptTaxasRecordsAdapter } from "@/lib/domain/adapters/taxas";
+import { adaptLicencasRecords as adaptLicencasRecordsAdapter } from "@/lib/domain/adapters/licencas";
+import {
+  adaptProcessosRecords as adaptProcessosRecordsAdapter,
+  normalizeProcesso as normalizeProcessoAdapter,
+} from "@/lib/domain/adapters/processos";
+import {
+  fetchAllPages as fetchAllPagesAdapter,
+  normalizeRolesList,
+  readSettledCollection,
+  readSettledValue,
+} from "@/lib/domain/adapters/asyncCollections";
+import {
+  filterEmpresasCollection,
+  filterLicencasCollection,
+  matchesMunicipio,
+  matchesQueryTokens,
+} from "@/lib/domain/adapters/search";
 
 const SEARCH_FIELDS = [
   { key: "all", label: "Tudo" },
@@ -30,428 +73,6 @@ const SEARCH_FIELDS = [
   { key: "cnpj", label: "CNPJ" },
   { key: "protocolo", label: "Protocolo" },
 ];
-
-const normalizeKey = (value: unknown) => {
-  const normalized = removeDiacritics(normalizeText(value)).toLowerCase();
-  return normalized.trim();
-};
-
-const normalizeItems = (payload: any) => {
-  if (Array.isArray(payload)) return payload;
-  if (payload?.items && Array.isArray(payload.items)) return payload.items;
-  return [];
-};
-
-const normalizeCnpjDigits = (value: any) => String(value ?? "").replace(/\D/g, "");
-const normalizeTipoProcessoKey = (value: any) =>
-  removeDiacritics(normalizeText(value))
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "_");
-
-const hasValue = (value: any) =>
-  value !== undefined && value !== null && String(value).trim() !== "";
-
-const getEmpresaKey = (item: any) => {
-  const candidate =
-    item?.empresa_id ??
-    item?.empresaId ??
-    item?.company_id ??
-    item?.companyId ??
-    item?.id;
-  if (candidate === undefined || candidate === null) return undefined;
-  const key = String(candidate).trim();
-  return key || undefined;
-};
-
-const getLinkedCompanyId = (item: any) => {
-  const candidate =
-    item?.empresa_id ??
-    item?.empresaId ??
-    item?.company_id ??
-    item?.companyId;
-  if (candidate === undefined || candidate === null) return undefined;
-  const key = String(candidate).trim();
-  return key || undefined;
-};
-
-const normalizeEmpresaRecord = (empresa: any) => {
-  const empresaId = getEmpresaKey(empresa);
-  const empresaNome =
-    empresa?.razao_social ??
-    empresa?.razaoSocial ??
-    empresa?.empresa ??
-    empresa?.nome_fantasia ??
-    empresa?.nomeFantasia ??
-    "â€”";
-
-  return {
-    ...empresa,
-    ...(empresaId ? { empresa_id: empresaId } : {}),
-    empresa: empresaNome,
-    razao_social: empresa?.razao_social ?? empresa?.empresa ?? empresa?.razaoSocial ?? empresaNome,
-    nome_fantasia: empresa?.nome_fantasia ?? empresa?.nomeFantasia ?? undefined,
-    ie: empresa?.ie ?? empresa?.inscricao_estadual ?? empresa?.inscricaoEstadual,
-    im:
-      empresa?.im ??
-      empresa?.inscricao_municipal ??
-      empresa?.inscricaoMunicipal,
-    inscricaoMunicipal:
-      empresa?.inscricaoMunicipal ?? empresa?.inscricao_municipal ?? empresa?.im,
-    inscricaoEstadual:
-      empresa?.inscricaoEstadual ?? empresa?.inscricao_estadual ?? empresa?.ie,
-    situacao: empresa?.situacao ?? empresa?.status_empresa,
-    debito: empresa?.debito ?? empresa?.situacao_debito,
-    certificado: empresa?.certificado ?? empresa?.certificado_digital,
-    responsavelFiscal: empresa?.responsavelFiscal ?? empresa?.responsavel_fiscal,
-    responsavelLegal: empresa?.responsavelLegal ?? empresa?.proprietario_principal,
-    cpfResponsavelLegal: empresa?.cpfResponsavelLegal ?? empresa?.cpf,
-    observacoes: empresa?.observacoes ?? empresa?.observacao ?? null,
-    municipio: formatMunicipioDisplay(empresa?.municipio),
-  };
-};
-
-const buildCompanyIndex = (empresas: any[]) => {
-  const byId = new Map<string, any>();
-  const byCnpj = new Map<string, any>();
-
-  empresas.forEach((empresa) => {
-    const normalized = normalizeEmpresaRecord(empresa);
-    const key = getEmpresaKey(normalized);
-    if (key) {
-      byId.set(key, normalized);
-    }
-
-    const cnpjDigits = normalizeCnpjDigits(normalized?.cnpj);
-    if (cnpjDigits) {
-      byCnpj.set(cnpjDigits, normalized);
-    }
-  });
-
-  return { byId, byCnpj };
-};
-
-const getCompanyFromIndexes = (item: any, indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
-  const key = getEmpresaKey(item);
-  if (key && indexes.byId.has(key)) {
-    return indexes.byId.get(key);
-  }
-  const cnpjDigits = normalizeCnpjDigits(item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa);
-  if (cnpjDigits && indexes.byCnpj.has(cnpjDigits)) {
-    return indexes.byCnpj.get(cnpjDigits);
-  }
-  return undefined;
-};
-
-const hasCompanyReference = (item: any) =>
-  Boolean(
-    item?.company_id ??
-      item?.companyId ??
-      item?.empresa_id ??
-      item?.empresaId ??
-      item?.cnpj ??
-      item?.cnpj_empresa ??
-      item?.cnpjEmpresa ??
-      item?.company_cnpj,
-  );
-
-const hasActiveCompanyLink = (item: any, indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
-  const company = getCompanyFromIndexes(item, indexes);
-  if (company) return true;
-  const companyId =
-    item?.company_id ??
-    item?.companyId ??
-    item?.empresa_id ??
-    item?.empresaId;
-  if (companyId !== undefined && companyId !== null) {
-    return indexes.byId.has(String(companyId).trim());
-  }
-  const cnpjDigits = normalizeCnpjDigits(
-    item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? item?.company_cnpj,
-  );
-  if (cnpjDigits) {
-    return indexes.byCnpj.has(cnpjDigits);
-  }
-  // Permitir itens com referência a empresa mesmo que não estejam no índice
-  // (pode ser empresa órfã ou problema temporário de sincronização)
-  return Boolean(companyId || cnpjDigits || item?.empresa || item?.cnpj);
-};
-
-const isUnregisteredDiversosProcess = (item: any) => {
-  const processType = String(item?.process_type ?? item?.tipo ?? "").trim().toUpperCase();
-  const explicitFlag =
-    item?.empresa_nao_cadastrada === true ||
-    item?.raw?.empresa_nao_cadastrada === true;
-  if (explicitFlag) return true;
-  if (processType !== "DIVERSOS") return false;
-  const hasNoCompanyId = !String(item?.company_id ?? item?.companyId ?? "").trim();
-  const hasManualCompanyData = Boolean(
-    String(item?.company_cnpj ?? item?.raw?.company_cnpj ?? item?.cnpj ?? "").trim() &&
-      String(item?.company_razao_social ?? item?.raw?.company_razao_social ?? item?.empresa ?? "").trim(),
-  );
-  return hasNoCompanyId && hasManualCompanyData;
-};
-
-const enrichWithCompany = (
-  item: any,
-  indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
-) => {
-  const company = getCompanyFromIndexes(item, indexes);
-  const itemCompanyId = getLinkedCompanyId(item);
-  const empresaId = itemCompanyId ?? getEmpresaKey(company);
-  
-  // Debug para primeira taxa
-  if (item?.id === "989d85c6-ec63-496d-ac1e-1f48c162316d") {
-    console.log("DEBUG [enrichWithCompany] Taxa específica:", {
-      itemKey: itemCompanyId,
-      companyFound: !!company,
-      empresaId,
-      item_company_id: item?.company_id,
-      company_obj: company ? { id: company.id, empresa: company.empresa } : null,
-    });
-  }
-  
-  const fallbackEmpresa = item?.company_name ?? item?.company_razao_social ?? item?.empresa ?? item?.razao_social;
-  const empresaNome =
-    fallbackEmpresa ??
-    company?.empresa ??
-    company?.razao_social ??
-    (empresaId ? `Empresa não vinculada (ID ${empresaId})` : "Empresa não vinculada");
-  const hasBackendCompany = Boolean(item?.company_name || item?.company_razao_social || item?.company_cnpj);
-  const semVinculo = Boolean(item?.sem_vinculo) || (!company && !itemCompanyId);
-
-  return {
-    ...item,
-    ...(empresaId
-      ? {
-          empresa_id: empresaId,
-          company_id:
-            item?.company_id ??
-            item?.empresa_id ??
-            item?.companyId ??
-            item?.empresaId ??
-            empresaId,
-        }
-      : {}),
-    empresa: empresaNome,
-    cnpj: item?.cnpj ?? item?.cnpj_empresa ?? item?.cnpjEmpresa ?? company?.cnpj,
-    municipio: formatMunicipioDisplay(item?.municipio ?? company?.municipio),
-    sem_vinculo: semVinculo,
-  };
-};
-
-const adaptTaxasRecords = (taxas: any[], indexes: { byId: Map<string, any>; byCnpj: Map<string, any> }) => {
-  console.log("DEBUG [adaptTaxasRecords]: Iniciando com", taxas.length, "taxas. índice tem", indexes.byId.size, "empresas por ID");
-  
-  return taxas.map((taxa, idx) => {
-    const enriched = enrichWithCompany(taxa, indexes);
-    
-    // Log detalhado para a primeira taxa
-    if (idx === 0) {
-      console.log("DEBUG [adaptTaxasRecords] Taxa[0] - Antes:", {
-        company_id: taxa.company_id,
-        empresa: taxa.empresa,
-        cnpj: taxa.cnpj,
-      });
-      console.log("DEBUG [adaptTaxasRecords] Taxa[0] - Depois:", {
-        company_id: enriched.company_id,
-        empresa: enriched.empresa,
-        cnpj: enriched.cnpj,
-        municipio: enriched.municipio,
-      });
-    }
-    
-    return {
-      ...enriched,
-      func: taxa?.func ?? taxa?.taxa_funcionamento,
-      publicidade: taxa?.publicidade ?? taxa?.taxa_publicidade,
-      sanitaria: taxa?.sanitaria ?? taxa?.taxa_vig_sanitaria,
-      localizacao_instalacao:
-        taxa?.localizacao_instalacao ?? taxa?.taxa_localiz_instalacao,
-      area_publica: taxa?.area_publica ?? taxa?.taxa_ocup_area_publica,
-      bombeiros: taxa?.bombeiros ?? taxa?.taxa_bombeiros,
-      status_geral: taxa?.status_geral ?? taxa?.status_taxas,
-    };
-  });
-};
-
-const LICENSE_FIELD_MAP = [
-  { field: "alvara_vig_sanitaria", tipo: "Sanitária" },
-  { field: "cercon", tipo: "CERCON" },
-  { field: "alvara_funcionamento", tipo: "Funcionamento" },
-  { field: "certidao_uso_solo", tipo: "Uso do Solo" },
-  { field: "licenca_ambiental", tipo: "Ambiental" },
-];
-
-const adaptLicencasRecords = (
-  licencas: any[],
-  indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
-) => {
-  const expanded: any[] = [];
-
-  licencas.forEach((lic) => {
-    const enriched = enrichWithCompany(lic, indexes);
-
-    // Formato legado (1 linha por licença) -> apenas enriquece aliases
-    if (hasValue(lic?.tipo) || hasValue(lic?.status) || hasValue(lic?.validade)) {
-      expanded.push({
-        ...enriched,
-        licence_id: lic?.licence_id ?? lic?.id,
-        licence_field:
-          lic?.licence_field ??
-          LICENSE_FIELD_MAP.find((entry) => entry.tipo.toLowerCase() === String(lic?.tipo || "").toLowerCase())?.field,
-        status_geral: lic?.status_geral ?? lic?.statusGeral,
-        motivo_nao_exigido: lic?.motivo_nao_exigido ?? lic?.raw?.motivo_nao_exigido,
-        justificativa_nao_exigido:
-          lic?.justificativa_nao_exigido ?? lic?.raw?.justificativa_nao_exigido,
-        valid_until: lic?.valid_until ?? lic?.validade ?? null,
-        company_name: lic?.company_name,
-      });
-      return;
-    }
-
-    // Formato novo (1 linha agregada por empresa) -> expande para formato legado
-    LICENSE_FIELD_MAP.forEach(({ field, tipo }) => {
-      const status = lic?.[field];
-      const normalizedStatus = hasValue(status) ? status : "nao_possui";
-      const sourceRaw = lic?.raw && typeof lic.raw === "object" ? lic.raw : {};
-      const validUntilRaw =
-        lic?.[`${field}_valid_until`] ??
-        sourceRaw?.[`${field}_valid_until`] ??
-        null;
-      const validadeRaw =
-        lic?.[`validade_${field}`] ??
-        sourceRaw?.[`validade_${field}`] ??
-        sourceRaw?.[`${field}_validade`] ??
-        null;
-
-      expanded.push({
-        ...enriched,
-        id: `${lic?.id ?? enriched?.empresa_id ?? "lic"}:${field}`,
-        licence_id: lic?.id,
-        licence_field: field,
-        tipo,
-        status: normalizedStatus,
-        status_geral: lic?.status_geral ?? lic?.statusGeral ?? null,
-        valid_until: validUntilRaw,
-        validade: validadeRaw,
-        validade_br:
-          lic?.[`validade_${field}_br`] ??
-          sourceRaw?.[`validade_${field}_br`] ??
-          (typeof validadeRaw === "string" && /^\d{4}-\d{2}-\d{2}$/.test(validadeRaw)
-            ? `${validadeRaw.slice(8, 10)}/${validadeRaw.slice(5, 7)}/${validadeRaw.slice(0, 4)}`
-            : null) ??
-          null,
-        status_detalhe: sourceRaw?.[`${field}_detalhe`] ?? null,
-        motivo_nao_exigido:
-          sourceRaw?.[`${field}_motivo_nao_exigido`] ?? lic?.motivo_nao_exigido ?? null,
-        justificativa_nao_exigido:
-          sourceRaw?.[`${field}_justificativa_nao_exigido`] ?? lic?.justificativa_nao_exigido ?? null,
-        observacao: sourceRaw?.[`${field}_observacao`] ?? null,
-        responsavel: sourceRaw?.[`${field}_responsavel`] ?? null,
-        proxima_acao: sourceRaw?.[`${field}_proxima_acao`] ?? null,
-        company_name: lic?.company_name,
-        company_razao_social: lic?.company_razao_social,
-        company_cnpj: lic?.company_cnpj,
-      });
-    });
-  });
-
-  return expanded;
-};
-
-const adaptProcessosRecords = (
-  processos: any[],
-  indexes: { byId: Map<string, any>; byCnpj: Map<string, any> },
-  taxasByCompanyId: Map<string, any>,
-  taxasByCnpj: Map<string, any>,
-) =>
-  processos.map((proc) => {
-    const raw = proc?.raw && typeof proc.raw === "object" ? proc.raw : {};
-    const extra = proc?.extra && typeof proc.extra === "object" ? proc.extra : {};
-    const merged = { ...raw, ...proc, ...extra };
-    const enriched = enrichWithCompany(merged, indexes);
-    const companyIdKey = String(
-      enriched?.company_id ?? enriched?.empresa_id ?? proc?.company_id ?? proc?.empresa_id ?? "",
-    ).trim();
-    const cnpjDigits = normalizeCnpjDigits(
-      enriched?.cnpj ?? enriched?.cnpj_empresa ?? proc?.cnpj ?? proc?.cnpj_empresa,
-    );
-    const taxa =
-      (companyIdKey && taxasByCompanyId.get(companyIdKey)) ||
-      (cnpjDigits && taxasByCnpj.get(cnpjDigits)) ||
-      null;
-    const tipoKey = normalizeTipoProcessoKey(
-      proc?.process_type ?? proc?.tipo ?? raw?.process_type ?? raw?.tipo,
-    );
-    const isCercon = tipoKey.includes("CERCON") || tipoKey.includes("BOMBEIROS");
-    const isSanitario =
-      tipoKey.includes("ALVARA_SANITARIO") || tipoKey.includes("SANITARIO");
-    const tpiSyncStatus = isCercon ? taxa?.tpi ?? taxa?.taxa_tpi ?? null : null;
-    const taxaBombeirosSyncStatus = isCercon
-      ? taxa?.taxa_bombeiros ?? taxa?.bombeiros ?? null
-      : null;
-    const taxaSanitariaSyncStatus = isSanitario
-      ? taxa?.sanitaria ?? taxa?.taxa_vig_sanitaria ?? null
-      : null;
-
-    return {
-      ...raw,
-      ...proc,
-      ...extra,
-      ...enriched,
-      id:
-        proc?.id ??
-        proc?.process_id ??
-        proc?.processId ??
-        raw?.id ??
-        raw?.process_id,
-      tipo:
-        proc?.tipo ??
-        proc?.tipo_processo ??
-        proc?.tipoProcesso ??
-        proc?.process_type ??
-        raw?.tipo ??
-        raw?.process_type,
-      status:
-        proc?.status ??
-        proc?.situacao ??
-        proc?.status_padrao ??
-        raw?.status ??
-        raw?.situacao,
-      situacao: proc?.situacao ?? raw?.situacao ?? raw?.status,
-      tpi_sync_status: tpiSyncStatus,
-      taxa_bombeiros_sync_status: taxaBombeirosSyncStatus,
-      taxa_sanitaria_sync_status: taxaSanitariaSyncStatus,
-    };
-  });
-
-const normalizeProcesso = (proc: any) => ({
-  ...proc,
-  id: proc?.id ?? proc?.process_id ?? proc?.processId ?? proc?.processo_id,
-  empresa:
-    proc?.empresa ??
-    proc?.razao_social ??
-    proc?.razaoSocial ??
-    proc?.nome_fantasia ??
-    proc?.nomeFantasia ??
-    proc?.razao ??
-    proc?.nome ??
-    "â€”",
-  empresa_id: proc?.empresa_id ?? proc?.empresaId ?? proc?.company_id ?? proc?.companyId,
-  company_id: proc?.company_id ?? proc?.companyId ?? proc?.empresa_id ?? proc?.empresaId,
-  cnpj: proc?.cnpj ?? proc?.cnpj_empresa ?? proc?.cnpjEmpresa,
-  municipio: formatMunicipioDisplay(
-    proc?.municipio ??
-      proc?.municipio_exibicao ??
-      proc?.municipioExibicao ??
-      proc?.municipio_nome ??
-      proc?.municipioNome,
-  ),
-  situacao: proc?.situacao ?? proc?.status ?? proc?.status_padrao,
-  status: proc?.status ?? proc?.situacao ?? proc?.status_padrao,
-  tipo: proc?.tipo ?? proc?.tipo_processo ?? proc?.tipoProcesso ?? proc?.process_type,
-});
 
 const renderEmptyState = (title: string, message: string) => (
   <div className="rounded-2xl border border-dashed border-slate-200 bg-white p-6 text-sm text-slate-600">
@@ -489,6 +110,7 @@ export default function MainApp() {
   const [jobsDrawerOpen, setJobsDrawerOpen] = useState(false);
   const [workerHealth, setWorkerHealth] = useState<any | null>(null);
   const [workerHealthLoading, setWorkerHealthLoading] = useState(false);
+  const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
   const [panelNavigation, setPanelNavigation] = useState<{
     id: number;
     tab: AppTabKey;
@@ -543,23 +165,6 @@ export default function MainApp() {
     }
     setErrors({});
     try {
-      const fetchAllPages = async (
-        fetchPage: (query: { limit: number; offset: number; page: number }) => Promise<any>,
-        limit = 1000,
-        maxPages = 50,
-      ) => {
-        const allItems: any[] = [];
-        let offset = 0;
-        for (let page = 0; page < maxPages; page += 1) {
-          const payload = await fetchPage({ limit, offset, page: page + 1 });
-          const items = normalizeItems(payload);
-          allItems.push(...items);
-          if (items.length < limit) break;
-          offset += limit;
-        }
-        return allItems;
-      };
-
       const [
         empresasResponse,
         licencasResponse,
@@ -570,122 +175,87 @@ export default function MainApp() {
         municipiosResponse,
         meResponse,
       ] = await Promise.allSettled([
-        fetchAllPages(
-          ({ limit, offset, page }) =>
+        fetchAllPagesAdapter(
+          ({ limit, offset, page }: { limit: number; offset: number; page: number }) =>
             listarEmpresas({ limit, size: limit, offset, page, include_inactive: true }),
           1000,
-          100,
         ),
-        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/licencas", { query: { limit, offset } })),
-        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/taxas", { query: { limit, offset } })),
-        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/processos", { query: { limit, offset } })),
-        fetchAllPages(({ limit, offset }) => fetchJson("/api/v1/certificados", { query: { limit, offset } })),
+        fetchAllPagesAdapter(
+          ({ limit, offset }: { limit: number; offset: number; page: number }) =>
+            fetchJson("/api/v1/licencas", { query: { limit, offset } }),
+        ),
+        fetchAllPagesAdapter(
+          ({ limit, offset }: { limit: number; offset: number; page: number }) =>
+            fetchJson("/api/v1/taxas", { query: { limit, offset } }),
+        ),
+        fetchAllPagesAdapter(
+          ({ limit, offset }: { limit: number; offset: number; page: number }) =>
+            fetchJson("/api/v1/processos", { query: { limit, offset } }),
+        ),
+        fetchAllPagesAdapter(
+          ({ limit, offset }: { limit: number; offset: number; page: number }) =>
+            fetchJson("/api/v1/certificados", { query: { limit, offset } }),
+        ),
         listarGruposKPIs({}),
         fetchJson("/api/v1/companies/municipios"),
         fetchJson("/api/v1/auth/me"),
       ]);
 
       const nextErrors: Record<string, string> = {};
-      const readCollection = (result: PromiseSettledResult<any>, key?: string) => {
-        if (result.status === "fulfilled") {
-          return normalizeItems(result.value);
-        }
-        const message = result.reason?.message || "Falha ao carregar dados.";
-        if (key) {
-          nextErrors[key] = message;
-        }
-        return [];
-      };
-
-      const empresasRaw = readCollection(empresasResponse, "empresas");
-      console.log("DEBUG: empresasRaw count:", empresasRaw.length);
-      if (empresasRaw.length > 0) console.log("DEBUG: primeiro empresa raw:", empresasRaw[0]);
+      const empresasRaw = readSettledCollection({ result: empresasResponse, key: "empresas", errors: nextErrors });
+      const empresasNormalized = dedupeEmpresas(empresasRaw, {
+        normalizeEmpresaRecord: normalizeEmpresaRecordAdapter,
+        normalizeCnpjDigits: normalizeCnpjDigitsAdapter,
+      });
+      const companyIndexes = buildCompanyIndexAdapter(empresasNormalized);
+      const licencasRaw = readSettledCollection({ result: licencasResponse, key: "licencas", errors: nextErrors });
+      const taxasRaw = readSettledCollection({ result: taxasResponse, key: "taxas", errors: nextErrors });
+      const processosRaw = readSettledCollection({ result: processosResponse, key: "processos", errors: nextErrors });
+      const certificadosRaw = readSettledCollection({ result: certificadosResponse, key: "certificados", errors: nextErrors });
       
-      const empresasNormalized = Array.from(
-        empresasRaw
-          .map(normalizeEmpresaRecord)
-          .reduce((acc: Map<string, any>, empresa: any) => {
-            const key =
-              String(
-                empresa?.empresa_id ??
-                  empresa?.id ??
-                  empresa?.company_id ??
-                  normalizeCnpjDigits(empresa?.cnpj) ??
-                  Math.random(),
-              ).trim() || Math.random().toString(36);
-            if (!acc.has(key)) acc.set(key, empresa);
-            return acc;
-          }, new Map<string, any>())
-          .values(),
-      );
-      console.log("DEBUG: empresasNormalized count:", empresasNormalized.length);
-      if (empresasNormalized.length > 0) console.log("DEBUG: primeira empresa normalized:", empresasNormalized[0]);
-      
-      const companyIndexes = buildCompanyIndex(empresasNormalized);
-      console.log("DEBUG: companyIndexes.byId size:", companyIndexes.byId.size, "byCnpj size:", companyIndexes.byCnpj.size);
-
-      const licencasRaw = readCollection(licencasResponse, "licencas");
-      const taxasRaw = readCollection(taxasResponse, "taxas");
-      const processosRaw = readCollection(processosResponse, "processos");
-      const certificadosRaw = readCollection(certificadosResponse, "certificados");
-      
-      // DEBUG: Log para identificar problema
-      if (taxasRaw.length > 0) {
-        console.log("DEBUG: taxasRaw count:", taxasRaw.length);
-        console.log("DEBUG: primeira taxa:", taxasRaw[0]);
-      }
-      
-      const licencasLinked = licencasRaw.filter((item: any) => hasActiveCompanyLink(item, companyIndexes));
-      const taxasLinked = taxasRaw.filter((item: any) => hasActiveCompanyLink(item, companyIndexes));
-      
-      console.log("DEBUG: taxasLinked count:", taxasLinked.length, "de", taxasRaw.length);
-      
+      const licencasLinked = licencasRaw.filter((item: any) => hasActiveCompanyLinkAdapter(item, companyIndexes));
+      const taxasLinked = taxasRaw.filter((item: any) => hasActiveCompanyLinkAdapter(item, companyIndexes));
       const processosLinked = processosRaw;
       const certificadosLinked = certificadosRaw.filter(
-        (item: any) => !hasCompanyReference(item) || hasActiveCompanyLink(item, companyIndexes),
+        (item: any) => !hasCompanyReferenceAdapter(item) || hasActiveCompanyLinkAdapter(item, companyIndexes),
       );
 
-      const taxasAdaptadas = adaptTaxasRecords(taxasLinked, companyIndexes);
-      console.log("DEBUG: primeira taxa após adapt:", taxasAdaptadas[0]);
-      const taxasByCompanyId = new Map<string, any>();
-      const taxasByCnpj = new Map<string, any>();
-      taxasAdaptadas.forEach((taxa) => {
-        const companyKey = String(
-          taxa?.company_id ?? taxa?.empresa_id ?? taxa?.companyId ?? taxa?.empresaId ?? "",
-        ).trim();
-        if (companyKey) {
-          taxasByCompanyId.set(companyKey, taxa);
-        }
-        const cnpjDigits = normalizeCnpjDigits(taxa?.cnpj ?? taxa?.cnpj_empresa ?? taxa?.cnpjEmpresa);
-        if (cnpjDigits) {
-          taxasByCnpj.set(cnpjDigits, taxa);
-        }
-      });
+      const taxasAdaptadas = adaptTaxasRecordsAdapter(taxasLinked, companyIndexes);
+      const { taxasByCompanyId, taxasByCnpj } = buildTaxaLookupMaps(
+        taxasAdaptadas,
+        normalizeCnpjDigitsAdapter,
+      );
 
       setEmpresas(empresasNormalized);
-      setLicencas(adaptLicencasRecords(licencasLinked, companyIndexes));
+      setLicencas(adaptLicencasRecordsAdapter(licencasLinked, companyIndexes));
       setTaxas(taxasAdaptadas);
-      setProcessos(adaptProcessosRecords(processosLinked, companyIndexes, taxasByCompanyId, taxasByCnpj));
+      setProcessos(adaptProcessosRecordsAdapter(processosLinked, companyIndexes, taxasByCompanyId, taxasByCnpj));
       setCertificados(certificadosLinked);
 
-      if (kpisResponse.status === "fulfilled") {
-        setKpis(kpisResponse.value || {});
-      } else {
-        nextErrors.kpis = kpisResponse.reason?.message || "Falha ao carregar KPIs.";
-        setKpis({});
-      }
-      if (municipiosResponse.status === "fulfilled") {
-        const values = Array.isArray(municipiosResponse.value) ? municipiosResponse.value : [];
-        setMunicipiosApi(values.filter(Boolean));
-      } else {
-        setMunicipiosApi([]);
-      }
-      if (meResponse.status === "fulfilled") {
-        const roles = Array.isArray(meResponse.value?.roles) ? meResponse.value.roles : [];
-        setCurrentRoles(roles.map((role: any) => String(role).toUpperCase()));
-      } else {
-        setCurrentRoles([]);
-      }
+      setKpis(
+        readSettledValue({
+          result: kpisResponse,
+          fallback: {},
+          key: "kpis",
+          errors: nextErrors,
+          errorMessage: "Falha ao carregar KPIs.",
+          transform: (value: any) => value || {},
+        }),
+      );
+      setMunicipiosApi(
+        readSettledValue({
+          result: municipiosResponse,
+          fallback: [],
+          transform: (value: any) => (Array.isArray(value) ? value.filter(Boolean) : []),
+        }),
+      );
+      setCurrentRoles(
+        readSettledValue({
+          result: meResponse,
+          fallback: [],
+          transform: (value: any) => normalizeRolesList(value?.roles),
+        }),
+      );
 
       setErrors(nextErrors);
       return true;
@@ -750,31 +320,7 @@ export default function MainApp() {
     (routePath: string) => {
       if (!routePath || typeof routePath !== "string") return;
 
-      const TAB_KEYS: AppTabKey[] = [
-        "painel",
-        "empresas",
-        "licencas",
-        "taxas",
-        "processos",
-        "certificados",
-        "automacoes",
-      ];
-      const extractTab = (path: string): AppTabKey | null => {
-        try {
-          const url = new URL(path, window.location.origin);
-          const fromQuery = String(url.searchParams.get("tab") || "").trim() as AppTabKey;
-          if (TAB_KEYS.includes(fromQuery)) return fromQuery;
-          const segments = url.pathname.split("/").filter(Boolean);
-          const last = (segments[segments.length - 1] || "").trim() as AppTabKey;
-          if (TAB_KEYS.includes(last)) return last;
-        } catch {
-          const simple = routePath.replace(/^\/+/, "").split(/[/?#]/)[0] as AppTabKey;
-          if (TAB_KEYS.includes(simple)) return simple;
-        }
-        return null;
-      };
-
-      const tab = extractTab(routePath);
+      const tab = extractTabFromRoutePath(routePath, window.location.origin) as AppTabKey | null;
       if (tab) {
         handleTabChange(tab);
       }
@@ -802,7 +348,7 @@ export default function MainApp() {
   const handleSidebarOperationAction = useCallback(
     (action: "notifications" | "critical_queues" | "saved_views" | "automation_jobs") => {
       if (action === "notifications") {
-        window.dispatchEvent(new CustomEvent("econtrole:open-notifications"));
+        handleTabChange("notificacoes");
         return;
       }
       if (action === "critical_queues") {
@@ -820,6 +366,23 @@ export default function MainApp() {
     },
     [handleTabChange],
   );
+
+  const loadUnreadNotificationsCount = useCallback(async () => {
+    try {
+      const payload = await contarNotificacoesNaoLidas();
+      setNotificationsUnreadCount(Number(payload?.unread_count || 0));
+    } catch {
+      setNotificationsUnreadCount(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadUnreadNotificationsCount();
+    const interval = window.setInterval(() => {
+      void loadUnreadNotificationsCount();
+    }, 30000);
+    return () => window.clearInterval(interval);
+  }, [loadUnreadNotificationsCount]);
 
   useEffect(() => {
     const onRefresh = async () => {
@@ -847,40 +410,16 @@ export default function MainApp() {
     [enqueueToast],
   );
 
-  const extractEmpresaId = useCallback((empresa: any) => {
-    const idCandidate =
-      empresa?.empresa_id ?? empresa?.empresaId ?? empresa?.company_id ?? empresa?.companyId ?? empresa?.id;
-    if (idCandidate === undefined || idCandidate === null) return undefined;
-    const normalized = String(idCandidate).trim();
-    return normalized || undefined;
-  }, []);
+  const extractEmpresaId = useCallback((empresa: any) => toCompanyIdKeyAdapter(empresa), []);
 
   const municipios = useMemo(() => {
-    if (municipiosApi.length > 0) {
-      const list = Array.from(
-        new Set(municipiosApi.filter(Boolean).map((value) => formatMunicipioDisplay(value)).filter(Boolean)),
-      ).sort((a, b) => a.localeCompare(b));
-      return ["Todos", ...list];
-    }
-    const entries = new Set<string>();
-    [empresas, licencas, taxas, processos].forEach((collection) => {
-      collection.forEach((item) => {
-        const value =
-          item?.municipio ??
-          item?.municipio_exibicao ??
-          item?.municipioExibicao ??
-          item?.municipio_nome ??
-          item?.municipioNome;
-        if (value) {
-          const normalized = formatMunicipioDisplay(value);
-          if (normalized) {
-            entries.add(normalized);
-          }
-        }
-      });
+    return buildMunicipioOptions({
+      municipiosApi,
+      empresas,
+      licencas,
+      taxas,
+      processos,
     });
-    const list = Array.from(entries).filter(Boolean).sort((a, b) => a.localeCompare(b));
-    return ["Todos", ...list];
   }, [empresas, licencas, municipiosApi, processos, taxas]);
 
   useEffect(() => {
@@ -890,80 +429,26 @@ export default function MainApp() {
   }, [municipio, municipios]);
 
   const matchesMunicipioFilter = useCallback(
-    (item: any) => {
-      if (!municipio || municipio === "Todos") return true;
-      const target = normalizeKey(municipio);
-      const value = normalizeKey(
-        item?.municipio ??
-          item?.municipio_exibicao ??
-          item?.municipioExibicao ??
-          item?.municipio_nome ??
-          item?.municipioNome,
-      );
-      return value === target;
-    },
+    (item: any) => matchesMunicipio(item, municipio, pickMunicipioValue),
     [municipio],
   );
 
   const matchesQuery = useCallback(
     (values: any[], fieldMap: Record<string, any[]> = {}) => {
-      const trimmed = query.trim();
-      if (!trimmed) return true;
-      const tokens = trimmed.split(/\s+/).filter(Boolean);
-      const fieldTokens = tokens.filter((token) => token.includes(":"));
-      const freeTokens = tokens.filter((token) => !token.includes(":"));
-
-      const matchesToken = (haystack: any[], token: string) => {
-        if (!token) return true;
-        const normalizedToken = normalizeKey(token);
-        return haystack.some((value) => normalizeKey(value).includes(normalizedToken));
-      };
-
-      for (const rawToken of fieldTokens) {
-        const [field, ...rest] = rawToken.split(":");
-        const term = rest.join(":");
-        const valuesForField = fieldMap[field] || [];
-        if (!matchesToken(valuesForField, term)) {
-          return false;
-        }
-      }
-
-      if (freeTokens.length === 0) {
-        return true;
-      }
-
-      const scopedValues =
-        searchField !== "all" && fieldMap[searchField]
-          ? fieldMap[searchField]
-          : values;
-
-      return freeTokens.every((token) => matchesToken(scopedValues, token));
+      return matchesQueryTokens(query, searchField, values, fieldMap);
     },
     [query, searchField],
   );
 
   const filterEmpresas = useCallback(
     (collection: any[]) =>
-      collection.filter((empresa) => {
-        if (!matchesMunicipioFilter(empresa)) return false;
-        const values = [
-          empresa?.empresa,
-          empresa?.razao_social,
-          empresa?.razaoSocial,
-          empresa?.nome_fantasia,
-          empresa?.nomeFantasia,
-          empresa?.cnpj,
-          empresa?.municipio,
-          empresa?.responsavelFiscal,
-          empresa?.observacoes,
-        ];
-        return matchesQuery(values, {
-          nome: [empresa?.empresa, empresa?.nome_fantasia, empresa?.razao_social],
-          razao: [empresa?.razao_social, empresa?.empresa],
-          cnpj: [empresa?.cnpj],
-        });
+      filterEmpresasCollection(collection, {
+        municipio,
+        query,
+        searchField,
+        pickMunicipioValue,
       }),
-    [matchesMunicipioFilter, matchesQuery],
+    [municipio, query, searchField],
   );
 
   const filteredEmpresas = useMemo(
@@ -972,158 +457,78 @@ export default function MainApp() {
   );
 
   const processosNormalizados = useMemo(
-    () => processos.map(normalizeProcesso),
+    () => processos.map(normalizeProcessoAdapter),
     [processos],
   );
 
-  const licencasByEmpresa = useMemo(() => {
-    const map = new Map<string, any[]>();
-    licencas.forEach((lic) => {
-      const empresaId = extractEmpresaId(lic);
-      if (empresaId === undefined) return;
-      const items = map.get(empresaId) || [];
-      items.push(lic);
-      map.set(empresaId, items);
-    });
-    return map;
-  }, [licencas, extractEmpresaId]);
+  const licencasByEmpresa = useMemo(
+    () => groupByCompanyIdAdapter(licencas, extractEmpresaId),
+    [licencas, extractEmpresaId],
+  );
 
-  const taxasByEmpresa = useMemo(() => {
-    const map = new Map<string, any>();
-    taxas.forEach((taxa) => {
-      const empresaId = extractEmpresaId(taxa);
-      if (empresaId === undefined) return;
-      map.set(empresaId, taxa);
-    });
-    return map;
-  }, [taxas, extractEmpresaId]);
+  const taxasByEmpresa = useMemo(
+    () => mapByCompanyIdAdapter(taxas, extractEmpresaId),
+    [taxas, extractEmpresaId],
+  );
 
-  const processosByEmpresa = useMemo(() => {
-    const map = new Map<string, any[]>();
-    processosNormalizados.forEach((proc) => {
-      const empresaId = extractEmpresaId(proc);
-      if (empresaId === undefined) return;
-      const items = map.get(empresaId) || [];
-      items.push(proc);
-      map.set(empresaId, items);
-    });
-    return map;
-  }, [processosNormalizados, extractEmpresaId]);
+  const processosByEmpresa = useMemo(
+    () => groupByCompanyIdAdapter(processosNormalizados, extractEmpresaId),
+    [processosNormalizados, extractEmpresaId],
+  );
 
   const filteredLicencas = useMemo(
     () =>
-      licencas.filter((lic) => {
-        if (!matchesMunicipioFilter(lic)) return false;
-        const values = [
-          lic?.empresa,
-          lic?.cnpj,
-          lic?.tipo,
-          lic?.status,
-          lic?.validade,
-          lic?.municipio,
-        ];
-        return matchesQuery(values, {
-          nome: [lic?.empresa],
-          razao: [lic?.empresa],
-          cnpj: [lic?.cnpj],
-        });
+      filterLicencasCollection(licencas, {
+        matchesMunicipioFilter,
+        matchesQuery,
       }),
     [licencas, matchesMunicipioFilter, matchesQuery],
   );
 
   const companyHasAlert = useCallback(
-    (empresa: any) => {
-      const empresaId = extractEmpresaId(empresa);
-      if (isAlertStatus(empresa?.debito)) return true;
-      if (normalizeKey(empresa?.debito).includes("possui debito")) return true;
-      if (empresa?.certificado && getStatusKey(empresa.certificado).includes("venc")) return true;
-      if (empresaId === undefined) return false;
-
-      const licList = licencasByEmpresa.get(empresaId) || [];
-      if (licList.some((lic) => isAlertStatus(lic?.status))) return true;
-
-      const taxa = taxasByEmpresa.get(empresaId);
-      if (taxa) {
-        const statusValues = Object.values(taxa).filter((value) => typeof value === "string");
-        if (statusValues.some((value) => isAlertStatus(value))) return true;
-      }
-
-      const procList = processosByEmpresa.get(empresaId) || [];
-      if (procList.some((proc) => isProcessStatusActiveOrPending(proc?.status))) return true;
-
-      return false;
-    },
+    (empresa: any) =>
+      hasCompanyAlertAdapter({
+        empresa,
+        extractEmpresaId,
+        licencasByEmpresa,
+        taxasByEmpresa,
+        processosByEmpresa,
+      }),
     [extractEmpresaId, licencasByEmpresa, processosByEmpresa, taxasByEmpresa],
   );
 
   const backgroundClass = TAB_BACKGROUNDS[tab as keyof typeof TAB_BACKGROUNDS] || "bg-slate-50";
   const pageMeta = TAB_TITLES[tab];
-  const topbarContext = useMemo(() => {
-    if (tab === "empresas") {
-      return {
-        breadcrumb: "Empresas / Cadastro",
-        title: "Gestão de empresas",
-        subtitle: "Visão operacional com filtros persistentes e ações rápidas.",
-      };
-    }
-    if (tab === "licencas") {
-      return {
-        breadcrumb: "Licenças / Visão geral",
-        title: "Controle de licenças",
-        subtitle: "Gestão operacional com subabas, filtros dinâmicos e monitoramento de vencimentos.",
-      };
-    }
-    if (tab === "taxas") {
-      return {
-        breadcrumb: "Taxas / Visão geral",
-        title: "Gestão de taxas municipais",
-        subtitle: "Matriz semafórica por empresa com filtros persistentes e ação contextual.",
-      };
-    }
-    if (tab === "processos") {
-      return {
-        breadcrumb: "Processos / Kanban",
-        title: "Processos regulatórios",
-        subtitle: "",
-      };
-    }
-    if (tab === "automacoes") {
-      return {
-        breadcrumb: "Automações / Jobs",
-        title: "Automações / Jobs",
-        subtitle: "Execução, filas e saúde operacional das automações.",
-      };
-    }
-    return {
-      breadcrumb: "Painel / Hoje",
-      title: APP_NAV_ITEMS.find((item) => item.key === tab)?.label || "Painel",
-      subtitle: APP_NAV_ITEMS.find((item) => item.key === tab)?.description || "Visão operacional",
-    };
-  }, [tab]);
   const activeNav = APP_NAV_ITEMS.find((item) => item.key === tab);
-  const pageChips = [
-    { label: activeNav?.label || "Tela", variant: "info" as const },
-    ...(somenteAlertas ? [{ label: "Somente alertas", variant: "warn" as const }] : []),
-    ...(modoFoco ? [{ label: "Modo foco", variant: "ok" as const }] : []),
-  ];
+  const topbarContext = useMemo(
+    () => buildTopbarContext({ tab, navItems: APP_NAV_ITEMS }),
+    [tab],
+  );
+  const pageChips = useMemo(
+    () => buildPageChips({ activeNav, somenteAlertas, modoFoco }),
+    [activeNav, somenteAlertas, modoFoco],
+  );
   const panelHeaderStats = useMemo(
-    () => ({
-      datasets: `${empresas.length}/${licencas.length}/${taxas.length}`,
-      filtro: municipio === "Todos" ? "Todos" : municipio,
-      alertas: somenteAlertas ? "Filtrados" : "Todos",
-    }),
+    () =>
+      buildPanelHeaderStats({
+        empresasCount: empresas.length,
+        licencasCount: licencas.length,
+        taxasCount: taxas.length,
+        municipio,
+        somenteAlertas,
+      }),
     [empresas.length, licencas.length, taxas.length, municipio, somenteAlertas],
   );
   const operationCounts = useMemo(
-    () => ({
-      notifications: Object.keys(errors || {}).length,
-      critical_queues:
-        filteredLicencas.filter((item) => isAlertStatus(item?.status)).length +
-        processosNormalizados.filter((item) => isProcessStatusActiveOrPending(item?.status)).length,
-      saved_views: 0,
-      automation_jobs: Number(workerHealth?.active_jobs || 0),
-    }),
-    [errors, filteredLicencas, processosNormalizados, workerHealth?.active_jobs],
+    () =>
+      buildOperationCounts({
+        errors,
+        filteredLicencas,
+        notificationsUnreadCount,
+        processosNormalizados,
+        workerHealth,
+      }),
+    [errors, filteredLicencas, notificationsUnreadCount, processosNormalizados, workerHealth],
   );
 
   return (
@@ -1132,6 +537,7 @@ export default function MainApp() {
         <Sidebar
           items={APP_NAV_ITEMS}
           activeTab={tab}
+          activeOperationKey={tab === "notificacoes" ? "notifications" : tab === "automacoes" ? "automation_jobs" : null}
           onTabChange={handleTabChange}
           onOperationAction={handleSidebarOperationAction}
           operationCounts={operationCounts}
@@ -1155,7 +561,7 @@ export default function MainApp() {
             onSomenteAlertasChange={setSomenteAlertas}
             modoFoco={modoFoco}
             onModoFocoChange={setModoFoco}
-            actions={<HeaderMenuPro />}
+            actions={<HeaderMenuPro currentRoles={currentRoles} />}
             onReload={() => {
               void loadAllDataWithScrollRestore();
             }}
@@ -1167,7 +573,7 @@ export default function MainApp() {
 
           <div ref={contentScrollRef} className={`min-w-0 flex-1 min-h-0 overflow-y-auto bg-app ${backgroundClass} ec-shell-content`}>
             <main className="mx-auto max-w-[1600px] px-4 py-4 lg:px-6 lg:py-5">
-              {tab !== "painel" && tab !== "empresas" && tab !== "licencas" && tab !== "taxas" && tab !== "processos" && tab !== "automacoes" && tab !== "certificados" ? (
+              {tab !== "painel" && tab !== "empresas" && tab !== "licencas" && tab !== "taxas" && tab !== "processos" && tab !== "automacoes" && tab !== "certificados" && tab !== "notificacoes" ? (
                 <PageTitle
                   title={pageMeta.title}
                   subtitle={pageMeta.subtitle}
@@ -1294,6 +700,22 @@ export default function MainApp() {
                   </motion.div>
                 )}
 
+                {!loading && tab === "notificacoes" && (
+                  <motion.div
+                    key="notificacoes"
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.2 }}
+                  >
+                    <NotificacoesScreen
+                      enqueueToast={enqueueToast}
+                      onNotificationRouteNavigate={handleNotificationRouteNavigate}
+                      onUnreadCountChange={setNotificationsUnreadCount}
+                    />
+                  </motion.div>
+                )}
+
                 {!loading && tab === "taxas" && (
                   <motion.div
                     key="taxas"
@@ -1390,53 +812,18 @@ export default function MainApp() {
           ))}
         </div>
       )}
-      <SideDrawer
+      <WorkerHealthDrawer
         open={jobsDrawerOpen}
         onClose={() => setJobsDrawerOpen(false)}
-        subtitle="Operação"
-        title="Automação / Jobs"
-        className=""
-        footer={(
-          <div className="flex justify-end">
-            <button type="button" className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50" onClick={() => void loadWorkerHealth()}>
-              Atualizar status
-            </button>
-          </div>
-        )}
-      >
-        {workerHealthLoading ? <p className="text-sm text-slate-500">Carregando status do worker...</p> : null}
-        {!workerHealthLoading && !workerHealth ? (
-          <div className="rounded-xl border border-dashed border-slate-300 p-4 text-sm text-slate-500">
-            Não foi possível carregar o status do worker.
-          </div>
-        ) : null}
-        {!workerHealthLoading && workerHealth ? (
-          <div className="space-y-3 text-sm">
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Backend</p>
-              <p className="font-semibold text-slate-900">{String(workerHealth.backend || "-")}</p>
-            </div>
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Status</p>
-                <p className="font-semibold text-slate-900">{String(workerHealth.status || "-")}</p>
-              </div>
-              <div className="rounded-xl border border-slate-200 bg-white p-3">
-                <p className="text-xs uppercase tracking-wide text-slate-500">Jobs ativos</p>
-                <p className="font-semibold text-slate-900">{Number(workerHealth.active_jobs || 0)}</p>
-              </div>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white p-3">
-              <p className="text-xs uppercase tracking-wide text-slate-500">Suportados</p>
-              <p className="text-slate-700">{Array.isArray(workerHealth.jobs_supported) ? workerHealth.jobs_supported.join(", ") : "-"}</p>
-            </div>
-          </div>
-        ) : null}
-      </SideDrawer>
+        onRefresh={() => void loadWorkerHealth()}
+        workerHealth={workerHealth}
+        loading={workerHealthLoading}
+      />
       <CopilotWidget roles={currentRoles as any} onNavigateRoute={handleNotificationRouteNavigate} />
     </div>
   );
 }
+
 
 
 

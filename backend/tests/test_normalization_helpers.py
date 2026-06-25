@@ -20,6 +20,7 @@ def test_normalize_municipio_go_aliases():
 def test_normalize_title_case_preserves_corporate_suffixes():
     assert normalize_title_case("wvm energia e eventos ltda") == "Wvm Energia e Eventos LTDA"
     assert normalize_title_case("valdivino pereira da silva o goiano") == "Valdivino Pereira da Silva O Goiano"
+    assert normalize_title_case("MCM Manutencao E Acessoria LTDA") == "MCM Manutencao e Acessoria LTDA"
 
 
 def test_normalize_status_accepts_legacy_and_returns_canonical():
